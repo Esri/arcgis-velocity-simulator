@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.esri.realtime.quarkus.grpc";
+option java_outer_classname = "GrpcFeatureServiceProto";
+
+package grpc;
+
+service GrpcFeatureService {
+  // A simple RPC.
+  //
+  // Accepts a serialized real-time feature.
+  // Returns an acknowledgement if the feature was successfully received.
+  rpc execute(GrpcFeatureRequest) returns (GrpcFeatureResponse) {}
+
+  // A Bidirectional streaming RPC.
+  //
+  // Accepts a stream of serialized real-time features.
+  // Returns a stream of acknowledgements indicating if features were successfully received.
+  rpc executeMulti(stream GrpcFeatureRequest) returns (stream GrpcFeatureResponse) {}
+
+  // Server-streaming RPC: server pushes a stream of GrpcFeatureRequest messages to the client.
+  rpc watch(GrpcWatchRequest) returns (stream GrpcFeatureRequest) {}
+}
+
+message GrpcWatchRequest {
+  string client_id = 1;
+}
+
+message GrpcFeatureRequest {
+  string itemId = 1;
+  bytes bytes = 2; // Serialized Feature
+}
+
+message GrpcFeatureResponse {
+  string itemId = 1;
+  bool success = 2;
+}
+

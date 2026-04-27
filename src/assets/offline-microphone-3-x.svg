@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+  <!-- Main microphone body -->
+  <path d="M11.999 15a3 3 0 003-3V6a3 3 0 00-6 0v6a3 3 0 003 3z"/>
+  
+  <!-- Microphone stand/base -->
+  <path d="M18.75 12a.75.75 0 01-.75.75a6.002 6.002 0 01-12.004 0A.75.75 0 016.75 12v-1.5a.75.75 0 011.5 0V12a4.5 4.5 0 009 0v-1.5a.75.75 0 011.5 0V12z"/>
+  
+  <!-- Microphone arm -->
+  <path d="M11.999 17.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V18a.75.75 0 01.75-.75z"/>
+  
+  <!-- Microphone base -->
+  <path d="M10 18a2 2 0 114 0h-4z"/>
+  
+  <!-- Offline indicator: prominent "OFF" badge in top-right -->
+  <rect x="13" y="2" width="9" height="6" rx="1.5" fill="currentColor" opacity="0.95"/>
+  <circle cx="17.5" cy="5" r="1.5" fill="var(--bg-color, white)" opacity="0.9"/>
+  
+  <!-- Offline indicator: bold diagonal line through microphone -->
+  <line x1="5" y1="19" x2="19" y2="5" stroke="currentColor" stroke-width="2.5" opacity="0.9"/>
+  
+  <!-- Offline indicator: "no signal" X mark in bottom-right -->
+  <circle cx="20" cy="20" r="2.5" fill="currentColor" opacity="0.9"/>
+  <line x1="18" y1="18" x2="22" y2="22" stroke="var(--bg-color, white)" stroke-width="2"/>
+  <line x1="22" y1="18" x2="18" y2="22" stroke="var(--bg-color, white)" stroke-width="2"/>
+  
+  <!-- Offline indicator: additional visual cue - muted symbol -->
+  <path d="M3 3 L21 21" stroke="currentColor" stroke-width="1.5" opacity="0.7"/>
+</svg> 

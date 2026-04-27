@@ -1,0 +1,45 @@
+/* Light Gray theme for ArcGIS Velocity Simulator */
+
+body.light-gray,
+[data-theme="light-gray"] {
+  --bg-color: #e0e0e0;
+  --text-color: #212121;
+  --header-color: #212121;
+  --input-bg: #f5f5f5;
+  --input-border: #ccc;
+  --status-bg: #f5f5f5;
+  --hr-bg: #ccc;
+  --fieldset-border: #ccc;
+  --button-primary-bg: #bdbdbd;
+  --button-disabled-bg: #ccc;
+  --button-success-bg: #a5d6a7;
+  --button-danger-bg: #ef9a9a;
+  --button-warning-bg: #ffe082;
+  --button-info-bg: #90caf9;
+  --button-toggle-on-bg: #66bb6a;
+  --button-toggle-on-text: #000;
+  --button-info-text-color: #111;
+  --button-text: #000000;
+  --button-warning-text: #000000;
+  --slider-track-bg: #ccc;
+  --slider-thumb-bg: #bdbdbd;
+  --log-bg: #f5f5f5;
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --border-color: #ccc;
+  --button-bg: #bdbdbd;
+  --button-hover: #9e9e9e;
+  --code-bg: #f5f5f5;
+  --path-bg: #eeeeee;
+  --container-bg: #f5f5f5;
+  --version-color: #424242;
+  --author-color: #616161;
+  --details-color: #424242;
+  --close-bg: #bdbdbd;
+  --close-hover-bg: #9e9e9e;
+  --title-gradient-start: #757575;
+  --title-gradient-mid: #616161;
+  --title-gradient-end: #424242;
+  --error-bg: #ffebee;
+  --error-border: #ffcdd2;
+  --error-text: #c62828;
+} 

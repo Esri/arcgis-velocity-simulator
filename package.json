@@ -1,0 +1,127 @@
+{
+  "name": "arcgis-velocity-simulator",
+  "productName": "arcgis-velocity-simulator",
+  "version": "1.0.0",
+  "description": "ArcGIS Velocity Simulator",
+  "main": "src/main.js",
+  "homepage": "https://github.com/esri/arcgis-velocity-simulator",
+  "scripts": {
+    "start": "node scripts/start-helper.js --electron:--enable-speech-dispatcher",
+    "start:headless": "node scripts/start-helper.js --electron:--enable-speech-dispatcher runMode=headless",
+    "help:cli": "node scripts/start-helper.js --electron:--enable-speech-dispatcher --help",
+    "help:cli:wide": "node scripts/start-helper.js --electron:--enable-speech-dispatcher --help-table-wide",
+    "help:cli:narrow": "node scripts/start-helper.js --electron:--enable-speech-dispatcher --help-table-narrow",
+    "debug": "node scripts/start-helper.js --electron:--enable-speech-dispatcher --electron:--inspect=9229",
+    "debug-brk": "node scripts/start-helper.js --electron:--enable-speech-dispatcher --electron:--inspect-brk=9229",
+    "debug-main": "node scripts/start-helper.js --electron:--enable-speech-dispatcher --electron:--inspect=9229",
+    "debug-main-brk": "node scripts/start-helper.js --electron:--enable-speech-dispatcher --electron:--inspect-brk=9229",
+    "debug-renderer": "node scripts/start-helper.js --electron:--enable-speech-dispatcher --electron:--remote-debugging-port=9222",
+    "debug-both": "node scripts/start-helper.js --electron:--enable-speech-dispatcher --electron:--inspect=9229 --electron:--remote-debugging-port=9222",
+    "debug-both-brk": "node scripts/start-helper.js --electron:--enable-speech-dispatcher --electron:--inspect-brk=9229 --electron:--remote-debugging-port=9222",
+    "debug-verbose": "node scripts/start-helper.js --electron:--enable-speech-dispatcher --electron:--inspect=9229 --electron:--remote-debugging-port=9222 --electron:--enable-logging --electron:--log-level=0",
+    "test": "node test/run-all-tests.js",
+    "test:config": "node test/config.test.js",
+    "test:cli": "node test/cli-options.test.js",
+    "test:engine": "node test/simulation-engine.test.js",
+    "test:headless-runner": "node test/headless-runner.test.js",
+    "test:help": "node test/help.test.js",
+    "test:renderer": "node test/renderer.test.js",
+    "test:preload": "node test/preload.test.js",
+    "test:about": "node test/about.test.js",
+    "test:grpc": "node test/grpc-transport.test.js",
+    "test:docs": "open docs/TESTING.md",
+    "docs:check-links": "node scripts/check-doc-links.js",
+    "package:mac": "node scripts/timed-build.js --mac",
+    "package:mac:max": "node scripts/timed-build.js --mac --config.compression=maximum",
+    "package:win": "node scripts/timed-build.js --win",
+    "package:win:max": "node scripts/timed-build.js --win --config.compression=maximum",
+    "package:win:zip": "node scripts/timed-build.js --win zip --x64",
+    "package:linux": "node scripts/timed-build.js --linux",
+    "package:linux:max": "node scripts/timed-build.js --linux --config.compression=maximum",
+    "package": "node scripts/timed-parallel-build.js \"macOS:--mac\" \"Windows:--win\" \"Linux:--linux\"",
+    "package:all": "node scripts/timed-parallel-build.js \"macOS:--mac\" \"Windows:--win\" \"Linux:--linux\"",
+    "package:all:max": "node scripts/timed-parallel-build.js --compression=maximum \"macOS:--mac\" \"Windows:--win\" \"Linux:--linux\"",
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true }); console.log('dist/ cleaned.');\"",
+    "package:seq": "node scripts/timed-seq-build.js \"macOS:--mac\" \"Windows:--win\" \"Windows ZIP:--win,zip,--x64\" \"Linux:--linux\"",
+    "package:seq:clean": "node scripts/timed-seq-build.js --clean \"macOS:--mac\" \"Windows:--win\" \"Windows ZIP:--win,zip,--x64\" \"Linux:--linux\"",
+    "package:seq:max": "node scripts/timed-seq-build.js --compression=maximum \"macOS:--mac\" \"Windows:--win\" \"Windows ZIP:--win,zip,--x64\" \"Linux:--linux\"",
+    "package:seq:max:clean": "node scripts/timed-seq-build.js --clean --compression=maximum \"macOS:--mac\" \"Windows:--win\" \"Windows ZIP:--win,zip,--x64\" \"Linux:--linux\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:esri/arcgis-velocity-simulator.git"
+  },
+  "keywords": [],
+  "author": {
+    "name": "Esri"
+  },
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "electron": "^41.2.0",
+    "electron-builder": "^26.9.0",
+    "jsdom": "^29.0.2"
+  },
+  "build": {
+    "appId": "com.esri.arcgis-velocity-simulator",
+    "productName": "arcgis-velocity-simulator",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "buildResources": "src/assets"
+    },
+    "compression": "normal",
+    "asar": true,
+    "npmRebuild": false,
+    "buildDependenciesFromSource": false,
+    "mac": {
+      "icon": "src/assets/icon.png",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "artifactName": "${productName}-${version}-mac.${ext}"
+    },
+    "win": {
+      "icon": "src/assets/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "icon": "src/assets/icon.png",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "maintainer": "Hanoch Kalmanovich <hkalmanovich@esri.com>",
+      "artifactName": "${productName}-${version}-linux.${ext}"
+    },
+    "nsis": {
+      "artifactName": "${productName}-${version}-setup.${ext}",
+      "installerIcon": "src/assets/installerIcon.ico",
+      "uninstallerIcon": "src/assets/installerIcon.ico"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    }
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.14.3",
+    "@grpc/proto-loader": "^0.8.0",
+    "protobufjs": "^8.0.1"
+  }
+}

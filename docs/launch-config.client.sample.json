@@ -1,0 +1,47 @@
+{
+  "_comment": "Sample headless CLIENT run configuration. Use this when the simulator should connect to an existing remote TCP/UDP endpoint and push replay data to it.",
+  "_usage": "Copy this file, adjust the values, then launch with config=/absolute/path/to/your-launch-config.json. CLI values override config-file values.",
+  "connection": {
+    "_comment": "Client mode connects to a target endpoint. Replace ip/port with the destination you want to feed.",
+    "_connectRetryIntervalMs_comment": "Milliseconds between connection retry attempts when connectWaitForServer=true. Default is 1000ms.",
+    "_connectWaitForServer_comment": "Set connectWaitForServer=true to keep retrying until the remote server is available instead of failing immediately. The simulator will also reconnect automatically if the server is stopped and restarted during a run.",
+    "_grpc_comment": "The following fields apply when protocol=grpc. grpcHeaderPathKey and grpcHeaderPath are sent as gRPC metadata on every outgoing call (client mode only).",
+    "_grpcHeaderPath": "replace.with.dedicated.uid",
+    "_grpcHeaderPathKey": "grpc-path",
+    "_grpcSerialization": "protobuf",
+    "connectRetryIntervalMs": 1000,
+    "connectTimeoutMs": 0,
+    "connectWaitForServer": false,
+    "ip": "127.0.0.1",
+    "mode": "client",
+    "port": 5565,
+    "protocol": "tcp",
+    "waitForClient": false
+  },
+  "headless": {
+    "_comment": "Headless mode runs without creating the normal Electron UI.",
+    "filename": "./data/example-data.csv",
+    "runMode": "headless"
+  },
+  "output": {
+    "_comment": "Optional logging and completion artifacts for automation.",
+    "doneFile": "./logs/headless-client.done.json",
+    "logFile": "./logs/headless-client.log",
+    "logLevel": "info",
+    "runId": "scheduled-client-run",
+    "stdout": true
+  },
+  "streaming": {
+    "_comment": "Replay two lines every 250ms, limit the run to a smaller batch, and exit when complete. Set loop=true and exitOnComplete=false to keep the simulator running continuously across server restarts.",
+    "autoConnect": true,
+    "autoStart": true,
+    "endLine": 200,
+    "exitOnComplete": true,
+    "intervalMs": 250,
+    "linesPerInterval": 2,
+    "loop": false,
+    "maxLines": 100,
+    "onError": "continue",
+    "startLine": 1
+  }
+}

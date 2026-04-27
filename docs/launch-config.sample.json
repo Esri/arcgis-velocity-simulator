@@ -1,0 +1,43 @@
+{
+  "_comment": "Sample headless run configuration for scheduled or automated runs. Copy this file, adjust the values, then launch with config=/absolute/path/to/your-launch-config.json.",
+  "_usage": "CLI values override config-file values. _comment-style fields are ignored by the parser and exist only for documentation.",
+  "connection": {
+    "_comment": "Choose the transport and destination/bind settings used for the replay session.",
+    "_grpcHeaderPath": "replace.with.dedicated.uid",
+    "_grpcHeaderPathKey": "grpc-path",
+    "_grpcHeaderPathKey_comment": "grpcHeaderPathKey and grpcHeaderPath are only used when protocol=grpc and mode=client.",
+    "connectTimeoutMs": 30000,
+    "grpcSerialization": "protobuf",
+    "ip": "0.0.0.0",
+    "mode": "server",
+    "port": 5565,
+    "protocol": "tcp",
+    "waitForClient": false
+  },
+  "headless": {
+    "_comment": "Set runMode to headless (or silent) to run without the UI.",
+    "filename": "./data/example-data.csv",
+    "runMode": "headless"
+  },
+  "output": {
+    "_comment": "Optional logging and completion artifacts for automation, schedulers, or CI.",
+    "doneFile": "./logs/headless-run.done.json",
+    "logFile": "./logs/headless-run.log",
+    "logLevel": "info",
+    "runId": "nightly-sample-run",
+    "stdout": true
+  },
+  "streaming": {
+    "_comment": "Control replay timing, looping, and the active line range.",
+    "autoConnect": true,
+    "autoStart": true,
+    "endLine": 500,
+    "exitOnComplete": true,
+    "intervalMs": 1000,
+    "linesPerInterval": 1,
+    "loop": false,
+    "maxLines": null,
+    "onError": "exit",
+    "startLine": 1
+  }
+}

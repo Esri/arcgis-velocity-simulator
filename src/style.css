@@ -1,0 +1,1229 @@
+/* ========================================
+   COMPACT VIEW STYLES
+   ======================================== */
+body.compact {
+  font-size: 13px;
+}
+
+/* Header adjustments */
+body.compact .header-controls {
+  padding: 4px 8px;
+}
+
+body.compact h1 {
+  font-size: 1.1em;
+}
+
+/* Hide gesture/voice controls in compact view */
+body.compact #toggle-camera-button,
+body.compact #toggle-mic-button,
+body.compact #offline-mic-button,
+body.compact #toggle-gesture-logging,
+body.compact #toggle-mic-logging,
+body.compact #toggle-gesture-report,
+body.compact #video-feed,
+body.compact .camera-container {
+  display: none;
+}
+
+/* Hide camera buttons by default (until camera support is enabled) */
+#toggle-camera-button,
+#toggle-gesture-report,
+#toggle-gesture-logging,
+.camera-container {
+  display: none;
+}
+
+/* Hide microphone buttons by default (until microphone support is enabled) */
+#toggle-mic-button,
+#offline-mic-button,
+#toggle-mic-logging {
+  display: none;
+}
+
+/* Layout adjustments */
+body.compact .main-content {
+  flex-direction: column;
+  padding-bottom: 28px; /* Add space for status bar (30px) + margin */
+}
+
+body.compact .controls-wrapper {
+  max-height: 80vh;
+  padding: 3px 2px;
+  gap: 4px;
+  box-sizing: border-box;
+}
+
+/* Control group adjustments */
+body.compact .control-group {
+  gap: 5px;
+  margin-bottom: 5px;
+}
+
+body.compact .control-group label,
+body.compact .aligned-group > label {
+  width: 80px;
+  flex-basis: 80px;
+  font-size: 0.92em;
+  word-break: break-word;
+}
+
+/* Input and button adjustments */
+body.compact input[type="text"],
+body.compact input[type="number"],
+body.compact select {
+  padding: 2px 3px;
+  font-size: 0.92em;
+  min-width: 0;
+}
+
+body.compact button {
+  padding: 3px 6px;
+  font-size: 0.92em;
+}
+
+body.compact .action-buttons {
+  padding-top: 4px;
+}
+
+/* Slider adjustments */
+body.compact .slider-group {
+  gap: 2px;
+}
+
+body.compact .slider {
+  height: 5px;
+}
+
+/* Status area adjustments */
+body.compact .status-area {
+  padding: 3px;
+}
+
+body.compact .status-header {
+  padding-bottom: 4px;
+}
+
+body.compact .status-header h2 {
+  font-size: 0.95em;
+}
+
+body.compact #status-messages {
+  padding: 2px;
+  font-size: 0.9em;
+  word-break: break-word;
+}
+
+body.compact .status-footer {
+  padding: 2px 5px;
+}
+
+body.compact .loop-control label {
+  font-size: 0.95em;
+}
+
+body.compact .line-preview-text {
+  padding: 2px;
+  font-size: 0.82em;
+  min-width: 0;
+  word-break: break-word;
+}
+
+body.compact #resizer {
+  cursor: ns-resize;
+}
+
+/* Disable resizer cursor in compact view when status area is hidden */
+body.compact.status-area-disabled #resizer {
+  cursor: default;
+}
+
+/* ========================================
+   BASE STYLES
+   ======================================== */
+/* Prevents FOUC on dialogs */
+body.hidden-body {
+  visibility: hidden;
+}
+
+body {
+  font-family: var(--font-family);
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  transition: background-color 0.3s, color 0.3s;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  margin: 0;
+  overflow: hidden;
+  font-size: 16px;
+}
+
+/* Global CSS variables - theme-specific variables are in themes.css */
+:root {
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --button-text: #ffffff;
+  --button-warning-text: #1e1e1e;
+}
+
+/* ========================================
+   HEADER STYLES
+   ======================================== */
+.header-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid var(--hr-bg);
+}
+
+h1 {
+  color: var(--header-color);
+  margin: 0;
+  font-size: 1.5em;
+}
+
+.theme-selector-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.theme-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-switcher select {
+  padding: 5px;
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+}
+
+.button-icon {
+  width: 16px;
+  height: 16px;
+  display: block; /* Ensures the icon is treated as a block element */
+}
+
+/* External SVG icon styling with CSS masks for theming support */
+.icon-connect {
+  background-color: currentColor;
+  mask: url('assets/connect.svg') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url('assets/connect.svg') no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.icon-disconnect {
+  background-color: currentColor;
+  mask: url('assets/disconnect.svg') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url('assets/disconnect.svg') no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.icon-play {
+  background-color: currentColor;
+  mask: url('assets/play.svg') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url('assets/play.svg') no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.icon-pause {
+  background-color: currentColor;
+  mask: url('assets/pause.svg') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url('assets/pause.svg') no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.icon-step {
+  background-color: currentColor;
+  mask: url('assets/step.svg') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url('assets/step.svg') no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.icon-select-file {
+  background-color: currentColor;
+  mask: url('assets/select-file.svg') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url('assets/select-file.svg') no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.icon-hand-gesture-logging {
+  background-color: currentColor;
+  mask: url('assets/hand-gesture-logging.svg') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url('assets/hand-gesture-logging.svg') no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.icon-status-log {
+  background-color: currentColor;
+  mask: url('assets/status-log.svg') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url('assets/status-log.svg') no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.icon-connection-controls {
+  background-color: currentColor;
+  mask: url('assets/connection-controls.svg') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url('assets/connection-controls.svg') no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+/* New sort order icons */
+.icon-ascending {
+  background-color: currentColor;
+  mask: url('assets/ascending.svg') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url('assets/ascending.svg') no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.icon-descending {
+  background-color: currentColor;
+  mask: url('assets/descending.svg') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url('assets/descending.svg') no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.icon-report-gesture {
+  background-color: currentColor;
+  mask: url('assets/hand-gesture-reporting.svg') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url("assets/hand-gesture-reporting.svg") no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.icon-mic-logging {
+  background-color: currentColor;
+  mask: url('assets/mic-logging.svg') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url('assets/mic-logging.svg') no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.icon-clear-logs {
+  background-color: currentColor;
+  mask: url('assets/clear-logs.svg') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url('assets/clear-logs.svg') no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.icon-offline-microphone {
+  background-color: currentColor;
+  mask: url('assets/offline-microphone.svg') no-repeat center;
+  mask-size: contain;
+  -webkit-mask: url('assets/offline-microphone.svg') no-repeat center;
+  -webkit-mask-size: contain;
+}
+
+.control-button {
+  background-color: var(--button-info-bg);
+  color: var(--button-info-text-color, var(--button-text));
+  padding: 6px; /* Uniform padding for a square look */
+  display: flex; /* Center the icon */
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.control-button:hover:not(:disabled) {
+  background-color: var(--button-hover);
+  transform: translateY(-1px);
+}
+
+.control-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.control-button.active {
+  background-color: var(--button-toggle-on-bg);
+  color: var(--button-toggle-on-text, var(--button-text));
+}
+
+#toggle-loop-button {
+  padding: 3px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+#toggle-loop-button:hover:not(:disabled) {
+  background-color: var(--button-hover);
+  transform: translateY(-1px);
+}
+
+#toggle-loop-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+#toggle-loop-button img {
+  width: 16px; /* Adjusted for better visibility */
+  height: 16px;
+}
+
+/* Ensure icon buttons are square and consistent in compact view */
+body.compact .control-button {
+  padding: 3px;
+}
+
+/* Explicitly ensure sort order button matches other control sizes */
+#toggle-sort-order {
+  padding: 6px;
+}
+body.compact #toggle-sort-order {
+  padding: 3px;
+}
+
+.status-bar-left .separator {
+  width: 1px;
+  height: 20px;
+  background-color: var(--hr-bg);
+  margin: 0 4px;
+}
+
+/* ========================================
+   LAYOUT STYLES
+   ======================================== */
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.controls-wrapper {
+  padding: 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* ========================================
+   CONTROL GROUP STYLES
+   ======================================== */
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.control-group:last-child {
+  margin-bottom: 0;
+}
+
+.control-group label {
+  width: 90px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+
+
+/* Aligned group layout */
+.aligned-group {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.aligned-group > label {
+  flex-basis: 90px;
+  flex-shrink: 0;
+  margin-right: 10px;
+}
+
+.aligned-group > .primary-control {
+  flex-basis: 8%;
+  flex-grow: 0;
+  flex-shrink: 0;
+}
+
+.aligned-group > :not(label):not(.primary-control) {
+  flex: 1;
+  text-align: right;
+}
+
+/* TLS cert path inputs should be left-aligned like the serialization dropdown */
+#grpc-tls-ca-path,
+#grpc-tls-cert-path,
+#grpc-tls-key-path {
+  text-align: left;
+}
+
+.aligned-group.combined-input-group > .primary-control {
+  flex-basis: 8%;
+}
+
+.aligned-group.combined-input-group > input:not(.primary-control) {
+  flex-basis: auto;
+  flex-grow: 1;
+}
+
+/* Specific width adjustments for IP and Port inputs */
+#ip-address,
+#lines-per-interval {
+  flex-grow: 1;
+  max-width: 200px;
+}
+
+#port,
+#rate-ms {
+  flex-grow: 1.4;
+}
+
+/* Lines per interval width alignment with IP address */
+#lines-per-interval {
+  max-width: 200px;
+}
+
+.aligned-group #file-path {
+  text-align: right;
+}
+
+/* Text alignment for form controls */
+#select-file,
+#connection-type,
+#ip-address,
+#port,
+#lines-per-interval,
+#rate-ms {
+  text-align: left;
+}
+.radio-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.radio-group label {
+  width: auto;
+  font-weight: normal;
+}
+
+/* Make only the Preview and Position controls wider */
+.control-group:has(#line-preview) label,
+.slider-group .control-group label {
+  width: auto; /* Override the fixed width */
+}
+
+/* ========================================
+   FORM INPUT STYLES
+   ======================================== */
+input[type="text"],
+input[type="number"],
+select {
+  flex: 1;
+  padding: 8px;
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  min-width: 0;
+}
+
+#grpc-serialization,
+#grpc-send-method {
+  text-align: left;
+  text-align-last: left;
+}
+
+#grpc-header-path-key,
+#grpc-header-path {
+  text-align: left;
+}
+
+#grpc-header-path-key-group > label,
+#grpc-header-path-group > label {
+  font-size: 0.78em;
+  white-space: nowrap;
+}
+
+/* ========================================
+   BUTTON STYLES
+   ======================================== */
+button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  color: var(--button-text);
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+button:hover:not(:disabled) {
+  background-color: var(--button-hover);
+  transform: translateY(-1px);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+button:disabled {
+  background-color: var(--button-disabled-bg);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Specific button colors */
+#select-file { background-color: var(--button-info-bg); }
+#connect { background-color: var(--button-success-bg); }
+#disconnect { background-color: var(--button-danger-bg); }
+#play-pause { background-color: var(--button-primary-bg); }
+#send-manual { background-color: var(--button-warning-bg); color: var(--button-warning-text); }
+
+.action-buttons {
+  justify-content: space-around;
+  padding-top: 10px;
+}
+
+.action-buttons button {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* ==============
+   BUTTON ICONS 
+   ============== */
+
+/* Base styling for all button icons */
+/* Icons are always visible for clean, modern UI */
+.button-icon {
+  width: 1.2em;
+  height: 1.2em;
+  display: inline-block; /* Always show icons - no text/icon swapping */
+}
+
+/* ========================================
+   PLAY/PAUSE BUTTON DYNAMIC ICON SWAPPING
+   ======================================== */
+
+/* Default state: Show play icon, hide pause icon */
+#play-pause .icon-pause {
+  display: none; /* Hide pause icon when not playing */
+}
+
+/* Playing state: Hide play icon, show pause icon */
+/* The 'is-playing' class is toggled by JavaScript in renderer.js */
+#play-pause.is-playing .icon-play {
+  display: none; /* Hide play icon when playing */
+}
+
+#play-pause.is-playing .icon-pause {
+  display: inline-block; /* Show pause icon when playing */
+}
+
+/* ========================================
+   UTILITY STYLES
+   ======================================== */
+#file-path {
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+/* Resizer styles */
+#resizer {
+  flex: 0 0 5px;
+  cursor: ew-resize;
+  background-color: var(--hr-bg);
+  transition: background-color 0.2s;
+}
+
+#resizer:hover {
+  background-color: var(--button-primary-bg);
+}
+
+/* Disable resizer when status area is hidden */
+body.status-area-disabled #resizer {
+  cursor: default;
+  background-color: var(--hr-bg);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+body.status-area-disabled #resizer:hover {
+  background-color: var(--hr-bg);
+}
+
+/* ========================================
+   STATUS AREA STYLES
+   ======================================== */
+.status-area {
+  flex: 1;
+  background-color: var(--status-bg);
+  border-left: 1px solid var(--hr-bg);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  padding: 0px 0px 8px 0px;
+  background-color: var(--status-header-bg);
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+}
+
+.status-header h2 {
+  margin: 0;
+  font-size: 1.2em;
+}
+
+
+
+.status-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.status-header h2 {
+  margin: 0;
+  font-size: 1.2em;
+}
+
+/* Toggle state styling for the mic and geture logging and reporting buttons */
+#toggle-gesture-logging[data-enabled="true"],
+#toggle-mic-logging[data-enabled="true"],
+#toggle-gesture-report[data-enabled="true"],
+#toggle-status-log[data-enabled="true"],
+#toggle-connection-controls[data-enabled="true"] {
+  background-color: var(--button-toggle-on-bg);
+  color: var(--button-toggle-on-text, var(--button-text));
+}
+
+#clear-status {
+  background-color: var(--button-info-bg);
+  padding: 6px; /* Uniform padding */
+  display: flex; /* Center the icon */
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+#clear-status:hover:not(:disabled) {
+  background-color: var(--button-hover);
+  transform: translateY(-1px);
+}
+
+#clear-status:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Compact view adjustments for Clear Status button and right padding */
+body.compact #clear-status {
+  padding: 3px; /* match compact control-button sizing */
+}
+
+body.compact .status-header {
+  padding-right: 8px; /* match header right padding in compact view */
+}
+
+
+
+
+
+/* Status messages */
+#status-messages {
+  font-family: monospace;
+  white-space: pre;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding: 10px;
+  background-color: var(--log-bg);
+  border-radius: 4px;
+  margin-top: 10px;
+}
+
+/* Offline Speech Recognition Styles */
+.offline-speech-status {
+  background: var(--background-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.offline-status {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-color);
+  padding: 5px 10px;
+  border-radius: 4px;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.offline-status.active {
+  background: var(--accent-bg);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.offline-status.listening {
+  background: var(--success-bg);
+  border-color: var(--success-color);
+  color: var(--success-color);
+  animation: pulse 1.5s infinite;
+}
+
+.offline-confidence {
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--accent-color);
+  min-width: 40px;
+  text-align: center;
+}
+
+.offline-visualizer {
+  display: flex;
+  align-items: end;
+  gap: 2px;
+  height: 30px;
+  min-width: 100px;
+}
+
+.visualizer-bar {
+  background: var(--accent-color);
+  border-radius: 1px;
+  min-width: 3px;
+  transition: height 0.1s ease;
+}
+
+.status-footer {
+  padding: 5px 10px;
+  text-align: right;
+  border-top: 1px solid var(--hr-bg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.loop-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Collapsed status area styles */
+.status-area.collapsed {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  border-left: none !important;
+  min-width: 0;
+  min-height: 0;
+  max-width: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+.status-area.collapsed .status-header,
+.status-area.collapsed #status-messages,
+.status-area.collapsed .status-footer,
+.status-area.collapsed .offline-speech-status {
+  display: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+}
+
+.status-area.collapsed {
+  background-color: transparent !important;
+}
+
+/* ========================================
+   SLIDER STYLES
+   ======================================== */
+.slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 5px;
+  background: var(--slider-track-bg);
+  outline: none;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.slider:hover {
+  opacity: 1;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--slider-thumb-bg);
+  cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--slider-thumb-bg);
+  cursor: pointer;
+  border: none;
+} 
+
+/* ========================================
+   LINE PREVIEW STYLES
+   ======================================== */
+#line-info {
+  text-align: right;
+  font-size: 0.9em;
+  color: var(--text-color);
+  opacity: 0.8;
+  align-self: flex-end;
+}
+
+.line-preview-text {
+  flex: 1;
+  padding: 8px;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: monospace;
+  font-size: 0.9em;
+  opacity: 0.8;
+}
+
+/* Real-time gesture feedback display - shows current gesture being detected */
+#live-gesture-received {
+  display: none;
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+  padding: 8px 12px;
+  margin: 8px 0;
+  color: var(--text-primary);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  transition: opacity 0.2s ease;
+  min-height: 20px;
+}
+
+/* Last confirmed gesture display - shows the last successfully detected gesture */
+#last-gesture-received {
+  margin-top: 8px;
+  text-align: center;
+  display: none;
+  font-family: var(--font-family);
+  padding: 6px 12px;
+  transition: all 0.2s ease;
+  font-size: 23px;
+  font-weight: 600;
+  color: var(--header-color);
+}
+
+/* Status Bar */
+.status-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: var(--status-bg);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  z-index: 100;
+  font-family: var(--font-family);
+}
+
+.status-text-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.status-bar-left,
+.status-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* Consistent gap */
+  flex: 0 0 auto;
+}
+
+.status-bar-center {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  justify-content: center;
+}
+
+.status-bar-right {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+/* Status bar controls styling */
+.status-bar .loop-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85em;
+  color: var(--text-color);
+}
+
+.status-bar .loop-control input[type="checkbox"] {
+  margin: 0;
+}
+
+.status-bar .loop-control label {
+  margin: 0;
+  white-space: nowrap;
+}
+
+#line-info,
+#lines-sent-counter {
+  font-size: 0.85em;
+  color: var(--text-color);
+  white-space: nowrap;
+}
+
+#app-state-emoji {
+  font-size: 1.1em;
+  display: none;
+}
+
+/* Add bottom padding to prevent content overlap with status bar */
+body {
+  padding-bottom: 30px;
+}
+
+#app-state {
+  font-size: 1.1em;
+  font-weight: 500;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  line-height: 1.4;
+}
+
+/* Visual state indicators for app state - override header color for specific states */
+#app-state[data-state="disconnected"] {
+  background-color: var(--button-danger-bg);
+  color: var(--button-text) !important;
+}
+
+#app-state[data-state="connected"] {
+  background-color: var(--button-success-bg);
+  color: var(--button-text) !important;
+}
+
+#app-state[data-state="playing"] {
+  background-color: var(--button-primary-bg);
+  color: var(--button-text) !important;
+  animation: pulse 2s infinite;
+}
+
+#app-state[data-state="paused"] {
+  background-color: var(--button-warning-bg);
+  color: var(--button-warning-text) !important;
+}
+
+#app-state[data-state="stepped"] {
+  background-color: var(--button-info-bg);
+  color: var(--button-text) !important;
+  animation: flash 0.3s;
+}
+
+/* Subtle animations */
+@keyframes pulse {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes flash {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+/* Responsive adjustments for compact view */
+body.compact #live-gesture-received {
+  padding: 4px 8px;
+  margin: 2px 0;
+  font-size: 16px;
+}
+
+body.compact #last-gesture-received {
+  padding: 4px 8px;
+  margin-top: 2px;
+}
+
+body.compact #app-state {
+  font-size: 0.95em;
+}
+
+/* Compact view adjustments for status bar */
+body.compact .status-bar {
+  padding: 0 8px;
+}
+
+body.compact .status-bar-left {
+  gap: 8px;
+}
+
+body.compact .status-bar .loop-control {
+  font-size: 0.8em;
+}
+
+body.compact #line-info,
+body.compact #lines-sent-counter {
+  font-size: 0.8em;
+}
+
+body.compact #app-state-emoji {
+  font-size: 1em;
+}
+
+/* Remove old loop-control styling */
+.loop-control {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .control-button {
+    padding: 6px;
+  }
+  .status-bar-left {
+    gap: 5px;
+  }
+
+  #toggle-loop-button {
+    width: 24px;
+    height: 24px;
+  }
+
+  #line-info,
+  #lines-sent-counter {
+    font-size: 0.9em;
+  }
+}
+
+/* Hide app state text on small screens */
+@media (max-width: 510px) {
+  body:not(.compact) #app-state {
+    display: none;
+  }
+}
+
+@media (max-width: 445px) {
+  body.compact #app-state {
+    display: none;
+  }
+}
+
+/* Hide lines-sent-label on small screens */
+@media (max-width: 510px) {
+  body:not(.compact) .lines-sent-label {
+    display: none;
+  }
+}
+
+@media (max-width: 445px) {
+  body.compact .lines-sent-label {
+    display: none;
+  }
+}
+
+/* Responsive Line Info Display */
+.line-info-separator-slash {
+  display: none; /* Hidden by default */
+}
+
+/* Hide app title on small screens */
+@media (max-width: 655px) {
+  body:not(.compact) .app-title {
+    display: none;
+  }
+}
+
+/* Hide app title on small screens */
+@media (max-width: 300px) {
+  body.compact .app-title {
+    display: none;
+  }
+}
+
+/* Hide theme selector on small screens */
+@media (max-width: 300px) {
+  body:not(.compact) .theme-switcher {
+    display: none;
+  }
+}
+
+@media (max-width: 235px) {
+  body.compact .theme-switcher {
+    display: none;
+  }
+}
+
+body:not(.show-gestures) #last-gesture-received,
+body:not(.show-gestures) #live-gesture-received {
+  display: none;
+}
+
+.status-area.hidden {
+  display: none;
+}
+
+.connection-controls-group.hidden {
+  display: none;
+}

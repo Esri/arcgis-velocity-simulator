@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+  <!-- Eraser -->
+  <path d="M19.36 2.72l-2.08-2.08a1 1 0 0 0-1.42 0L3.22 13.28a1 1 0 0 0 0 1.42l2.08 2.08a1 1 0 0 0 1.42 0L19.36 4.14a1 1 0 0 0 0-1.42z" 
+        fill="none" 
+        stroke="currentColor" 
+        stroke-width="2" 
+        stroke-linejoin="round"/>
+  
+  <!-- Eraser handle - wider line -->
+  <path d="M4 20h16" 
+        fill="none" 
+        stroke="currentColor" 
+        stroke-width="2" 
+        stroke-linecap="round"/>
+</svg>

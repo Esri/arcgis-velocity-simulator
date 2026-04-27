@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package esri.realtime.core.grpc;
+
+import "google/protobuf/any.proto";
+
+// The external gRPC Feed protocol used by ArcGIS Velocity.
+// External clients send features with typed attributes wrapped in google.protobuf.Any.
+
+message Request {
+  repeated Feature features = 1;
+}
+
+message Feature {
+  repeated google.protobuf.Any attributes = 1;
+}
+
+message Response {
+  string message = 1;
+  int32 code = 2;
+}
+
+message WatchRequest {
+  string client_id = 1;
+}
+
+service GrpcFeed {
+  // Client-streaming RPC: client sends a stream of Request messages.
+  rpc Stream(stream Request) returns (Response);
+
+  // Unary RPC: client sends a single Request containing one or more features.
+  rpc Send(Request) returns (Response);
+
+  // Server-streaming RPC: server pushes a stream of Request messages to the client.
+  rpc Watch(WatchRequest) returns (stream Request);
+}
+

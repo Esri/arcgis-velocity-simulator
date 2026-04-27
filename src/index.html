@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ArcGIS Velocity Simulator</title>
+  <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="header-controls">
+    <h1><span class="app-title">ArcGIS Velocity Simulator</span></h1>
+    <div class="theme-selector-container">
+      <div class="theme-switcher">
+        <select id="theme-select">
+          <option value="blue">🔵 Blue</option>
+          <option value="color-blind">🟡 Color Blind</option>
+          <option value="dark">🌙 Dark</option>
+          <option value="dark-gray">🌫️ Dark Gray</option>
+          <option value="green">🟢 Green</option>
+          <option value="high-contrast">⚫ High Contrast</option>
+          <option value="light">☀️ Light</option>
+          <option value="light-gray">☁️ Light Gray</option>
+          <option value="midnight">🌌 Midnight</option>
+          <option value="mocha">☕ Mocha</option>
+          <option value="ocean">🌊 Ocean</option>
+          <option value="rose">🌸 Rose</option>
+          <option value="rose-dark">🌺 Rose Dark</option>
+          <option value="sunset">🌅 Sunset</option>
+          <option value="system">💻 System</option>
+        </select>
+      </div>
+      <button id="toggle-gesture-report" class="control-button" title="Report Camera Gestures" data-enabled="false">
+        <div class="button-icon icon-report-gesture"></div>
+      </button>
+      <button id="toggle-camera-button" class="control-button" title="Toggle Camera&#10;---&#10;Supported Gestures:&#10;👍 Connect&#10;🤙 Disconnect&#10;👊 Play&#10;🖐️ Pause&#10;✌️ Step">
+        <svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/><path fill-rule="evenodd" d="M3.25 6.25a3 3 0 013-3h11.5a3 3 0 013 3v10.5a3 3 0 01-3 3H6.25a3 3 0 01-3-3V6.25zm3-1.5a1.5 1.5 0 00-1.5 1.5v10.5a1.5 1.5 0 001.5 1.5h11.5a1.5 1.5 0 001.5-1.5V6.25a1.5 1.5 0 00-1.5-1.5H6.25z" clip-rule="evenodd"/></svg>
+      </button>
+      <button id="toggle-mic-button" class="control-button" title="Toggle Microphone (Web Speech API)&#10;---&#10;Requires internet connection&#10;Supported Commands:&#10;• connect&#10;• disconnect&#10;• play / start&#10;• pause / stop&#10;• step&#10;• switch / toggle view"><svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M11.999 15a3 3 0 003-3V6a3 3 0 00-6 0v6a3 3 0 003 3z"/><path d="M18.75 12a.75.75 0 01-.75.75a6.002 6.002 0 01-12.004 0A.75.75 0 016.75 12v-1.5a.75.75 0 011.5 0V12a4.5 4.5 0 009 0v-1.5a.75.75 0 011.5 0V12z"/><path d="M11.999 17.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V18a.75.75 0 01.75-.75z"/><path d="M10 18a2 2 0 114 0h-4z"/></svg></button>
+      <button id="offline-mic-button" class="control-button" title="Toggle Offline Speech Recognition (Web Audio API)&#10;---&#10;100% Offline Voice Control&#10;• No internet required&#10;• Privacy-focused&#10;• Real-time audio analysis&#10;---&#10;Supported Commands:&#10;• connect&#10;• disconnect&#10;• play / start&#10;• pause / stop&#10;• step&#10;• switch / toggle view">
+        <div class="button-icon icon-offline-microphone"></div>
+      </button>
+      <button id="toggle-view-button" class="control-button" title="Switch to Compact View"><svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 4.5a1.5 1.5 0 00-1.5 1.5v10.5a1.5 1.5 0 001.5 1.5h15a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5h-15zM3 6a3 3 0 013-3h15a3 3 0 013 3v10.5a3 3 0 01-3 3H6a3 3 0 01-3-3V6z"/><path d="M6 8.25a.75.75 0 000 1.5h12a.75.75 0 000-1.5H6z"/></svg></button>
+      <button id="toggle-status-log" class="control-button" title="Toggle Status Log" data-enabled="true">
+        <div class="button-icon icon-status-log"></div>
+      </button>
+      <button id="toggle-connection-controls" class="control-button" title="Toggle Connection Controls" data-enabled="true">
+        <div class="button-icon icon-connection-controls"></div>
+      </button>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="controls-wrapper">
+      <div>
+        <div class="connection-controls-group">
+          <div class="control-group aligned-group">
+            <label for="csv-file">File:</label>
+            <button id="select-file" class="primary-control" title="Select File">
+              <div class="button-icon icon-select-file"></div>
+            </button>
+            <span id="file-path">No file selected</span>
+          </div>
+          <div class="control-group aligned-group">
+            <label for="connection-type">Mode:</label>
+            <select id="connection-type">
+              <option value="tcp-server" selected>TCP Server</option>
+              <option value="tcp-client">TCP Client</option>
+              <option value="udp-server">UDP Server</option>
+              <option value="udp-client">UDP Client</option>
+              <option value="grpc-client">gRPC Client</option>
+              <option value="grpc-server">gRPC Server</option>
+            </select>
+          </div>
+          <div class="control-group aligned-group" id="grpc-serialization-group" style="display: none;">
+            <label for="grpc-serialization">Serialization:</label>
+            <select id="grpc-serialization">
+              <option value="protobuf" selected>Protobuf</option>
+              <option value="kryo">Kryo</option>
+              <option value="text">Text</option>
+            </select>
+          </div>
+          <div class="control-group aligned-group" id="grpc-send-method-group" style="display: none;">
+            <label for="grpc-send-method">RPC type:</label>
+            <select id="grpc-send-method">
+              <option value="stream" selected title="Client Streaming RPC — opens a persistent stream and sends all messages over a single long-lived connection. Higher throughput and lower per-message overhead. Uses Stream (GrpcFeed) or executeMulti (GrpcFeatureService).">Client Streaming</option>
+              <option value="unary" title="Unary RPC — sends each message as an independent request/response call. Simpler to debug and reason about, but higher per-message overhead. Uses Send (GrpcFeed) or execute (GrpcFeatureService).">Unary</option>
+            </select>
+          </div>
+          <div class="control-group aligned-group" id="grpc-tls-group" style="display: none;">
+            <label for="grpc-tls">
+              <input type="checkbox" id="grpc-tls" checked title="Use TLS (SSL) for the gRPC connection"> Use TLS
+            </label>
+          </div>
+          <div class="control-group aligned-group" id="grpc-tls-ca-group" style="display: none;">
+            <label for="grpc-tls-ca-path">CA cert:</label>
+            <input type="text" id="grpc-tls-ca-path" placeholder="(system default)" title="Path to CA certificate file (PEM). Leave empty to use the system default CA bundle.">
+          </div>
+          <div class="control-group aligned-group" id="grpc-tls-cert-group" style="display: none;">
+            <label for="grpc-tls-cert-path">TLS cert:</label>
+            <input type="text" id="grpc-tls-cert-path" placeholder="(optional)" title="Path to client/server certificate file (PEM) for mutual TLS.">
+          </div>
+          <div class="control-group aligned-group" id="grpc-tls-key-group" style="display: none;">
+            <label for="grpc-tls-key-path">TLS key:</label>
+            <input type="text" id="grpc-tls-key-path" placeholder="(optional)" title="Path to private key file (PEM) for mutual TLS.">
+          </div>
+          <div class="control-group aligned-group" id="grpc-header-path-key-group" style="display: none;">
+            <label for="grpc-header-path-key">Header path key:</label>
+            <input type="text" id="grpc-header-path-key" value="grpc-path" title="gRPC endpoint header path key">
+          </div>
+          <div class="control-group aligned-group" id="grpc-header-path-group" style="display: none;">
+            <label for="grpc-header-path">Header path:</label>
+            <input type="text" id="grpc-header-path" value="replace.with.dedicated.uid" title="gRPC endpoint header path">
+          </div>
+          <div class="control-group combined-input-group aligned-group">
+            <label for="ip-address">Connection:</label>
+            <input type="text" id="ip-address" value="127.0.0.1" title="IP Address">
+            <input type="number" id="port" value="5565" title="Port">
+          </div>
+        </div>
+        <div class="control-group combined-input-group aligned-group">
+          <label for="lines-per-interval">Lines / ms:</label>
+          <input type="number" id="lines-per-interval" value="1" min="1" step="1" title="Lines count">
+          <input type="number" id="rate-ms" value="1000" min="100" step="100" title="Interval in Milliseconds">
+        </div>
+      </div>
+
+      <!-- Action Buttons: Icon-only design for clean, modern UI -->
+      <!-- All buttons use SVG icons with tooltips for accessibility -->
+      <div class="control-group action-buttons">
+        <!-- Connect Button: Establishes connection to data source -->
+        <button id="connect" title="Connect">
+          <div class="button-icon icon-connect"></div>
+        </button>
+        
+        <!-- Disconnect Button: Terminates connection to data source -->
+        <button id="disconnect" title="Disconnect" disabled>
+          <div class="button-icon icon-disconnect"></div>
+        </button>
+        
+        <!-- Play/Pause Button: Contains both icons, CSS controls which is visible -->
+        <!-- JavaScript toggles 'is-playing' class to swap between play and pause icons -->
+        <button id="play-pause" title="Play" disabled>
+          <div class="button-icon icon-play"></div>
+          <div class="button-icon icon-pause"></div>
+        </button>
+        
+        <!-- Step Button: Sends a single data point manually -->
+        <button id="send-manual" title="Step" disabled>
+          <div class="button-icon icon-step"></div>
+        </button>
+      </div>
+      
+      <!-- Current Line Preview -->
+      <div class="control-group">
+        <span id="line-preview-text" class="line-preview-text">-</span>
+      </div>
+
+      <!-- Current Line Slider -->
+      <div class="slider-group">
+        <div class="control-group">
+          <input type="range" id="line-slider" min="0" value="0" disabled class="slider">
+        </div>
+      </div>
+      
+    </div>
+      <div class="camera-container">
+        <video id="video-feed" style="transform: scaleX(-1); display: none; width: 240px; height: 180px; border-radius: 8px;"></video>
+        <div id="last-gesture-received">-</div>
+        <div id="live-gesture-received">-</div>
+      </div>
+
+    <div id="resizer"></div>
+
+    <div class="status-area">
+      <div class="status-header">
+        <h2>Status Log</h2>
+        <div class="status-buttons-group">
+          <button id="toggle-gesture-logging" class="control-button" title="Log Camera Gestures" data-enabled="false">
+            <div class="button-icon icon-hand-gesture-logging"></div>
+          </button>
+          <button id="toggle-mic-logging" class="control-button" title="Log Microphone Commands" data-enabled="false">
+            <div class="button-icon icon-mic-logging"></div>
+          </button>
+          <button id="clear-status" title="Clear Status Log (Cmd+Delete / Ctrl+Delete)">
+            <div class="button-icon icon-clear-logs"></div>
+          </button>
+          <button id="toggle-sort-order" class="control-button" title="Order: Ascending" data-order="ascending">
+            <div class="button-icon icon-ascending"></div>
+          </button>
+        </div>
+      </div>
+      <div class="offline-speech-status">
+        <div id="offline-status-indicator" class="offline-status">Offline speech recognition ready</div>
+        <div id="offline-confidence-display" class="offline-confidence">70%</div>
+        <div id="offline-visualizer" class="offline-visualizer"></div>
+      </div>
+      <div id="status-messages"></div>
+      <div class="status-footer">
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-bar-left">
+      <button id="toggle-loop-button" class="control-button" title="Toggle Continuous Loop">
+        <img src="assets/loop.svg" alt="Toggle Loop" />
+      </button>
+      <div class="separator"></div>
+      <div id="line-info-container" class="status-text-wrapper">
+        <span id="line-info-display">0 / 0</span>
+      </div>
+    </div>
+    <div class="status-bar-center">
+      <span id="app-state-emoji"></span>
+      <div id="app-state">-</div>
+    </div>
+    <div class="status-bar-right">
+      <div id="lines-sent-container" class="status-text">
+        <span class="lines-sent-label">Lines Sent: </span>
+        <span id="lines-sent-value">0</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="gestures.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

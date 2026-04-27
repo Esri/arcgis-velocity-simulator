@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Launch Configuration</title>
+  <link rel="stylesheet" href="themes.css">
+  <style>
+    html {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      transition: background-color 0.3s, color 0.3s;
+      height: 100%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 18px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .config-json {
+      background-color: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 10px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      overflow: auto;
+      margin-bottom: 10px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .button-container {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+
+    button {
+      background-color: var(--button-bg);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: var(--button-hover);
+    }
+
+    .copy-feedback {
+      color: #28a745;
+      font-size: 12px;
+      margin-left: 10px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .copy-feedback.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <h1>Launch Configuration</h1>
+
+  <div class="config-json" id="configJson">
+    Loading launch configuration...
+  </div>
+
+  <div class="button-container">
+    <span class="copy-feedback" id="copyFeedback">Copied to clipboard!</span>
+    <button id="copyButton">Copy JSON</button>
+    <button id="closeButton">Close</button>
+  </div>
+
+  <script>
+    let launchConfig = null;
+
+    window.electronAPI.onLoadLaunchConfigData((data) => {
+      launchConfig = data.config;
+
+      // Apply theme
+      document.body.className = data.theme || 'light';
+
+      // Notify main process that theme has been applied
+      window.api.launchConfigThemeApplied();
+
+      // Display pretty JSON
+      document.getElementById('configJson').textContent = JSON.stringify(launchConfig, null, 2);
+    });
+
+    // Copy to clipboard functionality
+    document.getElementById('copyButton').addEventListener('click', async () => {
+      if (launchConfig) {
+        try {
+          const jsonText = JSON.stringify(launchConfig, null, 2);
+          await navigator.clipboard.writeText(jsonText);
+
+          const feedback = document.getElementById('copyFeedback');
+          feedback.classList.add('show');
+          setTimeout(() => {
+            feedback.classList.remove('show');
+          }, 2000);
+        } catch (err) {
+          console.error('Failed to copy to clipboard:', err);
+        }
+      }
+    });
+
+    document.getElementById('closeButton').addEventListener('click', () => {
+      window.close();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        window.close();
+      }
+    });
+  </script>
+</body>
+</html>
+

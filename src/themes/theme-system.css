@@ -1,0 +1,93 @@
+/* System theme - uses OS preference for ArcGIS Velocity Simulator */
+
+/* Dark mode preference */
+@media (prefers-color-scheme: dark) {
+  body.system,
+  [data-theme="system"] {
+    --bg-color: #1e1e1e;
+    --text-color: #d4d4d4;
+    --header-color: #ffffff;
+    --input-bg: #2d2d2d;
+    --input-border: #404040;
+    --status-bg: #2d2d2d;
+    --hr-bg: #404040;
+    --fieldset-border: #404040;
+    --button-primary-bg: #0e639c;
+    --button-disabled-bg: #404040;
+    --button-success-bg: #28a745;
+    --button-danger-bg: #dc3545;
+    --button-warning-bg: #ffc107;
+    --button-info-bg: #17a2b8;
+    --button-toggle-on-bg: #28a745;
+    --button-toggle-on-text: #000;
+    --button-text: #ffffff;
+    --button-warning-text: #1e1e1e;
+    --slider-track-bg: #404040;
+    --slider-thumb-bg: #0e639c;
+    --log-bg: #2d2d2d;
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --border-color: #404040;
+    --button-bg: #0e639c;
+    --button-hover: #1177bb;
+    --code-bg: #2d2d2d;
+    --path-bg: #333333;
+    --container-bg: rgba(30, 30, 30, 0.97);
+    --version-color: #7befff;
+    --author-color: #8be6c5;
+    --details-color: #b5e3f7;
+    --close-bg: #4facfe;
+    --close-hover-bg: #43e97b;
+    --title-gradient-start: #00f2fe;
+    --title-gradient-mid: #4facfe;
+    --title-gradient-end: #43e97b;
+    --error-bg: #2d1b1b;
+    --error-border: #553c3c;
+    --error-text: #fc8181;
+  }
+}
+
+/* Light mode preference */
+@media (prefers-color-scheme: light) {
+  body.system,
+  [data-theme="system"] {
+    --bg-color: #ffffff;
+    --text-color: #333333;
+    --header-color: #333333;
+    --input-bg: #f8f8f8;
+    --input-border: #e0e0e0;
+    --status-bg: #f8f8f8;
+    --hr-bg: #e0e0e0;
+    --fieldset-border: #e0e0e0;
+    --button-primary-bg: #007acc;
+    --button-disabled-bg: #e0e0e0;
+    --button-success-bg: #28a745;
+    --button-danger-bg: #dc3545;
+    --button-warning-bg: #ffc107;
+    --button-info-bg: #17a2b8;
+    --button-toggle-on-bg: #28a745;
+    --button-toggle-on-text: #000;
+    --button-text: #ffffff;
+    --button-warning-text: #333333;
+    --slider-track-bg: #e0e0e0;
+    --slider-thumb-bg: #007acc;
+    --log-bg: #f8f8f8;
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --border-color: #e0e0e0;
+    --button-bg: #007acc;
+    --button-hover: #005a9e;
+    --code-bg: #f8f8f8;
+    --path-bg: #f0f0f0;
+    --container-bg: #ffffff;
+    --version-color: #007bff;
+    --author-color: #1a73e8;
+    --details-color: #555;
+    --close-bg: #007bff;
+    --close-hover-bg: #0056b3;
+    --title-gradient-start: #007bff;
+    --title-gradient-mid: #0056b3;
+    --title-gradient-end: #1a73e8;
+    --error-bg: #fff5f5;
+    --error-border: #fed7d7;
+    --error-text: #c53030;
+  }
+} 

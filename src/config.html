@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuration</title>
+  <link rel="stylesheet" href="themes.css">
+  <style>
+    html {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      transition: background-color 0.3s, color 0.3s;
+      height: 100%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 18px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .config-path {
+      background-color: var(--path-bg);
+      padding: 10px;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 12px;
+      margin-bottom: 15px;
+      word-break: break-all;
+      border: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .config-json {
+      background-color: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 10px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      overflow: auto;
+      margin-bottom: 10px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .button-container {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+
+    button {
+      background-color: var(--button-bg);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: var(--button-hover);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .copy-feedback {
+      color: #28a745;
+      font-size: 12px;
+      margin-left: 10px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .copy-feedback.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="config-path" id="configPath">
+    Loading config path...
+  </div>
+  
+  <div class="config-json" id="configJson">
+    Loading configuration...
+  </div>
+  
+  <div class="button-container">
+    <span class="copy-feedback" id="copyFeedback">Copied to clipboard!</span>
+    <button id="copyButton">Copy JSON</button>
+    <button id="closeButton">Close</button>
+  </div>
+
+  <script>
+    let configData = null;
+
+    // Listen for config data from main process
+    window.electronAPI.onLoadConfigData((data) => {
+      configData = data;
+      
+      // Apply theme
+      document.body.className = data.theme || 'light';
+      
+      // Notify main process that theme has been applied
+      window.api.configThemeApplied();
+      
+      // Display config path
+      document.getElementById('configPath').textContent = data.configPath;
+      
+      // Display pretty JSON
+      document.getElementById('configJson').textContent = JSON.stringify(data.config, null, 2);
+    });
+
+    // Copy to clipboard functionality
+    document.getElementById('copyButton').addEventListener('click', async () => {
+      if (configData) {
+        try {
+          const jsonText = JSON.stringify(configData.config, null, 2);
+          await navigator.clipboard.writeText(jsonText);
+          
+          // Show feedback
+          const feedback = document.getElementById('copyFeedback');
+          feedback.classList.add('show');
+          setTimeout(() => {
+            feedback.classList.remove('show');
+          }, 2000);
+        } catch (err) {
+          console.error('Failed to copy to clipboard:', err);
+        }
+      }
+    });
+
+    // Close button functionality
+    document.getElementById('closeButton').addEventListener('click', () => {
+      window.close();
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        window.close();
+      }
+    });
+  </script>
+</body>
+</html>

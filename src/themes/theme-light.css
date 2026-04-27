@@ -1,0 +1,86 @@
+/* Light theme for ArcGIS Velocity Simulator */
+
+:root {
+  --bg-color: #f4f4f9;
+  --text-color: #333;
+  --header-color: #111;
+  --input-bg: #fff;
+  --input-border: #ccc;
+  --status-bg: #fff;
+  --hr-bg: #ddd;
+  --fieldset-border: #ccc;
+  --button-primary-bg: #007bff;
+  --button-disabled-bg: #ccc;
+  --button-success-bg: #28a745;
+  --button-danger-bg: #dc3545;
+  --button-warning-bg: #ffc107;
+  --button-info-bg: #17a2b8;
+  --button-toggle-on-bg: #28a745;
+  --button-toggle-on-text: #fff;
+  --button-text: #fff;
+  --button-warning-text: #1e1e1e;
+  --slider-track-bg: #d3d3d3;
+  --slider-thumb-bg: #007bff;
+  --log-bg: #e9ecef;
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --border-color: #e0e0e0;
+  --button-bg: #007acc;
+  --button-hover: #005a9e;
+  --code-bg: #f8f8f8;
+  --path-bg: #f0f0f0;
+  --container-bg: #ffffff;
+  --version-color: #007bff;
+  --author-color: #1a73e8;
+  --details-color: #555;
+  --close-bg: #007bff;
+  --close-hover-bg: #0056b3;
+  --title-gradient-start: #007bff;
+  --title-gradient-mid: #0056b3;
+  --title-gradient-end: #1a73e8;
+  --error-bg: #fff5f5;
+  --error-border: #fed7d7;
+  --error-text: #c53030;
+}
+
+body.light,
+[data-theme="light"] {
+  --bg-color: #f4f4f9;
+  --text-color: #333;
+  --header-color: #111;
+  --input-bg: #fff;
+  --input-border: #ccc;
+  --status-bg: #fff;
+  --hr-bg: #ddd;
+  --fieldset-border: #ccc;
+  --button-primary-bg: #007bff;
+  --button-disabled-bg: #ccc;
+  --button-success-bg: #28a745;
+  --button-danger-bg: #dc3545;
+  --button-warning-bg: #ffc107;
+  --button-info-bg: #17a2b8;
+  --button-toggle-on-bg: #28a745;
+  --button-toggle-on-text: #fff;
+  --button-text: #fff;
+  --button-warning-text: #1e1e1e;
+  --slider-track-bg: #d3d3d3;
+  --slider-thumb-bg: #007bff;
+  --log-bg: #e9ecef;
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --border-color: #e0e0e0;
+  --button-bg: #007acc;
+  --button-hover: #005a9e;
+  --code-bg: #f8f8f8;
+  --path-bg: #f0f0f0;
+  --container-bg: #ffffff;
+  --version-color: #007bff;
+  --author-color: #1a73e8;
+  --details-color: #555;
+  --close-bg: #007bff;
+  --close-hover-bg: #0056b3;
+  --title-gradient-start: #007bff;
+  --title-gradient-mid: #0056b3;
+  --title-gradient-end: #1a73e8;
+  --error-bg: #fff5f5;
+  --error-border: #fed7d7;
+  --error-text: #c53030;
+} 

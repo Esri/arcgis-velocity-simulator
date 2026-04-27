@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=760, initial-scale=1.0">
+    <title>Command Line Interface - ArcGIS Velocity Simulator</title>
+    <link rel="stylesheet" href="./themes.css">
+    <link rel="stylesheet" href="./help.css">
+    <link rel="stylesheet" href="./cli.css">
+</head>
+<body>
+    <div class="help-container">
+        <div class="help-header">
+            <div class="help-title">ArcGIS Velocity Simulator Command Line Interface</div>
+        </div>
+
+        <div class="help-content">
+            <div class="help-section cli-reference-section">
+                <h3>Interactive Command-Line Reference</h3>
+                <p>This dialog is generated from the same command-line metadata used by terminal help output and the markdown command-line guide, so the in-app table stays aligned with headless and automation usage.</p>
+                <p>Open this dialog with <kbd>F3</kbd> from the main window, or via <strong>Help → Command Line Interface</strong> and the main window context menu.</p>
+
+                <div class="cli-reference-toolbar">
+                    <label class="cli-filter-label" for="cli-filter-input">Filter parameters</label>
+                    <input
+                        type="search"
+                        id="cli-filter-input"
+                        class="cli-filter-input"
+                        placeholder="Search by parameter, default, values, purpose, comments, or example"
+                        aria-label="Filter command-line parameters"
+                    >
+                    <button type="button" id="cli-clear-filters" class="cli-clear-filters" disabled>Clear filters</button>
+                    <label class="cli-format-label" for="cli-visible-rows-format">Visible row format</label>
+                    <select id="cli-visible-rows-format" class="cli-format-select" aria-label="Visible row output format">
+                        <option value="tsv" selected>TSV</option>
+                        <option value="csv">CSV</option>
+                        <option value="markdown">Markdown</option>
+                        <option value="json">JSON</option>
+                    </select>
+                    <button type="button" id="cli-copy-visible-rows" class="cli-toolbar-action">Copy visible rows</button>
+                    <button type="button" id="cli-export-visible-rows" class="cli-toolbar-action">Export visible rows</button>
+                    <div id="cli-filter-summary" class="cli-filter-summary" aria-live="polite">Loading parameter summary...</div>
+                </div>
+
+                <div class="cli-toolbar-hints">
+                    <span class="cli-toolbar-hint"><kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>F</kbd> focuses the CLI filter</span>
+                    <span class="cli-toolbar-hint"><kbd>/</kbd> also focuses the filter when you are not typing in another field</span>
+                    <span class="cli-toolbar-hint"><kbd>Escape</kbd> closes the dialog</span>
+                </div>
+
+                <div class="cli-filter-chips" role="group" aria-label="Quick command-line filters">
+                    <button type="button" class="cli-filter-chip is-active" data-chip-filter="all">All <span class="cli-filter-chip-count" data-chip-count-for="all">0</span></button>
+                    <button type="button" class="cli-filter-chip" data-chip-filter="required">Required <span class="cli-filter-chip-count" data-chip-count-for="required">0</span></button>
+                    <button type="button" class="cli-filter-chip" data-chip-filter="optional">Optional <span class="cli-filter-chip-count" data-chip-count-for="optional">0</span></button>
+                    <button type="button" class="cli-filter-chip" data-chip-filter="headless-only">Headless-only <span class="cli-filter-chip-count" data-chip-count-for="headless-only">0</span></button>
+                    <button type="button" class="cli-filter-chip" data-chip-filter="help">Help-related <span class="cli-filter-chip-count" data-chip-count-for="help">0</span></button>
+                </div>
+
+                <div id="cli-active-filters" class="cli-active-filters" aria-live="polite"></div>
+
+                <div class="cli-reference-panels">
+                    <details class="cli-reference-panel cli-reference-details">
+                        <summary>Behavior &amp; Help Layouts</summary>
+                        <ul id="cli-overview-list">
+                            <li>Loading command-line overview...</li>
+                        </ul>
+                    </details>
+                    <details class="cli-reference-panel cli-reference-details">
+                        <summary>Notes</summary>
+                        <ul id="cli-notes-list">
+                            <li>Loading command-line notes...</li>
+                        </ul>
+                    </details>
+                </div>
+
+                <div id="cli-reference-table-wrapper" class="cli-reference-table-wrapper" aria-describedby="cli-reference-table-resize-hint">
+                    <table class="shortcuts-table cli-reference-table">
+                        <thead>
+                            <tr>
+                                <th><button type="button" class="sortable-column" data-sort-key="name">Name</button></th>
+                                <th><button type="button" class="sortable-column" data-sort-key="supportedValues">Supported Values</button></th>
+                                <th><button type="button" class="sortable-column" data-sort-key="defaultValue">Default</button></th>
+                                <th><button type="button" class="sortable-column" data-sort-key="required">Required in Headless Mode</button></th>
+                                <th><button type="button" class="sortable-column" data-sort-key="example">Example</button></th>
+                                <th><button type="button" class="sortable-column" data-sort-key="purpose">Purpose / Comments</button></th>
+                            </tr>
+                        </thead>
+                        <tbody id="cli-reference-body">
+                            <tr>
+                                <td colspan="6">Loading command-line parameter reference...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="cli-table-resize-meta">
+                    <span id="cli-reference-table-resize-hint" class="cli-table-resize-hint">Drag the table’s bottom edge to resize the visible rows area.</span>
+                </div>
+
+                <details class="cli-reference-panel cli-examples-panel cli-reference-details" open>
+                    <summary>Example Commands</summary>
+                    <ul id="cli-examples-list" class="cli-examples-list">
+                        <li><code>Loading examples...</code></li>
+                    </ul>
+                    <div id="cli-copy-status" class="cli-copy-status" aria-live="polite"></div>
+                </details>
+            </div>
+        </div>
+
+        <div class="help-footer">
+            <button class="help-close" id="close-button">Close</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const closeButton = document.getElementById('close-button');
+            const cliOverviewList = document.getElementById('cli-overview-list');
+            const cliNotesList = document.getElementById('cli-notes-list');
+            const cliExamplesList = document.getElementById('cli-examples-list');
+            const cliReferenceBody = document.getElementById('cli-reference-body');
+            const cliTableWrapper = document.getElementById('cli-reference-table-wrapper');
+            const cliFilterInput = document.getElementById('cli-filter-input');
+            const cliClearFiltersButton = document.getElementById('cli-clear-filters');
+            const cliVisibleRowsFormat = document.getElementById('cli-visible-rows-format');
+            const cliCopyVisibleRowsButton = document.getElementById('cli-copy-visible-rows');
+            const cliExportVisibleRowsButton = document.getElementById('cli-export-visible-rows');
+            const cliFilterSummary = document.getElementById('cli-filter-summary');
+            const cliCopyStatus = document.getElementById('cli-copy-status');
+            const cliActiveFilters = document.getElementById('cli-active-filters');
+            const sortableColumns = Array.from(document.querySelectorAll('.sortable-column'));
+            const filterChips = Array.from(document.querySelectorAll('.cli-filter-chip'));
+            const chipCountElements = Array.from(document.querySelectorAll('.cli-filter-chip-count'));
+            let cliReferenceData = null;
+            let userResizedTableWrapper = false;
+            let resizeHandlePointerDown = false;
+            let tableWrapperHeightBeforeResize = 0;
+            const uiState = {
+                searchText: '',
+                chipFilter: 'all',
+                sortState: {
+                    key: 'name',
+                    direction: 'asc',
+                },
+                visibleRowsFormat: 'tsv',
+            };
+
+            function getSortLabel(sortKey) {
+                const sortLabels = {
+                    name: 'Name',
+                    supportedValues: 'Supported Values',
+                    required: 'Required in Headless Mode',
+                    defaultValue: 'Default',
+                    example: 'Example',
+                    purpose: 'Purpose',
+                };
+
+                return sortLabels[sortKey] || sortKey;
+            }
+
+            function getChipLabel(chipKey) {
+                const chipLabels = {
+                    all: 'All',
+                    required: 'Required',
+                    optional: 'Optional',
+                    'headless-only': 'Headless-only',
+                    help: 'Help-related',
+                };
+
+                return chipLabels[chipKey] || chipKey;
+            }
+
+            function focusCliFilter() {
+                if (!cliFilterInput) {
+                    return;
+                }
+
+                cliFilterInput.focus();
+                cliFilterInput.select();
+            }
+
+            function replaceListItems(listElement, entries, { code = false, addCopyButton = false } = {}) {
+                if (!listElement) {
+                    return;
+                }
+
+                listElement.innerHTML = '';
+
+                entries.forEach((entry) => {
+                    const listItem = document.createElement('li');
+                    if (code) {
+                        const codeElement = document.createElement('code');
+                        codeElement.textContent = entry;
+                        listItem.appendChild(codeElement);
+                        if (addCopyButton) {
+                            const copyButton = document.createElement('button');
+                            copyButton.type = 'button';
+                            copyButton.className = 'cli-copy-button';
+                            copyButton.textContent = 'Copy';
+                            copyButton.setAttribute('data-copy-text', entry);
+                            copyButton.addEventListener('click', async () => {
+                                const copied = await copyToClipboard(entry);
+                                cliCopyStatus.textContent = copied
+                                    ? `Copied example command: ${entry}`
+                                    : 'Unable to copy example command.';
+                            });
+                            listItem.appendChild(copyButton);
+                        }
+                    } else {
+                        listItem.textContent = entry;
+                    }
+                    listElement.appendChild(listItem);
+                });
+            }
+
+            function getCellValue(entry, key) {
+                return String(entry[key] || '').toLowerCase();
+            }
+
+            function updateSortIndicators() {
+                sortableColumns.forEach((button) => {
+                    const isActive = button.dataset.sortKey === uiState.sortState.key;
+                    button.classList.toggle('is-active', isActive);
+                    button.classList.toggle('is-desc', isActive && uiState.sortState.direction === 'desc');
+                    button.setAttribute('aria-sort', isActive ? (uiState.sortState.direction === 'asc' ? 'ascending' : 'descending') : 'none');
+                });
+            }
+
+            function matchesChipFilter(entry, chipKey) {
+                if (chipKey === 'required') {
+                    return entry.required === 'Yes';
+                }
+
+                if (chipKey === 'optional') {
+                    return entry.required === 'No';
+                }
+
+                if (chipKey === 'headless-only') {
+                    return entry.usageCategory === 'headless-only';
+                }
+
+                if (chipKey === 'help') {
+                    return entry.usageCategory === 'help';
+                }
+
+                return true;
+            }
+
+            function matchesSearchFilter(entry, searchText) {
+                if (!searchText) {
+                    return true;
+                }
+
+                const haystack = [
+                    entry.name,
+                    entry.supportedValues,
+                    entry.required,
+                    entry.defaultValue,
+                    entry.example,
+                    entry.purpose,
+                ].join(' ').toLowerCase();
+
+                return haystack.includes(searchText);
+            }
+
+            function updateChipCounts() {
+                const parameters = Array.isArray(cliReferenceData?.parameters) ? cliReferenceData.parameters : [];
+                const normalizedSearchText = uiState.searchText.trim().toLowerCase();
+
+                chipCountElements.forEach((countElement) => {
+                    const chipKey = countElement.dataset.chipCountFor || 'all';
+                    const count = parameters.filter((entry) => matchesChipFilter(entry, chipKey) && matchesSearchFilter(entry, normalizedSearchText)).length;
+                    countElement.textContent = String(count);
+                });
+            }
+
+            function renderActiveFilterPills() {
+                if (!cliActiveFilters) {
+                    return;
+                }
+
+                cliActiveFilters.innerHTML = '';
+
+                const normalizedSearchText = uiState.searchText.trim();
+                if (normalizedSearchText) {
+                    const searchPill = document.createElement('button');
+                    searchPill.type = 'button';
+                    searchPill.className = 'cli-active-filter-pill is-removable';
+                    searchPill.textContent = `Search: ${normalizedSearchText} ×`;
+                    searchPill.addEventListener('click', () => {
+                        uiState.searchText = '';
+                        if (cliFilterInput) {
+                            cliFilterInput.value = '';
+                        }
+                        renderCliReferenceRows();
+                    });
+                    cliActiveFilters.appendChild(searchPill);
+                }
+
+                if (uiState.chipFilter !== 'all') {
+                    const chipPill = document.createElement('button');
+                    chipPill.type = 'button';
+                    chipPill.className = 'cli-active-filter-pill is-removable';
+                    chipPill.textContent = `Category: ${getChipLabel(uiState.chipFilter)} ×`;
+                    chipPill.addEventListener('click', () => {
+                        uiState.chipFilter = 'all';
+                        updateChipState();
+                        renderCliReferenceRows();
+                    });
+                    cliActiveFilters.appendChild(chipPill);
+                }
+
+                const sortPill = document.createElement('span');
+                sortPill.className = 'cli-active-filter-pill';
+                sortPill.textContent = `Sort: ${getSortLabel(uiState.sortState.key)} ${uiState.sortState.direction === 'asc' ? '↑' : '↓'}`;
+                cliActiveFilters.appendChild(sortPill);
+            }
+
+            function getVisibleTableHeaders() {
+                return ['Name', 'Supported Values', 'Default', 'Required in Headless Mode', 'Example', 'Purpose'];
+            }
+
+            function getVisibleTableRows() {
+                return getFilteredAndSortedParameters().map((entry) => [
+                    entry.name,
+                    entry.supportedValues,
+                    entry.defaultValue,
+                    entry.required,
+                    entry.example,
+                    entry.purpose,
+                ]);
+            }
+
+            function escapeTsvCell(value) {
+                const normalized = String(value ?? '').replace(/\r?\n/g, ' ');
+                return /["\t]/.test(normalized)
+                    ? `"${normalized.replace(/"/g, '""')}"`
+                    : normalized;
+            }
+
+            function buildVisibleRowsTsv() {
+                const headers = getVisibleTableHeaders().map(escapeTsvCell).join('\t');
+                const rows = getVisibleTableRows().map((row) => row.map(escapeTsvCell).join('\t'));
+                return [headers, ...rows].join('\n');
+            }
+
+            function escapeCsvCell(value) {
+                const normalized = String(value ?? '').replace(/\r?\n/g, ' ');
+                return /[",]/.test(normalized)
+                    ? `"${normalized.replace(/"/g, '""')}"`
+                    : normalized;
+            }
+
+            function buildVisibleRowsCsv() {
+                const headers = getVisibleTableHeaders().map(escapeCsvCell).join(',');
+                const rows = getVisibleTableRows().map((row) => row.map(escapeCsvCell).join(','));
+                return [headers, ...rows].join('\n');
+            }
+
+            function buildVisibleRowsMarkdown() {
+                const headers = getVisibleTableHeaders();
+                const separator = headers.map(() => '---');
+                const rows = getVisibleTableRows().map((row) => row.map((value) => String(value ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>')));
+                return [
+                    `| ${headers.join(' | ')} |`,
+                    `| ${separator.join(' | ')} |`,
+                    ...rows.map((row) => `| ${row.join(' | ')} |`),
+                ].join('\n');
+            }
+
+            function buildVisibleRowsJson() {
+                const headers = ['name', 'supportedValues', 'default', 'requiredInHeadlessMode', 'example', 'purpose'];
+                const rows = getVisibleTableRows().map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index]])));
+                return JSON.stringify(rows, null, 2);
+            }
+
+            function getVisibleRowsOutput() {
+                const format = uiState.visibleRowsFormat;
+
+                if (format === 'csv') {
+                    return {
+                        format,
+                        extension: 'csv',
+                        mimeType: 'text/csv;charset=utf-8',
+                        content: buildVisibleRowsCsv(),
+                    };
+                }
+
+                if (format === 'markdown') {
+                    return {
+                        format,
+                        extension: 'md',
+                        mimeType: 'text/markdown;charset=utf-8',
+                        content: buildVisibleRowsMarkdown(),
+                    };
+                }
+
+                if (format === 'json') {
+                    return {
+                        format,
+                        extension: 'json',
+                        mimeType: 'application/json;charset=utf-8',
+                        content: buildVisibleRowsJson(),
+                    };
+                }
+
+                return {
+                    format: 'tsv',
+                    extension: 'tsv',
+                    mimeType: 'text/tab-separated-values;charset=utf-8',
+                    content: buildVisibleRowsTsv(),
+                };
+            }
+
+            function updateToolbarActionState() {
+                const hasVisibleRows = getFilteredAndSortedParameters().length > 0;
+                if (cliCopyVisibleRowsButton) {
+                    cliCopyVisibleRowsButton.disabled = !hasVisibleRows;
+                }
+                if (cliExportVisibleRowsButton) {
+                    cliExportVisibleRowsButton.disabled = !hasVisibleRows;
+                }
+            }
+
+            async function copyVisibleRows() {
+                const output = getVisibleRowsOutput();
+                const copied = await copyToClipboard(output.content);
+                if (cliCopyStatus) {
+                    cliCopyStatus.textContent = copied
+                        ? `Copied ${getFilteredAndSortedParameters().length} visible command-line row(s) as ${output.format.toUpperCase()}.`
+                        : 'Unable to copy visible command-line rows.';
+                }
+            }
+
+            function exportVisibleRows() {
+                const output = getVisibleRowsOutput();
+                const blob = new Blob([output.content], { type: output.mimeType });
+                const objectUrl = URL.createObjectURL(blob);
+                const downloadLink = document.createElement('a');
+                downloadLink.href = objectUrl;
+                downloadLink.download = `arcgis-velocity-simulator-visible-cli-rows.${output.extension}`;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(objectUrl);
+                if (cliCopyStatus) {
+                    cliCopyStatus.textContent = `Exported ${getFilteredAndSortedParameters().length} visible command-line row(s) as ${output.format.toUpperCase()}.`;
+                }
+            }
+
+            function getFilteredAndSortedParameters() {
+                const parameters = Array.isArray(cliReferenceData?.parameters) ? [...cliReferenceData.parameters] : [];
+                const filterValue = uiState.searchText.trim().toLowerCase();
+                const chipFiltered = parameters.filter((entry) => matchesChipFilter(entry, uiState.chipFilter));
+
+                const filtered = chipFiltered.filter((entry) => matchesSearchFilter(entry, filterValue));
+
+                filtered.sort((left, right) => {
+                    const leftValue = getCellValue(left, uiState.sortState.key);
+                    const rightValue = getCellValue(right, uiState.sortState.key);
+                    const comparison = leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' });
+                    return uiState.sortState.direction === 'asc' ? comparison : -comparison;
+                });
+
+                return filtered;
+            }
+
+            function renderCliReferenceRows() {
+                const filteredParameters = getFilteredAndSortedParameters();
+                cliReferenceBody.innerHTML = '';
+                const total = Array.isArray(cliReferenceData?.parameters) ? cliReferenceData.parameters.length : 0;
+                const filterValue = uiState.searchText.trim();
+
+                updateChipCounts();
+                renderActiveFilterPills();
+
+                if (filteredParameters.length === 0) {
+                    cliReferenceBody.innerHTML = '<tr><td colspan="6">No command-line parameters match the current filter.</td></tr>';
+                    if (cliFilterSummary) {
+                        cliFilterSummary.textContent = 'Showing 0 parameters with the current filters.';
+                    }
+                    updateClearFiltersState();
+                    updateToolbarActionState();
+                    updateSortIndicators();
+                    autoSizeTableWrapper();
+                    return;
+                }
+
+                filteredParameters.forEach((entry) => {
+                    const row = document.createElement('tr');
+                    [
+                        entry.name,
+                        entry.supportedValues,
+                        entry.defaultValue,
+                        entry.required,
+                        entry.example,
+                        entry.purpose,
+                    ].forEach((value, index) => {
+                        const cell = document.createElement('td');
+                        if (index === 0 || index === 4) {
+                            const codeElement = document.createElement('code');
+                            codeElement.textContent = value;
+                            cell.appendChild(codeElement);
+                        } else {
+                            cell.textContent = value;
+                        }
+                        row.appendChild(cell);
+                    });
+
+                    cliReferenceBody.appendChild(row);
+                });
+
+                if (cliFilterSummary) {
+                    cliFilterSummary.textContent = filteredParameters.length === total && uiState.chipFilter === 'all' && filterValue.length === 0
+                        ? `Showing all ${total} parameters.`
+                        : `Showing ${filteredParameters.length} of ${total} parameters (${uiState.chipFilter === 'all' ? 'all categories' : uiState.chipFilter}, ${filterValue.length > 0 ? 'search active' : 'no search'}).`;
+                }
+
+                updateClearFiltersState();
+                updateToolbarActionState();
+                updateSortIndicators();
+                autoSizeTableWrapper();
+            }
+
+            function updateClearFiltersState() {
+                if (!cliClearFiltersButton) {
+                    return;
+                }
+
+                const hasTextFilter = uiState.searchText.trim().length > 0;
+                cliClearFiltersButton.disabled = !hasTextFilter && uiState.chipFilter === 'all';
+            }
+
+            function updateChipState() {
+                filterChips.forEach((button) => {
+                    const isActive = button.dataset.chipFilter === uiState.chipFilter;
+                    button.classList.toggle('is-active', isActive);
+                    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                });
+            }
+
+            function clearFilters() {
+                uiState.searchText = '';
+                if (cliFilterInput) {
+                    cliFilterInput.value = '';
+                }
+                uiState.chipFilter = 'all';
+                if (cliCopyStatus) {
+                    cliCopyStatus.textContent = '';
+                }
+                updateChipState();
+                renderCliReferenceRows();
+                cliFilterInput?.focus();
+            }
+
+            async function copyToClipboard(text) {
+                try {
+                    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                        await navigator.clipboard.writeText(text);
+                        return true;
+                    }
+
+                    const temporaryInput = document.createElement('textarea');
+                    temporaryInput.value = text;
+                    temporaryInput.setAttribute('readonly', 'readonly');
+                    temporaryInput.style.position = 'absolute';
+                    temporaryInput.style.left = '-9999px';
+                    document.body.appendChild(temporaryInput);
+                    temporaryInput.select();
+                    const copied = typeof document.execCommand === 'function' ? document.execCommand('copy') : false;
+                    document.body.removeChild(temporaryInput);
+                    return copied;
+                } catch (error) {
+                    return false;
+                }
+            }
+
+            function renderCliReference(reference) {
+                if (!reference || !Array.isArray(reference.parameters)) {
+                    return;
+                }
+
+                cliReferenceData = reference;
+
+                replaceListItems(cliOverviewList, [
+                    ...(reference.overview || []),
+                    ...(reference.helpLayouts || []),
+                ]);
+                replaceListItems(cliNotesList, reference.notes || []);
+                replaceListItems(cliExamplesList, reference.examples || [], { code: true, addCopyButton: true });
+                renderCliReferenceRows();
+            }
+
+            async function loadCliReference() {
+                if (!window.api || typeof window.api.getCliHelpReference !== 'function') {
+                    return;
+                }
+
+                try {
+                    const reference = await window.api.getCliHelpReference();
+                    renderCliReference(reference);
+                } catch (error) {
+                    cliReferenceBody.innerHTML = '<tr><td colspan="6">Unable to load command-line reference.</td></tr>';
+                    if (cliFilterSummary) {
+                        cliFilterSummary.textContent = 'Unable to load parameter summary.';
+                    }
+                    if (cliCopyStatus) {
+                        cliCopyStatus.textContent = 'Unable to load copyable example commands.';
+                    }
+                    replaceListItems(cliNotesList, ['Unable to load command-line notes.']);
+                    replaceListItems(cliExamplesList, ['Unable to load command-line examples.'], { code: true });
+                }
+            }
+
+            if (cliFilterInput) {
+                cliFilterInput.addEventListener('input', () => {
+                    uiState.searchText = cliFilterInput.value;
+                    renderCliReferenceRows();
+                });
+            }
+
+            if (cliClearFiltersButton) {
+                cliClearFiltersButton.addEventListener('click', () => {
+                    clearFilters();
+                });
+            }
+
+            if (cliCopyVisibleRowsButton) {
+                cliCopyVisibleRowsButton.addEventListener('click', async () => {
+                    await copyVisibleRows();
+                });
+            }
+
+            if (cliVisibleRowsFormat) {
+                cliVisibleRowsFormat.addEventListener('change', () => {
+                    uiState.visibleRowsFormat = cliVisibleRowsFormat.value || 'tsv';
+                });
+            }
+
+            if (cliExportVisibleRowsButton) {
+                cliExportVisibleRowsButton.addEventListener('click', () => {
+                    exportVisibleRows();
+                });
+            }
+
+            filterChips.forEach((button) => {
+                button.addEventListener('click', () => {
+                    uiState.chipFilter = button.dataset.chipFilter || 'all';
+                    updateChipState();
+                    renderCliReferenceRows();
+                });
+            });
+
+            sortableColumns.forEach((button) => {
+                button.addEventListener('click', () => {
+                    const nextKey = button.dataset.sortKey;
+                    if (!nextKey) {
+                        return;
+                    }
+
+                    if (uiState.sortState.key === nextKey) {
+                        uiState.sortState.direction = uiState.sortState.direction === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        uiState.sortState = {
+                            key: nextKey,
+                            direction: 'asc',
+                        };
+                    }
+
+                    renderCliReferenceRows();
+                });
+            });
+
+            closeButton.addEventListener('click', () => {
+                window.close();
+            });
+
+            document.addEventListener('keydown', (event) => {
+                const targetTagName = event.target && event.target.tagName ? event.target.tagName.toLowerCase() : '';
+                const isTypingField = targetTagName === 'input' || targetTagName === 'textarea';
+
+                if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+                    event.preventDefault();
+                    focusCliFilter();
+                    return;
+                }
+
+                if (!isTypingField && event.key === '/') {
+                    event.preventDefault();
+                    focusCliFilter();
+                    return;
+                }
+
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    window.close();
+                }
+            });
+
+            window.api.onSetTheme((_event, theme) => {
+                if (theme) {
+                    document.body.className = theme;
+                } else {
+                    document.body.className = 'dark';
+                }
+                window.api.themeApplied();
+            });
+
+            function autoSizeTableWrapper() {
+                const table = cliTableWrapper?.querySelector('.cli-reference-table');
+                if (cliTableWrapper && table && !userResizedTableWrapper) {
+                    cliTableWrapper.style.height = 'auto';
+                    const naturalHeight = Math.max((table.offsetHeight || 0) + 2, 120);
+                    cliTableWrapper.style.height = naturalHeight + 'px';
+                }
+            }
+
+            function markTableResizeStart(event) {
+                if (!cliTableWrapper) {
+                    return;
+                }
+
+                const wrapperRect = cliTableWrapper.getBoundingClientRect();
+                const withinResizeHandle = event.clientY >= wrapperRect.bottom - 16;
+                if (!withinResizeHandle) {
+                    return;
+                }
+
+                resizeHandlePointerDown = true;
+                tableWrapperHeightBeforeResize = wrapperRect.height;
+            }
+
+            function finishTableResize() {
+                if (!resizeHandlePointerDown || !cliTableWrapper) {
+                    return;
+                }
+
+                resizeHandlePointerDown = false;
+                const wrapperRect = cliTableWrapper.getBoundingClientRect();
+                if (Math.abs(wrapperRect.height - tableWrapperHeightBeforeResize) > 4) {
+                    userResizedTableWrapper = true;
+                }
+            }
+
+            cliTableWrapper?.addEventListener('mousedown', markTableResizeStart);
+            window.addEventListener('mouseup', finishTableResize);
+
+            updateChipState();
+            updateClearFiltersState();
+            if (cliVisibleRowsFormat) {
+                cliVisibleRowsFormat.value = uiState.visibleRowsFormat;
+            }
+            loadCliReference();
+        });
+    </script>
+</body>
+</html>
+
+
+

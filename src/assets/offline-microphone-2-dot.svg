@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+  <!-- Main microphone body -->
+  <path d="M11.999 15a3 3 0 003-3V6a3 3 0 00-6 0v6a3 3 0 003 3z"/>
+  
+  <!-- Microphone stand/base -->
+  <path d="M18.75 12a.75.75 0 01-.75.75a6.002 6.002 0 01-12.004 0A.75.75 0 016.75 12v-1.5a.75.75 0 011.5 0V12a4.5 4.5 0 009 0v-1.5a.75.75 0 011.5 0V12z"/>
+  
+  <!-- Microphone arm -->
+  <path d="M11.999 17.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V18a.75.75 0 01.75-.75z"/>
+  
+  <!-- Microphone base -->
+  <path d="M10 18a2 2 0 114 0h-4z"/>
+  
+  <!-- Offline indicator: small circle in top-right corner -->
+  <circle cx="17" cy="7" r="2.5" fill="currentColor" opacity="0.8"/>
+  
+  <!-- Offline indicator: subtle diagonal line through microphone -->
+  <line x1="7" y1="17" x2="17" y2="7" stroke="currentColor" stroke-width="1.2" opacity="0.6"/>
+</svg> 

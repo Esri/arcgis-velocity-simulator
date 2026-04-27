@@ -1,0 +1,39 @@
+{
+  "_comment": "Sample headless SERVER run configuration. Use this when the simulator should bind locally and replay data. By default, data is sent immediately without waiting for clients to connect. Set waitForClient=true if you need to wait for downstream consumers first.",
+  "_usage": "Copy this file, adjust the values, then launch with config=/absolute/path/to/your-launch-config.json. CLI values override config-file values.",
+  "connection": {
+    "_comment": "Server mode binds to a local address/port. Set waitForClient=true to wait for clients before advancing through the file.",
+    "connectTimeoutMs": 30000,
+    "ip": "0.0.0.0",
+    "mode": "server",
+    "port": 5565,
+    "protocol": "tcp",
+    "waitForClient": false
+  },
+  "headless": {
+    "_comment": "Headless mode runs without creating the normal Electron UI.",
+    "filename": "./data/example-data.csv",
+    "runMode": "headless"
+  },
+  "output": {
+    "_comment": "Optional files that help schedulers, CI jobs, or scripts track the run outcome.",
+    "doneFile": "./logs/headless-server.done.json",
+    "logFile": "./logs/headless-server.log",
+    "logLevel": "info",
+    "runId": "scheduled-server-run",
+    "stdout": true
+  },
+  "streaming": {
+    "_comment": "Replay one line per second, stop at the end of the configured range, and exit when done.",
+    "autoConnect": true,
+    "autoStart": true,
+    "endLine": 500,
+    "exitOnComplete": true,
+    "intervalMs": 1000,
+    "linesPerInterval": 1,
+    "loop": false,
+    "maxLines": null,
+    "onError": "exit",
+    "startLine": 1
+  }
+}

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+    <!-- Document outline -->
+    <path d="M3.75 3a.75.75 0 00-.75.75v16.5a.75.75 0 00.75.75h16.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75H3.75zM2.25 3.75A1.5 1.5 0 013.75 2.25h16.5a1.5 1.5 0 011.5 1.5v16.5a1.5 1.5 0 01-1.5 1.5H3.75a1.5 1.5 0 01-1.5-1.5V3.75z" />
+    <!-- Connection info lines -->
+    <path d="M6.75 6a.75.75 0 000 1.5h6a.75.75 0 000-1.5h-6z" />
+    <path d="M6.75 9a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5h-4.5z" />
+    <path d="M6.75 12a.75.75 0 000 1.5h7.5a.75.75 0 000-1.5h-7.5z" />
+    <!-- Connection dots/indicators -->
+    <circle cx="16.5" cy="6.75" r="1" />
+    <circle cx="15" cy="9.75" r="1" />
+    <circle cx="17" cy="12.75" r="1" />
+</svg>

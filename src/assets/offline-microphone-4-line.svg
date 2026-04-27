@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+  <!-- Main microphone body -->
+  <path d="M11.999 15a3 3 0 003-3V6a3 3 0 00-6 0v6a3 3 0 003 3z"/>
+  
+  <!-- Microphone stand/base -->
+  <path d="M18.75 12a.75.75 0 01-.75.75a6.002 6.002 0 01-12.004 0A.75.75 0 016.75 12v-1.5a.75.75 0 011.5 0V12a4.5 4.5 0 009 0v-1.5a.75.75 0 011.5 0V12z"/>
+  
+  <!-- Microphone arm -->
+  <path d="M11.999 17.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V18a.75.75 0 01.75-.75z"/>
+  
+  <!-- Microphone base -->
+  <path d="M10 18a2 2 0 114 0h-4z"/>
+  
+  <!-- Left waveform lines -->
+  <line x1="6" y1="12" x2="8" y2="10" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+  <line x1="8" y1="10" x2="10" y2="14" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+  <line x1="10" y1="14" x2="12" y2="8" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+  
+  <!-- Right waveform lines -->
+  <line x1="18" y1="12" x2="16" y2="10" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+  <line x1="16" y1="10" x2="14" y2="14" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+  <line x1="14" y1="14" x2="12" y2="8" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+  
+  <!-- Straight line below microphone -->
+  <line x1="8" y1="22" x2="16" y2="22" stroke="currentColor" stroke-width="1.5"/>
+</svg> 

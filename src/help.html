@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=600, initial-scale=1.0">
+    <title>Help - ArcGIS Velocity Simulator</title>
+    <link rel="stylesheet" href="./themes.css">
+    <link rel="stylesheet" href="./help.css">
+</head>
+<body>
+    <div class="help-container">
+        <div class="help-header">
+            <div class="help-title">ArcGIS Velocity Simulator Help</div>
+        </div>
+        
+        <div class="help-content">
+            <div class="help-section">
+                <h3>Overview</h3>
+                <p>Cross-platform desktop application for simulating data streams from CSV files over TCP/UDP protocols. Features gesture and voice controls for hands-free operation.</p>
+            </div>
+
+            <div class="help-section">
+                <h3>Quick Start</h3>
+                <ol>
+                    <li>Select CSV file</li>
+                    <li>Choose protocol mode (TCP/UDP Server/Client)</li>
+                    <li>Set IP address and port</li>
+                    <li>Configure streaming rate</li>
+                    <li>Connect and Play</li>
+                </ol>
+            </div>
+
+            <div class="help-section">
+                <h3>Connection Modes</h3>
+                <ul>
+                    <li><strong>TCP Server:</strong> Listen for incoming connections</li>
+                    <li><strong>TCP Client:</strong> Connect to remote server</li>
+                    <li><strong>UDP Server:</strong> Listen for incoming packets</li>
+                    <li><strong>UDP Client:</strong> Send packets to remote server</li>
+                </ul>
+            </div>
+            
+            <div class="help-section">
+                <h3>Controls</h3>
+                <ul>
+                    <li><strong>File:</strong> Select CSV file to stream</li>
+                    <li><strong>Connection:</strong> Set IP address and port</li>
+                    <li><strong>Rate:</strong> Lines per interval and timing (ms)</li>
+                    <li><strong>Connect/Disconnect:</strong> Establish/terminate connection</li>
+                    <li><strong>Play/Pause/Step:</strong> Control data streaming</li>
+                    <li><strong>Continuous Loop:</strong> ➿ button toggles file looping</li>
+                </ul>
+            </div>
+
+            <div class="help-section">
+                <h3>Interface</h3>
+                <ul>
+                    <li><strong>Line Preview:</strong> Shows current line content</li>
+                    <li><strong>Navigation Slider:</strong> Scrub through data file</li>
+                    <li><strong>Status Bar:</strong> Shows position, state, and lines sent</li>
+                    <li><strong>View Toggle:</strong> ⇔ button switches full/compact view</li>
+                    <li><strong>Status Log Toggle:</strong> 📜 button shows/hides log panel</li>
+                </ul>
+            </div>
+            
+            <div class="help-section">
+                <h3>Gesture Controls</h3>
+                <ul>
+                    <li><strong>Setup:</strong> Click 📷 button, allow webcam access</li>
+                    <li><strong>Gestures:</strong></li>
+                    <li class="sub-item">👍 Thumbs Up → Connect</li>
+                    <li class="sub-item">🤙 Pinky Up → Disconnect</li>
+                    <li class="sub-item">👊 Closed Fist → Play/Resume</li>
+                    <li class="sub-item">🖐️ Open Palm → Pause</li>
+                    <li class="sub-item">✌️ Victory Sign → Step</li>
+                    <li><strong>Toggle Display:</strong> 📄 button shows/hides gesture feedback</li>
+                </ul>
+            </div>
+
+            <div class="help-section">
+                <h3>Voice Controls</h3>
+                <ul>
+                    <li><strong>Setup:</strong> Click 🎤 button, allow microphone access</li>
+                    <li><strong>Requirements:</strong> An active internet connection is required for voice commands. If the connection fails, the system will attempt to reconnect automatically.</li>
+                    <li><strong>Commands:</strong></li>
+                    <li class="sub-item">"connect" / "disconnect"</li>
+                    <li class="sub-item">"play" / "start" / "pause" / "stop"</li>
+                    <li class="sub-item">"step"</li>
+                    <li class="sub-item">"switch" / "toggle view"</li>
+                </ul>
+            </div>
+            
+            <div class="help-section">
+                <h3>Status & Logging</h3>
+                <ul>
+                    <li><strong>Status Bar:</strong> Bottom bar shows app state with emoji indicators</li>
+                    <li class="sub-item">🔴 Disconnected</li>
+                    <li class="sub-item">🟢 Connected - Ready</li>
+                    <li class="sub-item">▶️ Connected - Playing</li>
+                    <li class="sub-item">⏸️ Connected - Paused</li>
+                    <li class="sub-item">👣 Stepped (temporary)</li>
+                    <li><strong>Line Counter:</strong> Shows current position (e.g., "Line 10 of 100")</li>
+                    <li><strong>Lines Sent:</strong> Tracks total lines sent in session</li>
+                    <li><strong>Log Controls:</strong> 🖐️ and 🎤 buttons toggle gesture/voice logging</li>
+                    <li><strong>Clear Log:</strong> 🗑️ button clears status messages</li>
+                    <li><strong>Sort Order:</strong> Use the new sort button to toggle between <em>Ascending</em> and <em>Descending</em> order (default: Ascending). The icon updates to reflect the current order.</li>
+                </ul>
+            </div>
+            
+            <div class="help-section">
+                <h3>Customization</h3>
+                <ul>
+                    <li><strong>15 Themes:</strong> 🔵 Blue, 🟡 Color Blind, 🌙 Dark, 🌫️ Dark Gray, 🟢 Green, ⚫ High Contrast, ☀️ Light, ☁️ Light Gray, 🌌 Midnight, ☕ Mocha, 🌊 Ocean, 🌸 Rose, 🌺 Rose Dark, 🌅 Sunset, 💻 System</li>
+                    <li><strong>Window Opacity:</strong> 11 levels from 50% to 100% transparency</li>
+                    <li><strong>Font Options:</strong> Size (6px-25px) and family customization</li>
+                    <li><strong>Auto-Save:</strong> All settings persist between sessions</li>
+                    <li><strong>Context Menu:</strong> Right-click for theme, opacity, and config options</li>
+                </ul>
+            </div>
+
+            <div class="help-section">
+                <h3>Command Line Interface Dialog</h3>
+                <p>The interactive command-line reference now lives in its own <strong>Command Line Interface</strong> dialog, separate from this product Help dialog.</p>
+                <ul>
+                    <li><strong>Open it from the keyboard:</strong> Press <kbd>F3</kbd> from the main window.</li>
+                    <li><strong>Open it from the menu:</strong> Use <strong>Help → Command Line Interface</strong>.</li>
+                    <li><strong>Open it from the context menu:</strong> Right-click in the main window and choose <strong>Command Line Interface</strong>.</li>
+                    <li><strong>Use it for automation help:</strong> Browse searchable and sortable parameters, supported values, defaults, examples, and headless notes.</li>
+                    <li><strong>Filter and refine:</strong> Use quick category chips, active filter pills, and sticky sortable columns to narrow the parameter table.</li>
+                    <li><strong>Copy or export:</strong> Copy example commands or export the currently visible rows as TSV, CSV, Markdown, or JSON.</li>
+                    <li><strong>Keyboard shortcuts:</strong> In that dialog, use <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>F</kbd> or <kbd>/</kbd> to focus the filter, and <kbd>Escape</kbd> to close it.</li>
+                </ul>
+            </div>
+
+            <div class="help-section shortcuts-section">
+                <h3>Keyboard Shortcuts</h3>
+                <table class="shortcuts-table">
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Windows/Linux</th>
+                            <th>macOS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Toggle View (Full/Compact)</td>
+                            <td><kbd>Ctrl</kbd> + <kbd>T</kbd></td>
+                            <td><kbd>Cmd</kbd> + <kbd>T</kbd></td>
+                        </tr>
+                        <tr>
+                            <td>Connect/Disconnect</td>
+                            <td><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd></td>
+                            <td><kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd></td>
+                        </tr>
+                        <tr>
+                            <td>Disconnect</td>
+                            <td><kbd>Ctrl</kbd> + <kbd>D</kbd></td>
+                            <td><kbd>Cmd</kbd> + <kbd>D</kbd></td>
+                        </tr>
+                        <tr>
+                            <td>Preferences</td>
+                            <td><kbd>Ctrl</kbd> + <kbd>I</kbd></td>
+                            <td><kbd>Cmd</kbd> + <kbd>I</kbd></td>
+                        </tr>
+                        <tr>
+                            <td>Save Config</td>
+                            <td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>S</kbd></td>
+                            <td><kbd>Cmd</kbd> + <kbd>Alt</kbd> + <kbd>S</kbd></td>
+                        </tr>
+                        <tr>
+                            <td>Help</td>
+                            <td colspan="2"><kbd>F1</kbd></td>
+                        </tr>
+                        <tr>
+                            <td>About</td>
+                            <td colspan="2"><kbd>F2</kbd></td>
+                        </tr>
+                        <tr>
+                            <td>Command Line Interface</td>
+                            <td colspan="2"><kbd>F3</kbd></td>
+                        </tr>
+                        <tr>
+                            <td>Developer Tools</td>
+                            <td colspan="2"><kbd>F12</kbd></td>
+                        </tr>
+                        <tr>
+                            <td>Close Dialog</td>
+                            <td colspan="2"><kbd>Escape</kbd></td>
+                        </tr>
+                        <tr>
+                            <td>Context Menu</td>
+                            <td colspan="2"><kbd>Right-click</kbd></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="help-section">
+                <h3>Technology</h3>
+                <ul>
+                    <li><strong>Electron:</strong> Cross-platform desktop framework</li>
+                    <li><strong>Node.js:</strong> Backend networking and file operations</li>
+                    <li><strong>TensorFlow.js:</strong> Hand gesture recognition</li>
+                    <li><strong>Web Speech API:</strong> Voice command recognition</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="help-footer">
+            <button class="help-close" id="close-button">Close</button>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const closeButton = document.getElementById('close-button');
+            closeButton.addEventListener('click', () => {
+                window.close();
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    window.close();
+                }
+            });
+
+            // Listen for the theme from the main process, apply it, and notify main
+            window.api.onSetTheme((_event, theme) => {
+                if (theme) {
+                    document.body.className = theme;
+                } else {
+                    // Default to dark theme if none is provided
+                    document.body.className = 'dark';
+                }
+                // Notify the main process that the theme has been applied
+                window.api.themeApplied();
+            });
+
+        });
+    </script>
+</body>
+</html>
