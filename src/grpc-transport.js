@@ -1,4 +1,20 @@
 /**
+ * Copyright 2026 Esri
+ *
+ * Licensed under the Apache License Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
  * @file grpc-transport.js
  * @description
  * gRPC transport for the ArcGIS Velocity Simulator.
@@ -272,15 +288,27 @@ function getSystemRootCertificates() {
   if (process.platform === 'darwin') {
     try {
       const { execSync } = require('child_process');
+      // Start with the known system keychains, then append all keychains from the
+      // user's active search list (which includes the login keychain).
+      // This is critical: user-trusted certs (e.g. self-signed TLS certs) are stored
+      // in ~/Library/Keychains/login.keychain-db, NOT in System.keychain.
+      let keychainArgs = '/System/Library/Keychains/SystemRootCertificates.keychain /Library/Keychains/System.keychain';
+      try {
+        const listed = execSync(
+          'security list-keychains',
+          { timeout: 5000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
+        ).replace(/"/g, '').trim().split('\n').map((s) => s.trim()).filter(Boolean).join(' ');
+        if (listed) keychainArgs = `${keychainArgs} ${listed}`;
+      } catch (_) { /* use default keychains only */ }
       const pemOutput = execSync(
-        'security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain /Library/Keychains/System.keychain',
+        `security find-certificate -a -p ${keychainArgs}`,
         { timeout: 10000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
       );
       const matches = pemOutput.match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g);
       if (matches) {
         certs.push(...matches);
         osCount = matches.length;
-        osSource = 'macOS Keychain';
+        osSource = 'macOS Keychain (system + login)';
       }
     } catch (_) { /* keychain read failed — fall back to bundled certs only */ }
   } else if (process.platform === 'linux') {
