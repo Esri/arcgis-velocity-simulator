@@ -14,6 +14,7 @@ This folder contains all technical and user-facing documentation for the ArcGIS 
 | [DEVELOPMENT-SUMMARY.md](./DEVELOPMENT-SUMMARY.md) | Technical implementation details, recent changes, and development decisions |
 | [DOCUMENTATION.md](./DOCUMENTATION.md) | Full documentation index with audience classification, maintenance schedule, and contribution guidelines |
 | [GRPC.md](./GRPC.md) | gRPC transport: modes (client/server), serialization formats (Protobuf, Kryo, Text), TLS, and metadata |
+| [HTTP.md](./HTTP.md) | HTTP/HTTPS transport: modes (client/server), data formats (JSON, CSV, Esri JSON, GeoJSON, XML), TLS, and metadata |
 | [HEADLESS.md](./HEADLESS.md) | No-UI automation: running headless sessions, all headless-specific parameters, config file workflow, output formats, and the `doneFile` artifact |
 | [KEYBOARD-SHORTCUTS.md](./KEYBOARD-SHORTCUTS.md) | All keyboard shortcuts, context menu reference, and in-app Command Line Interface dialog shortcuts |
 | [OFFLINE-SPEECH-README.md](./OFFLINE-SPEECH-README.md) | Offline speech recognition: setup, supported commands, frequency-analysis internals, and troubleshooting |

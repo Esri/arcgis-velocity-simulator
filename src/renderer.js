@@ -83,6 +83,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const grpcTlsCaGroup = document.getElementById('grpc-tls-ca-group');
   const grpcTlsCertGroup = document.getElementById('grpc-tls-cert-group');
   const grpcTlsKeyGroup = document.getElementById('grpc-tls-key-group');
+  const httpFormatSelect = document.getElementById('http-format');
+  const httpFormatGroup = document.getElementById('http-format-group');
+  const httpTlsCheckbox = document.getElementById('http-tls');
+  const httpTlsGroup = document.getElementById('http-tls-group');
+  const httpTlsCaGroup = document.getElementById('http-tls-ca-group');
+  const httpTlsCertGroup = document.getElementById('http-tls-cert-group');
+  const httpTlsKeyGroup = document.getElementById('http-tls-key-group');
+  const httpPathGroup = document.getElementById('http-path-group');
+  const httpPathInput = document.getElementById('http-path');
   const toggleVoiceButton = document.getElementById('toggle-voice-button');
   const toggleLoopButton = document.getElementById('toggle-loop-button');
   const toggleStatusLog = document.getElementById('toggle-status-log');
@@ -148,20 +157,88 @@ document.addEventListener('DOMContentLoaded', () => {
     grpcSendMethodGroup.title = tooltip;
   }
 
-  // Show/hide gRPC controls based on connection type
+  const HTTP_FORMAT_TOOLTIPS = {
+    json: 'HTTP Format: JSON (application/json). The standard format for most HTTP feeds. Each request body is a JSON object or array of features.',
+    delimited: 'HTTP Format: Delimited / CSV (text/plain). Each line is a comma-separated row of field values. Best for simple tabular data without nested structures.',
+    'esri-json': 'HTTP Format: Esri JSON (application/json). Uses the Esri Feature JSON schema with geometry and attributes objects. Use when the Velocity HTTP Receiver expects ArcGIS-native feature format.',
+    'geo-json': 'HTTP Format: GeoJSON (application/geo+json). Standard GeoJSON per RFC 7946 with FeatureCollection and Feature objects. Use when the receiver expects standard geospatial interchange format.',
+    xml: 'HTTP Format: XML (application/xml). Sends data as XML-formatted payloads. Use when the Velocity HTTP Receiver is configured for XML input.',
+  };
+
+  const CONNECTION_MODE_TOOLTIPS = {
+    'tcp-server': 'TCP Server — listens on the specified port and accepts incoming TCP connections from clients.',
+    'tcp-client': 'TCP Client — connects to a remote TCP server at the specified host and port.',
+    'udp-server': 'UDP Server — binds to the specified port and receives incoming UDP datagrams.',
+    'udp-client': 'UDP Client — sends UDP datagrams to the specified host and port.',
+    'http-client': 'HTTP Client — sends data via HTTP/HTTPS POST requests to a remote endpoint.',
+    'http-server': 'HTTP Server — starts a local HTTP/HTTPS server that accepts POST requests from clients.',
+    'grpc-client': 'gRPC Client — connects to a remote gRPC server using HTTP/2.',
+    'grpc-server': 'gRPC Server — starts a local gRPC server that accepts incoming RPC calls.',
+  };
+
+  function updateHttpFormatTooltip() {
+    if (!httpFormatSelect) return;
+    const tooltip = HTTP_FORMAT_TOOLTIPS[httpFormatSelect.value] || HTTP_FORMAT_TOOLTIPS.json;
+    httpFormatSelect.title = tooltip;
+    httpFormatSelect.setAttribute('aria-label', tooltip);
+    if (httpFormatGroup) httpFormatGroup.title = tooltip;
+  }
+
+  function updateConnectionModeTooltip() {
+    const tooltip = CONNECTION_MODE_TOOLTIPS[connectionTypeSelect.value] || '';
+    connectionTypeSelect.title = tooltip;
+    connectionTypeSelect.setAttribute('aria-label', tooltip);
+  }
+
+  // Default ports per protocol
+  const DEFAULT_PORTS = { tcp: 5565, udp: 5565, grpc: 5565, http: 443 };
+  const HTTP_PORT_TLS_ON = 443;
+  const HTTP_PORT_TLS_OFF = 80;
+  let lastProtocolDefault = 5565;
+
+  // Show/hide gRPC and HTTP controls based on connection type
   connectionTypeSelect.addEventListener('change', () => {
-    const isGrpc = connectionTypeSelect.value.startsWith('grpc');
-    const isGrpcClient = connectionTypeSelect.value === 'grpc-client';
+    const val = connectionTypeSelect.value;
+    const isGrpc = val.startsWith('grpc');
+    const isGrpcClient = val === 'grpc-client';
+    const isHttp = val.startsWith('http');
+
+    // gRPC controls
     grpcSerializationGroup.style.display = isGrpc ? '' : 'none';
     grpcSendMethodGroup.style.display = isGrpc ? '' : 'none';
     grpcTlsGroup.style.display = isGrpc ? '' : 'none';
-    const showTlsCerts = isGrpc && grpcTlsCheckbox.checked;
-    grpcTlsCaGroup.style.display = showTlsCerts ? '' : 'none';
-    grpcTlsCertGroup.style.display = showTlsCerts ? '' : 'none';
-    grpcTlsKeyGroup.style.display = showTlsCerts ? '' : 'none';
+    const showGrpcTlsCerts = isGrpc && grpcTlsCheckbox.checked;
+    grpcTlsCaGroup.style.display = showGrpcTlsCerts ? '' : 'none';
+    grpcTlsCertGroup.style.display = showGrpcTlsCerts ? '' : 'none';
+    grpcTlsKeyGroup.style.display = showGrpcTlsCerts ? '' : 'none';
     grpcHeaderPathKeyGroup.style.display = isGrpcClient ? '' : 'none';
     grpcHeaderPathGroup.style.display = isGrpcClient ? '' : 'none';
+
+    // HTTP controls
+    httpFormatGroup.style.display = isHttp ? '' : 'none';
+    httpTlsGroup.style.display = isHttp ? '' : 'none';
+    const showHttpTlsCerts = isHttp && httpTlsCheckbox.checked;
+    httpTlsCaGroup.style.display = showHttpTlsCerts ? '' : 'none';
+    httpTlsCertGroup.style.display = showHttpTlsCerts ? '' : 'none';
+    httpTlsKeyGroup.style.display = showHttpTlsCerts ? '' : 'none';
+    httpPathGroup.style.display = isHttp ? '' : 'none';
+
+    // Smart port switching
+    const currentPort = parseInt(portInput.value, 10);
+    const protocol = val.split('-')[0];
+    let newDefault;
+    if (isHttp) {
+      newDefault = httpTlsCheckbox.checked ? HTTP_PORT_TLS_ON : HTTP_PORT_TLS_OFF;
+    } else {
+      newDefault = DEFAULT_PORTS[protocol] || 5565;
+    }
+    if (currentPort === lastProtocolDefault || isNaN(currentPort)) {
+      portInput.value = newDefault;
+    }
+    lastProtocolDefault = newDefault;
+
     updateGrpcSerializationTooltip();
+    updateConnectionModeTooltip();
   });
 
   grpcSerializationSelect.addEventListener('change', updateGrpcSerializationTooltip);
@@ -170,6 +247,12 @@ document.addEventListener('DOMContentLoaded', () => {
   grpcSendMethodSelect.addEventListener('change', updateGrpcSendMethodTooltip);
   updateGrpcSendMethodTooltip();
 
+  httpFormatSelect.addEventListener('change', updateHttpFormatTooltip);
+  updateHttpFormatTooltip();
+
+  connectionTypeSelect.addEventListener('change', updateConnectionModeTooltip);
+  updateConnectionModeTooltip();
+
   // Toggle TLS cert fields when TLS checkbox changes
   grpcTlsCheckbox.addEventListener('change', () => {
     const isGrpc = connectionTypeSelect.value.startsWith('grpc');
@@ -177,6 +260,26 @@ document.addEventListener('DOMContentLoaded', () => {
     grpcTlsCaGroup.style.display = show ? '' : 'none';
     grpcTlsCertGroup.style.display = show ? '' : 'none';
     grpcTlsKeyGroup.style.display = show ? '' : 'none';
+  });
+
+  // Toggle HTTP TLS cert fields and port when HTTP TLS checkbox changes
+  httpTlsCheckbox.addEventListener('change', () => {
+    const isHttp = connectionTypeSelect.value.startsWith('http');
+    const show = isHttp && httpTlsCheckbox.checked;
+    httpTlsCaGroup.style.display = show ? '' : 'none';
+    httpTlsCertGroup.style.display = show ? '' : 'none';
+    httpTlsKeyGroup.style.display = show ? '' : 'none';
+    // Smart port switch between 80 and 443
+    if (isHttp) {
+      const currentPort = parseInt(portInput.value, 10);
+      if (httpTlsCheckbox.checked && currentPort === HTTP_PORT_TLS_OFF) {
+        portInput.value = HTTP_PORT_TLS_ON;
+        lastProtocolDefault = HTTP_PORT_TLS_ON;
+      } else if (!httpTlsCheckbox.checked && currentPort === HTTP_PORT_TLS_ON) {
+        portInput.value = HTTP_PORT_TLS_OFF;
+        lastProtocolDefault = HTTP_PORT_TLS_OFF;
+      }
+    }
   });
 
   const applyInitialSplitterPosition = () => {
@@ -472,15 +575,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const tlsCaPath = document.getElementById('grpc-tls-ca-path').value || undefined;
     const tlsCertPath = document.getElementById('grpc-tls-cert-path').value || undefined;
     const tlsKeyPath = document.getElementById('grpc-tls-key-path').value || undefined;
+    // HTTP-specific params
+    const httpFormat = httpFormatSelect.value;
+    const httpTls = httpTlsCheckbox.checked;
+    const httpTlsCaPath = document.getElementById('http-tls-ca-path').value || undefined;
+    const httpTlsCertPath = document.getElementById('http-tls-cert-path').value || undefined;
+    const httpTlsKeyPath = document.getElementById('http-tls-key-path').value || undefined;
+    const httpPath = httpPathInput.value || '/';
     // Reset session counter on new connection.
     linesSentThisSession = 0;
     const tlsLabel = protocol === 'grpc' ? (useTls ? ' tls=on' : ' tls=off') : '';
     const serLabel = protocol === 'grpc' ? ` [${serialization || 'protobuf'}]` : '';
     const methodLabel = protocol === 'grpc' ? ` ${grpcSendMethod === 'unary' ? 'unary' : 'streaming'}` : '';
     const headerLabel = protocol === 'grpc' && mode === 'client' ? ` ${headerPathKey}=${headerPath}` : '';
-    logStatus(`Connecting via ${protocol.toUpperCase()} ${mode} to ${ip}:${port}${serLabel}${methodLabel}${tlsLabel}${headerLabel}...`);
+    const httpLabel = protocol === 'http' ? ` [${httpFormat}] ${httpTls ? 'tls=on' : 'tls=off'} path=${httpPath}` : '';
+    logStatus(`Connecting via ${protocol.toUpperCase()} ${mode} to ${ip}:${port}${serLabel}${methodLabel}${tlsLabel}${headerLabel}${httpLabel}...`);
     handleConnectionStatusChange('connecting');
-    window.api.connect({ protocol, mode, ip, port, grpcSerialization: serialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath });
+    window.api.connect({ protocol, mode, ip, port, grpcSerialization: serialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath });
   });
 
   // Terminates the active connection.
@@ -941,6 +1052,9 @@ document.addEventListener('DOMContentLoaded', () => {
     grpcHeaderPathKeyInput.disabled = connected;
     grpcTlsCheckbox.disabled = connected;
     grpcHeaderPathInput.disabled = connected;
+    httpFormatSelect.disabled = connected;
+    httpTlsCheckbox.disabled = connected;
+    httpPathInput.disabled = connected;
     document.getElementById('ip-address').disabled = connected;
     document.getElementById('port').disabled = connected;
     

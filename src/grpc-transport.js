@@ -45,6 +45,8 @@ const fs = require('fs');
 const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
 
+const { getSystemRootCertificates, formatTlsCertSummary } = require('./tls-utils');
+
 const PROTO_DIR = path.join(__dirname, 'proto');
 const VELOCITY_PROTO_PATH = path.join(PROTO_DIR, 'velocity-grpc.proto');
 const FEATURE_SERVICE_PROTO_PATH = path.join(PROTO_DIR, 'feature-service.proto');
@@ -263,127 +265,7 @@ function featureAttributesToCsv(attributes, wrapperTypes) {
 }
 
 
-/**
- * Loads root certificates from both the Node.js bundled store and the OS
- * certificate store, returning the PEM buffer and human-readable metadata.
- *
- * This is necessary because @grpc/grpc-js uses Node's `tls` module directly.
- * Electron bundles its own Node.js which may not automatically consult the OS
- * certificate store, causing TLS failures when connecting to servers that use
- * internal/enterprise CA certificates (e.g. Esri Root CA).
- *
- * The result is cached after the first call.
- */
-let _systemRootCertsResult = null;
-function getSystemRootCertificates() {
-  if (_systemRootCertsResult) return _systemRootCertsResult;
-
-  const tls = require('tls');
-  const bundledCerts = tls.rootCertificates || [];
-  const certs = [...bundledCerts];
-  const bundledCount = bundledCerts.length;
-  let osSource = null;
-  let osCount = 0;
-
-  if (process.platform === 'darwin') {
-    try {
-      const { execSync } = require('child_process');
-      // Start with the known system keychains, then append all keychains from the
-      // user's active search list (which includes the login keychain).
-      // This is critical: user-trusted certs (e.g. self-signed TLS certs) are stored
-      // in ~/Library/Keychains/login.keychain-db, NOT in System.keychain.
-      let keychainArgs = '/System/Library/Keychains/SystemRootCertificates.keychain /Library/Keychains/System.keychain';
-      try {
-        const listed = execSync(
-          'security list-keychains',
-          { timeout: 5000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
-        ).replace(/"/g, '').trim().split('\n').map((s) => s.trim()).filter(Boolean).join(' ');
-        if (listed) keychainArgs = `${keychainArgs} ${listed}`;
-      } catch (_) { /* use default keychains only */ }
-      const pemOutput = execSync(
-        `security find-certificate -a -p ${keychainArgs}`,
-        { timeout: 10000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
-      );
-      const matches = pemOutput.match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g);
-      if (matches) {
-        certs.push(...matches);
-        osCount = matches.length;
-        osSource = 'macOS Keychain (system + login)';
-      }
-    } catch (_) { /* keychain read failed — fall back to bundled certs only */ }
-  } else if (process.platform === 'linux') {
-    const bundlePaths = [
-      '/etc/ssl/certs/ca-certificates.crt',
-      '/etc/pki/tls/certs/ca-bundle.crt',
-      '/etc/ssl/ca-bundle.pem',
-    ];
-    for (const bundlePath of bundlePaths) {
-      try {
-        const pemOutput = fs.readFileSync(bundlePath, 'utf-8');
-        const matches = pemOutput.match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g);
-        if (matches) {
-          certs.push(...matches);
-          osCount = matches.length;
-          osSource = bundlePath;
-          break;
-        }
-      } catch (_) { /* try next path */ }
-    }
-  } else if (process.platform === 'win32') {
-    try {
-      const { execSync } = require('child_process');
-      // Export trusted root CA certificates from the Windows certificate store via PowerShell.
-      // Reads from both LocalMachine\Root (system-wide trusted roots) and
-      // CurrentUser\Root (per-user trusted roots) to cover enterprise CAs.
-      // Uses -EncodedCommand (Base64-encoded UTF-16LE) to avoid cmd.exe quoting issues.
-      const psScript = [
-        'Get-ChildItem -Path Cert:\\LocalMachine\\Root, Cert:\\CurrentUser\\Root |',
-        '  Sort-Object -Property Thumbprint -Unique |',
-        '  ForEach-Object {',
-        "    '-----BEGIN CERTIFICATE-----'",
-        "    [Convert]::ToBase64String($_.RawData, 'InsertLineBreaks')",
-        "    '-----END CERTIFICATE-----'",
-        '  }',
-      ].join('\n');
-      const encodedCommand = Buffer.from(psScript, 'utf16le').toString('base64');
-      const pemOutput = execSync(
-        `powershell -NoProfile -NonInteractive -EncodedCommand ${encodedCommand}`,
-        { timeout: 15000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
-      );
-      const matches = pemOutput.match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g);
-      if (matches) {
-        certs.push(...matches);
-        osCount = matches.length;
-        osSource = 'Windows certificate store';
-      }
-    } catch (_) { /* Windows cert store read failed — fall back to bundled certs only */ }
-  }
-
-  const uniqueCerts = [...new Set(certs)];
-  const pemBuffer = Buffer.from(uniqueCerts.join('\n'));
-
-  _systemRootCertsResult = {
-    pemBuffer,
-    bundledCount,
-    osCount,
-    osSource,
-    totalCount: uniqueCerts.length,
-  };
-  return _systemRootCertsResult;
-}
-
-/**
- * Builds a human-readable TLS certificate summary string for logging.
- */
-function formatTlsCertSummary(certInfo) {
-  if (!certInfo) return 'bundled CAs';
-  const parts = [`${certInfo.totalCount} trusted CAs loaded`];
-  parts.push(`node-bundled=${certInfo.bundledCount}`);
-  if (certInfo.osSource) {
-    parts.push(`os=${certInfo.osSource} (${certInfo.osCount})`);
-  }
-  return parts.join(', ');
-}
+// TLS certificate utilities are now provided by tls-utils.js
 
 /**
  * Builds gRPC channel credentials based on TLS options.

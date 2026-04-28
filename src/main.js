@@ -95,7 +95,9 @@ let connection = null; // Holds the active server or client socket.
 let tcpClientSockets = []; // Array of connected TCP client sockets (when in server mode).
 let udpServerClients = new Set(); // Set of known UDP clients (when in server mode).
 let grpcTransport = null; // Holds active gRPC transport (GrpcClientTransport or GrpcServerTransport).
+let httpTransport = null; // Holds active HTTP transport (HttpClientTransport or HttpServerTransport).
 const { createGrpcClientTransport, createGrpcServerTransport } = require(path.join(basePath, 'grpc-transport.js'));
+const { createHttpClientTransport, createHttpServerTransport, FORMAT_CONTENT_TYPES } = require(path.join(basePath, 'http-transport.js'));
 
 // Make mainWindow globally accessible for speech recognition
 global.mainWindow = null;
@@ -1906,7 +1908,7 @@ ipcMain.handle('get-microphone-support-state', () => {
 });
 
 // Establishes a TCP or UDP connection based on the provided parameters.
-ipcMain.handle('connect', (event, { protocol, mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath }) => {
+ipcMain.handle('connect', (event, { protocol, mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath }) => {
   if (connection) {
     logStatus('Error: A connection is already active.');
     return { success: false, error: 'Connection already active' };
@@ -2020,6 +2022,28 @@ ipcMain.handle('connect', (event, { protocol, mode, ip, port, grpcSerialization,
           emitConnectionStatus('disconnected', `gRPC Server error: ${err.message}`);
         });
       }
+    } else if (protocol === 'http') {
+      if (mode === 'client') {
+        httpTransport = createHttpClientTransport({ ip, port, httpFormat, httpPath, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath });
+        httpTransport.connect().then((result) => {
+          connection = httpTransport;
+          const contentType = FORMAT_CONTENT_TYPES[httpFormat] || 'text/plain';
+          emitConnectionStatus('connected', `HTTP client connected to ${result.address} [${httpFormat}] Content-Type: ${contentType}\n  ${result.tlsInfo || 'tls=off'}`);
+        }).catch((err) => {
+          httpTransport = null;
+          emitConnectionStatus('disconnected', `HTTP Client error: ${err.message}`);
+        });
+      } else { // HTTP Server
+        httpTransport = createHttpServerTransport({ ip, port, httpFormat, httpPath, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath });
+        httpTransport.connect().then((result) => {
+          connection = httpTransport;
+          const contentType = FORMAT_CONTENT_TYPES[httpFormat] || 'text/plain';
+          emitConnectionStatus('connected', `HTTP server listening on ${result.address.address}:${result.address.port} [${httpFormat}] Content-Type: ${contentType}\n  ${result.tlsInfo || 'tls=off'}`);
+        }).catch((err) => {
+          httpTransport = null;
+          emitConnectionStatus('disconnected', `HTTP Server error: ${err.message}`);
+        });
+      }
     }
     return { success: true };
   } catch (err) {
@@ -2059,6 +2083,12 @@ ipcMain.handle('disconnect', () => {
         emitConnectionStatus('disconnected', 'gRPC connection has been closed.');
         connection = null;
         grpcTransport = null;
+      });
+    } else if (httpTransport) { // HTTP
+      httpTransport.disconnect().then(() => {
+        emitConnectionStatus('disconnected', 'HTTP connection has been closed.');
+        connection = null;
+        httpTransport = null;
       });
     }
     return { success: true };
@@ -2125,6 +2155,10 @@ ipcMain.on('send-data', (event, data) => {
     } else if (grpcTransport) { // gRPC
       grpcTransport.send(data).catch((err) => {
         logStatus(`gRPC send error: ${err.message}`);
+      });
+    } else if (httpTransport) { // HTTP
+      httpTransport.send(data).catch((err) => {
+        logStatus(`HTTP send error: ${err.message}`);
       });
     }
   } catch (err) {

@@ -467,7 +467,11 @@ body.compact #toggle-sort-order {
 /* TLS cert path inputs should be left-aligned like the serialization dropdown */
 #grpc-tls-ca-path,
 #grpc-tls-cert-path,
-#grpc-tls-key-path {
+#grpc-tls-key-path,
+#http-tls-ca-path,
+#http-tls-cert-path,
+#http-tls-key-path,
+#http-path {
   text-align: left;
 }
 
@@ -543,6 +547,11 @@ select {
 
 #grpc-serialization,
 #grpc-send-method {
+  text-align: left;
+  text-align-last: left;
+}
+
+#http-format {
   text-align: left;
   text-align-last: left;
 }

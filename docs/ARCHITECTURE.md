@@ -444,6 +444,10 @@ dist/
 
 ## Future Architecture Considerations
 
+### Design Principles
+
+- **DRY (Don't Repeat Yourself)**: Shared logic must be extracted into dedicated utility modules. For example, TLS/certificate-store operations are centralized in `src/tls-utils.js` and consumed by both `grpc-transport.js` and `http-transport.js` rather than duplicated.
+
 ### Scalability
 
 - **Plugin System**: Extensible architecture for additional protocols
