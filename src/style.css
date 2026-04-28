@@ -461,28 +461,19 @@ body.compact #toggle-sort-order {
 
 .aligned-group > :not(label):not(.primary-control) {
   flex: 1;
-  text-align: right;
-}
-
-/* TLS cert path inputs should be left-aligned like the serialization dropdown */
-#grpc-tls-ca-path,
-#grpc-tls-cert-path,
-#grpc-tls-key-path,
-#http-tls-ca-path,
-#http-tls-cert-path,
-#http-tls-key-path,
-#http-path,
-#ws-tls-ca-path,
-#ws-tls-cert-path,
-#ws-tls-key-path,
-#ws-path,
-#ws-subscription-msg,
-#ws-headers {
+  min-width: 0;
   text-align: left;
 }
 
-#http-format,
-#ws-format {
+/* New aligned-group text inputs and selects should default to left alignment. */
+.aligned-group > input[type="text"],
+.aligned-group > input[type="number"],
+.aligned-group > select,
+.aligned-group > textarea {
+  text-align: left;
+}
+
+.aligned-group > select {
   text-align: left;
   text-align-last: left;
 }
@@ -525,6 +516,16 @@ body.compact #toggle-sort-order {
 #lines-per-interval,
 #rate-ms {
   text-align: left;
+}
+
+.extra-options-toggle-spacer {
+  flex-basis: 90px;
+  flex-shrink: 0;
+  margin-right: 10px;
+}
+
+body.compact .extra-options-toggle-spacer {
+  flex-basis: 80px;
 }
 .radio-group {
   display: flex;
@@ -1247,4 +1248,80 @@ body:not(.show-gestures) #live-gesture-received {
 
 .connection-controls-group.hidden {
   display: none;
+}
+
+/* ========================================
+   EXTRA OPTIONS COLLAPSIBLE SECTION
+   ======================================== */
+.extra-options-toggle-row {
+  margin-bottom: 3px;
+}
+
+.extra-options-toggle-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-height: 30px;
+  padding: 5px 10px;
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.82em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  opacity: 0.92;
+  box-sizing: border-box;
+  transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
+  text-align: left;
+}
+
+.extra-options-toggle-btn:hover:not(:disabled) {
+  background-color: var(--button-hover);
+  opacity: 1;
+  transform: none;
+}
+
+.extra-options-toggle-btn:focus-visible {
+  outline: 2px solid var(--button-primary-bg);
+  outline-offset: 1px;
+}
+
+.extra-options-toggle-btn[aria-expanded="true"] {
+  border-color: var(--button-primary-bg);
+}
+
+.extra-options-toggle-btn[aria-expanded="true"] .extra-options-arrow {
+  transform: rotate(90deg);
+}
+
+.extra-options-arrow {
+  display: inline-block;
+  margin-left: auto;
+  transition: transform 0.15s;
+  font-size: 0.78em;
+  line-height: 1;
+  opacity: 0.72;
+}
+
+.extra-options-label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.extra-options-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+body.compact .extra-options-toggle-btn {
+  min-height: 26px;
+  padding: 3px 8px;
+  font-size: 0.78em;
 }

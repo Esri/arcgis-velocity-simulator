@@ -2220,6 +2220,12 @@ ipcMain.on('send-data', (event, data) => {
       httpTransport.send(data).catch((err) => {
         logStatus(`HTTP send error: ${err.message}`);
       });
+    } else if (wsTransport) { // WebSocket
+      try {
+        wsTransport.send(data);
+      } catch (err) {
+        logStatus(`WebSocket send error: ${err.message}`);
+      }
     }
   } catch (err) {
     logStatus(`Send data error: ${err.message}`);

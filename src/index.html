@@ -75,6 +75,16 @@
               <option value="grpc-server" title="gRPC Server — starts a local gRPC server that accepts incoming RPC calls from clients. Use for testing or when Velocity connects as a gRPC client.">gRPC Server</option>
             </select>
           </div>
+          <!-- Extra Options toggle row — shown only for HTTP/WS/gRPC modes -->
+          <div class="control-group aligned-group extra-options-toggle-row" id="extra-options-toggle-row" style="display: none;">
+            <span class="extra-options-toggle-spacer" aria-hidden="true"></span>
+            <button id="extra-options-toggle" class="extra-options-toggle-btn" type="button" title="Expand protocol-specific connection options." aria-expanded="false" aria-controls="extra-options-body" aria-label="Expand protocol-specific connection options.">
+              <span class="extra-options-label">Protocol Options</span>
+              <span class="extra-options-arrow">▸</span>
+            </button>
+          </div>
+          <!-- Collapsible extra options (protocol-specific controls) -->
+          <div id="extra-options-body" class="extra-options-body" style="display: none;">
           <div class="control-group aligned-group" id="http-format-group" style="display: none;">
             <label for="http-format">Format:</label>
             <select id="http-format" title="HTTP data format — controls the Content-Type header used when sending/receiving data. Must match the format configured in the ArcGIS Velocity HTTP Receiver feed.">
@@ -190,6 +200,7 @@
             <label for="grpc-header-path">Header path:</label>
             <input type="text" id="grpc-header-path" value="replace.with.dedicated.uid" title="gRPC endpoint header path">
           </div>
+          </div><!-- /#extra-options-body -->
           <div class="control-group combined-input-group aligned-group">
             <label for="ip-address">Connection:</label>
             <input type="text" id="ip-address" value="127.0.0.1" title="IP Address">

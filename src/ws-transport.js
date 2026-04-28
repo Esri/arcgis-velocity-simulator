@@ -163,6 +163,25 @@ function createWsClientTransport(opts) {
 
         const onError = (err) => {
           cleanup();
+          // Enrich HTTP-upgrade errors with status code, URL, and actionable hints
+          const res = err && err.response;
+          if (res) {
+            const status = res.statusCode || '?';
+            const statusText = res.statusMessage || '';
+            let hint = '';
+            if (status === 400) {
+              hint = ' — the server rejected the WebSocket upgrade. Common causes: the path does not match the server (e.g. server expects "/" but client used a different path), or the request was not a valid WebSocket handshake.';
+            } else if (status === 404) {
+              hint = ' — no endpoint found at the requested path. Verify the WebSocket path matches the server configuration.';
+            } else if (status === 401 || status === 403) {
+              hint = ' — the server denied access. Check authentication headers or credentials.';
+            }
+            const enriched = new Error(
+              `WebSocket upgrade failed: HTTP ${status}${statusText ? ' ' + statusText : ''} for ${url}${hint}`
+            );
+            enriched.response = res;
+            return reject(enriched);
+          }
           reject(err);
         };
 

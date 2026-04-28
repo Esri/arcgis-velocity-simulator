@@ -113,6 +113,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggleConnectionControls = document.getElementById('toggle-connection-controls');
   const toggleSortOrderButton = document.getElementById('toggle-sort-order');
   const connectionControlsGroup = document.querySelector('.connection-controls-group');
+  const extraOptionsToggleRow = document.getElementById('extra-options-toggle-row');
+  const extraOptionsToggleBtn = document.getElementById('extra-options-toggle');
+  const extraOptionsLabel = extraOptionsToggleBtn ? extraOptionsToggleBtn.querySelector('.extra-options-label') : null;
+  const extraOptionsBody = document.getElementById('extra-options-body');
+  let extraOptionsExpanded = false;
 
   const ipAddressInput = document.getElementById('ip-address');
   const portInput = document.getElementById('port');
@@ -351,6 +356,50 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+
+  // --- Extra Options collapsible toggle ---
+  function getExtraOptionsProtocolLabel() {
+    const val = connectionTypeSelect.value;
+    if (val.startsWith('http')) return 'HTTP Options';
+    if (val.startsWith('ws')) return 'WebSocket Options';
+    if (val.startsWith('grpc')) return 'gRPC Options';
+    return 'Protocol Options';
+  }
+
+  function syncExtraOptionsToggleState() {
+    if (!extraOptionsToggleBtn) return;
+    const label = getExtraOptionsProtocolLabel();
+    const action = extraOptionsExpanded ? 'Collapse' : 'Expand';
+    const tooltip = `${action} ${label.toLowerCase()} such as format, TLS, paths, and headers.`;
+    if (extraOptionsLabel) extraOptionsLabel.textContent = label;
+    extraOptionsToggleBtn.setAttribute('aria-expanded', extraOptionsExpanded ? 'true' : 'false');
+    extraOptionsToggleBtn.title = tooltip;
+    extraOptionsToggleBtn.setAttribute('aria-label', tooltip);
+  }
+
+  function updateExtraOptionsToggleRow() {
+    const val = connectionTypeSelect.value;
+    const hasExtras = val.startsWith('http') || val.startsWith('ws') || val.startsWith('grpc');
+    if (extraOptionsToggleRow) extraOptionsToggleRow.style.display = hasExtras ? '' : 'none';
+    if (!hasExtras && extraOptionsBody) {
+      extraOptionsExpanded = false;
+      extraOptionsBody.style.display = 'none';
+    }
+    syncExtraOptionsToggleState();
+  }
+
+  if (extraOptionsToggleBtn) {
+    extraOptionsToggleBtn.addEventListener('click', () => {
+      extraOptionsExpanded = !extraOptionsExpanded;
+      extraOptionsBody.style.display = extraOptionsExpanded ? '' : 'none';
+      syncExtraOptionsToggleState();
+    });
+  }
+
+  // Also call updateExtraOptionsToggleRow on mode change (hook into existing listener)
+  connectionTypeSelect.addEventListener('change', updateExtraOptionsToggleRow);
+  // Set initial state (TCP server selected by default — no extras)
+  updateExtraOptionsToggleRow();
 
   const applyInitialSplitterPosition = () => {
     if (!isCompactViewInitialized || initialStatusVisibility === null) {
