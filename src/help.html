@@ -17,14 +17,14 @@
         <div class="help-content">
             <div class="help-section">
                 <h3>Overview</h3>
-                <p>Cross-platform desktop application for simulating data streams from CSV files over TCP, UDP, HTTP/HTTPS, and gRPC protocols. Features gesture and voice controls for hands-free operation.</p>
+                <p>Cross-platform desktop application for simulating data streams from CSV files over TCP, UDP, HTTP/HTTPS, WebSocket, and gRPC protocols. Features gesture and voice controls for hands-free operation.</p>
             </div>
 
             <div class="help-section">
                 <h3>Quick Start</h3>
                 <ol>
                     <li>Select CSV file</li>
-                    <li>Choose protocol mode (TCP/UDP/HTTP/gRPC Server/Client)</li>
+                    <li>Choose protocol mode (TCP/UDP/HTTP/WebSocket/gRPC Server/Client)</li>
                     <li>Set IP address and port</li>
                     <li>Configure streaming rate</li>
                     <li>Connect and Play</li>
@@ -40,6 +40,8 @@
                     <li><strong>UDP Client:</strong> Send UDP datagrams to a remote server</li>
                     <li><strong>HTTP Client:</strong> Send data via HTTP/HTTPS POST requests to a remote endpoint (e.g. an ArcGIS Velocity HTTP Receiver feed). Supports JSON, Delimited (CSV), Esri JSON, GeoJSON, and XML formats.</li>
                     <li><strong>HTTP Server:</strong> Start a local HTTP/HTTPS server that accepts POST requests from clients. Use for testing or when the Velocity HTTP Receiver connects to this app.</li>
+                    <li><strong>WebSocket Client:</strong> Connect to a remote WebSocket server (ws:// or wss://) and send streaming data. Supports JSON, Delimited (CSV), Esri JSON, GeoJSON, and XML formats. Can send a subscription message on connect and optionally ignore the first message.</li>
+                    <li><strong>WebSocket Server:</strong> Start a local WebSocket server (ws:// or wss://) that accepts incoming connections and broadcasts data to all connected clients. Supports the same 5 formats as the WebSocket client.</li>
                     <li><strong>gRPC Client:</strong> Connect to a remote gRPC server using HTTP/2. Supports Protobuf, Kryo, and Text serialization with client-streaming or unary RPCs.</li>
                     <li><strong>gRPC Server:</strong> Start a local gRPC server that accepts incoming RPC calls from clients.</li>
                 </ul>
@@ -54,6 +56,21 @@
                     <li><strong>TLS cert:</strong> Client or server certificate file (PEM). Required for server-mode TLS; only needed in client mode for mutual TLS (mTLS).</li>
                     <li><strong>TLS key:</strong> Private key file (PEM). Required for server-mode TLS and client-side mTLS.</li>
                     <li><strong>HTTP path:</strong> URL path appended after host:port (default <code>/</code>). In server mode, only POST requests matching this path are accepted. In client mode, this path is used in outgoing POST URLs. Set to the Velocity feed's system-generated path (e.g. <code>/receiver/feed-id</code>) when connecting to a real endpoint.</li>
+                </ul>
+            </div>
+
+            <div class="help-section">
+                <h3>WebSocket Options</h3>
+                <ul>
+                    <li><strong>Format:</strong> Controls the data format — JSON (<code>application/json</code>), Delimited/CSV (<code>text/plain</code>), Esri JSON (<code>application/json</code>), GeoJSON (<code>application/geo+json</code>), or XML (<code>application/xml</code>).</li>
+                    <li><strong>Use TLS:</strong> Enable WSS (WebSocket Secure, port 443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key.</li>
+                    <li><strong>CA cert:</strong> Custom CA certificate file (PEM). Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs.</li>
+                    <li><strong>TLS cert:</strong> Client or server certificate file (PEM). Required for server-mode TLS; only needed in client mode for mutual TLS (mTLS).</li>
+                    <li><strong>TLS key:</strong> Private key file (PEM). Required for server-mode TLS and client-side mTLS.</li>
+                    <li><strong>WS path:</strong> URL path appended after host:port (default <code>/</code>). In server mode, only WebSocket upgrade requests matching this path are accepted. In client mode, this path is used in the outgoing connection URL.</li>
+                    <li><strong>Subscription message:</strong> Optional text message sent to the server immediately after the WebSocket connection is established. Useful for subscribing to a specific data feed or channel.</li>
+                    <li><strong>Ignore first message:</strong> When enabled, the first message received after connecting is silently discarded. Useful when the server sends an initial handshake or acknowledgement message.</li>
+                    <li><strong>Custom headers:</strong> Optional JSON object of custom HTTP headers to include in the WebSocket upgrade request (client mode only). Example: <code>{"Authorization": "Bearer token123"}</code>.</li>
                 </ul>
             </div>
 

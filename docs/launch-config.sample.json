@@ -9,14 +9,21 @@
     "_httpFormat_comment": "httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, and httpPath are only used when protocol=http.",
     "connectTimeoutMs": 30000,
     "grpcSerialization": "protobuf",
-    "httpFormat": "json",
+    "httpFormat": "delimited",
     "httpPath": "/",
     "httpTls": true,
     "ip": "0.0.0.0",
     "mode": "server",
     "port": 5565,
     "protocol": "tcp",
-    "waitForClient": false
+    "waitForClient": false,
+    "_wsFormat_comment": "wsFormat, wsTls, wsPath, wsSubscriptionMsg, wsIgnoreFirstMsg, and wsHeaders are only used when protocol=ws.",
+    "wsFormat": "delimited",
+    "wsHeaders": null,
+    "wsIgnoreFirstMsg": false,
+    "wsPath": "/",
+    "wsSubscriptionMsg": null,
+    "wsTls": true
   },
   "headless": {
     "_comment": "Set runMode to headless (or silent) to run without the UI.",

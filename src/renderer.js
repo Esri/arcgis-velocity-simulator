@@ -92,6 +92,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const httpTlsKeyGroup = document.getElementById('http-tls-key-group');
   const httpPathGroup = document.getElementById('http-path-group');
   const httpPathInput = document.getElementById('http-path');
+  const wsFormatSelect = document.getElementById('ws-format');
+  const wsFormatGroup = document.getElementById('ws-format-group');
+  const wsTlsCheckbox = document.getElementById('ws-tls');
+  const wsTlsGroup = document.getElementById('ws-tls-group');
+  const wsTlsCaGroup = document.getElementById('ws-tls-ca-group');
+  const wsTlsCertGroup = document.getElementById('ws-tls-cert-group');
+  const wsTlsKeyGroup = document.getElementById('ws-tls-key-group');
+  const wsPathGroup = document.getElementById('ws-path-group');
+  const wsPathInput = document.getElementById('ws-path');
+  const wsSubscriptionMsgGroup = document.getElementById('ws-subscription-msg-group');
+  const wsSubscriptionMsgInput = document.getElementById('ws-subscription-msg');
+  const wsIgnoreFirstMsgGroup = document.getElementById('ws-ignore-first-msg-group');
+  const wsIgnoreFirstMsgCheckbox = document.getElementById('ws-ignore-first-msg');
+  const wsHeadersGroup = document.getElementById('ws-headers-group');
+  const wsHeadersInput = document.getElementById('ws-headers');
   const toggleVoiceButton = document.getElementById('toggle-voice-button');
   const toggleLoopButton = document.getElementById('toggle-loop-button');
   const toggleStatusLog = document.getElementById('toggle-status-log');
@@ -172,16 +187,34 @@ document.addEventListener('DOMContentLoaded', () => {
     'udp-client': 'UDP Client — sends UDP datagrams to the specified host and port.',
     'http-client': 'HTTP Client — sends data via HTTP/HTTPS POST requests to a remote endpoint.',
     'http-server': 'HTTP Server — starts a local HTTP/HTTPS server that accepts POST requests from clients.',
+    'ws-client': 'WebSocket Client — connects to a remote WebSocket server (ws:// or wss://) and sends data as text frames.',
+    'ws-server': 'WebSocket Server — starts a local WebSocket server that accepts incoming ws:// or wss:// connections.',
     'grpc-client': 'gRPC Client — connects to a remote gRPC server using HTTP/2.',
     'grpc-server': 'gRPC Server — starts a local gRPC server that accepts incoming RPC calls.',
   };
 
   function updateHttpFormatTooltip() {
     if (!httpFormatSelect) return;
-    const tooltip = HTTP_FORMAT_TOOLTIPS[httpFormatSelect.value] || HTTP_FORMAT_TOOLTIPS.json;
+    const tooltip = HTTP_FORMAT_TOOLTIPS[httpFormatSelect.value] || HTTP_FORMAT_TOOLTIPS.delimited;
     httpFormatSelect.title = tooltip;
     httpFormatSelect.setAttribute('aria-label', tooltip);
     if (httpFormatGroup) httpFormatGroup.title = tooltip;
+  }
+
+  const WS_FORMAT_TOOLTIPS = {
+    delimited: 'WebSocket Format: Delimited / CSV (text/plain). Each message is a comma-separated row of field values. Default format for ArcGIS Velocity WebSocket feeds.',
+    json: 'WebSocket Format: JSON (application/json). Each message is a JSON object or array of features.',
+    'esri-json': 'WebSocket Format: Esri JSON (application/json). Each message uses the Esri Feature JSON schema with geometry and attributes objects.',
+    'geo-json': 'WebSocket Format: GeoJSON (application/geo+json). Each message is a GeoJSON FeatureCollection or Feature per RFC 7946.',
+    xml: 'WebSocket Format: XML (application/xml). Each message is an XML-formatted payload.',
+  };
+
+  function updateWsFormatTooltip() {
+    if (!wsFormatSelect) return;
+    const tooltip = WS_FORMAT_TOOLTIPS[wsFormatSelect.value] || WS_FORMAT_TOOLTIPS.delimited;
+    wsFormatSelect.title = tooltip;
+    wsFormatSelect.setAttribute('aria-label', tooltip);
+    if (wsFormatGroup) wsFormatGroup.title = tooltip;
   }
 
   function updateConnectionModeTooltip() {
@@ -191,17 +224,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Default ports per protocol
-  const DEFAULT_PORTS = { tcp: 5565, udp: 5565, grpc: 5565, http: 443 };
+  const DEFAULT_PORTS = { tcp: 5565, udp: 5565, grpc: 5565, http: 443, ws: 443 };
   const HTTP_PORT_TLS_ON = 443;
   const HTTP_PORT_TLS_OFF = 80;
   let lastProtocolDefault = 5565;
 
-  // Show/hide gRPC and HTTP controls based on connection type
+  // Show/hide gRPC, HTTP, and WebSocket controls based on connection type
   connectionTypeSelect.addEventListener('change', () => {
     const val = connectionTypeSelect.value;
     const isGrpc = val.startsWith('grpc');
     const isGrpcClient = val === 'grpc-client';
     const isHttp = val.startsWith('http');
+    const isWs = val.startsWith('ws');
 
     // gRPC controls
     grpcSerializationGroup.style.display = isGrpc ? '' : 'none';
@@ -223,12 +257,25 @@ document.addEventListener('DOMContentLoaded', () => {
     httpTlsKeyGroup.style.display = showHttpTlsCerts ? '' : 'none';
     httpPathGroup.style.display = isHttp ? '' : 'none';
 
+    // WebSocket controls
+    wsFormatGroup.style.display = isWs ? '' : 'none';
+    wsTlsGroup.style.display = isWs ? '' : 'none';
+    const showWsTlsCerts = isWs && wsTlsCheckbox.checked;
+    wsTlsCaGroup.style.display = showWsTlsCerts ? '' : 'none';
+    wsTlsCertGroup.style.display = showWsTlsCerts ? '' : 'none';
+    wsTlsKeyGroup.style.display = showWsTlsCerts ? '' : 'none';
+    wsPathGroup.style.display = isWs ? '' : 'none';
+    wsSubscriptionMsgGroup.style.display = isWs ? '' : 'none';
+    wsIgnoreFirstMsgGroup.style.display = isWs ? '' : 'none';
+    wsHeadersGroup.style.display = isWs ? '' : 'none';
+
     // Smart port switching
     const currentPort = parseInt(portInput.value, 10);
     const protocol = val.split('-')[0];
     let newDefault;
-    if (isHttp) {
-      newDefault = httpTlsCheckbox.checked ? HTTP_PORT_TLS_ON : HTTP_PORT_TLS_OFF;
+    if (isHttp || isWs) {
+      const tlsChecked = isHttp ? httpTlsCheckbox.checked : wsTlsCheckbox.checked;
+      newDefault = tlsChecked ? HTTP_PORT_TLS_ON : HTTP_PORT_TLS_OFF;
     } else {
       newDefault = DEFAULT_PORTS[protocol] || 5565;
     }
@@ -249,6 +296,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   httpFormatSelect.addEventListener('change', updateHttpFormatTooltip);
   updateHttpFormatTooltip();
+
+  wsFormatSelect.addEventListener('change', updateWsFormatTooltip);
+  updateWsFormatTooltip();
 
   connectionTypeSelect.addEventListener('change', updateConnectionModeTooltip);
   updateConnectionModeTooltip();
@@ -276,6 +326,26 @@ document.addEventListener('DOMContentLoaded', () => {
         portInput.value = HTTP_PORT_TLS_ON;
         lastProtocolDefault = HTTP_PORT_TLS_ON;
       } else if (!httpTlsCheckbox.checked && currentPort === HTTP_PORT_TLS_ON) {
+        portInput.value = HTTP_PORT_TLS_OFF;
+        lastProtocolDefault = HTTP_PORT_TLS_OFF;
+      }
+    }
+  });
+
+  // Toggle WebSocket TLS cert fields and port when WS TLS checkbox changes
+  wsTlsCheckbox.addEventListener('change', () => {
+    const isWs = connectionTypeSelect.value.startsWith('ws');
+    const show = isWs && wsTlsCheckbox.checked;
+    wsTlsCaGroup.style.display = show ? '' : 'none';
+    wsTlsCertGroup.style.display = show ? '' : 'none';
+    wsTlsKeyGroup.style.display = show ? '' : 'none';
+    // Smart port switch between 80 and 443
+    if (isWs) {
+      const currentPort = parseInt(portInput.value, 10);
+      if (wsTlsCheckbox.checked && currentPort === HTTP_PORT_TLS_OFF) {
+        portInput.value = HTTP_PORT_TLS_ON;
+        lastProtocolDefault = HTTP_PORT_TLS_ON;
+      } else if (!wsTlsCheckbox.checked && currentPort === HTTP_PORT_TLS_ON) {
         portInput.value = HTTP_PORT_TLS_OFF;
         lastProtocolDefault = HTTP_PORT_TLS_OFF;
       }
@@ -582,6 +652,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const httpTlsCertPath = document.getElementById('http-tls-cert-path').value || undefined;
     const httpTlsKeyPath = document.getElementById('http-tls-key-path').value || undefined;
     const httpPath = httpPathInput.value || '/';
+    // WebSocket-specific params
+    const wsFormat = wsFormatSelect.value;
+    const wsTls = wsTlsCheckbox.checked;
+    const wsTlsCaPath = document.getElementById('ws-tls-ca-path').value || undefined;
+    const wsTlsCertPath = document.getElementById('ws-tls-cert-path').value || undefined;
+    const wsTlsKeyPath = document.getElementById('ws-tls-key-path').value || undefined;
+    const wsPath = wsPathInput.value || '/';
+    const wsSubscriptionMsg = wsSubscriptionMsgInput.value || undefined;
+    const wsIgnoreFirstMsg = wsIgnoreFirstMsgCheckbox.checked;
+    const wsHeaders = wsHeadersInput.value || undefined;
     // Reset session counter on new connection.
     linesSentThisSession = 0;
     const tlsLabel = protocol === 'grpc' ? (useTls ? ' tls=on' : ' tls=off') : '';
@@ -589,9 +669,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const methodLabel = protocol === 'grpc' ? ` ${grpcSendMethod === 'unary' ? 'unary' : 'streaming'}` : '';
     const headerLabel = protocol === 'grpc' && mode === 'client' ? ` ${headerPathKey}=${headerPath}` : '';
     const httpLabel = protocol === 'http' ? ` [${httpFormat}] ${httpTls ? 'tls=on' : 'tls=off'} path=${httpPath}` : '';
-    logStatus(`Connecting via ${protocol.toUpperCase()} ${mode} to ${ip}:${port}${serLabel}${methodLabel}${tlsLabel}${headerLabel}${httpLabel}...`);
+    const wsLabel = protocol === 'ws' ? ` [${wsFormat}] ${wsTls ? 'wss' : 'ws'} path=${wsPath}` : '';
+    logStatus(`Connecting via ${protocol.toUpperCase()} ${mode} to ${ip}:${port}${serLabel}${methodLabel}${tlsLabel}${headerLabel}${httpLabel}${wsLabel}...`);
     handleConnectionStatusChange('connecting');
-    window.api.connect({ protocol, mode, ip, port, grpcSerialization: serialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath });
+    window.api.connect({ protocol, mode, ip, port, grpcSerialization: serialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, wsFormat, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsPath, wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders });
   });
 
   // Terminates the active connection.
@@ -870,6 +951,40 @@ document.addEventListener('DOMContentLoaded', () => {
       if (presets.tlsCaPath) document.getElementById('grpc-tls-ca-path').value = presets.tlsCaPath;
       if (presets.tlsCertPath) document.getElementById('grpc-tls-cert-path').value = presets.tlsCertPath;
       if (presets.tlsKeyPath) document.getElementById('grpc-tls-key-path').value = presets.tlsKeyPath;
+
+      // HTTP presets
+      if (presets.httpFormat !== undefined && httpFormatSelect) {
+        httpFormatSelect.value = presets.httpFormat;
+        httpFormatSelect.dispatchEvent(new Event('change'));
+      }
+      if (presets.httpTls !== undefined && httpTlsCheckbox) {
+        httpTlsCheckbox.checked = presets.httpTls === true || presets.httpTls === 'true';
+        httpTlsCheckbox.dispatchEvent(new Event('change'));
+      }
+      if (presets.httpPath !== undefined && httpPathInput) httpPathInput.value = presets.httpPath;
+      if (presets.httpTlsCaPath) { const el = document.getElementById('http-tls-ca-path'); if (el) el.value = presets.httpTlsCaPath; }
+      if (presets.httpTlsCertPath) { const el = document.getElementById('http-tls-cert-path'); if (el) el.value = presets.httpTlsCertPath; }
+      if (presets.httpTlsKeyPath) { const el = document.getElementById('http-tls-key-path'); if (el) el.value = presets.httpTlsKeyPath; }
+
+      // WebSocket presets
+      const wsFormatSel = document.getElementById('ws-format');
+      const wsTlsChk = document.getElementById('ws-tls');
+      if (presets.wsFormat !== undefined && wsFormatSel) {
+        wsFormatSel.value = presets.wsFormat;
+        wsFormatSel.dispatchEvent(new Event('change'));
+      }
+      if (presets.wsTls !== undefined && wsTlsChk) {
+        wsTlsChk.checked = presets.wsTls === true || presets.wsTls === 'true';
+        wsTlsChk.dispatchEvent(new Event('change'));
+      }
+      if (presets.wsPath !== undefined) { const el = document.getElementById('ws-path'); if (el) el.value = presets.wsPath; }
+      if (presets.wsTlsCaPath) { const el = document.getElementById('ws-tls-ca-path'); if (el) el.value = presets.wsTlsCaPath; }
+      if (presets.wsTlsCertPath) { const el = document.getElementById('ws-tls-cert-path'); if (el) el.value = presets.wsTlsCertPath; }
+      if (presets.wsTlsKeyPath) { const el = document.getElementById('ws-tls-key-path'); if (el) el.value = presets.wsTlsKeyPath; }
+      if (presets.wsSubscriptionMsg !== undefined) { const el = document.getElementById('ws-subscription-msg'); if (el) el.value = presets.wsSubscriptionMsg; }
+      if (presets.wsIgnoreFirstMsg !== undefined) { const el = document.getElementById('ws-ignore-first-msg'); if (el) el.checked = presets.wsIgnoreFirstMsg === true || presets.wsIgnoreFirstMsg === 'true'; }
+      if (presets.wsHeaders !== undefined) { const el = document.getElementById('ws-headers'); if (el) el.value = presets.wsHeaders; }
+
       if (presets.intervalMs !== undefined) document.getElementById('rate-ms').value = presets.intervalMs;
       if (presets.linesPerInterval !== undefined) document.getElementById('lines-per-interval').value = presets.linesPerInterval;
       if (presets.loop !== undefined) {

@@ -33,30 +33,11 @@
 const http = require('http');
 const https = require('https');
 const { buildHttpsAgentOptions, buildHttpsServerOptions, formatTlsCertSummary, getSystemRootCertificates } = require('./tls-utils');
+const { DATA_FORMATS, VALID_DATA_FORMATS, FORMAT_CONTENT_TYPES, DEFAULT_FORMAT } = require('./format-utils');
 
-/**
- * Valid HTTP format identifiers (matching Velocity's supportedFormats).
- */
-const HTTP_FORMATS = Object.freeze({
-  JSON: 'json',
-  DELIMITED: 'delimited',
-  ESRI_JSON: 'esri-json',
-  GEO_JSON: 'geo-json',
-  XML: 'xml',
-});
-
-const VALID_HTTP_FORMATS = new Set(Object.values(HTTP_FORMATS));
-
-/**
- * Maps format identifiers to HTTP Content-Type headers.
- */
-const FORMAT_CONTENT_TYPES = Object.freeze({
-  [HTTP_FORMATS.JSON]: 'application/json',
-  [HTTP_FORMATS.DELIMITED]: 'text/plain',
-  [HTTP_FORMATS.ESRI_JSON]: 'application/json',
-  [HTTP_FORMATS.GEO_JSON]: 'application/geo+json',
-  [HTTP_FORMATS.XML]: 'application/xml',
-});
+// Re-export format constants under HTTP-specific names for backward compatibility
+const HTTP_FORMATS = DATA_FORMATS;
+const VALID_HTTP_FORMATS = VALID_DATA_FORMATS;
 
 /**
  * Default ports for HTTP and HTTPS modes.

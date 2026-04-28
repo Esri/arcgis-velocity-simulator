@@ -8,7 +8,7 @@ This file provides rules and guidance for AI coding agents (e.g. GitHub Copilot,
 - Do not introduce new dependencies without updating `package.json`.
 - Keep all documentation in the `docs/` folder up to date when changing related functionality.
 - Run `npm test` after making code changes and ensure all tests pass.
-- **Always prefer a DRY (Don't Repeat Yourself) implementation approach.** When logic is shared across modules (e.g. TLS utilities used by both gRPC and HTTP transports), extract it into a dedicated shared module rather than duplicating it. Reference `src/tls-utils.js` as an example of this pattern.
+- **Always prefer a DRY (Don't Repeat Yourself) implementation approach.** When logic is shared across modules (e.g. TLS utilities used by both gRPC, HTTP, and WebSocket transports), extract it into a dedicated shared module rather than duplicating it. Reference `src/tls-utils.js` and `src/format-utils.js` as examples of this pattern.
 
 ## Copyright Headers
 
@@ -48,7 +48,7 @@ Do not add a new `.md` file without updating both README files.
 When adding a new protocol, transport, or major feature:
 
 1. **`src/help.html`** — update the **Overview/Getting Started** description, add the new protocol to the **Connection Modes** list, and add a dedicated **Options** section describing every control and its tooltip content.
-2. **`docs/*.md`** — the corresponding transport doc (e.g. `docs/HTTP.md`, `docs/GRPC.md`) must include a **UI Controls** section listing every control with its tooltip text, and a **Tooltip Reference** section with the exact tooltip strings used in `renderer.js`.
+2. **`docs/*.md`** — the corresponding transport doc (e.g. `docs/HTTP.md`, `docs/GRPC.md`, `docs/WEBSOCKET.md`) must include a **UI Controls** section listing every control with its tooltip text, and a **Tooltip Reference** section with the exact tooltip strings used in `renderer.js`.
 
 ## Terminology
 
@@ -64,8 +64,8 @@ When adding a new protocol, transport, or major feature:
 
 ## UI / CSS Conventions
 
-- All text-input controls (e.g. file paths, cert paths, URL paths) and dropdown selects (e.g. format, serialization) inside `.aligned-group` containers must use **`text-align: left`** (and `text-align-last: left` for selects). The default right-alignment in `.aligned-group > :not(label)` is for numeric/port inputs only. When adding a new text input or select dropdown, add an explicit `text-align: left` override in `style.css` — see `#grpc-tls-ca-path` / `#http-tls-ca-path` for the text-input pattern and `#grpc-serialization` / `#http-format` for the select pattern.
-- **Every interactive control** (buttons, checkboxes, dropdowns, text inputs) must have a meaningful `title` attribute (tooltip) that describes its purpose, accepted values, and any important context. For `<select>` dropdowns, add a `title` on each `<option>` as well as on the `<select>` itself. Use a JavaScript tooltip-updater pattern (see `GRPC_SERIALIZATION_TOOLTIPS`, `HTTP_FORMAT_TOOLTIPS`, and `CONNECTION_MODE_TOOLTIPS` in `renderer.js`) to keep the `<select>` element's tooltip in sync with the currently selected value. All tooltip text must also be captured in the corresponding `docs/*.md` file so documentation stays consistent with the UI.
+- All text-input controls (e.g. file paths, cert paths, URL paths) and dropdown selects (e.g. format, serialization) inside `.aligned-group` containers must use **`text-align: left`** (and `text-align-last: left` for selects). The default right-alignment in `.aligned-group > :not(label)` is for numeric/port inputs only. When adding a new text input or select dropdown, add an explicit `text-align: left` override in `style.css` following the existing patterns.
+- **Every interactive control** (buttons, checkboxes, dropdowns, text inputs) must have a meaningful `title` attribute (tooltip) that describes its purpose, accepted values, and any important context. For `<select>` dropdowns, add a `title` on each `<option>` as well as on the `<select>` itself. Use the JavaScript tooltip-updater pattern (see existing `*_TOOLTIPS` objects and `update*Tooltip()` functions in `renderer.js`) to keep each `<select>` element's tooltip in sync with the currently selected value. All tooltip text must also be captured in the corresponding `docs/*.md` file so documentation stays consistent with the UI.
 
 ## Commit Messages
 

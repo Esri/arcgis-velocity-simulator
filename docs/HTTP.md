@@ -11,12 +11,12 @@ The ArcGIS Velocity Simulator supports HTTP/HTTPS as a transport protocol for se
 
 ## Format Options
 
-The HTTP Format dropdown controls the `Content-Type` header used when sending data. These match the formats supported by the ArcGIS Velocity HTTP Receiver feed:
+The HTTP Format dropdown controls the `Content-Type` header used when sending data. These match the formats supported by the ArcGIS Velocity TCP and HTTP Receiver feeds. **Delimited (CSV) is the default**, matching the order used by Velocity:
 
 | UI Label | Value | Content-Type | Description |
 |----------|-------|--------------|-------------|
+| Delimited (CSV) | `delimited` | `text/plain` | Each line is a comma-separated row of field values. **Default format** — matches the default for ArcGIS Velocity TCP and HTTP feeds. Best for simple tabular data without nested structures. |
 | JSON | `json` | `application/json` | The standard format for most HTTP feeds. Each request body is a JSON object or array of features. |
-| Delimited (CSV) | `delimited` | `text/plain` | Each line is a comma-separated row of field values. Best for simple tabular data without nested structures. |
 | Esri JSON | `esri-json` | `application/json` | Uses the Esri Feature JSON schema with `geometry` and `attributes` objects. Use when the Velocity HTTP Receiver expects ArcGIS-native feature format. |
 | GeoJSON | `geo-json` | `application/geo+json` | Standard GeoJSON per [RFC 7946](https://datatracker.ietf.org/doc/html/rfc7946) with `FeatureCollection` and `Feature` objects. Use when the receiver expects standard geospatial interchange format. |
 | XML | `xml` | `application/xml` | Sends data as XML-formatted payloads. Use when the Velocity HTTP Receiver is configured for XML input. |
@@ -59,7 +59,7 @@ When connecting to an ArcGIS Velocity HTTP Receiver endpoint, set this to the sy
 When HTTP is selected as the connection type (Mode dropdown), the following controls appear:
 
 - **Mode** — `HTTP Client` or `HTTP Server`. Hovering over each option shows a description of that connection mode. All connection modes (TCP, UDP, HTTP, gRPC) have descriptive tooltips.
-- **Format** — `JSON` (default), `Delimited (CSV)`, `Esri JSON`, `GeoJSON`, or `XML`. Controls the `Content-Type` header sent with each request. Must match the format configured in the ArcGIS Velocity HTTP Receiver feed. Hovering over the dropdown shows a detailed tooltip for the currently selected format.
+- **Format** — `Delimited (CSV)` (default), `JSON`, `Esri JSON`, `GeoJSON`, or `XML`. Controls the `Content-Type` header sent with each request. Must match the format configured in the ArcGIS Velocity HTTP Receiver feed. Hovering over the dropdown shows a detailed tooltip for the currently selected format.
 - **Use TLS** — Checkbox to enable TLS (HTTPS). When checked, the connection uses HTTPS and the port defaults to `443`. When unchecked, uses plain HTTP with port `80`. Toggling this checkbox also reveals/hides the certificate path fields.
 - **CA cert path** — Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs.
 - **TLS cert path** — Path to a client or server certificate file (PEM). Required for server-mode TLS; only needed in client mode for mutual TLS (mTLS).
@@ -103,7 +103,7 @@ The following tooltips appear when hovering over HTTP-related controls in the UI
 |-----------|-------------|---------|
 | `--protocol http` | Use HTTP transport | — |
 | `--mode client\|server` | Connection mode | `server` |
-| `--httpFormat <format>` | Data format (`json`, `delimited`, `esri-json`, `geo-json`, `xml`) | `json` |
+| `--httpFormat <format>` | Data format (`delimited`, `json`, `esri-json`, `geo-json`, `xml`) | `delimited` |
 | `--httpTls` | Enable TLS (HTTPS) | `true` |
 | `--httpTlsCaPath <path>` | CA certificate file path | system default |
 | `--httpTlsCertPath <path>` | Client/server certificate file path | — |
@@ -129,7 +129,7 @@ HTTP parameters can be set in launch configuration JSON files:
     "mode": "client",
     "ip": "velocity.example.com",
     "port": 443,
-    "httpFormat": "json",
+    "httpFormat": "delimited",
     "httpTls": true,
     "httpPath": "/receiver/feed-id"
   }

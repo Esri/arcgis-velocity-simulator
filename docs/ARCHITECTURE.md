@@ -2,7 +2,7 @@
 
 ## Overview
 
-The ArcGIS Velocity Simulator is a cross-platform desktop application built with Electron that simulates data streams over TCP/UDP protocols. The application follows a multi-process architecture with clear separation between the main process (backend) and renderer process (frontend).
+The ArcGIS Velocity Simulator is a cross-platform desktop application built with Electron that simulates data streams over TCP, UDP, HTTP/HTTPS, WebSocket, and gRPC protocols. The application follows a multi-process architecture with clear separation between the main process (backend) and renderer process (frontend).
 
 ## System Architecture
 
@@ -22,7 +22,7 @@ The ArcGIS Velocity Simulator is a cross-platform desktop application built with
 │  └─────────────────────────────┘  │  └─────────────────────┘  │
 │                                   │                           │
 │  ┌─────────────────────────────┐  │  ┌─────────────────────┐  │
-│  │ • TCP/UDP Server/Client     │  │  │ • CSV Data Loading  │  │
+│  │ • TCP/UDP/HTTP/WS/gRPC      │  │  │ • CSV Data Loading  │  │
 │  │ • File I/O Operations       │  │  │ • Data Streaming    │  │
 │  │ • System Integration        │  │  │ • UI Event Handling │  │
 │  └─────────────────────────────┘  │  └─────────────────────┘  │
@@ -43,7 +43,7 @@ Renderer Process ←→ Preload Script ←→ Main Process
 The application also supports a no-UI path for automation and batch replay scenarios:
 
 ```
-Command Line → Main Process → Simulation Engine → Transport Manager → TCP/UDP Endpoint
+Command Line → Main Process → Simulation Engine → Transport Manager → TCP/UDP/HTTP/WS/gRPC Endpoint
 ```
 
 In headless mode:
@@ -51,7 +51,7 @@ In headless mode:
 - no splash screen is created
 - no main window is created
 - CSV loading, range control, looping, and scheduling are handled by a backend simulation engine
-- TCP/UDP connection lifecycle is handled by a backend transport manager
+- TCP/UDP/HTTP/WebSocket/gRPC connection lifecycle is handled by a backend transport manager
 - logs can be written to stdout and/or a file
 - an optional done-file can be written for orchestration or CI workflows
 
@@ -63,7 +63,7 @@ In headless mode:
 - Application lifecycle management
 - Window creation and management
 - File system operations
-- Network operations (TCP/UDP)
+- Network operations (TCP/UDP/HTTP/WebSocket/gRPC)
 - Configuration management
 - IPC communication with renderer
 - Global shortcuts and menus
@@ -72,7 +72,7 @@ In headless mode:
 
 **Key Features:**
 - **Window Management**: Creates and manages main window, dialogs (config, about, help, error)
-- **Network Layer**: Implements TCP/UDP server and client modes
+- **Network Layer**: Implements TCP/UDP/HTTP/WebSocket/gRPC server and client modes
 - **File Operations**: CSV file reading, configuration file management
 - **IPC Handlers**: Secure communication bridge with renderer process
 - **Global Shortcuts**: Keyboard shortcuts for application control
@@ -156,7 +156,7 @@ In headless mode:
 ### 4c. Transport Manager (`src/transport-manager.js`)
 
 **Responsibilities:**
-- Own TCP/UDP/gRPC server and client connections
+- Own TCP/UDP/HTTP/WebSocket/gRPC server and client connections
 - Track recipients for server mode
 - Send data to the correct target(s)
 - Provide status and connection events to the simulation engine
@@ -306,7 +306,7 @@ Font selection is available through the context menu and configuration dialog, w
    ↓
 2. Renderer → IPC → Main Process
    ↓
-3. Main Process Creates TCP/UDP Connection
+3. Main Process Creates TCP/UDP/HTTP/WebSocket/gRPC Connection
    ↓
 4. Connection Status → IPC → Renderer
    ↓
@@ -373,7 +373,7 @@ The application implements strict security boundaries:
 
 ### Network Optimization
 
-- **Connection Pooling**: Efficient TCP/UDP connection management
+- **Connection Pooling**: Efficient TCP/UDP/HTTP/WebSocket/gRPC connection management
 - **Data Buffering**: Optimized data transmission
 - **Error Recovery**: Graceful network failure handling
 
@@ -446,7 +446,7 @@ dist/
 
 ### Design Principles
 
-- **DRY (Don't Repeat Yourself)**: Shared logic must be extracted into dedicated utility modules. For example, TLS/certificate-store operations are centralized in `src/tls-utils.js` and consumed by both `grpc-transport.js` and `http-transport.js` rather than duplicated.
+- **DRY (Don't Repeat Yourself)**: Shared logic must be extracted into dedicated utility modules. For example, TLS/certificate-store operations are centralized in `src/tls-utils.js` and data format constants are centralized in `src/format-utils.js` — both consumed by `grpc-transport.js`, `http-transport.js`, and `ws-transport.js` rather than duplicated.
 
 ### Scalability
 

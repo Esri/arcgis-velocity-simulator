@@ -4,11 +4,17 @@
   "connection": {
     "_comment": "Server mode binds to a local address/port. Set waitForClient=true to wait for clients before advancing through the file.",
     "connectTimeoutMs": 30000,
+    "httpFormat": "delimited",
+    "httpPath": "/",
+    "httpTls": true,
     "ip": "0.0.0.0",
     "mode": "server",
     "port": 5565,
     "protocol": "tcp",
-    "waitForClient": false
+    "waitForClient": false,
+    "wsFormat": "delimited",
+    "wsPath": "/",
+    "wsTls": true
   },
   "headless": {
     "_comment": "Headless mode runs without creating the normal Electron UI.",

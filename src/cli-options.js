@@ -50,12 +50,13 @@ function cliDivider(width) {
 const BOOLEAN_TRUE = new Set(['true', '1', 'yes', 'y', 'on']);
 const BOOLEAN_FALSE = new Set(['false', '0', 'no', 'n', 'off']);
 const VALID_RUN_MODES = new Set(['ui', 'silent', 'headless']);
-const VALID_PROTOCOLS = new Set(['tcp', 'udp', 'grpc']);
+const VALID_PROTOCOLS = new Set(['tcp', 'udp', 'grpc', 'http', 'ws']);
 const VALID_MODES = new Set(['server', 'client']);
 const VALID_SERIALIZATIONS = new Set(['protobuf', 'kryo', 'text']);
 const VALID_GRPC_SEND_METHODS = new Set(['stream', 'unary']);
 const VALID_LOG_LEVELS = new Set(['error', 'warn', 'info', 'debug']);
 const VALID_ON_ERROR = new Set(['exit', 'continue', 'pause']);
+const VALID_DATA_FORMATS = new Set(['json', 'delimited', 'esriJson', 'geojson', 'xml']);
 const CLI_OPTION_KEYS = new Set([
   'runMode',
   'filename',
@@ -91,6 +92,21 @@ const CLI_OPTION_KEYS = new Set([
   'tlsCaPath',
   'tlsCertPath',
   'tlsKeyPath',
+  'httpFormat',
+  'httpTls',
+  'httpPath',
+  'httpTlsCaPath',
+  'httpTlsCertPath',
+  'httpTlsKeyPath',
+  'wsFormat',
+  'wsTls',
+  'wsPath',
+  'wsTlsCaPath',
+  'wsTlsCertPath',
+  'wsTlsKeyPath',
+  'wsSubscriptionMsg',
+  'wsIgnoreFirstMsg',
+  'wsHeaders',
   'stdout',
   'help',
   'help-detailed',
@@ -133,6 +149,21 @@ const DEFAULT_HEADLESS_OPTIONS = {
   tlsCaPath: null,
   tlsCertPath: null,
   tlsKeyPath: null,
+  httpFormat: 'delimited',
+  httpTls: true,
+  httpPath: '/',
+  httpTlsCaPath: null,
+  httpTlsCertPath: null,
+  httpTlsKeyPath: null,
+  wsFormat: 'delimited',
+  wsTls: true,
+  wsPath: '/',
+  wsTlsCaPath: null,
+  wsTlsCertPath: null,
+  wsTlsKeyPath: null,
+  wsSubscriptionMsg: null,
+  wsIgnoreFirstMsg: false,
+  wsHeaders: null,
   stdout: true,
 };
 
@@ -181,6 +212,21 @@ const UI_PARAMETER_IGNORE_REASONS = {
   tlsCertPath: 'only used by the headless gRPC transport; in UI mode configure TLS through the gRPC interface',
   tlsKeyPath: 'only used by the headless gRPC transport; in UI mode configure TLS through the gRPC interface',
   useTls: 'only used by the headless gRPC transport; in UI mode configure TLS through the gRPC interface',
+  httpFormat: 'only used by the headless HTTP transport; in UI mode select the format through the HTTP interface',
+  httpTls: 'only used by the headless HTTP transport; in UI mode configure TLS through the HTTP interface',
+  httpPath: 'only used by the headless HTTP transport; in UI mode configure the path through the HTTP interface',
+  httpTlsCaPath: 'only used by the headless HTTP transport; in UI mode configure TLS through the HTTP interface',
+  httpTlsCertPath: 'only used by the headless HTTP transport; in UI mode configure TLS through the HTTP interface',
+  httpTlsKeyPath: 'only used by the headless HTTP transport; in UI mode configure TLS through the HTTP interface',
+  wsFormat: 'only used by the headless WebSocket transport; in UI mode select the format through the WebSocket interface',
+  wsTls: 'only used by the headless WebSocket transport; in UI mode configure TLS through the WebSocket interface',
+  wsPath: 'only used by the headless WebSocket transport; in UI mode configure the path through the WebSocket interface',
+  wsTlsCaPath: 'only used by the headless WebSocket transport; in UI mode configure TLS through the WebSocket interface',
+  wsTlsCertPath: 'only used by the headless WebSocket transport; in UI mode configure TLS through the WebSocket interface',
+  wsTlsKeyPath: 'only used by the headless WebSocket transport; in UI mode configure TLS through the WebSocket interface',
+  wsSubscriptionMsg: 'only used by the headless WebSocket transport; in UI mode configure through the WebSocket interface',
+  wsIgnoreFirstMsg: 'only used by the headless WebSocket transport; in UI mode configure through the WebSocket interface',
+  wsHeaders: 'only used by the headless WebSocket transport; in UI mode configure through the WebSocket interface',
   waitForClient: 'only used by the headless server-mode transport; in UI mode client connections are managed through the interface',
 };
 
@@ -441,7 +487,7 @@ const CLI_PARAMETER_DEFINITIONS = [
   {
     key: 'protocol',
     defaultValue: DEFAULT_HEADLESS_OPTIONS.protocol,
-    options: ['tcp', 'udp', 'grpc'],
+    options: ['tcp', 'udp', 'grpc', 'http', 'ws'],
     example: 'protocol=tcp',
     requiredInHeadless: 'No',
     purpose: 'Choose the network transport for headless replay.',
@@ -517,6 +563,126 @@ const CLI_PARAMETER_DEFINITIONS = [
     example: 'useTls=true',
     requiredInHeadless: 'No',
     purpose: 'Use TLS (SSL) for gRPC connections. When true, the connection uses SSL credentials instead of plaintext. Only applies when protocol=grpc.',
+  },
+  {
+    key: 'httpFormat',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.httpFormat,
+    options: ['json', 'delimited', 'esriJson', 'geojson', 'xml'],
+    example: 'httpFormat=json',
+    requiredInHeadless: 'No',
+    purpose: 'HTTP data format controlling the Content-Type header. "json" (application/json), "delimited" (text/plain, CSV), "esriJson" (application/json), "geojson" (application/geo+json), or "xml" (application/xml). Only applies when protocol=http.',
+  },
+  {
+    key: 'httpPath',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.httpPath,
+    options: ['string'],
+    example: 'httpPath=/receiver/feed-id',
+    requiredInHeadless: 'No',
+    purpose: 'URL path appended after host:port. In server mode, only POST requests matching this path are accepted. In client mode, this path is used in outgoing POST URLs. Only applies when protocol=http.',
+  },
+  {
+    key: 'httpTls',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.httpTls,
+    options: ['true', 'false'],
+    example: 'httpTls=true',
+    requiredInHeadless: 'No',
+    purpose: 'Enable HTTPS (port 443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key. Only applies when protocol=http.',
+  },
+  {
+    key: 'httpTlsCaPath',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.httpTlsCaPath,
+    options: ['path', 'omitted'],
+    example: 'httpTlsCaPath=./certs/ca.pem',
+    requiredInHeadless: 'No',
+    purpose: 'Custom CA certificate file (PEM) for HTTP TLS. Leave empty to use the OS certificate store. Only applies when protocol=http and httpTls=true.',
+  },
+  {
+    key: 'httpTlsCertPath',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.httpTlsCertPath,
+    options: ['path', 'omitted'],
+    example: 'httpTlsCertPath=./certs/server.pem',
+    requiredInHeadless: 'No',
+    purpose: 'Client or server certificate file (PEM) for HTTP TLS. Required for server-mode TLS; only needed in client mode for mutual TLS (mTLS). Only applies when protocol=http and httpTls=true.',
+  },
+  {
+    key: 'httpTlsKeyPath',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.httpTlsKeyPath,
+    options: ['path', 'omitted'],
+    example: 'httpTlsKeyPath=./certs/server-key.pem',
+    requiredInHeadless: 'No',
+    purpose: 'Private key file (PEM) for HTTP TLS. Required for server-mode TLS and client-side mTLS. Only applies when protocol=http and httpTls=true.',
+  },
+  {
+    key: 'wsFormat',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.wsFormat,
+    options: ['json', 'delimited', 'esriJson', 'geojson', 'xml'],
+    example: 'wsFormat=json',
+    requiredInHeadless: 'No',
+    purpose: 'WebSocket data format. "json" (application/json), "delimited" (text/plain, CSV), "esriJson" (application/json), "geojson" (application/geo+json), or "xml" (application/xml). Only applies when protocol=ws.',
+  },
+  {
+    key: 'wsHeaders',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.wsHeaders,
+    options: ['JSON string', 'omitted'],
+    example: 'wsHeaders={"Authorization":"Bearer token"}',
+    requiredInHeadless: 'No',
+    purpose: 'Optional JSON object of custom HTTP headers for the WebSocket upgrade request (client mode only). Only applies when protocol=ws and mode=client.',
+  },
+  {
+    key: 'wsIgnoreFirstMsg',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.wsIgnoreFirstMsg,
+    options: ['true', 'false'],
+    example: 'wsIgnoreFirstMsg=true',
+    requiredInHeadless: 'No',
+    purpose: 'When true, the first message received after connecting is silently discarded. Useful when the server sends an initial handshake or acknowledgement. Only applies when protocol=ws.',
+  },
+  {
+    key: 'wsPath',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.wsPath,
+    options: ['string'],
+    example: 'wsPath=/feed',
+    requiredInHeadless: 'No',
+    purpose: 'URL path appended after host:port for the WebSocket connection. In server mode, only upgrade requests matching this path are accepted. Only applies when protocol=ws.',
+  },
+  {
+    key: 'wsSubscriptionMsg',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.wsSubscriptionMsg,
+    options: ['string', 'omitted'],
+    example: 'wsSubscriptionMsg=subscribe:feed1',
+    requiredInHeadless: 'No',
+    purpose: 'Optional text message sent to the server immediately after the WebSocket connection is established. Useful for subscribing to a specific data feed. Only applies when protocol=ws and mode=client.',
+  },
+  {
+    key: 'wsTls',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.wsTls,
+    options: ['true', 'false'],
+    example: 'wsTls=true',
+    requiredInHeadless: 'No',
+    purpose: 'Enable WSS (WebSocket Secure, port 443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key. Only applies when protocol=ws.',
+  },
+  {
+    key: 'wsTlsCaPath',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.wsTlsCaPath,
+    options: ['path', 'omitted'],
+    example: 'wsTlsCaPath=./certs/ca.pem',
+    requiredInHeadless: 'No',
+    purpose: 'Custom CA certificate file (PEM) for WebSocket TLS. Leave empty to use the OS certificate store. Only applies when protocol=ws and wsTls=true.',
+  },
+  {
+    key: 'wsTlsCertPath',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.wsTlsCertPath,
+    options: ['path', 'omitted'],
+    example: 'wsTlsCertPath=./certs/server.pem',
+    requiredInHeadless: 'No',
+    purpose: 'Client or server certificate file (PEM) for WebSocket TLS. Required for server-mode TLS; only needed in client mode for mutual TLS (mTLS). Only applies when protocol=ws and wsTls=true.',
+  },
+  {
+    key: 'wsTlsKeyPath',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.wsTlsKeyPath,
+    options: ['path', 'omitted'],
+    example: 'wsTlsKeyPath=./certs/server-key.pem',
+    requiredInHeadless: 'No',
+    purpose: 'Private key file (PEM) for WebSocket TLS. Required for server-mode TLS and client-side mTLS. Only applies when protocol=ws and wsTls=true.',
   },
   {
     key: 'waitForClient',
@@ -1242,7 +1408,7 @@ function validateHeadlessOptions(values, errors, warnings) {
   if (normalized.protocol !== undefined) {
     const protocol = String(normalized.protocol).trim().toLowerCase();
     if (!VALID_PROTOCOLS.has(protocol)) {
-      errors.push(`Invalid protocol '${normalized.protocol}'. Use tcp or udp.`);
+      errors.push(`Invalid protocol '${normalized.protocol}'. Use tcp, udp, grpc, http, or ws.`);
     } else {
       options.protocol = protocol;
     }
@@ -1384,6 +1550,61 @@ function validateHeadlessOptions(values, errors, warnings) {
   }
   if (normalized.tlsKeyPath !== undefined && normalized.tlsKeyPath !== '') {
     options.tlsKeyPath = resolvePathValue(normalized.tlsKeyPath);
+  }
+
+  // --- HTTP params ---
+  if (normalized.httpFormat !== undefined) {
+    const fmt = String(normalized.httpFormat).trim().toLowerCase();
+    if (!VALID_DATA_FORMATS.has(fmt)) {
+      errors.push(`Invalid httpFormat '${normalized.httpFormat}'. Use json, delimited, esriJson, geojson, or xml.`);
+    } else { options.httpFormat = fmt; }
+  }
+  if (normalized.httpTls !== undefined) {
+    options.httpTls = parseBoolean(normalized.httpTls, 'httpTls', errors);
+  }
+  if (normalized.httpPath !== undefined && normalized.httpPath !== '') {
+    options.httpPath = String(normalized.httpPath).trim();
+  }
+  if (normalized.httpTlsCaPath !== undefined && normalized.httpTlsCaPath !== '') {
+    options.httpTlsCaPath = resolvePathValue(normalized.httpTlsCaPath);
+  }
+  if (normalized.httpTlsCertPath !== undefined && normalized.httpTlsCertPath !== '') {
+    options.httpTlsCertPath = resolvePathValue(normalized.httpTlsCertPath);
+  }
+  if (normalized.httpTlsKeyPath !== undefined && normalized.httpTlsKeyPath !== '') {
+    options.httpTlsKeyPath = resolvePathValue(normalized.httpTlsKeyPath);
+  }
+
+  // --- WebSocket params ---
+  if (normalized.wsFormat !== undefined) {
+    const fmt = String(normalized.wsFormat).trim().toLowerCase();
+    if (!VALID_DATA_FORMATS.has(fmt)) {
+      errors.push(`Invalid wsFormat '${normalized.wsFormat}'. Use json, delimited, esriJson, geojson, or xml.`);
+    } else { options.wsFormat = fmt; }
+  }
+  if (normalized.wsTls !== undefined) {
+    options.wsTls = parseBoolean(normalized.wsTls, 'wsTls', errors);
+  }
+  if (normalized.wsPath !== undefined && normalized.wsPath !== '') {
+    options.wsPath = String(normalized.wsPath).trim();
+  }
+  if (normalized.wsTlsCaPath !== undefined && normalized.wsTlsCaPath !== '') {
+    options.wsTlsCaPath = resolvePathValue(normalized.wsTlsCaPath);
+  }
+  if (normalized.wsTlsCertPath !== undefined && normalized.wsTlsCertPath !== '') {
+    options.wsTlsCertPath = resolvePathValue(normalized.wsTlsCertPath);
+  }
+  if (normalized.wsTlsKeyPath !== undefined && normalized.wsTlsKeyPath !== '') {
+    options.wsTlsKeyPath = resolvePathValue(normalized.wsTlsKeyPath);
+  }
+  if (normalized.wsSubscriptionMsg !== undefined && normalized.wsSubscriptionMsg !== '') {
+    options.wsSubscriptionMsg = String(normalized.wsSubscriptionMsg);
+  }
+  if (normalized.wsIgnoreFirstMsg !== undefined) {
+    options.wsIgnoreFirstMsg = parseBoolean(normalized.wsIgnoreFirstMsg, 'wsIgnoreFirstMsg', errors);
+  }
+  if (normalized.wsHeaders !== undefined && normalized.wsHeaders !== '') {
+    options.wsHeaders = String(normalized.wsHeaders);
   }
 
   if (!options.filename) {
@@ -1565,6 +1786,9 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
     const uiPresetKeys = new Set([
       'protocol', 'mode', 'ip', 'port', 'grpcSerialization', 'grpcSendMethod',
       'grpcHeaderPath', 'grpcHeaderPathKey', 'useTls', 'tlsCaPath', 'tlsCertPath', 'tlsKeyPath',
+      'httpFormat', 'httpTls', 'httpPath', 'httpTlsCaPath', 'httpTlsCertPath', 'httpTlsKeyPath',
+      'wsFormat', 'wsTls', 'wsPath', 'wsTlsCaPath', 'wsTlsCertPath', 'wsTlsKeyPath',
+      'wsSubscriptionMsg', 'wsIgnoreFirstMsg', 'wsHeaders',
       'intervalMs', 'linesPerInterval', 'loop',
     ]);
     const uiRecognizedKeys = new Set(['filename', 'runMode', 'config', 'explain', 'help', 'help-detailed', 'help-table-narrow', 'help-table-wide', 'help-wide', ...uiPresetKeys]);
@@ -1666,6 +1890,12 @@ function formatExplainOutput(cliOptions) {
       ['grpcHeaderPath', (presets && presets.grpcHeaderPath) || `(default: ${d.grpcHeaderPath})`],
       ['grpcHeaderPathKey', (presets && presets.grpcHeaderPathKey) || `(default: ${d.grpcHeaderPathKey})`],
       ['useTls', presets && presets.useTls !== undefined ? presets.useTls : `(default: ${d.useTls})`],
+      ['httpFormat', (presets && presets.httpFormat) || `(default: ${d.httpFormat})`],
+      ['httpTls', presets && presets.httpTls !== undefined ? presets.httpTls : `(default: ${d.httpTls})`],
+      ['httpPath', (presets && presets.httpPath) || `(default: ${d.httpPath})`],
+      ['wsFormat', (presets && presets.wsFormat) || `(default: ${d.wsFormat})`],
+      ['wsTls', presets && presets.wsTls !== undefined ? presets.wsTls : `(default: ${d.wsTls})`],
+      ['wsPath', (presets && presets.wsPath) || `(default: ${d.wsPath})`],
       ['linesPerInterval', (presets && presets.linesPerInterval) || `(default: ${d.linesPerInterval})`],
       ['intervalMs', presets && presets.intervalMs ? `${presets.intervalMs}ms` : `(default: ${d.intervalMs}ms)`],
       ['loop', presets && presets.loop !== undefined ? presets.loop : `(default: ${d.loop})`],

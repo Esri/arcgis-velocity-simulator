@@ -471,8 +471,20 @@ body.compact #toggle-sort-order {
 #http-tls-ca-path,
 #http-tls-cert-path,
 #http-tls-key-path,
-#http-path {
+#http-path,
+#ws-tls-ca-path,
+#ws-tls-cert-path,
+#ws-tls-key-path,
+#ws-path,
+#ws-subscription-msg,
+#ws-headers {
   text-align: left;
+}
+
+#http-format,
+#ws-format {
+  text-align: left;
+  text-align-last: left;
 }
 
 .aligned-group.combined-input-group > .primary-control {

@@ -12,11 +12,20 @@
     "connectRetryIntervalMs": 1000,
     "connectTimeoutMs": 0,
     "connectWaitForServer": false,
+    "httpFormat": "delimited",
+    "httpPath": "/",
+    "httpTls": true,
     "ip": "127.0.0.1",
     "mode": "client",
     "port": 5565,
     "protocol": "tcp",
-    "waitForClient": false
+    "waitForClient": false,
+    "wsFormat": "delimited",
+    "wsHeaders": null,
+    "wsIgnoreFirstMsg": false,
+    "wsPath": "/",
+    "wsSubscriptionMsg": null,
+    "wsTls": true
   },
   "headless": {
     "_comment": "Headless mode runs without creating the normal Electron UI.",

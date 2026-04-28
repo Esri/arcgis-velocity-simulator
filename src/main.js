@@ -96,8 +96,10 @@ let tcpClientSockets = []; // Array of connected TCP client sockets (when in ser
 let udpServerClients = new Set(); // Set of known UDP clients (when in server mode).
 let grpcTransport = null; // Holds active gRPC transport (GrpcClientTransport or GrpcServerTransport).
 let httpTransport = null; // Holds active HTTP transport (HttpClientTransport or HttpServerTransport).
+let wsTransport = null; // Holds active WebSocket transport (WsClientTransport or WsServerTransport).
 const { createGrpcClientTransport, createGrpcServerTransport } = require(path.join(basePath, 'grpc-transport.js'));
 const { createHttpClientTransport, createHttpServerTransport, FORMAT_CONTENT_TYPES } = require(path.join(basePath, 'http-transport.js'));
+const { createWsClientTransport, createWsServerTransport } = require(path.join(basePath, 'ws-transport.js'));
 
 // Make mainWindow globally accessible for speech recognition
 global.mainWindow = null;
@@ -1305,6 +1307,12 @@ async function getCurrentLaunchConfig() {
         grpcHeaderPathKey: getVal('grpc-header-path-key') || 'grpc-path',
         grpcSendMethod: getVal('grpc-send-method') || 'stream',
         grpcSerialization: getVal('grpc-serialization') || 'protobuf',
+        httpFormat: getVal('http-format') || 'delimited',
+        httpPath: getVal('http-path') || '/',
+        httpTls: getChecked('http-tls'),
+        httpTlsCaPath: getVal('http-tls-ca-path') || null,
+        httpTlsCertPath: getVal('http-tls-cert-path') || null,
+        httpTlsKeyPath: getVal('http-tls-key-path') || null,
         intervalMs: parseInt(getVal('rate-ms'), 10) || 1000,
         ip: getVal('ip-address') || '127.0.0.1',
         linesPerInterval: parseInt(getVal('lines-per-interval'), 10) || 1,
@@ -1318,6 +1326,15 @@ async function getCurrentLaunchConfig() {
         tlsCertPath: getVal('grpc-tls-cert-path') || null,
         tlsKeyPath: getVal('grpc-tls-key-path') || null,
         useTls: getChecked('grpc-tls'),
+        wsFormat: getVal('ws-format') || 'delimited',
+        wsHeaders: getVal('ws-headers') || null,
+        wsIgnoreFirstMsg: getChecked('ws-ignore-first-msg'),
+        wsPath: getVal('ws-path') || '/',
+        wsSubscriptionMsg: getVal('ws-subscription-msg') || null,
+        wsTls: getChecked('ws-tls'),
+        wsTlsCaPath: getVal('ws-tls-ca-path') || null,
+        wsTlsCertPath: getVal('ws-tls-cert-path') || null,
+        wsTlsKeyPath: getVal('ws-tls-key-path') || null,
       });
     })()
   `);
@@ -1331,6 +1348,12 @@ async function getCurrentLaunchConfig() {
       grpcHeaderPathKey: s.grpcHeaderPathKey,
       grpcSendMethod: s.grpcSendMethod,
       grpcSerialization: s.grpcSerialization,
+      httpFormat: s.httpFormat,
+      httpPath: s.httpPath,
+      httpTls: s.httpTls,
+      httpTlsCaPath: s.httpTlsCaPath,
+      httpTlsCertPath: s.httpTlsCertPath,
+      httpTlsKeyPath: s.httpTlsKeyPath,
       ip: s.ip,
       mode: s.mode,
       port: s.port,
@@ -1340,6 +1363,15 @@ async function getCurrentLaunchConfig() {
       tlsKeyPath: s.tlsKeyPath,
       useTls: s.useTls,
       waitForClient: false,
+      wsFormat: s.wsFormat,
+      wsHeaders: s.wsHeaders,
+      wsIgnoreFirstMsg: s.wsIgnoreFirstMsg,
+      wsPath: s.wsPath,
+      wsSubscriptionMsg: s.wsSubscriptionMsg,
+      wsTls: s.wsTls,
+      wsTlsCaPath: s.wsTlsCaPath,
+      wsTlsCertPath: s.wsTlsCertPath,
+      wsTlsKeyPath: s.wsTlsKeyPath,
     },
     output: {
       doneFile: null,
@@ -1908,7 +1940,7 @@ ipcMain.handle('get-microphone-support-state', () => {
 });
 
 // Establishes a TCP or UDP connection based on the provided parameters.
-ipcMain.handle('connect', (event, { protocol, mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath }) => {
+ipcMain.handle('connect', (event, { protocol, mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, wsFormat, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsPath, wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders }) => {
   if (connection) {
     logStatus('Error: A connection is already active.');
     return { success: false, error: 'Connection already active' };
@@ -2044,6 +2076,29 @@ ipcMain.handle('connect', (event, { protocol, mode, ip, port, grpcSerialization,
           emitConnectionStatus('disconnected', `HTTP Server error: ${err.message}`);
         });
       }
+    } else if (protocol === 'ws') {
+      const { FORMAT_CONTENT_TYPES: WS_CT } = require(path.join(basePath, 'format-utils.js'));
+      if (mode === 'client') {
+        wsTransport = createWsClientTransport({ ip, port, wsFormat, wsPath, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders });
+        wsTransport.connect().then((result) => {
+          connection = wsTransport;
+          const contentType = WS_CT[wsFormat] || 'text/plain';
+          emitConnectionStatus('connected', `WebSocket client connected to ${result.address} [${wsFormat}] Content-Type: ${contentType}\n  ${result.tlsInfo || 'tls=off'}`);
+        }).catch((err) => {
+          wsTransport = null;
+          emitConnectionStatus('disconnected', `WebSocket Client error: ${err.message}`);
+        });
+      } else { // WS Server
+        wsTransport = createWsServerTransport({ ip, port, wsFormat, wsPath, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath });
+        wsTransport.connect().then((result) => {
+          connection = wsTransport;
+          const contentType = WS_CT[wsFormat] || 'text/plain';
+          emitConnectionStatus('connected', `WebSocket server listening on ${result.url} [${wsFormat}] Content-Type: ${contentType}\n  ${result.tlsInfo || 'tls=off'}`);
+        }).catch((err) => {
+          wsTransport = null;
+          emitConnectionStatus('disconnected', `WebSocket Server error: ${err.message}`);
+        });
+      }
     }
     return { success: true };
   } catch (err) {
@@ -2090,6 +2145,11 @@ ipcMain.handle('disconnect', () => {
         connection = null;
         httpTransport = null;
       });
+    } else if (wsTransport) { // WebSocket
+      wsTransport.disconnect();
+      emitConnectionStatus('disconnected', 'WebSocket connection has been closed.');
+      connection = null;
+      wsTransport = null;
     }
     return { success: true };
   } catch (err) {

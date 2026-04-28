@@ -16,6 +16,8 @@ const testSuites = [
   { file: 'simulation-engine.test.js', description: '🚀 Simulation Engine Tests' },
   { file: 'headless-runner.test.js', description: '🧪 Headless Runner Tests' },
   { file: 'grpc-transport.test.js', description: '🔌 gRPC Transport Tests' },
+  { file: 'format-utils.test.js', description: '📦 Format Utils Tests' },
+  { file: 'ws-transport.test.js', description: '🌐 WebSocket Transport Tests' },
 ];
 
 function runTest(suite) {
