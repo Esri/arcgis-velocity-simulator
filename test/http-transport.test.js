@@ -18,8 +18,8 @@ assert(HTTP_FORMATS.ESRI_JSON === 'esri-json', 'HTTP_FORMATS.ESRI_JSON is esri-j
 assert(HTTP_FORMATS.GEO_JSON === 'geo-json', 'HTTP_FORMATS.GEO_JSON is geo-json');
 assert(HTTP_FORMATS.XML === 'xml', 'HTTP_FORMATS.XML is xml');
 assert(VALID_HTTP_FORMATS.size === 5, 'VALID_HTTP_FORMATS has 5 entries');
-assert(HTTP_DEFAULT_PORT === 80, 'HTTP_DEFAULT_PORT is 80');
-assert(HTTPS_DEFAULT_PORT === 443, 'HTTPS_DEFAULT_PORT is 443');
+assert(HTTP_DEFAULT_PORT === 8080, 'HTTP_DEFAULT_PORT is 8080');
+assert(HTTPS_DEFAULT_PORT === 8443, 'HTTPS_DEFAULT_PORT is 8443');
 
 console.log('\n--- Test 2: FORMAT_CONTENT_TYPES mapping ---');
 assert(FORMAT_CONTENT_TYPES['json'] === 'application/json', 'json → application/json');

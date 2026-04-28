@@ -586,7 +586,7 @@ const CLI_PARAMETER_DEFINITIONS = [
     options: ['true', 'false'],
     example: 'httpTls=true',
     requiredInHeadless: 'No',
-    purpose: 'Enable HTTPS (port 443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key. Only applies when protocol=http.',
+    purpose: 'Enable HTTPS (port 8443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key. Only applies when protocol=http.',
   },
   {
     key: 'httpTlsCaPath',
@@ -658,7 +658,7 @@ const CLI_PARAMETER_DEFINITIONS = [
     options: ['true', 'false'],
     example: 'wsTls=true',
     requiredInHeadless: 'No',
-    purpose: 'Enable WSS (WebSocket Secure, port 443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key. Only applies when protocol=ws.',
+    purpose: 'Enable WSS (WebSocket Secure, port 8443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key. Only applies when protocol=ws.',
   },
   {
     key: 'wsTlsCaPath',

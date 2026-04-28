@@ -45,8 +45,8 @@ const { DATA_FORMATS, VALID_DATA_FORMATS, FORMAT_CONTENT_TYPES, DEFAULT_FORMAT }
 /**
  * Default ports for WebSocket modes (same as HTTP — WebSocket upgrades from HTTP).
  */
-const WS_DEFAULT_PORT = 80;
-const WSS_DEFAULT_PORT = 443;
+const WS_DEFAULT_PORT = 8080;
+const WSS_DEFAULT_PORT = 8443;
 
 // =============================================================================
 // Client Transport

@@ -42,8 +42,8 @@ const VALID_HTTP_FORMATS = VALID_DATA_FORMATS;
 /**
  * Default ports for HTTP and HTTPS modes.
  */
-const HTTP_DEFAULT_PORT = 80;
-const HTTPS_DEFAULT_PORT = 443;
+const HTTP_DEFAULT_PORT = 8080;
+const HTTPS_DEFAULT_PORT = 8443;
 
 
 // =============================================================================

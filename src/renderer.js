@@ -224,9 +224,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Default ports per protocol
-  const DEFAULT_PORTS = { tcp: 5565, udp: 5565, grpc: 5565, http: 443, ws: 443 };
-  const HTTP_PORT_TLS_ON = 443;
-  const HTTP_PORT_TLS_OFF = 80;
+  const DEFAULT_PORTS = { tcp: 5565, udp: 5565, grpc: 5565, http: 8443, ws: 8443 };
+  const HTTP_PORT_TLS_ON = 8443;
+  const HTTP_PORT_TLS_OFF = 8080;
   let lastProtocolDefault = 5565;
 
   // Show/hide gRPC, HTTP, and WebSocket controls based on connection type
@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
     httpTlsCaGroup.style.display = show ? '' : 'none';
     httpTlsCertGroup.style.display = show ? '' : 'none';
     httpTlsKeyGroup.style.display = show ? '' : 'none';
-    // Smart port switch between 80 and 443
+    // Smart port switch between 8080 and 8443
     if (isHttp) {
       const currentPort = parseInt(portInput.value, 10);
       if (httpTlsCheckbox.checked && currentPort === HTTP_PORT_TLS_OFF) {
@@ -339,7 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
     wsTlsCaGroup.style.display = show ? '' : 'none';
     wsTlsCertGroup.style.display = show ? '' : 'none';
     wsTlsKeyGroup.style.display = show ? '' : 'none';
-    // Smart port switch between 80 and 443
+    // Smart port switch between 8080 and 8443
     if (isWs) {
       const currentPort = parseInt(portInput.value, 10);
       if (wsTlsCheckbox.checked && currentPort === HTTP_PORT_TLS_OFF) {

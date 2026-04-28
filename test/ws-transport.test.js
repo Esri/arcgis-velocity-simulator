@@ -10,8 +10,8 @@ function assert(condition, message) {
 }
 
 console.log('\n--- Test 1: Constants ---');
-assert(WS_DEFAULT_PORT === 80, 'WS_DEFAULT_PORT is 80');
-assert(WSS_DEFAULT_PORT === 443, 'WSS_DEFAULT_PORT is 443');
+assert(WS_DEFAULT_PORT === 8080, 'WS_DEFAULT_PORT is 8080');
+assert(WSS_DEFAULT_PORT === 8443, 'WSS_DEFAULT_PORT is 8443');
 assert(DEFAULT_FORMAT === 'delimited', 'DEFAULT_FORMAT is delimited');
 assert(DATA_FORMATS.DELIMITED === 'delimited', 'DATA_FORMATS.DELIMITED is delimited');
 assert(VALID_DATA_FORMATS.size === 5, 'VALID_DATA_FORMATS has 5 entries');

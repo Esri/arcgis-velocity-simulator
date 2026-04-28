@@ -40,17 +40,17 @@ When TLS is enabled, additional certificate path fields appear:
 
 | TLS State | Default Port |
 |-----------|-------------|
-| TLS On (HTTPS) | `443` |
-| TLS Off (HTTP) | `80` |
+| TLS On (HTTPS) | `8443` |
+| TLS Off (HTTP) | `8080` |
 
-The port automatically switches between `80` and `443` when the TLS checkbox is toggled, as long as the user hasn't manually entered a custom port.
+The port automatically switches between `8080` and `8443` when the TLS checkbox is toggled, as long as the user hasn't manually entered a custom port.
 
 ## HTTP Path
 
 The HTTP Path field (default `/`) specifies the URL path appended after the host and port in the request URL.
 
 - **Server mode**: The server only accepts POST requests whose URL matches this path exactly. All other paths return a `404 Not Found` response. GET requests to this path return a health-check JSON response with the current format and client count.
-- **Client mode**: This path is used in the outgoing POST request URL. For example, if the host is `velocity.example.com`, the port is `443`, and the path is `/receiver/feed-id`, the full URL becomes `https://velocity.example.com:443/receiver/feed-id`.
+- **Client mode**: This path is used in the outgoing POST request URL. For example, if the host is `velocity.example.com`, the port is `8443`, and the path is `/receiver/feed-id`, the full URL becomes `https://velocity.example.com:8443/receiver/feed-id`.
 
 When connecting to an ArcGIS Velocity HTTP Receiver endpoint, set this to the system-generated path provided by the feed configuration (typically something like `/receiver/<feed-id>`). For local testing between the Simulator and Logger, the default `/` is usually sufficient.
 
@@ -60,7 +60,7 @@ When HTTP is selected as the connection type (Mode dropdown), the following cont
 
 - **Mode** — `HTTP Client` or `HTTP Server`. Hovering over each option shows a description of that connection mode. All connection modes (TCP, UDP, HTTP, gRPC) have descriptive tooltips.
 - **Format** — `Delimited (CSV)` (default), `JSON`, `Esri JSON`, `GeoJSON`, or `XML`. Controls the `Content-Type` header sent with each request. Must match the format configured in the ArcGIS Velocity HTTP Receiver feed. Hovering over the dropdown shows a detailed tooltip for the currently selected format.
-- **Use TLS** — Checkbox to enable TLS (HTTPS). When checked, the connection uses HTTPS and the port defaults to `443`. When unchecked, uses plain HTTP with port `80`. Toggling this checkbox also reveals/hides the certificate path fields.
+- **Use TLS** — Checkbox to enable TLS (HTTPS). When checked, the connection uses HTTPS and the port defaults to `8443`. When unchecked, uses plain HTTP with port `8080`. Toggling this checkbox also reveals/hides the certificate path fields.
 - **CA cert path** — Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs.
 - **TLS cert path** — Path to a client or server certificate file (PEM). Required for server-mode TLS; only needed in client mode for mutual TLS (mTLS).
 - **TLS key path** — Path to the private key file (PEM). Required for server-mode TLS and client-side mTLS.
@@ -91,7 +91,7 @@ The following tooltips appear when hovering over HTTP-related controls in the UI
 
 | Control | Tooltip |
 |---------|---------|
-| Use TLS checkbox | Enable TLS (HTTPS) for the HTTP connection. When checked, the connection uses HTTPS (port 443 by default). When unchecked, uses plain HTTP (port 80). In client mode, the OS certificate store is used automatically; in server mode, a certificate and key must be provided. |
+| Use TLS checkbox | Enable TLS (HTTPS) for the HTTP connection. When checked, the connection uses HTTPS (port 8443 by default). When unchecked, uses plain HTTP (port 8080). In client mode, the OS certificate store is used automatically; in server mode, a certificate and key must be provided. |
 | CA cert path | Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store automatically. Only needed for enterprise or self-signed CAs not in the system trust store. |
 | TLS cert path | Path to a client or server certificate file (PEM). Required for server-mode TLS. For client mode, only needed for mutual TLS (mTLS) authentication. |
 | TLS key path | Path to the private key file (PEM) corresponding to the TLS certificate. Required for server-mode TLS and client-side mTLS. |
@@ -128,7 +128,7 @@ HTTP parameters can be set in launch configuration JSON files:
     "protocol": "http",
     "mode": "client",
     "ip": "velocity.example.com",
-    "port": 443,
+    "port": 8443,
     "httpFormat": "delimited",
     "httpTls": true,
     "httpPath": "/receiver/feed-id"

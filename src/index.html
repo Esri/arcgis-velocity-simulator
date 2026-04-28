@@ -87,7 +87,7 @@
           </div>
           <div class="control-group aligned-group" id="http-tls-group" style="display: none;">
             <label for="http-tls">
-               <input type="checkbox" id="http-tls" checked title="Enable TLS (HTTPS) for the HTTP connection. When checked, the connection uses HTTPS (port 443 by default). When unchecked, uses plain HTTP (port 80). In client mode, the OS certificate store is used automatically; in server mode, a certificate and key must be provided."> Use TLS
+               <input type="checkbox" id="http-tls" checked title="Enable TLS (HTTPS) for the HTTP connection. When checked, the connection uses HTTPS (port 8443 by default). When unchecked, uses plain HTTP (port 8080). In client mode, the OS certificate store is used automatically; in server mode, a certificate and key must be provided."> Use TLS
             </label>
           </div>
           <div class="control-group aligned-group" id="http-tls-ca-group" style="display: none;">
@@ -118,7 +118,7 @@
           </div>
           <div class="control-group aligned-group" id="ws-tls-group" style="display: none;">
             <label for="ws-tls">
-               <input type="checkbox" id="ws-tls" checked title="Enable TLS (WSS) for the WebSocket connection. When checked, the connection uses the secure wss:// protocol (port 443 by default). When unchecked, uses the plain ws:// protocol (port 80). In client mode, the OS certificate store is used automatically; in server mode, a certificate and key must be provided."> Use TLS
+               <input type="checkbox" id="ws-tls" checked title="Enable TLS (WSS) for the WebSocket connection. When checked, the connection uses the secure wss:// protocol (port 8443 by default). When unchecked, uses the plain ws:// protocol (port 8080). In client mode, the OS certificate store is used automatically; in server mode, a certificate and key must be provided."> Use TLS
             </label>
           </div>
           <div class="control-group aligned-group" id="ws-tls-ca-group" style="display: none;">
@@ -135,7 +135,7 @@
           </div>
           <div class="control-group aligned-group" id="ws-path-group" style="display: none;">
             <label for="ws-path">WS path:</label>
-            <input type="text" id="ws-path" value="/" title="WebSocket endpoint URL path appended after the host:port (e.g. /feed/stream-id). In server mode, only WebSocket upgrade requests matching this path are accepted. In client mode, this path is used in the outgoing connection URL, e.g. wss://host:443/feed/stream-id. Default is /.">
+            <input type="text" id="ws-path" value="/" title="WebSocket endpoint URL path appended after the host:port (e.g. /feed/stream-id). In server mode, only WebSocket upgrade requests matching this path are accepted. In client mode, this path is used in the outgoing connection URL, e.g. wss://host:8443/feed/stream-id. Default is /.">
           </div>
           <div class="control-group aligned-group" id="ws-subscription-msg-group" style="display: none;">
             <label for="ws-subscription-msg">Subscribe:</label>

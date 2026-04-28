@@ -51,7 +51,7 @@
                 <h3>HTTP Options</h3>
                 <ul>
                     <li><strong>Format:</strong> Controls the Content-Type header — JSON (<code>application/json</code>), Delimited/CSV (<code>text/plain</code>), Esri JSON (<code>application/json</code>), GeoJSON (<code>application/geo+json</code>), or XML (<code>application/xml</code>). Must match the format configured in the ArcGIS Velocity HTTP Receiver feed.</li>
-                    <li><strong>Use TLS:</strong> Enable HTTPS (port 443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key.</li>
+                    <li><strong>Use TLS:</strong> Enable HTTPS (port 8443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key.</li>
                     <li><strong>CA cert:</strong> Custom CA certificate file (PEM). Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs.</li>
                     <li><strong>TLS cert:</strong> Client or server certificate file (PEM). Required for server-mode TLS; only needed in client mode for mutual TLS (mTLS).</li>
                     <li><strong>TLS key:</strong> Private key file (PEM). Required for server-mode TLS and client-side mTLS.</li>
@@ -63,7 +63,7 @@
                 <h3>WebSocket Options</h3>
                 <ul>
                     <li><strong>Format:</strong> Controls the data format — JSON (<code>application/json</code>), Delimited/CSV (<code>text/plain</code>), Esri JSON (<code>application/json</code>), GeoJSON (<code>application/geo+json</code>), or XML (<code>application/xml</code>).</li>
-                    <li><strong>Use TLS:</strong> Enable WSS (WebSocket Secure, port 443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key.</li>
+                    <li><strong>Use TLS:</strong> Enable WSS (WebSocket Secure, port 8443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key.</li>
                     <li><strong>CA cert:</strong> Custom CA certificate file (PEM). Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs.</li>
                     <li><strong>TLS cert:</strong> Client or server certificate file (PEM). Required for server-mode TLS; only needed in client mode for mutual TLS (mTLS).</li>
                     <li><strong>TLS key:</strong> Private key file (PEM). Required for server-mode TLS and client-side mTLS.</li>

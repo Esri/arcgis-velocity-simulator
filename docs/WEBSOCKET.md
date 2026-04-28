@@ -38,8 +38,8 @@ TLS is enabled by default (`Use TLS` checkbox checked), making the connection us
 
 | TLS State | Default Port | Protocol |
 |-----------|-------------|----------|
-| TLS On (WSS) | `443` | `wss://` |
-| TLS Off (WS) | `80` | `ws://` |
+| TLS On (WSS) | `8443` | `wss://` |
+| TLS Off (WS) | `8080` | `ws://` |
 
 WebSocket uses the same default ports as HTTP because the WebSocket handshake begins as an HTTP Upgrade request.
 
@@ -48,7 +48,7 @@ WebSocket uses the same default ports as HTTP because the WebSocket handshake be
 The WS Path field (default `/`) specifies the URL path appended after the host and port.
 
 - **Server mode**: Only WebSocket upgrade requests matching this path exactly are accepted.
-- **Client mode**: This path is used in the outgoing connection URL. For example, `wss://velocity.example.com:443/feed/stream-id`.
+- **Client mode**: This path is used in the outgoing connection URL. For example, `wss://velocity.example.com:8443/feed/stream-id`.
 
 ## Subscription Message
 
@@ -73,7 +73,7 @@ Useful for authentication tokens or API keys required by the WebSocket endpoint.
 When WebSocket is selected as the connection type, the following controls appear:
 
 - **Format** — `Delimited (CSV)` (default), `JSON`, `Esri JSON`, `GeoJSON`, or `XML`.
-- **Use TLS** — Checkbox: checked = `wss://` (port 443), unchecked = `ws://` (port 80).
+- **Use TLS** — Checkbox: checked = `wss://` (port 8443), unchecked = `ws://` (port 8080).
 - **CA cert path** — Custom CA certificate (PEM).
 - **TLS cert path** — Client/server certificate (PEM).
 - **TLS key path** — Private key (PEM).
@@ -105,7 +105,7 @@ When WebSocket is selected as the connection type, the following controls appear
 
 | Control | Tooltip |
 |---------|---------|
-| Use TLS checkbox | Enable TLS (WSS) for the WebSocket connection. When checked, uses the secure wss:// protocol (port 443). When unchecked, uses plain ws:// (port 80). |
+| Use TLS checkbox | Enable TLS (WSS) for the WebSocket connection. When checked, uses the secure wss:// protocol (port 8443). When unchecked, uses plain ws:// (port 8080). |
 | CA cert path | Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store automatically. |
 | TLS cert path | Path to a client or server certificate file (PEM). Required for server-mode TLS. |
 | TLS key path | Path to the private key file (PEM). Required for server-mode TLS and client-side mTLS. |
@@ -148,7 +148,7 @@ WebSocket parameters can be set in launch configuration JSON files:
     "protocol": "ws",
     "mode": "client",
     "ip": "velocity.example.com",
-    "port": 443,
+    "port": 8443,
     "wsFormat": "delimited",
     "wsTls": true,
     "wsPath": "/feed/stream-id",
