@@ -16,7 +16,6 @@ Complete list of keyboard shortcuts for the ArcGIS Velocity Simulator.
 |----------|--------|-------------|
 | `Ctrl+T` (Windows/Linux)<br>`Cmd+T` (macOS) | **Toggle View** | Switches between compact and full view modes |
 | `Ctrl+I` (Windows/Linux)<br>`Cmd+I` (macOS) | **App Configuration** | Opens the app configuration dialog |
-| `F11` | **Toggle Fullscreen** | Toggles fullscreen mode |
 | `Ctrl+0` (Windows/Linux)<br>`Cmd+0` (macOS) | **Actual Size** | Resets zoom to 100% |
 | `Ctrl+Plus` (Windows/Linux)<br>`Cmd+Plus` (macOS) | **Zoom In** | Increases zoom level |
 | `Ctrl+-` (Windows/Linux)<br>`Cmd+-` (macOS) | **Zoom Out** | Decreases zoom level |
@@ -63,7 +62,8 @@ These shortcuts apply while the Command Line Interface dialog is open. They are 
 
 | Shortcut | Action | Description |
 |----------|--------|-------------|
-| `F12` | **Developer Tools** | Opens/closes the developer tools |
+| `F12` | **Toggle Developer Tools** | Opens/closes the developer tools. Shown as a checkbox — checked when DevTools is open. The checkbox is kept in sync with all ways DevTools can be opened or closed (F12, Inspect Element Mode, keyboard shortcut). |
+| `F11` | **Inspect Element Mode** | Toggles inspect-element pick mode (checkbox). When active, the cursor changes to a crosshair; click any UI element to open it in the DevTools Elements panel. Enabling this also checks the Developer Tools entry automatically. Press `Escape` or toggle again to cancel. |
 | `Ctrl+R` (Windows/Linux)<br>`Cmd+R` (macOS) | **Reload** | Reloads the application |
 | `Ctrl+Shift+R` (Windows/Linux)<br>`Cmd+Shift+R` (macOS) | **Force Reload** | Force reloads the application (ignores cache) |
 

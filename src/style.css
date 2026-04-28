@@ -518,15 +518,6 @@ body.compact #toggle-sort-order {
   text-align: left;
 }
 
-.extra-options-toggle-spacer {
-  flex-basis: 90px;
-  flex-shrink: 0;
-  margin-right: 10px;
-}
-
-body.compact .extra-options-toggle-spacer {
-  flex-basis: 80px;
-}
 .radio-group {
   display: flex;
   align-items: center;
@@ -1252,76 +1243,94 @@ body:not(.show-gestures) #live-gesture-received {
 
 /* ========================================
    EXTRA OPTIONS COLLAPSIBLE SECTION
+   — Section-divider disclosure pattern:
+     full-width hairline row, minimal height,
+     transparent background, fades in on hover.
    ======================================== */
+
+/* The row itself: full width, no indent, no extra margin */
 .extra-options-toggle-row {
-  margin-bottom: 3px;
+  width: 100%;
+  margin: 2px 0 0;
+  padding: 0;
 }
 
+/* The button spans the entire row */
 .extra-options-toggle-btn {
-  flex: 1;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
+  gap: 5px;
   width: 100%;
-  min-height: 30px;
-  padding: 5px 10px;
-  background-color: var(--input-bg);
+  padding: 0 4px;
+  height: 20px;
+  background: transparent;
   color: var(--text-color);
-  border: 1px solid var(--input-border);
-  border-radius: 6px;
+  border: none;
+  border-top: 1px solid var(--hr-bg);
+  border-bottom: 1px solid var(--hr-bg);
+  border-radius: 0;
   cursor: pointer;
-  font-size: 0.82em;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  opacity: 0.92;
+  font-size: 0.72em;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.55;
   box-sizing: border-box;
-  transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
+  transition: opacity 0.15s, background-color 0.15s;
   text-align: left;
 }
 
 .extra-options-toggle-btn:hover:not(:disabled) {
-  background-color: var(--button-hover);
-  opacity: 1;
+  background-color: var(--hr-bg);
+  opacity: 0.9;
   transform: none;
 }
 
 .extra-options-toggle-btn:focus-visible {
   outline: 2px solid var(--button-primary-bg);
-  outline-offset: 1px;
+  outline-offset: -2px;
+  opacity: 0.85;
 }
 
+/* When expanded: remove bottom border so options flow as a continuous group */
 .extra-options-toggle-btn[aria-expanded="true"] {
-  border-color: var(--button-primary-bg);
+  border-bottom-color: transparent;
+  opacity: 0.75;
+}
+
+.extra-options-arrow {
+  display: inline-block;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+  font-size: 0.85em;
+  line-height: 1;
 }
 
 .extra-options-toggle-btn[aria-expanded="true"] .extra-options-arrow {
   transform: rotate(90deg);
 }
 
-.extra-options-arrow {
-  display: inline-block;
-  margin-left: auto;
-  transition: transform 0.15s;
-  font-size: 0.78em;
-  line-height: 1;
-  opacity: 0.72;
-}
-
 .extra-options-label {
   flex: 1;
   min-width: 0;
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* Expanded body: subtle left accent to show the rows belong to this section */
 .extra-options-body {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  border-left: 2px solid var(--hr-bg);
+  padding-left: 4px;
+  margin-bottom: 2px;
 }
 
+/* Compact mode */
 body.compact .extra-options-toggle-btn {
-  min-height: 26px;
-  padding: 3px 8px;
-  font-size: 0.78em;
+  height: 18px;
+  font-size: 0.68em;
+  padding: 0 3px;
 }

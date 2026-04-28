@@ -26,6 +26,7 @@
                     <li>Select CSV file</li>
                     <li>Choose protocol mode (TCP/UDP/HTTP/WebSocket/gRPC Server/Client)</li>
                     <li>Set IP address and port</li>
+                    <li>For HTTP, WebSocket, or gRPC: click the <strong>▸ Options</strong> section header to expand protocol-specific settings (format, TLS, paths, headers)</li>
                     <li>Configure streaming rate</li>
                     <li>Connect and Play</li>
                 </ol>
@@ -49,6 +50,7 @@
 
             <div class="help-section">
                 <h3>HTTP Options</h3>
+                <p>When HTTP is selected, click the <strong>▸ HTTP Options</strong> section header between the connection row and the IP/port row to reveal these controls:</p>
                 <ul>
                     <li><strong>Format:</strong> Controls the Content-Type header — JSON (<code>application/json</code>), Delimited/CSV (<code>text/plain</code>), Esri JSON (<code>application/json</code>), GeoJSON (<code>application/geo+json</code>), or XML (<code>application/xml</code>). Must match the format configured in the ArcGIS Velocity HTTP Receiver feed.</li>
                     <li><strong>Use TLS:</strong> Enable HTTPS (port 8443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key.</li>
@@ -61,6 +63,7 @@
 
             <div class="help-section">
                 <h3>WebSocket Options</h3>
+                <p>When WebSocket is selected, click the <strong>▸ WebSocket Options</strong> section header to reveal these controls:</p>
                 <ul>
                     <li><strong>Format:</strong> Controls the data format — JSON (<code>application/json</code>), Delimited/CSV (<code>text/plain</code>), Esri JSON (<code>application/json</code>), GeoJSON (<code>application/geo+json</code>), or XML (<code>application/xml</code>).</li>
                     <li><strong>Use TLS:</strong> Enable WSS (WebSocket Secure, port 8443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key.</li>
@@ -76,6 +79,7 @@
 
             <div class="help-section">
                 <h3>gRPC Options</h3>
+                <p>When gRPC is selected, click the <strong>▸ gRPC Options</strong> section header to reveal these controls:</p>
                 <ul>
                     <li><strong>Serialization:</strong> Protobuf (default, external GrpcFeed protocol), Kryo (internal GrpcFeatureService, binary), or Text (internal GrpcFeatureService, UTF-8 CSV).</li>
                     <li><strong>RPC Type:</strong> Client Streaming (persistent stream, higher throughput) or Unary (individual request/response per message).</li>
@@ -225,8 +229,12 @@
                             <td colspan="2"><kbd>F3</kbd></td>
                         </tr>
                         <tr>
-                            <td>Developer Tools</td>
+                            <td>Developer Tools (toggle, checkbox)</td>
                             <td colspan="2"><kbd>F12</kbd></td>
+                        </tr>
+                        <tr>
+                            <td>Inspect Element Mode (toggle, checkbox)</td>
+                            <td colspan="2"><kbd>F11</kbd></td>
                         </tr>
                         <tr>
                             <td>Close Dialog</td>

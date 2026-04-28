@@ -70,7 +70,9 @@ Useful for authentication tokens or API keys required by the WebSocket endpoint.
 
 ## UI Controls
 
-When WebSocket is selected as the connection type, the following controls appear:
+When WebSocket is selected as the connection type, a **▸ WebSocket Options** section-divider row appears between the connection-type row and the IP/Port row. Click it to expand or collapse the protocol-specific controls. See [HTTP.md](./HTTP.md#ui-controls) for a description of the disclosure row UX pattern.
+
+The following controls appear inside the expanded section:
 
 - **Format** — `Delimited (CSV)` (default), `JSON`, `Esri JSON`, `GeoJSON`, or `XML`.
 - **Use TLS** — Checkbox: checked = `wss://` (port 8443), unchecked = `ws://` (port 8080).

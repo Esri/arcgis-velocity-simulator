@@ -1642,6 +1642,59 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleMicrophoneSupport(isEnabled);
   });
 
+  // --- Inspect Element pick mode ---
+  // Activated by the "Inspect Element Mode" menu item (checkbox): changes cursor to a
+  // crosshair and on the next click sends the coordinates to the main process, which calls
+  // webContents.inspectElement(x, y) to highlight the element in DevTools.
+  // Deactivated by toggling the menu item again, pressing Escape, or completing a pick.
+  if (window.api && window.api.onEnterInspectMode) {
+    let pickCleanup = null;
+
+    function cancelPickMode() {
+      if (!pickCleanup) return;
+      pickCleanup();
+      pickCleanup = null;
+      document.body.style.cursor = '';
+      if (window.api.inspectElementDone) window.api.inspectElementDone();
+    }
+
+    const onEscapeCancel = (e) => {
+      if (e.key === 'Escape') cancelPickMode();
+    };
+
+    window.api.onEnterInspectMode(() => {
+      document.body.style.cursor = 'crosshair';
+
+      const onPick = (e) => {
+        document.body.style.cursor = '';
+        pickCleanup = null;
+        document.removeEventListener('keydown', onEscapeCancel, { capture: true });
+        window.api.inspectElement(e.clientX, e.clientY);
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      };
+
+      pickCleanup = () => {
+        document.removeEventListener('click', onPick, { capture: true });
+        document.removeEventListener('keydown', onEscapeCancel, { capture: true });
+      };
+
+      document.addEventListener('click', onPick, { capture: true, once: true });
+      document.addEventListener('keydown', onEscapeCancel, { capture: true });
+    });
+
+    // Main process toggled the checkbox off while pick mode was still pending
+    if (window.api.onCancelInspectMode) {
+      window.api.onCancelInspectMode(() => {
+        if (pickCleanup) {
+          pickCleanup();
+          pickCleanup = null;
+          document.body.style.cursor = '';
+        }
+      });
+    }
+  }
+
   // Initialize status bar with current app state
   if (appState) {
     updateAppStateDisplay();

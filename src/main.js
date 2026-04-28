@@ -95,6 +95,8 @@ let connection = null; // Holds the active server or client socket.
 let tcpClientSockets = []; // Array of connected TCP client sockets (when in server mode).
 let udpServerClients = new Set(); // Set of known UDP clients (when in server mode).
 let grpcTransport = null; // Holds active gRPC transport (GrpcClientTransport or GrpcServerTransport).
+let inspectModeActive = false; // Tracks whether Inspect Element pick mode is active.
+let devToolsOpen = false; // Tracks whether DevTools is currently open (synced via devtools-opened/closed events).
 let httpTransport = null; // Holds active HTTP transport (HttpClientTransport or HttpServerTransport).
 let wsTransport = null; // Holds active WebSocket transport (WsClientTransport or WsServerTransport).
 const { createGrpcClientTransport, createGrpcServerTransport } = require(path.join(basePath, 'grpc-transport.js'));
@@ -580,6 +582,23 @@ function createWindow() {
     globalShortcut.unregisterAll();
   });
 
+  // Keep devToolsOpen flag and menu checkboxes in sync regardless of how DevTools was opened/closed.
+  mainWindow.webContents.on('devtools-opened', () => {
+    devToolsOpen = true;
+    const applicationMenu = createMainMenu();
+    Menu.setApplicationMenu(applicationMenu);
+  });
+  mainWindow.webContents.on('devtools-closed', () => {
+    devToolsOpen = false;
+    // Also clear inspect pick mode if DevTools was closed externally
+    if (inspectModeActive) {
+      inspectModeActive = false;
+      mainWindow && mainWindow.webContents.send('cancel-inspect-mode');
+    }
+    const applicationMenu = createMainMenu();
+    Menu.setApplicationMenu(applicationMenu);
+  });
+
   // --- Debounced State Saving for Window Changes ---
   let saveStateTimeout;
   const debouncedSaveAppState = () => {
@@ -919,12 +938,34 @@ function createMainMenu() {
         {
           label: 'Toggle Developer Tools',
           accelerator: 'F12',
+          type: 'checkbox',
+          checked: devToolsOpen,
           click: () => {
             if (mainWindow) mainWindow.webContents.toggleDevTools();
           }
         },
-        { 
-          label: 'About', 
+        {
+          label: 'Inspect Element Mode',
+          accelerator: 'F11',
+          type: 'checkbox',
+          checked: inspectModeActive,
+          click: () => {
+            if (!mainWindow) return;
+            inspectModeActive = !inspectModeActive;
+            if (inspectModeActive) {
+              if (!mainWindow.webContents.isDevToolsOpened()) {
+                mainWindow.webContents.openDevTools({ mode: 'detach' });
+              }
+              mainWindow.webContents.send('enter-inspect-mode');
+            } else {
+              mainWindow.webContents.send('cancel-inspect-mode');
+            }
+            const applicationMenu = createMainMenu();
+            Menu.setApplicationMenu(applicationMenu);
+          }
+        },
+        {
+          label: 'About',
           accelerator: 'F2',
           click: () => showAboutDialog()
         }
@@ -1762,10 +1803,32 @@ function buildContextMenu(isCompact) {
     {
       label: 'Toggle Developer Tools',
       accelerator: 'F12',
+      type: 'checkbox',
+      checked: devToolsOpen,
       click: () => {
         if (mainWindow) {
           mainWindow.webContents.toggleDevTools();
         }
+      }
+    },
+    {
+      label: 'Inspect Element Mode',
+      accelerator: 'F11',
+      type: 'checkbox',
+      checked: inspectModeActive,
+      click: () => {
+        if (!mainWindow) return;
+        inspectModeActive = !inspectModeActive;
+        if (inspectModeActive) {
+          if (!mainWindow.webContents.isDevToolsOpened()) {
+            mainWindow.webContents.openDevTools({ mode: 'detach' });
+          }
+          mainWindow.webContents.send('enter-inspect-mode');
+        } else {
+          mainWindow.webContents.send('cancel-inspect-mode');
+        }
+        const applicationMenu = createMainMenu();
+        Menu.setApplicationMenu(applicationMenu);
       }
     },
     {
@@ -1806,6 +1869,22 @@ ipcMain.on('show-context-menu', (event) => {
   const isCompact = mainWindow.isCompact || false;
   const menu = buildContextMenu(isCompact);
   menu.popup({ window: BrowserWindow.fromWebContents(event.sender) });
+});
+
+// Inspect element at the coordinates reported by the renderer's pick-mode click.
+ipcMain.on('inspect-element', (event, { x, y }) => {
+  event.sender.inspectElement(x, y);
+  // Clear active state once the pick completes, then sync both menus.
+  inspectModeActive = false;
+  const applicationMenu = createMainMenu();
+  Menu.setApplicationMenu(applicationMenu);
+});
+
+// Renderer cancelled inspect mode (Escape key or explicit cancel).
+ipcMain.on('inspect-element-done', () => {
+  inspectModeActive = false;
+  const applicationMenu = createMainMenu();
+  Menu.setApplicationMenu(applicationMenu);
 });
 
 // Exposes the application's version to the renderer process (for the "About" dialog).

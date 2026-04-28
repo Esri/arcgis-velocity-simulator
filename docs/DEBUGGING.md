@@ -28,6 +28,10 @@ Available configs: Debug Main, Debug Renderer, Debug Both, Launch and Debug Main
 
 **Built-in DevTools (quick):** `Cmd+Option+I` / `Ctrl+Shift+I` while the app is running.
 
+**Toggle Developer Tools (`F12`, checkbox):** Available in the Help menu and context menu. The checkbox reflects the true open/closed state of DevTools — it is checked whenever DevTools is open, regardless of how it was opened (F12, Inspect Element Mode, keyboard shortcut). Both the app menu and context menu stay in sync automatically.
+
+**Inspect Element Mode (`F11`, checkbox):** Available in the Help menu and context menu. Select it to enter pick mode — the cursor changes to a crosshair. Click any UI control to jump directly to its HTML element in the DevTools Elements panel. DevTools opens automatically if it is not already open, and the Toggle Developer Tools checkbox will also appear checked. Press `Escape` or toggle the menu item again to cancel. Closing DevTools externally while pick mode is active automatically cancels the mode and unchecks both entries.
+
 ## Headless Mode Debugging
 
 Headless never creates a BrowserWindow — attach to the main process only:

@@ -239,7 +239,9 @@ electron . runMode=headless filename=./data.csv protocol=grpc mode=server ip=0.0
 
 ## UI Usage
 
-When gRPC is selected as the connection type in the UI, the following controls appear:
+When gRPC is selected as the connection type in the UI, a **▸ gRPC Options** section-divider row appears between the connection-type row and the IP/Port row. Click it to expand or collapse the protocol-specific controls. See [HTTP.md](./HTTP.md#ui-controls) for a description of the disclosure row UX pattern.
+
+The following controls appear inside the expanded section:
 
 - **Serialization** — `Protobuf` (default), `Kryo`, or `Text`
 - **RPC type** — `Client Streaming` (default) or `Unary`. Selects the gRPC call pattern for sending data. Client Streaming opens a persistent stream for high-throughput ingestion. Unary sends each message as an independent request/response round-trip. See [Send Methods (RPC Types)](#send-methods-rpc-types) for details. Only applies in gRPC Client mode. **Locked while connected** (the streaming vs. unary choice is baked into the transport at connect time).

@@ -56,7 +56,9 @@ When connecting to an ArcGIS Velocity HTTP Receiver endpoint, set this to the sy
 
 ## UI Controls
 
-When HTTP is selected as the connection type (Mode dropdown), the following controls appear:
+When HTTP is selected as the connection type (Mode dropdown), a **▸ HTTP Options** section-divider row appears between the connection-type row and the IP/Port row. Click it to expand or collapse the protocol-specific controls. The row is a minimal full-width disclosure header — it takes up only one line of height and uses hairline borders so it blends with the form without wasting space. The label updates to reflect the active protocol (e.g. `▸ HTTP Options`, `▸ WebSocket Options`, `▸ gRPC Options`), and the arrow rotates 90° when expanded.
+
+The following controls appear inside the expanded section:
 
 - **Mode** — `HTTP Client` or `HTTP Server`. Hovering over each option shows a description of that connection mode. All connection modes (TCP, UDP, HTTP, gRPC) have descriptive tooltips.
 - **Format** — `Delimited (CSV)` (default), `JSON`, `Esri JSON`, `GeoJSON`, or `XML`. Controls the `Content-Type` header sent with each request. Must match the format configured in the ArcGIS Velocity HTTP Receiver feed. Hovering over the dropdown shows a detailed tooltip for the currently selected format.

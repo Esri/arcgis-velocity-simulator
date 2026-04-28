@@ -74,12 +74,16 @@ contextBridge.exposeInMainWorld('api', {
   onToggleCameraSupport: (callback) => ipcRenderer.on('toggle-camera-support', (_event, isEnabled) => callback(isEnabled)), // Camera support toggle notifications
   onToggleMicrophoneSupport: (callback) => ipcRenderer.on('toggle-microphone-support', (_event, isEnabled) => callback(isEnabled)), // Microphone support toggle notifications
   onCliPresets: (callback) => ipcRenderer.on('cli-presets', (_event, presets) => callback(presets)), // CLI presets for UI prepopulation
+  onEnterInspectMode: (callback) => ipcRenderer.on('enter-inspect-mode', (_event) => callback()), // Triggers one-shot element pick mode
+  onCancelInspectMode: (callback) => ipcRenderer.on('cancel-inspect-mode', (_event) => callback()), // Cancels pick mode from menu toggle off
 
   // --- Window Management (Renderer to Main) ---
   toggleCompactView: () => ipcRenderer.send('toggle-compact-view'), // Toggles between compact and full view
   saveSplitterPosition: (position) => ipcRenderer.send('save-splitter-position', position), // Saves UI splitter position
   getFullViewDimensions: () => ipcRenderer.invoke('get-full-view-dimensions'), // Gets full view window dimensions
-  
+  inspectElement: (x, y) => ipcRenderer.send('inspect-element', { x, y }), // Triggers DevTools inspect at coordinates
+  inspectElementDone: () => ipcRenderer.send('inspect-element-done'), // Notifies main that pick mode ended
+
   // --- Support State Queries (Renderer to Main) ---
   getCameraSupportState: () => ipcRenderer.invoke('get-camera-support-state'), // Gets current camera support state
   getMicrophoneSupportState: () => ipcRenderer.invoke('get-microphone-support-state'), // Gets current microphone support state
