@@ -269,7 +269,7 @@ Supported UI-prepopulable parameters: `protocol`, `mode`, `ip`, `port`, `grpcSer
 - **Protobuf** format is compatible with ArcGIS Velocity external gRPC feed endpoints
 - **Kryo/Text** formats are compatible with ArcGIS Velocity internal gRPC feature service endpoints
 - Uses `@grpc/grpc-js` + `protobufjs` (pure JavaScript, no native compilation required)
-- Supports both plaintext (insecure) and TLS (SSL) connections
+- Supports both plaintext (unsecure) and TLS (SSL) connections
 
 ## TLS & Certificate Stores
 
@@ -303,7 +303,7 @@ gRPC server listening on 0.0.0.0:50051 [protobuf]
 
 **Any mode — TLS off:**
 ```
-  tls=off (insecure)
+  tls=off (unsecure)
 ```
 
 To override the automatic OS CA lookup on the client side, set `tlsCaPath` to a PEM file path.
@@ -317,7 +317,7 @@ Server-mode TLS has a hard requirement that **both `tlsCertPath` and `tlsKeyPath
 
 If you see the error `TLS server mode requires both tlsCertPath and tlsKeyPath`, your options are:
 
-1. **Disable TLS** — uncheck **Use TLS** (or omit `useTls`) to use plaintext (insecure) mode. Suitable for local/dev testing between the Simulator and Logger.
+1. **Disable TLS** — uncheck **Use TLS** (or omit `useTls`) to use plaintext (unsecure) mode. Suitable for local/dev testing between the Simulator and Logger.
 2. **Provide a self-signed cert+key** — generate a pair with OpenSSL and supply both paths:
    ```bash
    openssl req -x509 -newkey rsa:4096 -keyout server-key.pem -out server.pem -days 365 -nodes -subj "/CN=localhost"

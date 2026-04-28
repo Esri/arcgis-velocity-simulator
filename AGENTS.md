@@ -31,8 +31,9 @@ This file provides rules and guidance for AI coding agents (e.g. GitHub Copilot,
  */
 ```
 
-This applies to all `.js` files under `src/`, `scripts/`, and `test/`.  
-Do not skip this header, even for small utility files or test helpers.
+This applies to all `.js` files under `src/` only.  
+Do **not** add this header to files under `scripts/` or `test/` — script files often begin with a `#!/usr/bin/env node` shebang that must stay on line 1, and the copyright block would break them.  
+Do not skip this header in `src/`, even for small utility files.
 
 ## Documentation Updates
 
@@ -42,6 +43,11 @@ Whenever a new Markdown (`.md`) file is added to the repository:
 2. **`docs/README.md`** — add an entry for the new file in the documentation index, including a short description and the intended audience.
 
 Do not add a new `.md` file without updating both README files.
+
+## Terminology
+
+- Use **"unsecure"** (not "insecure") when writing prose, comments, or documentation that describes a connection or mode lacking TLS/encryption.
+- Exception: do **not** rename third-party API identifiers such as `createInsecure()`, `InsecureServerCredentials`, or any gRPC/library symbol — those are external API names and must stay unchanged.
 
 ## Code Organization
 

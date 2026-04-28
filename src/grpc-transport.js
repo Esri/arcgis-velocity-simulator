@@ -397,7 +397,7 @@ function formatTlsCertSummary(certInfo) {
  */
 function buildChannelCredentials({ useTls = true, tlsCaPath, tlsCertPath, tlsKeyPath } = {}) {
   if (!useTls) {
-    return { credentials: grpc.credentials.createInsecure(), tlsInfo: 'tls=off (insecure)' };
+    return { credentials: grpc.credentials.createInsecure(), tlsInfo: 'tls=off (unsecure)' };
   }
   const hasCustomCerts = tlsCaPath || tlsCertPath || tlsKeyPath;
   if (!hasCustomCerts) {
@@ -436,13 +436,13 @@ function buildChannelCredentials({ useTls = true, tlsCaPath, tlsCertPath, tlsKey
  * provided. There is nothing to fall back to, so missing cert/key is a hard error.
  *
  * Practical options when cert/key are unavailable:
- *   1. Omit `useTls` (or set it to `false`) to use plaintext (insecure) mode.
+ *   1. Omit `useTls` (or set it to `false`) to use plaintext (unsecure) mode.
  *   2. Generate a self-signed cert+key pair and pass their paths.
  *
  * @returns {{ credentials: object, tlsInfo: string }}
  */
 function buildServerCredentials({ useTls = true, tlsCaPath, tlsCertPath, tlsKeyPath } = {}) {
-  if (!useTls) return { credentials: grpc.ServerCredentials.createInsecure(), tlsInfo: 'tls=off (insecure)' };
+  if (!useTls) return { credentials: grpc.ServerCredentials.createInsecure(), tlsInfo: 'tls=off (unsecure)' };
   const rootCerts = tlsCaPath ? fs.readFileSync(tlsCaPath) : null;
   const privateKey = tlsKeyPath ? fs.readFileSync(tlsKeyPath) : null;
   const certChain = tlsCertPath ? fs.readFileSync(tlsCertPath) : null;
