@@ -1108,8 +1108,82 @@ body {
   50% { opacity: 1; transform: scale(1.05); }
 }
 
-/* Responsive adjustments for compact view */
-body.compact #live-gesture-received {
+/* ── TLS trust badge (status bar center) ───────────────────────────────── */
+
+.tls-badge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 6px;
+  padding: 1px 5px;
+  border: 1px solid transparent;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.tls-badge:hover,
+.tls-badge.pinned {
+  background-color: rgba(128, 128, 128, 0.15);
+  border-color: var(--border-color);
+}
+
+.tls-badge-icon {
+  font-size: 1em;
+  line-height: 1;
+}
+
+/* Trust-level colour coding via data attribute */
+.tls-badge[data-trust="off"]         .tls-badge-icon { filter: grayscale(1) opacity(0.6); }
+.tls-badge[data-trust="self-signed"] .tls-badge-icon { filter: sepia(1) saturate(3) hue-rotate(5deg); }
+.tls-badge[data-trust="ca-verified"] .tls-badge-icon { filter: none; }
+.tls-badge[data-trust="mtls"]        .tls-badge-icon { filter: none; }
+
+.tls-badge-popover {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(6px);
+  z-index: 500;
+  background: var(--bg-color, #fff);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 10px 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
+  min-width: 260px;
+  max-width: min(480px, 90vw);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  transition-delay: 0s;
+}
+
+.tls-badge:hover .tls-badge-popover {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  transition-delay: 0.2s;
+}
+
+.tls-badge.pinned .tls-badge-popover {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  transition-delay: 0s;
+  border-left: 3px solid var(--accent-color, var(--border-color));
+}
+
+.tls-badge-content {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: 0.82em;
+  line-height: 1.6;
+  color: var(--text-color);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── end TLS trust badge ─────────────────────────────────────────────────── */
   padding: 4px 8px;
   margin: 2px 0;
   font-size: 16px;

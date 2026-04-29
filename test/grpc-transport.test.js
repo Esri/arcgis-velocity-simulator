@@ -353,15 +353,14 @@ async function runGrpcTransportTests() {
     return typeof result.tlsInfo === 'string' && result.tlsInfo.includes('tls=off');
   });
 
-  await runTest('buildServerCredentials throws with helpful message when cert/key missing (useTls=true)', async () => {
+  await runTest('buildServerCredentials uses auto-generated self-signed cert when no cert/key provided (useTls=true)', async () => {
     const server = createGrpcServerTransport({ ip: '127.0.0.1', port: 0, useTls: true, grpcSerialization: 'protobuf' });
     try {
-      await server.connect();
-      return false; // should have thrown
+      const result = await server.connect();
+      await server.disconnect();
+      return result.tlsInfo.includes('self-signed');
     } catch (error) {
-      return error.message.includes('tlsCertPath') &&
-        error.message.includes('tlsKeyPath') &&
-        error.message.includes('OS/system certificates cannot be used as a fallback');
+      return false; // should not throw
     }
   });
 

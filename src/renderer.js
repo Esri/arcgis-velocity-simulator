@@ -444,6 +444,83 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
+   * Converts a raw tlsInfo string (from transport connect results) into a concise,
+   * human-readable tooltip for the status bar "connected" indicator.
+   *
+   * Examples of raw values:
+   *   "tls=off (unsecure)"
+   *   "tls=on (cert verification skipped — no CA provided), 142 trusted CAs loaded, ..."
+   *   "tls=on, custom certs: ca=/path/ca.pem"
+   *   "tls=on, cert=self-signed (auto-generated), key=self-signed (auto-generated)"
+   *
+   * @param {string} raw - The raw tlsInfo string
+   * @returns {string} Human-readable tooltip, or '' if no useful info
+   */
+  function tlsInfoToTooltip(raw) {
+    if (!raw) return '';
+    if (/tls=off/i.test(raw)) {
+      return 'TLS: off — connection is unsecure (plaintext, no encryption)';
+    }
+    if (/self-signed/i.test(raw)) {
+      return 'TLS: self-signed — connection is encrypted but the server certificate is auto-generated and not CA-verified; peer identity is unverified';
+    }
+    if (/cert verification skipped/i.test(raw)) {
+      return 'TLS: self-signed — connection is encrypted but certificate authority verification is skipped; peer identity is unverified';
+    }
+    if (/mtls|client.*cert|cert.*client/i.test(raw)) {
+      return 'TLS: mTLS — mutual TLS; both client and server certificates are verified';
+    }
+    if (/custom certs/i.test(raw)) {
+      return 'TLS: CA-verified — connection is encrypted and the certificate chain is validated against a custom CA';
+    }
+    if (/tls=on/i.test(raw)) {
+      return 'TLS: on — connection is encrypted';
+    }
+    return raw;
+  }
+
+  // The TLS tooltip for the current connection, set on connect and cleared on disconnect.
+  let currentTlsTooltip = '';
+
+  /**
+   * Updates the TLS trust badge in the status bar center.
+   * Shows a lock icon whose colour reflects the trust level, with a hover/click popover.
+   * Pass null or '' to hide the badge (disconnected / no-TLS protocols).
+   * @param {string} tooltip - The human-readable TLS tooltip, or '' to hide
+   */
+  function updateTlsBadge(tooltip) {
+    const badge   = document.getElementById('tls-badge');
+    const icon    = document.getElementById('tls-badge-icon');
+    const content = document.getElementById('tls-badge-content');
+    if (!badge) return;
+
+    if (!tooltip) {
+      badge.style.display = 'none';
+      badge.classList.remove('pinned');
+      return;
+    }
+
+    // Derive trust level for colour-coding
+    let trust = 'on';
+    let iconChar = '🔒';
+    if (/tls.*off|unsecure|plaintext/i.test(tooltip)) {
+      trust = 'off'; iconChar = '🔓';
+    } else if (/self-signed|verification.*skip/i.test(tooltip)) {
+      trust = 'self-signed'; iconChar = '🔒';
+    } else if (/mtls|mutual/i.test(tooltip)) {
+      trust = 'mtls'; iconChar = '🔒';
+    } else if (/ca-verified|custom ca/i.test(tooltip)) {
+      trust = 'ca-verified'; iconChar = '🔒';
+    }
+
+    badge.dataset.trust = trust;
+    badge.title = tooltip; // fallback native tooltip
+    badge.style.display = 'flex';
+    if (icon)    icon.textContent    = iconChar;
+    if (content) content.textContent = tooltip;
+  }
+
+  /**
    * Updates the main application state display in the status bar.
    * Can show a temporary message (like "Stepped") or a permanent state (like "Playing").
    * @param {string|null} temporaryText - Text for a temporary message. If null, displays the permanent state.
@@ -491,7 +568,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     appState.textContent = stateText;
     appState.setAttribute('data-state', stateAttribute);
-    
+    // Update TLS trust badge: visible when connected with a TLS-capable protocol
+    updateTlsBadge(isConnected ? currentTlsTooltip : '');
+
     // Show emoji and set it based on state
     const emoji = stateEmojis[stateAttribute] || '⭐';
     appStateEmoji.textContent = emoji;
@@ -953,6 +1032,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.api.onConnectionStatusChanged((status, message) => {
     logStatus(message);
+    // Extract the tlsInfo detail (embedded after '\n  ' by main.js) and build a tooltip.
+    // Clear it when disconnecting so a stale tooltip is never shown.
+    if (status === 'connected') {
+      const detailMatch = message && message.match(/\n\s+(.+)/);
+      currentTlsTooltip = detailMatch ? tlsInfoToTooltip(detailMatch[1].trim()) : '';
+    } else if (status === 'disconnected') {
+      currentTlsTooltip = '';
+    }
     handleConnectionStatusChange(status);
   });
 
@@ -1698,6 +1785,20 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize status bar with current app state
   if (appState) {
     updateAppStateDisplay();
+  }
+
+  // TLS badge click-to-pin handler
+  const tlsBadgeEl = document.getElementById('tls-badge');
+  if (tlsBadgeEl) {
+    tlsBadgeEl.addEventListener('click', (e) => {
+      tlsBadgeEl.classList.toggle('pinned');
+      e.stopPropagation();
+    });
+    document.addEventListener('click', () => tlsBadgeEl.classList.remove('pinned'));
+    const tlsPopoverEl = document.getElementById('tls-badge-popover');
+    if (tlsPopoverEl) {
+      tlsPopoverEl.addEventListener('click', (e) => e.stopPropagation());
+    }
   }
 
   // Initialize simple offline speech recognition

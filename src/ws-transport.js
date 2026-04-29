@@ -95,9 +95,9 @@ function createWsClientTransport(opts) {
 
       // TLS options
       if (wsTls) {
-        const tlsOpts = buildHttpsAgentOptions({ tlsCaPath: wsTlsCaPath, tlsCertPath: wsTlsCertPath, tlsKeyPath: wsTlsKeyPath });
-        // ws package uses these directly
-        Object.assign(wsOpts, tlsOpts);
+        const { agentOptions } = buildHttpsAgentOptions({ tlsCaPath: wsTlsCaPath, tlsCertPath: wsTlsCertPath, tlsKeyPath: wsTlsKeyPath });
+        // ws package accepts TLS options (ca, cert, key, rejectUnauthorized) directly
+        if (agentOptions) Object.assign(wsOpts, agentOptions);
       }
 
       // Custom HTTP headers for the upgrade request
@@ -256,8 +256,8 @@ function createWsServerTransport(opts) {
 
       // Create underlying HTTP(S) server
       if (wsTls) {
-        const serverOpts = buildHttpsServerOptions({ tlsCaPath: wsTlsCaPath, tlsCertPath: wsTlsCertPath, tlsKeyPath: wsTlsKeyPath });
-        httpServer = https.createServer(serverOpts);
+        const { serverOptions } = buildHttpsServerOptions({ tlsCaPath: wsTlsCaPath, tlsCertPath: wsTlsCertPath, tlsKeyPath: wsTlsKeyPath });
+        httpServer = https.createServer(serverOptions);
       } else {
         httpServer = http.createServer();
       }

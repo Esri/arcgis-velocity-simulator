@@ -123,6 +123,7 @@
     "@grpc/grpc-js": "^1.14.3",
     "@grpc/proto-loader": "^0.8.0",
     "protobufjs": "^8.0.1",
+    "selfsigned": "^2.4.1",
     "ws": "^8.20.0"
   }
 }

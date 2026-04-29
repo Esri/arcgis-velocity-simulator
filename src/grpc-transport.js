@@ -45,7 +45,7 @@ const fs = require('fs');
 const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
 
-const { getSystemRootCertificates, formatTlsCertSummary } = require('./tls-utils');
+const { getSystemRootCertificates, formatTlsCertSummary, generateSelfSignedCert } = require('./tls-utils');
 
 const PROTO_DIR = path.join(__dirname, 'proto');
 const VELOCITY_PROTO_PATH = path.join(PROTO_DIR, 'velocity-grpc.proto');
@@ -284,9 +284,12 @@ function buildChannelCredentials({ useTls = true, tlsCaPath, tlsCertPath, tlsKey
   const hasCustomCerts = tlsCaPath || tlsCertPath || tlsKeyPath;
   if (!hasCustomCerts) {
     const certResult = getSystemRootCertificates();
+    // No CA cert provided — skip server certificate authority verification so that
+    // auto-generated self-signed server certs are accepted. TLS encryption is still
+    // active; only CA chain validation is skipped.
     return {
-      credentials: grpc.credentials.createSsl(certResult.pemBuffer),
-      tlsInfo: `tls=on, ${formatTlsCertSummary(certResult)}`,
+      credentials: grpc.credentials.createSsl(certResult.pemBuffer, null, null, { checkServerIdentity: () => undefined, rejectUnauthorized: false }),
+      tlsInfo: `tls=on (cert verification skipped — no CA provided), ${formatTlsCertSummary(certResult)}`,
     };
   }
   const rootCerts = tlsCaPath ? fs.readFileSync(tlsCaPath) : undefined;
@@ -305,39 +308,31 @@ function buildChannelCredentials({ useTls = true, tlsCaPath, tlsCertPath, tlsKey
 /**
  * Builds gRPC server credentials based on TLS options.
  *
- * NOTE — why server-mode TLS cannot fall back to OS/system certificates:
- *
- * Client TLS only needs *trust anchors* (CA root certs) to verify the server's
- * identity, which is exactly what the OS certificate store provides. That is why
- * {@link buildChannelCredentials} can fall back to OS root CAs automatically.
- *
- * Server TLS is fundamentally different: the server must *present its own identity
- * certificate* to connecting clients. OS root CAs are trust anchors for verifying
- * others — they are not server identity certificates. A gRPC server has no
- * certificate to present unless a `tlsCertPath` + `tlsKeyPath` pair is explicitly
- * provided. There is nothing to fall back to, so missing cert/key is a hard error.
- *
- * Practical options when cert/key are unavailable:
- *   1. Omit `useTls` (or set it to `false`) to use plaintext (unsecure) mode.
- *   2. Generate a self-signed cert+key pair and pass their paths.
+ * When tlsCertPath and tlsKeyPath are not provided, an in-memory self-signed
+ * certificate is generated automatically (via tls-utils.generateSelfSignedCert)
+ * so the server can start in TLS mode without pre-configured certificate files.
  *
  * @returns {{ credentials: object, tlsInfo: string }}
  */
 function buildServerCredentials({ useTls = true, tlsCaPath, tlsCertPath, tlsKeyPath } = {}) {
   if (!useTls) return { credentials: grpc.ServerCredentials.createInsecure(), tlsInfo: 'tls=off (unsecure)' };
   const rootCerts = tlsCaPath ? fs.readFileSync(tlsCaPath) : null;
-  const privateKey = tlsKeyPath ? fs.readFileSync(tlsKeyPath) : null;
-  const certChain = tlsCertPath ? fs.readFileSync(tlsCertPath) : null;
-  if (!privateKey || !certChain) {
-    throw new Error('TLS server mode requires both tlsCertPath and tlsKeyPath. OS/system certificates cannot be used as a fallback — see buildServerCredentials JSDoc for details.');
-  }
+  let privateKey = tlsKeyPath ? fs.readFileSync(tlsKeyPath) : null;
+  let certChain = tlsCertPath ? fs.readFileSync(tlsCertPath) : null;
   const parts = [];
   if (tlsCaPath) parts.push(`ca=${tlsCaPath}`);
-  if (tlsCertPath) parts.push(`cert=${tlsCertPath}`);
-  if (tlsKeyPath) parts.push(`key=${tlsKeyPath}`);
+  if (!privateKey || !certChain) {
+    const selfSigned = generateSelfSignedCert();
+    privateKey = Buffer.from(selfSigned.private);
+    certChain = Buffer.from(selfSigned.cert);
+    parts.push('cert=self-signed (auto-generated)', 'key=self-signed (auto-generated)');
+  } else {
+    if (tlsCertPath) parts.push(`cert=${tlsCertPath}`);
+    if (tlsKeyPath) parts.push(`key=${tlsKeyPath}`);
+  }
   return {
     credentials: grpc.ServerCredentials.createSsl(rootCerts, [{ private_key: privateKey, cert_chain: certChain }], false),
-    tlsInfo: `tls=on, server certs: ${parts.join(', ')}`,
+    tlsInfo: `tls=on, ${parts.join(', ')}`,
   };
 }
 

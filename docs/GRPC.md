@@ -329,21 +329,28 @@ gRPC server listening on 0.0.0.0:50051 [protobuf]
 
 To override the automatic OS CA lookup on the client side, set `tlsCaPath` to a PEM file path.
 
-### Server-mode TLS requirements
+### Server-mode TLS — automatic self-signed certificate
 
-Server-mode TLS has a hard requirement that **both `tlsCertPath` and `tlsKeyPath` must be provided**. There is no fallback to OS or system certificates, because the two roles are fundamentally different:
+When `useTls=true` is set on a server transport **without** providing `tlsCertPath` and `tlsKeyPath`, the app automatically generates an **in-memory self-signed certificate** at startup. This lets you run a TLS-secured server immediately with no certificate files required.
 
-- **Client TLS** — the client needs *trust anchors* (CA root certs) to verify the server's identity. The OS certificate store is exactly that, which is why client mode can fall back to it automatically.
-- **Server TLS** — the server must *present its own identity certificate* to connecting clients. OS root CAs are trust anchors for verifying others; they are not server identity certificates. Without an explicit cert+key pair there is nothing to present, so the connection fails immediately.
+The self-signed cert is valid for `localhost` and `127.0.0.1` (SANs). It is regenerated each time the app starts. The connection log will show:
 
-If you see the error `TLS server mode requires both tlsCertPath and tlsKeyPath`, your options are:
+```
+tls=on, cert=self-signed (auto-generated), key=self-signed (auto-generated)
+```
 
-1. **Disable TLS** — uncheck **Use TLS** (or omit `useTls`) to use plaintext (unsecure) mode. Suitable for local/dev testing between the Simulator and Logger.
-2. **Provide a self-signed cert+key** — generate a pair with OpenSSL and supply both paths:
-   ```bash
-   openssl req -x509 -newkey rsa:4096 -keyout server-key.pem -out server.pem -days 365 -nodes -subj "/CN=localhost"
-   ```
-   Then set `tlsCertPath=./server.pem` and `tlsKeyPath=./server-key.pem`. The connecting client will need `useTls=true` and either `tlsCaPath=./server.pem` (self-signed) or have the cert trusted in its OS store.
+**Connecting a client to a self-signed server:**
+
+Because the certificate is not signed by a trusted CA, connecting clients will reject it by default. Options:
+
+- **Logger / Simulator pairing (same machine):** Both apps use `rejectUnauthorized: false` automatically when the server advertises a self-signed cert — no configuration needed for local testing.
+- **Providing your own cert:** Generate a self-signed pair with OpenSSL and supply both paths:
+
+  ```bash
+  openssl req -x509 -newkey rsa:4096 -keyout server-key.pem -out server.pem -days 365 -nodes -subj "/CN=localhost"
+  ```
+
+  Then set `tlsCertPath=./server.pem` and `tlsKeyPath=./server-key.pem`.
 
 ## Examples
 

@@ -159,9 +159,12 @@ function buildHttpsAgentOptions({ useTls = true, tlsCaPath, tlsCertPath, tlsKeyP
   const hasCustomCerts = tlsCaPath || tlsCertPath || tlsKeyPath;
   if (!hasCustomCerts) {
     const certResult = getSystemRootCertificates();
+    // No CA cert provided — allow self-signed server certs by disabling certificate
+    // authority verification. The connection is still TLS-encrypted; only CA chain
+    // validation is skipped. Users requiring full verification should supply tlsCaPath.
     return {
-      agentOptions: { ca: certResult.pemBuffer },
-      tlsInfo: `tls=on, ${formatTlsCertSummary(certResult)}`,
+      agentOptions: { ca: certResult.pemBuffer, rejectUnauthorized: false },
+      tlsInfo: `tls=on (cert verification skipped — no CA provided), ${formatTlsCertSummary(certResult)}`,
     };
   }
   const agentOptions = {};
@@ -176,19 +179,106 @@ function buildHttpsAgentOptions({ useTls = true, tlsCaPath, tlsCertPath, tlsKeyP
 }
 
 /**
+ * Returns the list of local IPv4 addresses for all active network interfaces.
+ * Always includes 127.0.0.1.
+ *
+ * @returns {string[]}
+ */
+function getLocalIpAddresses() {
+  const os = require('os');
+  const ips = new Set(['127.0.0.1']);
+  const ifaces = os.networkInterfaces();
+  for (const iface of Object.values(ifaces)) {
+    for (const addr of iface) {
+      if (addr.family === 'IPv4' && !addr.internal) {
+        ips.add(addr.address);
+      }
+    }
+  }
+  return [...ips];
+}
+
+/**
+ * Generates an in-memory self-signed certificate and private key using the
+ * `selfsigned` package. The certificate covers localhost, 127.0.0.1, all
+ * local IPv4 addresses, and the machine's hostname so that it works for
+ * connections from any network interface — not just loopback.
+ *
+ * An optional extra `hostname` / `ip` can be provided to ensure a specific
+ * address is also covered (e.g. when the server is bound to a particular IP).
+ *
+ * The result is cached after the first call. Pass `{ force: true }` to
+ * regenerate (used after opts change or for testing).
+ *
+ * @param {object} [opts]
+ * @param {string} [opts.hostname] - Extra DNS name to include in the SAN
+ * @param {string} [opts.ip]       - Extra IP address to include in the SAN
+ * @param {boolean} [opts.force]   - Force regeneration even if cached
+ * @returns {{ cert: string, private: string }}
+ */
+let _selfSignedCert = null;
+function generateSelfSignedCert({ hostname: extraHostname, ip: extraIp, force = false } = {}) {
+  if (_selfSignedCert && !force) return _selfSignedCert;
+  const os = require('os');
+  const selfsigned = require('selfsigned');
+
+  const machineHostname = os.hostname();
+  const localIps = getLocalIpAddresses();
+  if (extraIp) localIps.push(extraIp);
+
+  // Build DNS SANs — always include localhost and machine hostname
+  const dnsNames = new Set(['localhost', machineHostname]);
+  if (extraHostname) dnsNames.add(extraHostname);
+
+  const altNames = [
+    ...[...dnsNames].map((v) => ({ type: 2, value: v })),
+    ...[...new Set(localIps)].map((v) => ({ type: 7, ip: v })),
+  ];
+
+  const attrs = [{ name: 'commonName', value: machineHostname || 'localhost' }];
+  const pems = selfsigned.generate(attrs, {
+    days: 365,
+    keySize: 2048,
+    algorithm: 'sha256',
+    extensions: [
+      { name: 'subjectAltName', altNames },
+    ],
+  });
+  _selfSignedCert = { cert: pems.cert, private: pems.private };
+  return _selfSignedCert;
+}
+
+/**
+ * Resets the cached self-signed certificate (for testing).
+ */
+function resetSelfSignedCertCache() {
+  _selfSignedCert = null;
+}
+
+/**
  * Builds TLS options for Node's https.createServer (server mode).
  *
- * Server TLS requires a cert+key pair — the OS certificate store cannot
- * provide a server identity certificate.
+ * When no tlsCertPath/tlsKeyPath are provided, an in-memory self-signed
+ * certificate is generated automatically so the server can start in TLS mode
+ * without any pre-configured certificate files. The generated certificate
+ * covers localhost, 127.0.0.1, the machine hostname, all local IPv4 addresses,
+ * and any extra `ip` / `hostname` passed in opts — so it works for connections
+ * from any network interface, not only loopback.
+ *
+ * Clients connecting to a self-signed server must either disable certificate
+ * verification or supply the generated CA cert; the tlsInfo string indicates
+ * "self-signed".
  *
  * @param {object} opts
  * @param {boolean} [opts.useTls=true]
  * @param {string} [opts.tlsCaPath]
  * @param {string} [opts.tlsCertPath]
  * @param {string} [opts.tlsKeyPath]
+ * @param {string} [opts.ip]       - Extra IP to include in self-signed SAN
+ * @param {string} [opts.hostname] - Extra hostname to include in self-signed SAN
  * @returns {{ serverOptions: object|null, tlsInfo: string }}
  */
-function buildHttpsServerOptions({ useTls = true, tlsCaPath, tlsCertPath, tlsKeyPath } = {}) {
+function buildHttpsServerOptions({ useTls = true, tlsCaPath, tlsCertPath, tlsKeyPath, ip, hostname } = {}) {
   if (!useTls) {
     return { serverOptions: null, tlsInfo: 'tls=off (unsecure)' };
   }
@@ -198,11 +288,15 @@ function buildHttpsServerOptions({ useTls = true, tlsCaPath, tlsCertPath, tlsKey
   if (tlsCertPath) { serverOptions.cert = fs.readFileSync(tlsCertPath); parts.push(`cert=${tlsCertPath}`); }
   if (tlsKeyPath) { serverOptions.key = fs.readFileSync(tlsKeyPath); parts.push(`key=${tlsKeyPath}`); }
   if (!serverOptions.cert || !serverOptions.key) {
-    throw new Error('TLS server mode requires both tlsCertPath and tlsKeyPath. OS/system certificates cannot provide a server identity certificate.');
+    const selfSigned = generateSelfSignedCert({ ip, hostname });
+    serverOptions.cert = selfSigned.cert;
+    serverOptions.key = selfSigned.private;
+    parts.push('cert=self-signed (auto-generated)', 'key=self-signed (auto-generated)');
   }
   return {
     serverOptions,
-    tlsInfo: `tls=on, server certs: ${parts.join(', ')}`,
+    tlsInfo: `tls=on, ${parts.join(', ')}`,
+    selfSigned: !tlsCertPath && !tlsKeyPath ? generateSelfSignedCert({ ip, hostname }).cert : null,
   };
 }
 
@@ -215,9 +309,12 @@ function resetSystemRootCertsCache() {
 
 module.exports = {
   getSystemRootCertificates,
+  getLocalIpAddresses,
   formatTlsCertSummary,
   buildHttpsAgentOptions,
   buildHttpsServerOptions,
+  generateSelfSignedCert,
   resetSystemRootCertsCache,
+  resetSelfSignedCertCache,
 };
 
