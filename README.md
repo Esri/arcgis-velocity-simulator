@@ -34,6 +34,7 @@ A cross-platform desktop application for simulating data streams over TCP/UDP pr
 | [Speech Integration Summary](./docs/SPEECH-INTEGRATION-SUMMARY.md) | Architecture summary for the Web Audio API offline speech system |
 | [Testing](./docs/TESTING.md) | Test commands, suite descriptions, and manual smoke tests |
 | [Theme Refactoring](./docs/THEME-REFACTORING.md) | Theme system refactoring: per-file CSS and dynamic loader |
+| [TLS / SSL Security](./docs/TLS.md) | TLS concepts, certificate formats, OS trust stores, mTLS, auto self-signed certs, and TLS Trust Badge |
 | [Why Electron](./docs/WHY-ELECTRON.md) | Framework rationale and packaging overview |
 
 ### In-App Help

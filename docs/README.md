@@ -24,6 +24,7 @@ This folder contains all technical and user-facing documentation for the ArcGIS 
 | [SPEECH-INTEGRATION-SUMMARY.md](./SPEECH-INTEGRATION-SUMMARY.md) | Architecture and integration summary for the offline Web Audio API speech recognition system |
 | [TESTING.md](./TESTING.md) | Test commands, test suite descriptions, manual smoke tests, and troubleshooting |
 | [THEME-REFACTORING.md](./THEME-REFACTORING.md) | Details of the theme system refactoring: per-file CSS, dynamic loader, and migration notes |
+| [TLS.md](./TLS.md) | TLS/SSL reference: supported protocols, certificate formats, OS trust stores, mTLS, auto self-signed certs, and TLS Trust Badge |
 | [WHY-ELECTRON.md](./WHY-ELECTRON.md) | Rationale for choosing Electron: framework comparison, packaging overview, and trade-off analysis |
 
 ## Config Templates

@@ -1133,11 +1133,21 @@ body {
   line-height: 1;
 }
 
-/* Trust-level colour coding via data attribute */
-.tls-badge[data-trust="off"]         .tls-badge-icon { filter: grayscale(1) opacity(0.6); }
-.tls-badge[data-trust="self-signed"] .tls-badge-icon { filter: sepia(1) saturate(3) hue-rotate(5deg); }
-.tls-badge[data-trust="ca-verified"] .tls-badge-icon { filter: none; }
-.tls-badge[data-trust="mtls"]        .tls-badge-icon { filter: none; }
+/* Trust-level colour coding via data attribute.
+   Each level uses a distinct icon shape (see renderer.js updateTlsBadge) AND a
+   distinct colour filter so the badge is unambiguous for colour-blind users too.
+   Filters are applied to the emoji glyph rendered as an image by the OS.
+     off          → grey/dimmed    (🔓  open lock)
+     self-signed  → amber/orange   (🔒⚠ lock + warning)
+     on           → amber/orange   (🔒  plain lock, trust level unknown)
+     ca-verified  → green          (🔒✓ lock + checkmark)
+     mtls         → blue/cyan      (🔐  key-in-lock)
+*/
+.tls-badge[data-trust="off"]         .tls-badge-icon { filter: grayscale(1) opacity(0.55); }
+.tls-badge[data-trust="self-signed"] .tls-badge-icon { filter: sepia(1) saturate(4) hue-rotate(5deg)   brightness(1.05); }
+.tls-badge[data-trust="on"]          .tls-badge-icon { filter: sepia(1) saturate(4) hue-rotate(5deg)   brightness(1.05); }
+.tls-badge[data-trust="ca-verified"] .tls-badge-icon { filter: sepia(1) saturate(5) hue-rotate(90deg)  brightness(0.95); }
+.tls-badge[data-trust="mtls"]        .tls-badge-icon { filter: sepia(1) saturate(5) hue-rotate(190deg) brightness(1.05); }
 
 .tls-badge-popover {
   position: absolute;

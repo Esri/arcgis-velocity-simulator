@@ -141,6 +141,18 @@
             <div class="help-section">
                 <h3>Status & Logging</h3>
                 <ul>
+                    <li><strong>TLS Trust Badge:</strong> When connected over HTTP, WebSocket, or gRPC with TLS, a lock icon appears in the status bar. The icon shape <em>and</em> colour both encode the trust level — distinguishable without relying on colour alone. Hover or click for full details:
+                        <table style="margin-top:6px;border-collapse:collapse;font-size:0.9em;">
+                            <thead><tr><th style="padding:2px 8px;text-align:left;">Icon</th><th style="padding:2px 8px;text-align:left;">Colour</th><th style="padding:2px 8px;text-align:left;">Meaning</th></tr></thead>
+                            <tbody>
+                                <tr><td style="padding:2px 8px;">🔓</td><td style="padding:2px 8px;">Grey / dimmed</td><td style="padding:2px 8px;">No TLS — plaintext, unsecure connection</td></tr>
+                                <tr><td style="padding:2px 8px;">🔒⚠</td><td style="padding:2px 8px;">Amber / orange</td><td style="padding:2px 8px;">TLS on, self-signed or cert-chain not verified</td></tr>
+                                <tr><td style="padding:2px 8px;">🔒</td><td style="padding:2px 8px;">Amber / orange</td><td style="padding:2px 8px;">TLS on, OS certificate store (trust level not fully determined)</td></tr>
+                                <tr><td style="padding:2px 8px;">🔒✓</td><td style="padding:2px 8px;">Green</td><td style="padding:2px 8px;">TLS on, CA-verified certificate chain</td></tr>
+                                <tr><td style="padding:2px 8px;">🔐</td><td style="padding:2px 8px;">Blue / cyan</td><td style="padding:2px 8px;">Mutual TLS (mTLS) — both sides present certificates</td></tr>
+                            </tbody>
+                        </table>
+                    </li>
                     <li><strong>Status Bar:</strong> Bottom bar shows app state with emoji indicators</li>
                     <li class="sub-item">🔴 Disconnected</li>
                     <li class="sub-item">🟢 Connected - Ready</li>

@@ -99,6 +99,20 @@ The following tooltips appear when hovering over HTTP-related controls in the UI
 | TLS key path | Path to the private key file (PEM) corresponding to the TLS certificate. Required for server-mode TLS and client-side mTLS. |
 | HTTP path | HTTP endpoint URL path appended after the host:port (e.g. /receiver/feed-id). In server mode, only POST requests matching this path are accepted; all others return 404. In client mode, this path is used in the outgoing POST request URL. Default is /. |
 
+### TLS Trust Badge
+
+When connected, the status bar displays a lock icon reflecting the trust level at a glance. The icon **shape** and **colour** both encode the trust level so it is unambiguous for colour-blind users. No text label is shown beside the icon — hover or click the badge for full details.
+
+| Icon | Colour | Trust Level | Meaning |
+|------|--------|-------------|---------|
+| 🔓 | Grey / dimmed | off | No TLS — plaintext, unsecure connection |
+| 🔒 | Amber | on | TLS on — OS certificate store, trust level not fully determined |
+| 🔒⚠ | Amber | self-signed | TLS on, self-signed or cert-chain not verified |
+| 🔒✓ | Green | ca-verified | TLS on, CA-verified certificate chain |
+| 🔐 | Blue / cyan | mtls | Mutual TLS — both client and server present certificates |
+
+See [TLS.md](./TLS.md) for full TLS concepts, certificate file formats, OS trust store behaviour, and setup guides.
+
 ## CLI Parameters
 
 | Parameter | Description | Default |

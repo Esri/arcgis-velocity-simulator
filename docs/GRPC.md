@@ -352,6 +352,20 @@ Because the certificate is not signed by a trusted CA, connecting clients will r
 
   Then set `tlsCertPath=./server.pem` and `tlsKeyPath=./server-key.pem`.
 
+### TLS Trust Badge
+
+When connected, the status bar displays a lock icon reflecting the trust level at a glance. No text label is shown beside the icon — hover or click the badge for full details. The icon **shape** and **colour** both encode the trust level so it is unambiguous for colour-blind users.
+
+| Icon | Colour | Trust Level | Meaning |
+|------|--------|-------------|---------|
+| 🔓 | Grey / dimmed | off | No TLS — plaintext, unsecure connection |
+| 🔒 | Amber | on | TLS on — OS certificate store, trust level not fully determined |
+| 🔒⚠ | Amber | self-signed | TLS on, but self-signed or cert-chain not verified |
+| 🔒✓ | Green | ca-verified | TLS on, CA-verified certificate chain |
+| 🔐 | Blue / cyan | mtls | Mutual TLS — both client and server present certificates |
+
+See [TLS.md](./TLS.md) for full TLS concepts, certificate file formats, OS trust store behaviour, and setup guides.
+
 ## Examples
 
 ### Example A: Simulator (Client) → Logger (Server)

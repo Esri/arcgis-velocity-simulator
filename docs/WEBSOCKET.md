@@ -116,6 +116,20 @@ The following controls appear inside the expanded section:
 | Ignore 1st msg | Ignore the first message received. Enable to skip subscription acknowledgments or welcome messages. |
 | Headers | Custom HTTP headers for the WebSocket upgrade handshake as JSON (e.g. {"Authorization":"Bearer token"}). |
 
+### TLS Trust Badge
+
+When connected, the status bar displays a lock icon reflecting the trust level at a glance. The icon **shape** and **colour** both encode the trust level so it is unambiguous for colour-blind users. No text label is shown beside the icon — hover or click the badge for full details.
+
+| Icon | Colour | Trust Level | Meaning |
+|------|--------|-------------|---------|
+| 🔓 | Grey / dimmed | off | No TLS — plaintext, unsecure connection |
+| 🔒 | Amber | on | TLS on — OS certificate store, trust level not fully determined |
+| 🔒⚠ | Amber | self-signed | TLS on, self-signed or cert-chain not verified |
+| 🔒✓ | Green | ca-verified | TLS on, CA-verified certificate chain |
+| 🔐 | Blue / cyan | mtls | Mutual TLS — both client and server present certificates |
+
+See [TLS.md](./TLS.md) for full TLS concepts, certificate file formats, OS trust store behaviour, and setup guides.
+
 ## CLI Parameters
 
 | Parameter | Description | Default |
