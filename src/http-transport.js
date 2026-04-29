@@ -62,7 +62,7 @@ class HttpClientTransport {
    * @param {string} [opts.httpTlsCertPath] - Client cert path
    * @param {string} [opts.httpTlsKeyPath] - Client key path
    */
-  constructor({ ip, port, httpFormat = 'json', httpPath = '/', httpTls = true, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath }) {
+  constructor({ ip, port, httpFormat = 'json', httpPath = '/', httpTls = true, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, onData = null }) {
     this.ip = ip;
     this.port = port;
     this.httpFormat = httpFormat;
@@ -71,9 +71,11 @@ class HttpClientTransport {
     this.httpTlsCaPath = httpTlsCaPath;
     this.httpTlsCertPath = httpTlsCertPath;
     this.httpTlsKeyPath = httpTlsKeyPath;
+    this.onData = onData;
     this._connected = false;
     this._agent = null;
     this._tlsInfo = '';
+    this._sseReq = null;
   }
 
   async connect() {
@@ -92,6 +94,10 @@ class HttpClientTransport {
     }
     this._connected = true;
     const scheme = this.httpTls ? 'https' : 'http';
+    // If onData is provided, subscribe to the server's SSE stream
+    if (this.onData) {
+      this._startSseSubscription();
+    }
     return {
       protocol: 'http',
       mode: 'client',
@@ -100,6 +106,56 @@ class HttpClientTransport {
       contentType: FORMAT_CONTENT_TYPES[this.httpFormat] || 'text/plain',
       tlsInfo: this._tlsInfo,
     };
+  }
+
+  _startSseSubscription() {
+    const lib = this.httpTls ? https : http;
+    const options = {
+      hostname: this.ip,
+      port: this.port,
+      path: this.httpPath,
+      method: 'GET',
+      agent: this._agent,
+      headers: { 'Accept': 'text/event-stream', 'Cache-Control': 'no-cache' },
+    };
+    const req = lib.request(options, (res) => {
+      let buffer = '';
+      res.on('data', (chunk) => {
+        buffer += chunk.toString();
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // keep incomplete last line
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const text = line.slice(6).trim();
+            if (text && this.onData) {
+              const metadata = {
+                method: 'SSE',
+                path: this.httpPath,
+                contentType: FORMAT_CONTENT_TYPES[this.httpFormat] || 'text/plain',
+                contentLength: text.length,
+                tls: this.httpTls ? 'on (HTTPS)' : 'off (HTTP)',
+                remote: `${this.ip}:${this.port}`,
+                httpFormat: this.httpFormat,
+              };
+              this.onData(text, metadata);
+            }
+          }
+        }
+      });
+      res.on('end', () => {
+        // Reconnect if still connected
+        if (this._connected) {
+          setTimeout(() => { if (this._connected) this._startSseSubscription(); }, 1000);
+        }
+      });
+    });
+    req.on('error', (err) => {
+      if (this._connected) {
+        setTimeout(() => { if (this._connected) this._startSseSubscription(); }, 2000);
+      }
+    });
+    req.end();
+    this._sseReq = req;
   }
 
   isConnected() { return this._connected; }
@@ -142,8 +198,9 @@ class HttpClientTransport {
   }
 
   async disconnect() {
-    if (this._agent) { this._agent.destroy(); this._agent = null; }
     this._connected = false;
+    if (this._sseReq) { try { this._sseReq.destroy(); } catch (_) {} this._sseReq = null; }
+    if (this._agent) { this._agent.destroy(); this._agent = null; }
   }
 }
 
@@ -186,6 +243,19 @@ class HttpServerTransport {
 
   async connect() {
     const requestHandler = (req, res) => {
+      // SSE subscription via GET with Accept: text/event-stream
+      if (req.method === 'GET' && req.url === this.httpPath && req.headers['accept'] && req.headers['accept'].includes('text/event-stream')) {
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        });
+        res.write(':\n\n'); // SSE comment to confirm connection
+        this._watcherResponses.add(res);
+        req.on('close', () => { this._watcherResponses.delete(res); });
+        return;
+      }
+
       // Health check / status via GET
       if (req.method === 'GET' && req.url === this.httpPath) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
