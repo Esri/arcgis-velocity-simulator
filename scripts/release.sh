@@ -28,9 +28,10 @@ ${BOLD}${WHITE}Options:${RESET}
                   Validates version, shows each artifact that would be uploaded
                   (with file size), and prints a full preview of the release notes.
                   No files are written, no commits made, nothing pushed or published.
-  ${BOLD}--force${RESET}         Skip the version gate and allow re-releasing an existing version.
-                  Deletes the existing GitHub release and git tag before re-creating them.
-                  Use with care — intended for fixing a broken release of the same version.
+  ${BOLD}--force${RESET}         Skip the version gate and the clean-working-tree check, and allow
+                  re-releasing an existing version. Deletes the existing GitHub release
+                  and git tag before re-creating them. Use with care — intended for
+                  fixing a broken release of the same version.
   ${BOLD}--seq${RESET}           Build platforms sequentially instead of in parallel.
                   Slower overall, but produces clean non-interleaved build output —
                   useful for debugging build failures.
@@ -41,6 +42,8 @@ ${BOLD}${WHITE}What the script does:${RESET}
      • ${BOLD}node${RESET} ≥ 18, ${BOLD}npm${RESET}, ${BOLD}node_modules${RESET} (electron-builder)
      • ${BOLD}git${RESET}, ${BOLD}gh${RESET} CLI (and that gh is authenticated)
      • ${BOLD}dpkg${RESET}, ${BOLD}fakeroot${RESET}, GNU ${BOLD}ar${RESET} (for building .deb on macOS)
+     Also verifies the working tree is clean (no uncommitted changes apart
+     from package.json, no unpushed commits) so the published tag is reproducible.
   1. Validates the requested version against the current package.json version.
   2. Bumps the version in package.json (if it changed).
   3. Builds all platform packages in parallel via ${BOLD}npm run package:all:clean${RESET}
@@ -190,6 +193,47 @@ if ! node scripts/check-build-prereqs.js --release; then
   fail "Prerequisites missing. Install the listed tools and re-run."
 fi
 
+# ── Step 0.5: Working tree must be clean ─────────────────────────────────────
+# Block the release if there are uncommitted changes (other than package.json,
+# which the script itself may modify) or unpushed commits — a release should
+# always reflect what's on the remote and be reproducible from the published tag.
+banner 0 "Verifying clean working tree"
+
+WORKING_TREE_OK=true
+
+# 1) Uncommitted changes (excluding package.json, which Step 2 may bump)
+DIRTY_FILES=$(git status --porcelain | awk '{print $2}' | grep -v '^package\.json$' || true)
+if [[ -n "$DIRTY_FILES" ]]; then
+  WORKING_TREE_OK=false
+  warn "Uncommitted changes detected:"
+  echo "${DIRTY_FILES}" | sed 's/^/       • /'
+fi
+
+# 2) Unpushed commits on the current branch
+UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo "")
+if [[ -z "$UPSTREAM" ]]; then
+  WORKING_TREE_OK=false
+  warn "Current branch has no upstream — cannot verify it's pushed."
+else
+  AHEAD=$(git rev-list --count "${UPSTREAM}..HEAD" 2>/dev/null || echo "0")
+  if [[ "${AHEAD}" -gt 0 ]]; then
+    WORKING_TREE_OK=false
+    warn "${AHEAD} unpushed commit(s) on the current branch:"
+    git log "${UPSTREAM}..HEAD" --pretty=format:"       • %h %s" | sed -e 's/$//'
+    echo ""
+  fi
+fi
+
+if [[ "$WORKING_TREE_OK" != true ]]; then
+  if [[ "$FORCE" == true ]]; then
+    warn "Working tree is not clean — proceeding anyway (--force)"
+  else
+    fail "Working tree must be clean before releasing.\n     Commit & push your changes, or pass ${BOLD}--force${RESET} to override."
+  fi
+else
+  success "Working tree is clean and up to date with ${UPSTREAM}"
+fi
+
 # ── Step 1: Version gate ─────────────────────────────────────────────────────
 banner 1 "Validating version"
 
@@ -333,12 +377,18 @@ else
     warn "Deleting existing release and tag ${VERSION} (--force)..."
     gh release delete "${VERSION}" --yes 2>/dev/null || true
     git tag -d "${VERSION}" 2>/dev/null || true
-    git push origin ":refs/tags/${VERSION}" 2>/dev/null || true
+    # Only try to delete the remote tag if it exists
+    if git ls-remote --tags origin "refs/tags/${VERSION}" 2>/dev/null | grep -q .; then
+      git push origin ":refs/tags/${VERSION}" 2>/dev/null || true
+    fi
     success "Existing release and tag removed"
     echo ""
   fi
   info "Creating release (no assets yet)..."
+  # Pin the new tag to the commit we just built from, not the remote default-branch HEAD.
+  RELEASE_TARGET=$(git rev-parse HEAD)
   gh release create "${VERSION}" \
+    --target "${RELEASE_TARGET}" \
     --title "${VERSION}" \
     --notes-file "${NOTES_FILE}"
   RELEASE_URL=$(gh release view "${VERSION}" --json url -q .url 2>/dev/null || echo "https://github.com")

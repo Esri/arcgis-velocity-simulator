@@ -16,7 +16,7 @@ The release script at `scripts/release.sh` is the primary way to cut a release. 
 
 The script handles the full release pipeline in one command:
 
-0. **Verifies** that all required tooling is installed (Node ≥ 18, npm, `node_modules`, git, gh + auth, and on macOS for `.deb`: `dpkg`, `fakeroot`, GNU `ar`) and fails fast with install hints if anything is missing
+0. **Verifies** that all required tooling is installed (Node ≥ 18, npm, `node_modules`, git, gh + auth, and on macOS for `.deb`: `dpkg`, `fakeroot`, GNU `ar`) and that the working tree is clean (no uncommitted changes apart from `package.json`, no unpushed commits) — fails fast with install hints or a list of dirty files if anything is wrong
 1. **Validates** the requested version against the current `package.json` version (blocks downgrades)
 2. **Bumps** `package.json` to the new version
 3. **Builds** all platform packages in parallel via `npm run package:all:clean` (mac, win, linux run simultaneously). Pass `--seq` to build sequentially instead.
@@ -52,7 +52,7 @@ node scripts/check-build-prereqs.js --release   # also verify git/gh/auth
 |-------------------|-------------|
 | `<version>` | Release version, e.g. `v1.2.3` or `1.2.3`. Must be ≥ current `package.json` version. The `v` prefix is optional. |
 | `--dry-run` | Simulate the entire release without writing files, committing, or publishing. Shows each artifact that would be uploaded (with file size) and a full preview of the release notes. |
-| `--force` | Skip the version gate and re-release an existing version. Deletes the existing GitHub release and git tag before re-creating them. Use with care — intended for fixing a broken release of the same version. |
+| `--force` | Skip the version gate **and the clean-working-tree check**, and re-release an existing version. Deletes the existing GitHub release and git tag before re-creating them. Use with care — intended for fixing a broken release of the same version. |
 | `--seq` | Build platforms sequentially instead of in parallel (the default). Slower overall, but produces non-interleaved build output — useful for debugging build failures. |
 | `--help` / `-h` | Print usage information and exit. |
 
