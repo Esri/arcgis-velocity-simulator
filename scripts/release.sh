@@ -374,11 +374,11 @@ cat > "${NOTES_FILE}" <<ENDOFNOTES
 
 ### Build Environment
 
-| Property | Value |
-|----------|-------|
-| App version | ${VERSION_BARE} |
-| Node.js | ${NODE_VERSION} |
-| Electron | ${ELECTRON_VERSION} |
+> **App version:** ${VERSION_BARE}
+> **Node.js:** ${NODE_VERSION}
+> **Electron:** ${ELECTRON_VERSION}
+> **Platform:** $(uname -s) $(uname -m)
+> **Built:** $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 ---
 

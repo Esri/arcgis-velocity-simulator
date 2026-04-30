@@ -76,3 +76,93 @@ Use the conventional-commits style:
 - `docs:` documentation-only changes
 - `test:` test additions or fixes
 
+## Git / GitHub Commit Workflow (Agent Tool Usage)
+
+When creating commits with multi-line messages, **never** construct the message inline in a chained shell command. The zsh parser inside the IDE's `run_in_terminal` tool mishandles embedded newlines, apostrophes, em dashes, and other punctuation in heredocs or `printf '…' | git commit -F -` chains — leading to mangled messages, stuck pager prompts (requiring the user to press `q`), or failed commits.
+
+### Required Pattern — Two Separate Tool Calls
+
+**Call 1** — write the message to a temp file:
+```zsh
+cat > /tmp/cm.txt << 'EOF'
+feat(scope): short subject line
+
+Longer body paragraph explaining what changed and why.
+Another line of detail.
+
+- bullet one
+- bullet two
+EOF
+```
+
+**Call 2** — stage and commit using that file:
+```zsh
+cd /path/to/repo && git add -A && git commit -F /tmp/cm.txt
+```
+
+**Verification step (required).** Some terminals collapse blank lines inside pasted heredocs, which produces a commit object where the subject and body are stuck on consecutive lines (no separator). Always inspect the file before committing:
+
+```zsh
+cat -en /tmp/cm.txt | head -5
+```
+
+Line 1 must be the subject, **line 2 must be blank** (just `$`), and the body must start on line 3. If line 2 is not blank, regenerate the file using Node, which is unambiguous:
+
+```zsh
+node -e 'require("fs").writeFileSync("/tmp/cm.txt", `subject\n\nbody line 1\nbody line 2\n`)'
+```
+
+### Commit Message Format
+
+- **Keep the subject line short and imperative (≤ 72 chars).** Use the conventional-commits prefix (`feat:`, `fix:`, `chore:`, `docs:`, `test:`). The subject should name *what* changed, not explain *why* or list details.
+- **Always leave a blank line** between the subject and the body.
+- **Move all detail into the body.** The body should be well-formatted prose or a bullet list explaining what changed and why. Never run detail on into the subject line.
+- **Good example:**
+  ```
+  feat: add cross-platform prereq installer and --install-prereqs switch
+
+  Adds an opt-in workflow for installing missing build/release
+  prerequisites on macOS, Linux, and Windows. Default behaviour is
+  unchanged (fail-fast with install hints).
+
+  - New scripts/install-prereqs.js: installs via brew/apt/winget,
+    skips things too risky to auto-install (Node upgrades, gh auth).
+  - check-build-prereqs.js gains --json flag for machine-readable output.
+  - release.sh gains --install-prereqs switch and portable mktemp fix.
+  ```
+
+### When to Commit and Push
+
+- **Do not auto-commit after every change.** Wait until the user explicitly asks to "commit" or "commit and push". At that point, group all pending changes into a single logical commit (or the fewest meaningful commits).
+- **Always show the proposed commit message and list of files** to be staged, and wait for the user's "go ahead" before running `git commit`.
+- **Always ask the user before pushing.** Show the commit(s) that will be pushed and wait for explicit approval before running `git push`.
+- **Pushing is always a separate tool call** after verifying the commit landed cleanly:
+  ```zsh
+  git --no-pager log --oneline -3   # verify first
+  git push                           # then push
+  ```
+
+### Amending Commits
+
+- Use `git commit --amend --no-edit` for small follow-up tweaks (no message change needed).
+- For message changes, write a new `/tmp/cm.txt` and use `git commit --amend -F /tmp/cm.txt`.
+
+### Rebase Over Merge
+
+- Always use `git pull --rebase` instead of `git pull`. Never create merge commits.
+- Configure with `git config pull.rebase true` if needed.
+
+### Pager Prevention
+
+Always use `git --no-pager` (or append `| cat`) for any `git log`, `git diff`, `git show`, or `git tag` command — these invoke the pager by default, blocking the terminal until the user presses `q`.
+
+```zsh
+git --no-pager log --oneline -10
+git --no-pager diff HEAD~1 --stat
+```
+
+### One Tool Call Per Action
+
+- Never chain commit + push + log verification into a single command string. Run them as separate sequential tool calls so a failure in one step is isolated and visible.
+- Never use `git commit -m "…"` for messages longer than a subject line — apostrophes and punctuation break shell quoting. Always write to a file first.
+
