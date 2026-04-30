@@ -50,7 +50,10 @@ This deletes the entire `dist/` folder. The `:clean` variants do this automatica
 Before running any `package:*` script, the build verifies that the required tooling is installed. Run the check manually any time:
 
 ```bash
-npm run check:build-prereqs
+npm run prereqs:check                  # all targets (build only)
+npm run prereqs:check:linux            # only the Linux toolchain (dpkg, fakeroot, GNU ar)
+npm run prereqs:check:release          # also verify git, gh, gh auth (for releases)
+npm run check:build-prereqs            # backwards-compat alias for prereqs:check
 ```
 
 | Requirement | Used for | Install (macOS) |
@@ -60,6 +63,59 @@ npm run check:build-prereqs
 | `dpkg`, `fakeroot`, GNU `ar` | Building `.deb` packages | `brew install dpkg fakeroot binutils` |
 
 > **Why GNU `ar` matters on macOS:** The system `/usr/bin/ar` is BSD `ar` and silently produces a malformed ~100-byte `.deb` stub. After `brew install binutils` the build scripts auto-discover Homebrew's GNU `ar` — **no PATH edit needed**.
+
+---
+
+## Bootstrapping a Fresh Machine
+
+To get a brand new machine ready for building (or for releasing), use the install scripts that pair with the prereq checker. The list of *what is needed* comes from `scripts/check-build-prereqs.js`; the install scripts know *how to install* each item on the host OS.
+
+### One-liner setup
+
+```bash
+npm run setup
+```
+
+Runs `npm install` and then attempts to install any missing build prerequisites for the current host. Idempotent — running it twice is a no-op once everything is in place.
+
+### Targeted install
+
+| Command | Installs prereqs for |
+|---------|----------------------|
+| `npm run prereqs:install` | All targets (build only — no git/gh) |
+| `npm run prereqs:install:mac` | macOS-build prereqs |
+| `npm run prereqs:install:win` | Windows-build prereqs |
+| `npm run prereqs:install:linux` | Linux-build prereqs (`dpkg`, `fakeroot`, GNU `ar` on macOS) |
+| `npm run prereqs:install:release` | Build prereqs **plus** `git`, `gh` (for the release script) |
+
+### Auto-heal during a build
+
+Set `INSTALL_PREREQS=1` and any `package:*` script will hand off to the installer when prereqs are missing, then continue:
+
+```bash
+INSTALL_PREREQS=1 npm run package:linux
+```
+
+### Preview without installing
+
+```bash
+node scripts/install-prereqs.js --dry-run
+node scripts/install-prereqs.js --dry-run --release
+```
+
+Prints the install plan (auto-install commands, manual steps, OS-specific skips) without executing anything.
+
+### Host-OS support and caveats
+
+- **macOS:** Uses Homebrew (`brew install …`).
+- **Linux:** Detects `apt-get` / `dnf` / `pacman`. By default, privileged installs are reported as **manual steps** — re-run with `--use-sudo` (interactive TTY required) to auto-install with `sudo`. The `gh` CLI is always reported as a manual step on Linux because it requires adding GitHub's apt/dnf repository, which we won't do silently.
+- **Windows:** Uses `winget` (preferred) or `choco`. `.deb` artifacts cannot be built natively on Windows — use **WSL** for that target.
+
+### Things that are never auto-installed
+
+- **Node major upgrades** — too risky to bump the host's Node version automatically. The installer prints a manual instruction.
+- **`gh auth login`** — interactive; you must run it yourself after `gh` is on PATH.
+- **Code-signing tools and certificates** (`codesign`, `signtool`, `CSC_LINK`, `WIN_CSC_LINK`, `APPLE_*`) — see [RELEASE.md](./RELEASE.md) for the signing setup.
 
 ---
 

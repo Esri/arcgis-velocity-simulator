@@ -28,9 +28,19 @@ The script handles the full release pipeline in one command:
 The release script auto-checks all of these in Step 0 and aborts with install hints if anything is missing. You can also verify your machine at any time with:
 
 ```bash
-npm run check:build-prereqs              # build-only checks
-node scripts/check-build-prereqs.js --release   # also verify git/gh/auth
+npm run prereqs:check                    # build-only checks
+npm run prereqs:check:release            # also verify git/gh/auth (release prereqs)
+npm run check:build-prereqs              # backwards-compat alias
 ```
+
+Or, on a fresh machine, install everything in one step:
+
+```bash
+npm run prereqs:install:release          # install missing build + release prereqs
+./scripts/release.sh --install-prereqs v1.2.3   # equivalent, then continue with the release
+```
+
+See **[BUILD.md → Bootstrapping a Fresh Machine](./BUILD.md#bootstrapping-a-fresh-machine)** for the full per-target install matrix and OS-specific caveats (Linux sudo, Windows WSL, etc.).
 
 | Requirement | Used for | Install (macOS) |
 |-------------|----------|-----------------|
@@ -54,6 +64,7 @@ node scripts/check-build-prereqs.js --release   # also verify git/gh/auth
 | `--dry-run` | Simulate the entire release without writing files, committing, or publishing. Shows each artifact that would be uploaded (with file size) and a full preview of the release notes. |
 | `--re-release` | Re-publish an already-released version with rebuilt artifacts and refreshed release notes. Re-uses the requested version number (no `package.json` bump needed), generates the changelog against the **previous good tag** (skipping the version being re-released), deletes the existing GitHub release and git tag, and re-creates them pinned to the current `HEAD` commit. Use this to recover from a broken release of the same version. The clean-working-tree and version-gate checks still apply. |
 | `--seq` | Build platforms sequentially instead of in parallel (the default). Slower overall, but produces non-interleaved build output — useful for debugging build failures. |
+| `--install-prereqs` | Auto-install any missing build/release prerequisites before running Step 0 (uses Homebrew on macOS, apt/dnf/pacman on Linux, winget/choco on Windows). Combine with `--dry-run` to preview the install plan only. Tools that are too risky to auto-install (Node major upgrades, `gh auth login`, `.deb` tooling on Windows → WSL) are surfaced as manual steps. **Signing tools and signing-related env vars (`CSC_LINK`, `WIN_CSC_LINK`, `APPLE_*`) are NOT auto-installed** — see the [Code Signing](#code-signing) section. Alias: `--install-deps`. |
 | `--help` / `-h` | Print usage information and exit. |
 
 ### Examples
@@ -77,11 +88,19 @@ node scripts/check-build-prereqs.js --release   # also verify git/gh/auth
 # Build platforms sequentially instead of in parallel (clean output, slower)
 ./scripts/release.sh --seq v1.2.3
 
+# Auto-install any missing prerequisites (brew / apt / winget) before releasing
+./scripts/release.sh --install-prereqs v1.2.3
+
+# Preview just the prereq install plan (no install, no release)
+./scripts/release.sh --install-prereqs --dry-run v1.2.3
+
 # Show help
 ./scripts/release.sh --help
 ```
 
 > **Tip:** Always do a `--dry-run` first to preview the release notes and verify the artifact list before publishing.
+
+> **Fresh-machine tip:** On a brand new machine, pass `--install-prereqs` to have the release script install missing build/release tooling (`git`, `gh`, `dpkg`, `fakeroot`, `binutils` on macOS) before doing anything else. Things that are too risky to auto-install (Node major upgrades, `gh auth login`, `.deb` tooling on Windows → WSL) are surfaced as manual steps. **Signing-tool prerequisites are NOT auto-installed** — see the [Code Signing](#code-signing) section.
 
 ---
 
@@ -126,6 +145,25 @@ gh release create v1.2.3 $(find dist -maxdepth 1 -type f) \
 ```
 
 ---
+
+## Host-OS Support Matrix
+
+The release script can run from any of the three host OSes, but each host can only build certain target artifacts natively. macOS is the only host that can do everything.
+
+| Host | `.dmg` (mac) | `.zip` (mac) | `setup.exe` / `portable.exe` / `.zip` (win) | `.AppImage` | `.deb` |
+|------|:---:|:---:|:---:|:---:|:---:|
+| **macOS**   | ✅ | ✅ | ✅ (unsigned without signtool envs) | ✅ | ✅ (with `brew install dpkg fakeroot binutils`) |
+| **Linux**   | ❌ | ❌ | ✅ (unsigned) | ✅ | ✅ |
+| **Windows** | ❌ | ❌ | ✅ | ⚠️ via WSL | ⚠️ via WSL |
+
+**Notes:**
+- `.dmg` requires a macOS host — electron-builder cannot cross-build it.
+- macOS notarization (`xcrun notarytool`) requires a macOS host **and** a paid Apple Developer account.
+- Windows code signing requires the `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` env vars to be set, regardless of host. (Cross-host Windows signing via `jsign` is not currently configured.)
+- The release script uploads whichever artifacts actually built — missing platforms are skipped silently rather than failing the release.
+
+---
+
 
 ## Code Signing
 

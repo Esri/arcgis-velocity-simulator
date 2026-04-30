@@ -38,6 +38,14 @@ ${BOLD}${WHITE}Options:${RESET}
   ${BOLD}--seq${RESET}           Build platforms sequentially instead of in parallel.
                   Slower overall, but produces clean non-interleaved build output —
                   useful for debugging build failures.
+  ${BOLD}--install-prereqs${RESET}  Auto-install any missing build/release prerequisites before
+                  proceeding (uses Homebrew on macOS, apt/dnf/pacman on Linux,
+                  winget/choco on Windows). Combine with ${BOLD}--dry-run${RESET} to preview
+                  the install plan only. Things that are too risky to auto-install
+                  (Node major upgrades, ${DIM}gh auth login${RESET}, .deb tooling on Windows →
+                  WSL) are surfaced as manual steps. Alias: ${BOLD}--install-deps${RESET}.
+                  Signing tools (codesign, signtool) and signing-related env vars
+                  (CSC_LINK, WIN_CSC_LINK, APPLE_*) are NOT auto-installed.
   ${BOLD}--help${RESET}          Show this help message and exit.
 
 ${BOLD}${WHITE}What the script does:${RESET}
@@ -45,6 +53,8 @@ ${BOLD}${WHITE}What the script does:${RESET}
      • ${BOLD}node${RESET} ≥ 18, ${BOLD}npm${RESET}, ${BOLD}node_modules${RESET} (electron-builder)
      • ${BOLD}git${RESET}, ${BOLD}gh${RESET} CLI (and that gh is authenticated)
      • ${BOLD}dpkg${RESET}, ${BOLD}fakeroot${RESET}, GNU ${BOLD}ar${RESET} (for building .deb on macOS)
+     With ${BOLD}--install-prereqs${RESET}, missing tools are installed automatically
+     (or, where unsafe to auto-install, surfaced as manual steps).
      Also verifies the working tree is clean (no uncommitted changes apart
      from package.json, no unpushed commits) so the published tag is reproducible.
   1. Validates the requested version against the current package.json version.
@@ -78,6 +88,12 @@ ${BOLD}${WHITE}Examples:${RESET}
 
   ${DIM}# Build platforms sequentially (clean, non-interleaved output)${RESET}
   ${CYAN}./scripts/release.sh --seq v1.2.3${RESET}
+
+  ${DIM}# Auto-install any missing prerequisites first (brew / apt / winget)${RESET}
+  ${CYAN}./scripts/release.sh --install-prereqs v1.2.3${RESET}
+
+  ${DIM}# Preview just the prereq install plan (no install, no release)${RESET}
+  ${CYAN}./scripts/release.sh --install-prereqs --dry-run v1.2.3${RESET}
 "
 }
 
@@ -106,9 +122,10 @@ SCRIPT_START=$(date +%s)
 banner() {
   local step="$1" msg="$2"
   local tag=""
-  [[ "$DRY_RUN"   == true ]] && tag="${tag} ${BOLD}${YELLOW}[dry run]${RESET}${BOLD}${CYAN}"
-  [[ "$RERELEASE" == true ]] && tag="${tag} ${BOLD}${RED}[re-release]${RESET}${BOLD}${CYAN}"
-  [[ "$SEQ"       == true ]] && tag="${tag} ${BOLD}${CYAN}[seq]${RESET}${BOLD}${CYAN}"
+  [[ "$DRY_RUN"          == true ]] && tag="${tag} ${BOLD}${YELLOW}[dry run]${RESET}${BOLD}${CYAN}"
+  [[ "$RERELEASE"        == true ]] && tag="${tag} ${BOLD}${RED}[re-release]${RESET}${BOLD}${CYAN}"
+  [[ "$SEQ"              == true ]] && tag="${tag} ${BOLD}${CYAN}[seq]${RESET}${BOLD}${CYAN}"
+  [[ "$INSTALL_PREREQS"  == true ]] && tag="${tag} ${BOLD}${GREEN}[install-prereqs]${RESET}${BOLD}${CYAN}"
   echo ""
   echo -e "${BOLD}${CYAN}┌─ Step ${step}${tag} ─────────────────────────────────────────────────────${RESET}"
   echo -e "${BOLD}${CYAN}│${RESET}  ${WHITE}${msg}${RESET}"
@@ -154,6 +171,7 @@ semver_lt() {
 DRY_RUN=false
 RERELEASE=false
 SEQ=false
+INSTALL_PREREQS=false
 VERSION=""
 
 for arg in "$@"; do
@@ -161,6 +179,7 @@ for arg in "$@"; do
     --dry-run)              DRY_RUN=true ;;
     --re-release)            RERELEASE=true ;;
     --seq)                  SEQ=true ;;
+    --install-prereqs|--install-deps)  INSTALL_PREREQS=true ;;
     *)                      VERSION="$arg" ;;
   esac
 done
@@ -187,13 +206,24 @@ fi
 if [[ "$SEQ" == true ]]; then
   echo -e "${BOLD}${CYAN}  ⓘ   SEQ — platforms will build sequentially (slower, clean output)${RESET}"
 fi
+if [[ "$INSTALL_PREREQS" == true ]]; then
+  echo -e "${BOLD}${GREEN}  ⓘ   INSTALL-PREREQS — missing build/release tools will be auto-installed${RESET}"
+fi
 echo -e "${BOLD}${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 
 # ── Step 0: Build prerequisites ──────────────────────────────────────────────
 banner 0 "Checking build prerequisites"
 
-if ! node scripts/check-build-prereqs.js --release; then
-  fail "Prerequisites missing. Install the listed tools and re-run."
+if [[ "$INSTALL_PREREQS" == true ]]; then
+  INSTALL_ARGS=(--release)
+  [[ "$DRY_RUN" == true ]] && INSTALL_ARGS+=(--dry-run)
+  if ! node scripts/install-prereqs.js "${INSTALL_ARGS[@]}"; then
+    fail "Prerequisites missing. Install the listed tools and re-run."
+  fi
+else
+  if ! node scripts/check-build-prereqs.js --release; then
+    fail "Prerequisites missing. Install the listed tools and re-run.\n     Tip: re-run with ${BOLD}--install-prereqs${RESET} to auto-install where possible."
+  fi
 fi
 
 # ── Step 0.5: Working tree must be clean ─────────────────────────────────────
@@ -330,7 +360,7 @@ for pattern in dist/*.AppImage dist/*.deb dist/*.dmg dist/*.zip dist/*.exe; do
 done
 
 NODE_VERSION=$(node --version)
-NOTES_FILE=$(mktemp -t release-notes.XXXXXX)
+NOTES_FILE=$(mktemp "${TMPDIR:-/tmp}/release-notes.XXXXXX")
 trap 'rm -f "${NOTES_FILE}"' EXIT
 
 cat > "${NOTES_FILE}" <<ENDOFNOTES

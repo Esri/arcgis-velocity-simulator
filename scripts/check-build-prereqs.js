@@ -14,9 +14,15 @@
  *   node scripts/check-build-prereqs.js --mac --win    # multiple targets
  *   node scripts/check-build-prereqs.js --release      # also check git, gh, gh auth
  *   node scripts/check-build-prereqs.js --quiet        # only print on failure
+ *   node scripts/check-build-prereqs.js --json         # JSON output (for install-prereqs.js)
+ *
+ * Auto-heal:
+ *   When INSTALL_PREREQS=1 is set in the environment AND prerequisites are
+ *   missing, this script will delegate to install-prereqs.js to attempt
+ *   installation. The INSTALL_PREREQS_RUNNING guard breaks recursion.
  */
 'use strict';
-const { execSync } = require('child_process');
+const { execSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -24,6 +30,7 @@ const { findBinutilsBinDir } = require('./binutils-path');
 
 const args = process.argv.slice(2);
 const quiet = args.includes('--quiet');
+const jsonMode = args.includes('--json');
 const releaseMode = args.includes('--release');
 const onlyTargets = args.filter(a => ['--mac', '--win', '--linux', '--all'].includes(a));
 const wantAll = onlyTargets.length === 0 || onlyTargets.includes('--all');
@@ -35,6 +42,15 @@ const platform = os.platform();              // 'darwin' | 'linux' | 'win32'
 const isMac    = platform === 'darwin';
 const isLinux  = platform === 'linux';
 const isWin    = platform === 'win32';
+
+// Pick a host-appropriate install hint string. Centralises the per-OS branching
+// so individual problem entries stay readable.
+function installHint(macStr, linuxStr, winStr) {
+  if (isMac)   return macStr;
+  if (isLinux) return linuxStr;
+  if (isWin)   return winStr;
+  return macStr;  // sensible fallback
+}
 
 const problems = [];
 
@@ -78,7 +94,11 @@ if (nodeMajor < 18) {
   problems.push({
     tool: 'node >= 18',
     need: `electron-builder requires Node 18 or newer (you have ${nodeVer})`,
-    install: 'Install Node 20 LTS via https://nodejs.org or `brew install node`',
+    install: installHint(
+      'Install Node 20 LTS via https://nodejs.org or `brew install node@20`',
+      'Install Node 20 LTS via https://nodejs.org or use nvm (https://github.com/nvm-sh/nvm)',
+      'Install Node 20 LTS:  winget install -e --id OpenJS.NodeJS.LTS  (or download from https://nodejs.org)'
+    ),
   });
 }
 if (!which('npm')) {
@@ -105,24 +125,29 @@ if (!fs.existsSync(ebBin)) {
 // ── Linux artifact prerequisites (deb) ──────────────────────────────────────
 // `.deb` requires dpkg + fakeroot regardless of host OS. macOS also needs
 // GNU ar (Homebrew binutils) because the system /usr/bin/ar is BSD ar and
-// silently produces a broken archive.
+// silently produces a broken archive. Windows hosts cannot build .deb
+// natively — recommend WSL.
 if (wantLinux) {
   if (!which('dpkg') && !which('dpkg-deb')) {
     problems.push({
       tool: 'dpkg',
       need: 'Required to build .deb packages',
-      install: isMac
-        ? 'brew install dpkg'
-        : 'apt-get install dpkg (Linux) — usually preinstalled',
+      install: installHint(
+        'brew install dpkg',
+        'apt-get install dpkg (usually preinstalled)',
+        'Build .deb under WSL — Windows host cannot produce .deb directly'
+      ),
     });
   }
   if (!which('fakeroot')) {
     problems.push({
       tool: 'fakeroot',
       need: 'Required to set Linux file ownership inside .deb',
-      install: isMac
-        ? 'brew install fakeroot'
-        : 'apt-get install fakeroot',
+      install: installHint(
+        'brew install fakeroot',
+        'apt-get install fakeroot',
+        'Build .deb under WSL — Windows host cannot produce .deb directly'
+      ),
     });
   }
   if (isMac) {
@@ -139,6 +164,8 @@ if (wantLinux) {
       });
     }
   }
+  // On Windows, dpkg/fakeroot are absent and the install hints already
+  // direct users to WSL — no separate "GNU ar" entry needed.
 }
 
 // ── macOS artifact prerequisites (dmg, codesigning) ─────────────────────────
@@ -156,16 +183,22 @@ if (releaseMode) {
     problems.push({
       tool: 'git',
       need: 'Required to commit/tag/push the version bump',
-      install: isMac ? 'brew install git' : 'apt-get install git (Linux)',
+      install: installHint(
+        'brew install git',
+        'apt-get install git (or your distro\'s package manager)',
+        'winget install -e --id Git.Git  (or download from https://git-scm.com)'
+      ),
     });
   }
   if (!which('gh')) {
     problems.push({
       tool: 'gh',
       need: 'GitHub CLI required to create the release and upload assets',
-      install: isMac
-        ? 'brew install gh  &&  gh auth login'
-        : 'See https://cli.github.com/ for installation, then `gh auth login`',
+      install: installHint(
+        'brew install gh  &&  gh auth login',
+        'See https://cli.github.com/manual/installation for distro packages, then `gh auth login`',
+        'winget install -e --id GitHub.cli  &&  gh auth login'
+      ),
     });
   } else {
     // Verify authentication. `gh auth status` exits non-zero when not logged in.
@@ -180,12 +213,24 @@ if (releaseMode) {
 }
 
 // ── Report ──────────────────────────────────────────────────────────────────
-const RED    = '\x1b[31m';
-const YELLOW = '\x1b[33m';
-const GREEN  = '\x1b[32m';
-const BOLD   = '\x1b[1m';
-const DIM    = '\x1b[2m';
-const RESET  = '\x1b[0m';
+const useColor = process.stderr.isTTY && !jsonMode;
+const RED    = useColor ? '\x1b[31m' : '';
+const YELLOW = useColor ? '\x1b[33m' : '';
+const GREEN  = useColor ? '\x1b[32m' : '';
+const BOLD   = useColor ? '\x1b[1m'  : '';
+const DIM    = useColor ? '\x1b[2m'  : '';
+const RESET  = useColor ? '\x1b[0m'  : '';
+
+// JSON mode: emit a single object on stdout; let exit code carry pass/fail.
+if (jsonMode) {
+  process.stdout.write(JSON.stringify({
+    problems,
+    platform,
+    targets: { mac: wantMac, win: wantWin, linux: wantLinux, all: wantAll },
+    release: releaseMode,
+  }) + '\n');
+  process.exit(problems.length === 0 ? 0 : 1);
+}
 
 if (problems.length === 0) {
   if (!quiet) {
@@ -206,7 +251,20 @@ for (const p of problems) {
 console.error(`${DIM}Without these tools the build may fail or silently produce broken`);
 console.error(`artifacts (e.g. an unusable ~100 byte ".deb" file).${RESET}`);
 console.error('');
+
+// ── Auto-heal: if INSTALL_PREREQS=1, hand off to install-prereqs.js ─────────
+// Recursion-safe: install-prereqs.js sets INSTALL_PREREQS_RUNNING=1 in its
+// child env, so we only auto-heal when invoked from a top-level user command
+// (e.g. `INSTALL_PREREQS=1 npm run package:linux`).
+if (process.env.INSTALL_PREREQS === '1' && process.env.INSTALL_PREREQS_RUNNING !== '1') {
+  console.error(`${BOLD}${YELLOW}INSTALL_PREREQS=1 set — attempting to install missing prereqs…${RESET}`);
+  console.error('');
+  const installer = path.join(__dirname, 'install-prereqs.js');
+  // Forward the same target/release flags so the installer's plan matches.
+  const forwardArgs = args.filter(a => a !== '--quiet' && a !== '--json');
+  const r = spawnSync(process.execPath, [installer, ...forwardArgs], { stdio: 'inherit' });
+  process.exit(r.status === null ? 1 : r.status);
+}
+
 process.exit(1);
-
-
 
