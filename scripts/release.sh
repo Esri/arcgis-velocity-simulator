@@ -28,10 +28,13 @@ ${BOLD}${WHITE}Options:${RESET}
                   Validates version, shows each artifact that would be uploaded
                   (with file size), and prints a full preview of the release notes.
                   No files are written, no commits made, nothing pushed or published.
-  ${BOLD}--force${RESET}         Skip the version gate and the clean-working-tree check, and allow
-                  re-releasing an existing version. Deletes the existing GitHub release
-                  and git tag before re-creating them. Use with care — intended for
-                  fixing a broken release of the same version.
+  ${BOLD}--rerelease${RESET}     Re-publish an already-released version with rebuilt artifacts and
+                  refreshed release notes. Re-uses the requested version number (no
+                  package.json bump needed), generates the changelog against the
+                  previous good tag (skipping the version being re-released),
+                  deletes the existing GitHub release and git tag, and re-creates
+                  them pinned to the current HEAD commit. Use this to recover from
+                  a broken release of the same version.
   ${BOLD}--seq${RESET}           Build platforms sequentially instead of in parallel.
                   Slower overall, but produces clean non-interleaved build output —
                   useful for debugging build failures.
@@ -70,8 +73,8 @@ ${BOLD}${WHITE}Examples:${RESET}
   ${DIM}# Flag order doesn't matter${RESET}
   ${CYAN}./scripts/release.sh v1.2.3 --dry-run${RESET}
 
-  ${DIM}# Re-release the same version (deletes existing release + tag first)${RESET}
-  ${CYAN}./scripts/release.sh --force v1.2.3${RESET}
+  ${DIM}# Re-release the same version (deletes existing release + tag first, rebuilds, refreshes notes)${RESET}
+  ${CYAN}./scripts/release.sh --rerelease v1.2.3${RESET}
 
   ${DIM}# Build platforms sequentially (clean, non-interleaved output)${RESET}
   ${CYAN}./scripts/release.sh --seq v1.2.3${RESET}
@@ -103,9 +106,9 @@ SCRIPT_START=$(date +%s)
 banner() {
   local step="$1" msg="$2"
   local tag=""
-  [[ "$DRY_RUN" == true ]] && tag="${tag} ${BOLD}${YELLOW}[dry run]${RESET}${BOLD}${CYAN}"
-  [[ "$FORCE" == true ]]   && tag="${tag} ${BOLD}${RED}[force]${RESET}${BOLD}${CYAN}"
-  [[ "$SEQ" == true ]]     && tag="${tag} ${BOLD}${CYAN}[seq]${RESET}${BOLD}${CYAN}"
+  [[ "$DRY_RUN"   == true ]] && tag="${tag} ${BOLD}${YELLOW}[dry run]${RESET}${BOLD}${CYAN}"
+  [[ "$RERELEASE" == true ]] && tag="${tag} ${BOLD}${RED}[rerelease]${RESET}${BOLD}${CYAN}"
+  [[ "$SEQ"       == true ]] && tag="${tag} ${BOLD}${CYAN}[seq]${RESET}${BOLD}${CYAN}"
   echo ""
   echo -e "${BOLD}${CYAN}┌─ Step ${step}${tag} ─────────────────────────────────────────────────────${RESET}"
   echo -e "${BOLD}${CYAN}│${RESET}  ${WHITE}${msg}${RESET}"
@@ -149,16 +152,16 @@ semver_lt() {
 
 # ── Argument parsing ─────────────────────────────────────────────────────────
 DRY_RUN=false
-FORCE=false
+RERELEASE=false
 SEQ=false
 VERSION=""
 
 for arg in "$@"; do
   case "$arg" in
-    --dry-run) DRY_RUN=true ;;
-    --force)   FORCE=true ;;
-    --seq)     SEQ=true ;;
-    *)         VERSION="$arg" ;;
+    --dry-run)              DRY_RUN=true ;;
+    --rerelease)            RERELEASE=true ;;
+    --seq)                  SEQ=true ;;
+    *)                      VERSION="$arg" ;;
   esac
 done
 
@@ -178,8 +181,8 @@ echo -e "${BOLD}${WHITE}  🚀  ${APP_NAME}  —  Release ${VERSION}${RESET}"
 if [[ "$DRY_RUN" == true ]]; then
   echo -e "${BOLD}${YELLOW}  ⚠   DRY RUN — no files will be written, no commits made, no release published${RESET}"
 fi
-if [[ "$FORCE" == true ]]; then
-  echo -e "${BOLD}${RED}  ⚠   FORCE — existing release and tag will be deleted and re-created${RESET}"
+if [[ "$RERELEASE" == true ]]; then
+  echo -e "${BOLD}${RED}  ⚠   RERELEASE — existing release and tag will be deleted and re-created${RESET}"
 fi
 if [[ "$SEQ" == true ]]; then
   echo -e "${BOLD}${CYAN}  ⓘ   SEQ — platforms will build sequentially (slower, clean output)${RESET}"
@@ -225,11 +228,7 @@ else
 fi
 
 if [[ "$WORKING_TREE_OK" != true ]]; then
-  if [[ "$FORCE" == true ]]; then
-    warn "Working tree is not clean — proceeding anyway (--force)"
-  else
-    fail "Working tree must be clean before releasing.\n     Commit & push your changes, or pass ${BOLD}--force${RESET} to override."
-  fi
+  fail "Working tree must be clean before releasing.\n     Commit & push your changes, then re-run."
 else
   success "Working tree is clean and up to date with ${UPSTREAM}"
 fi
@@ -241,12 +240,8 @@ CURRENT_VERSION=$(node -p "require('./package.json').version")
 info "Current package.json version : ${BOLD}${CURRENT_VERSION}${RESET}"
 info "Requested release version    : ${BOLD}${VERSION_BARE}${RESET}"
 
-if semver_lt "${VERSION_BARE}" "${CURRENT_VERSION}" && [[ "$FORCE" != true ]]; then
-  fail "Requested version ${BOLD}${VERSION}${RESET} is lower than the current package.json version ${BOLD}v${CURRENT_VERSION}${RESET}.\n     Please provide a version >= v${CURRENT_VERSION}, or use ${BOLD}--force${RESET} to override."
-fi
-
-if [[ "$FORCE" == true ]]; then
-  warn "Version gate skipped — --force is set"
+if semver_lt "${VERSION_BARE}" "${CURRENT_VERSION}"; then
+  fail "Requested version ${BOLD}${VERSION}${RESET} is lower than the current package.json version ${BOLD}v${CURRENT_VERSION}${RESET}.\n     Please provide a version >= v${CURRENT_VERSION}."
 fi
 
 success "Version is valid"
@@ -308,7 +303,16 @@ NODE_VERSION=$(node --version)
 ELECTRON_VERSION=$(node -p "require('./node_modules/electron/package.json').version" 2>/dev/null || echo "unknown")
 BUILD_DATE=$(date -u "+%Y-%m-%d %H:%M UTC")
 
-PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+# Find the previous tag for the changelog. Normally `git describe HEAD^` works,
+# but during a re-release we must skip the very tag we're about to replace —
+# otherwise the changelog ends up scoped against the bad release.
+if [[ "$RERELEASE" == true ]]; then
+  PREV_TAG=$(git tag --list --sort=-v:refname \
+    | grep -v "^${VERSION}\$" \
+    | head -1 || true)
+else
+  PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+fi
 if [[ -n "$PREV_TAG" ]]; then
   CHANGELOG=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges 2>/dev/null || echo "- No commits found")
   SINCE_LABEL="since \`${PREV_TAG}\`"
@@ -326,6 +330,7 @@ for pattern in dist/*.AppImage dist/*.deb dist/*.dmg dist/*.zip dist/*.exe; do
 done
 
 NODE_VERSION=$(node --version)
+NOTES_FILE=$(mktemp -t release-notes.XXXXXX)
 trap 'rm -f "${NOTES_FILE}"' EXIT
 
 cat > "${NOTES_FILE}" <<ENDOFNOTES
@@ -373,8 +378,8 @@ if [[ "$DRY_RUN" == true ]]; then
   echo ""
   RELEASE_URL="(not created — dry run)"
 else
-  if [[ "$FORCE" == true ]]; then
-    warn "Deleting existing release and tag ${VERSION} (--force)..."
+  if [[ "$RERELEASE" == true ]]; then
+    warn "Deleting existing release and tag ${VERSION} (--rerelease)..."
     gh release delete "${VERSION}" --yes 2>/dev/null || true
     git tag -d "${VERSION}" 2>/dev/null || true
     # Only try to delete the remote tag if it exists
