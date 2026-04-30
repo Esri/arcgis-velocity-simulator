@@ -1,6 +1,68 @@
 # Release Process
 
-This document covers how to publish a new release of ArcGIS Velocity Simulator — both via **GitHub Actions (automated)** and **locally (manual)**. For build script details and package format comparisons, see [BUILD.md](./BUILD.md).
+This document covers how to publish a new release of ArcGIS Velocity Simulator. The **recommended approach** is the release script described below, which handles every step automatically. Manual and CI-based workflows are also documented for reference.
+
+---
+
+## 🚀 Release Script (Recommended)
+
+The release script at `scripts/release.sh` is the primary way to cut a release. Run it from the **repository root**:
+
+```bash
+./scripts/release.sh <version>
+```
+
+### What It Does
+
+The script handles the full release pipeline in one command:
+
+1. **Validates** the requested version against the current `package.json` version (blocks downgrades)
+2. **Bumps** `package.json` to the new version
+3. **Builds** all platform packages via `npm run package:seq:clean`
+4. **Commits** the `package.json` version bump (only if the version changed)
+5. **Publishes** a GitHub Release with all `dist/` artifacts and rich release notes (changelog, artifact table, build environment info)
+
+### Prerequisites
+
+| Requirement | Check / Install |
+|-------------|----------------|
+| `node` + `npm` | `node --version` |
+| `node_modules` present | `npm install` |
+| `gh` GitHub CLI | `brew install gh` then `gh auth login` |
+| `git` with push access | `git remote -v` |
+
+### Usage
+
+```
+./scripts/release.sh [options] <version>
+```
+
+| Argument / Option | Description |
+|-------------------|-------------|
+| `<version>` | Release version, e.g. `v1.2.3` or `1.2.3`. Must be ≥ current `package.json` version. The `v` prefix is optional. |
+| `--dry-run` | Simulate the entire release without writing files, committing, or publishing. Prints a full preview of the release notes. |
+| `--help` / `-h` | Print usage information and exit. |
+
+### Examples
+
+```bash
+# Standard release — does everything
+./scripts/release.sh v1.2.3
+
+# Without the 'v' prefix (equivalent)
+./scripts/release.sh 1.2.3
+
+# Preview everything without making any changes (highly recommended before a real release)
+./scripts/release.sh --dry-run v1.2.3
+
+# Flag order is flexible
+./scripts/release.sh v1.2.3 --dry-run
+
+# Show help
+./scripts/release.sh --help
+```
+
+> **Tip:** Always do a `--dry-run` first to preview the release notes and verify the artifact list before publishing.
 
 ---
 
@@ -53,9 +115,9 @@ Push a version tag matching `v*`. The workflow also supports manual dispatch fro
 
 ---
 
-## Manual Release (Local Build)
+## Manual Release (Local Build, without the Script)
 
-If you need to build and upload a release without CI:
+If you need to build and publish without using the release script (e.g. for partial builds or debugging):
 
 ```bash
 # Build all platforms sequentially (includes Windows ZIP)
@@ -67,10 +129,11 @@ npm run package:win
 npm run package:linux
 ```
 
-Artifacts are written to `dist/`. Upload them manually to a GitHub Release via the web UI or the `gh` CLI:
+Upload artifacts from `dist/` to a GitHub Release. Use `find` to avoid uploading unpacked directories:
 
 ```bash
-gh release create v1.2.3 dist/* --title "v1.2.3" --generate-notes
+gh release create v1.2.3 $(find dist -maxdepth 1 -type f) \
+  --title "v1.2.3" --generate-notes
 ```
 
 ---

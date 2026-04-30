@@ -1,0 +1,332 @@
+#!/usr/bin/env bash
+# Release script — bumps version, builds all platform artifacts, and publishes a GitHub release.
+# Usage: ./scripts/release.sh [--dry-run] <version>
+# Example: ./scripts/release.sh v1.0.0
+#          ./scripts/release.sh --dry-run v1.0.0
+
+set -euo pipefail
+
+# ── Minimal styling for print_help (full palette declared after arg parsing) ─
+BOLD='\033[1m'
+DIM='\033[2m'
+CYAN='\033[0;36m'
+WHITE='\033[0;97m'
+YELLOW='\033[0;33m'
+RESET='\033[0m'
+
+print_help() {
+  echo -e "
+${BOLD}${WHITE}Usage:${RESET}
+  ${CYAN}./scripts/release.sh${RESET} [options] <version>
+
+${BOLD}${WHITE}Arguments:${RESET}
+  ${BOLD}<version>${RESET}       Release version. Must be >= current package.json version.
+                  The leading ${BOLD}v${RESET} is optional — both ${BOLD}v1.2.3${RESET} and ${BOLD}1.2.3${RESET} are accepted.
+
+${BOLD}${WHITE}Options:${RESET}
+  ${BOLD}--dry-run${RESET}       Simulate the release without making any changes.
+                  Validates version, shows what would be committed, and
+                  prints a full preview of the GitHub release notes.
+                  No files are written, no commits are made, no release is published.
+  ${BOLD}--help${RESET}          Show this help message and exit.
+
+${BOLD}${WHITE}What the script does:${RESET}
+  1. Validates the requested version against the current package.json version.
+  2. Bumps the version in package.json (if it changed).
+  3. Builds all platform packages via ${BOLD}npm run package:seq:clean${RESET}.
+  4. Commits the package.json version bump (if a change was made).
+  5. Creates and publishes a GitHub release with all dist/ artifacts and rich release notes.
+
+${BOLD}${WHITE}Prerequisites:${RESET}
+  • Run from the repository root directory.
+  • ${BOLD}node${RESET} and ${BOLD}npm${RESET} must be installed and ${BOLD}node_modules${RESET} present (${DIM}npm install${RESET}).
+  • ${BOLD}gh${RESET} (GitHub CLI) must be installed and authenticated (${DIM}gh auth login${RESET}).
+  • ${BOLD}git${RESET} must be configured with commit access to the repository.
+
+${BOLD}${WHITE}Examples:${RESET}
+  ${DIM}# Standard release${RESET}
+  ${CYAN}./scripts/release.sh v1.2.3${RESET}
+
+  ${DIM}# Version without 'v' prefix (equivalent)${RESET}
+  ${CYAN}./scripts/release.sh 1.2.3${RESET}
+
+  ${DIM}# Preview everything without making any changes${RESET}
+  ${CYAN}./scripts/release.sh --dry-run v1.2.3${RESET}
+
+  ${DIM}# Flag order doesn't matter${RESET}
+  ${CYAN}./scripts/release.sh v1.2.3 --dry-run${RESET}
+"
+}
+
+# ── Early help / no-arg handling ─────────────────────────────────────────────
+if [[ $# -eq 0 ]]; then
+  echo -e "\n  ${YELLOW}⚠${RESET}  No arguments provided.\n"
+  print_help
+  exit 1
+fi
+for arg in "$@"; do
+  [[ "$arg" == "--help" || "$arg" == "-h" ]] && print_help && exit 0
+done
+
+# ── Full styling palette ─────────────────────────────────────────────────────
+BOLD='\033[1m'
+DIM='\033[2m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+WHITE='\033[0;97m'
+RESET='\033[0m'
+
+SCRIPT_START=$(date +%s)
+
+banner() {
+  local step="$1" msg="$2"
+  local dry_tag=""
+  [[ "$DRY_RUN" == true ]] && dry_tag=" ${BOLD}${YELLOW}[dry run]${RESET}${BOLD}${CYAN}"
+  echo ""
+  echo -e "${BOLD}${CYAN}┌─ Step ${step}${dry_tag} ─────────────────────────────────────────────────────${RESET}"
+  echo -e "${BOLD}${CYAN}│${RESET}  ${WHITE}${msg}${RESET}"
+  echo -e "${BOLD}${CYAN}└────────────────────────────────────────────────────────────────${RESET}"
+}
+
+info()    { echo -e "  ${CYAN}ℹ${RESET}  $*"; }
+success() { echo -e "  ${GREEN}✔${RESET}  $*"; }
+warn()    { echo -e "  ${YELLOW}⚠${RESET}  $*"; }
+fail()    { echo -e "\n  ${RED}${BOLD}✖  ERROR:${RESET}  $*\n" >&2; exit 1; }
+dryrun()  { echo -e "  ${YELLOW}${DIM}◌  [dry run]${RESET}  ${DIM}$*${RESET}"; }
+
+elapsed() {
+  local s=$(( $(date +%s) - SCRIPT_START ))
+  printf "%dm %02ds" $(( s / 60 )) $(( s % 60 ))
+}
+
+# run <description> <cmd> [args...]
+# In dry-run mode: prints the command instead of executing it.
+run() {
+  local desc="$1"; shift
+  if [[ "$DRY_RUN" == true ]]; then
+    dryrun "${desc}: $*"
+  else
+    "$@"
+  fi
+}
+
+# ── Semver comparison ────────────────────────────────────────────────────────
+# Returns 0 (true) if $1 < $2
+semver_lt() {
+  local IFS='.'
+  local -a a=($1) b=($2)
+  for i in 0 1 2; do
+    local av=${a[$i]:-0} bv=${b[$i]:-0}
+    (( av < bv )) && return 0
+    (( av > bv )) && return 1
+  done
+  return 1  # equal — not less than
+}
+
+# ── Argument parsing ─────────────────────────────────────────────────────────
+DRY_RUN=false
+VERSION=""
+
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=true ;;
+    *)         VERSION="$arg" ;;
+  esac
+done
+
+if [[ -z "$VERSION" ]]; then
+  fail "Version argument is required.\n     Usage: $0 [--dry-run] <version>  (e.g. $0 v1.0.0)"
+fi
+
+# Normalise: ensure leading 'v'
+[[ "$VERSION" != v* ]] && VERSION="v${VERSION}"
+VERSION_BARE="${VERSION#v}"   # strip 'v' for package.json / semver math
+
+# ── Header ──────────────────────────────────────────────────────────────────
+APP_NAME=$(node -p "require('./package.json').productName")
+echo ""
+echo -e "${BOLD}${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+echo -e "${BOLD}${WHITE}  🚀  ${APP_NAME}  —  Release ${VERSION}${RESET}"
+if [[ "$DRY_RUN" == true ]]; then
+echo -e "${BOLD}${YELLOW}  ⚠   DRY RUN — no files will be written, no commits made, no release published${RESET}"
+fi
+echo -e "${BOLD}${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+
+# ── Step 1: Version gate ─────────────────────────────────────────────────────
+banner 1 "Validating version"
+
+CURRENT_VERSION=$(node -p "require('./package.json').version")
+info "Current package.json version : ${BOLD}${CURRENT_VERSION}${RESET}"
+info "Requested release version    : ${BOLD}${VERSION_BARE}${RESET}"
+
+if semver_lt "${VERSION_BARE}" "${CURRENT_VERSION}"; then
+  fail "Requested version ${BOLD}${VERSION}${RESET} is lower than the current package.json version ${BOLD}v${CURRENT_VERSION}${RESET}.\n     Please provide a version >= v${CURRENT_VERSION}."
+fi
+
+success "Version is valid"
+
+# ── Step 2: Bump package.json ────────────────────────────────────────────────
+banner 2 "Updating package.json version"
+
+if [[ "${VERSION_BARE}" == "${CURRENT_VERSION}" ]]; then
+  warn "package.json already at ${VERSION_BARE} — no change needed"
+  VERSION_CHANGED=false
+else
+  run "Write package.json" node -e "
+    const fs = require('fs');
+    const pkg = require('./package.json');
+    pkg.version = '${VERSION_BARE}';
+    fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');
+  "
+  success "package.json version updated: ${DIM}${CURRENT_VERSION}${RESET} → ${BOLD}${VERSION_BARE}${RESET}"
+  VERSION_CHANGED=true
+fi
+
+# ── Step 3: Build ────────────────────────────────────────────────────────────
+banner 3 "Building platform packages"
+info "Running: npm run package:seq:clean"
+echo ""
+
+BUILD_START=$(date +%s)
+run "Build" npm run package:seq:clean
+BUILD_ELAPSED=$(( $(date +%s) - BUILD_START ))
+
+echo ""
+success "Build complete in ${BOLD}${BUILD_ELAPSED}s${RESET}"
+
+# ── Step 4: Commit version bump ──────────────────────────────────────────────
+banner 4 "Committing version bump"
+
+if [[ "$VERSION_CHANGED" == true ]] && { [[ "$DRY_RUN" == true ]] || ! git diff --quiet package.json; }; then
+  run "Git add" git add package.json
+  run "Git commit" git commit -m "chore: bump version to ${VERSION}"
+  GIT_HASH=$(git rev-parse --short HEAD)
+  success "Committed version bump — ${DIM}${GIT_HASH}${RESET}"
+elif [[ "$VERSION_CHANGED" == true ]]; then
+  GIT_HASH=$(git rev-parse --short HEAD)
+  warn "package.json was updated but git diff is clean (already staged?) — skipping commit"
+else
+  GIT_HASH=$(git rev-parse --short HEAD)
+  warn "No version change — skipping commit"
+fi
+
+# ── Gather release note metadata ─────────────────────────────────────────────
+NODE_VERSION=$(node --version)
+ELECTRON_VERSION=$(node -p "require('./node_modules/electron/package.json').version" 2>/dev/null || echo "unknown")
+BUILD_DATE=$(date -u "+%Y-%m-%d %H:%M UTC")
+
+PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+if [[ -n "$PREV_TAG" ]]; then
+  CHANGELOG=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges 2>/dev/null || echo "- No commits found")
+  SINCE_LABEL="since \`${PREV_TAG}\`"
+else
+  CHANGELOG=$(git log HEAD --pretty=format:"- %s (%h)" --no-merges 2>/dev/null || echo "- No commits found")
+  SINCE_LABEL="(initial release)"
+fi
+
+# Collect only files that exist (guards against missing platform artifacts)
+ASSETS=()
+for pattern in dist/*.AppImage dist/*.deb dist/*.dmg dist/*.zip dist/*.exe; do
+  for f in $pattern; do
+    [[ -f "$f" ]] && ASSETS+=("$f")
+  done
+done
+
+ARTIFACT_TABLE=""
+for f in "${ASSETS[@]}"; do
+  size=$(du -sh "$f" 2>/dev/null | cut -f1)
+  ARTIFACT_TABLE="${ARTIFACT_TABLE}\n| \`$(basename "$f")\` | ${size} |"
+done
+
+NOTES=$(cat <<EOF
+## ${APP_NAME} ${VERSION}
+
+**Released:** ${BUILD_DATE}
+**Commit:** \`${GIT_HASH}\`
+
+---
+
+### 📦 Artifacts
+
+| File | Size |
+|------|------|
+$(echo -e "${ARTIFACT_TABLE}")
+
+---
+
+### 🔧 Build Environment
+
+| Property | Value |
+|----------|-------|
+| App version | \`${VERSION_BARE}\` |
+| Node.js | \`${NODE_VERSION}\` |
+| Electron | \`${ELECTRON_VERSION}\` |
+
+---
+
+### 📝 Changes ${SINCE_LABEL}
+
+${CHANGELOG}
+EOF
+)
+
+# ── Step 5: Publish GitHub release ──────────────────────────────────────────
+banner 5 "Publishing GitHub release"
+TOTAL_ASSETS=${#ASSETS[@]}
+
+if [[ "$DRY_RUN" == true ]]; then
+  dryrun "gh release create ${VERSION} --title \"${VERSION}\" --notes \"...\" (no assets)"
+  info "Would then upload ${TOTAL_ASSETS} artifact(s) individually:"
+  idx=0
+  for f in "${ASSETS[@]}"; do
+    idx=$(( idx + 1 ))
+    size=$(du -sh "$f" 2>/dev/null | cut -f1)
+    dryrun "[${idx}/${TOTAL_ASSETS}]  $(basename "$f")  ${DIM}(${size})${RESET}"
+  done
+  echo ""
+  info "Release notes preview:"
+  echo ""
+  echo "${NOTES}" | sed 's/^/    /'
+  echo ""
+  RELEASE_URL="(not created — dry run)"
+else
+  info "Creating release (no assets yet)..."
+  gh release create "${VERSION}" \
+    --title "${VERSION}" \
+    --notes "${NOTES}"
+  RELEASE_URL=$(gh release view "${VERSION}" --json url -q .url 2>/dev/null || echo "https://github.com")
+
+  echo ""
+  info "Uploading ${TOTAL_ASSETS} artifact(s)..."
+  echo ""
+  idx=0
+  for f in "${ASSETS[@]}"; do
+    idx=$(( idx + 1 ))
+    fname=$(basename "$f")
+    size=$(du -sh "$f" 2>/dev/null | cut -f1)
+    echo -ne "  ${CYAN}[${idx}/${TOTAL_ASSETS}]${RESET}  ${BOLD}${fname}${RESET}  ${DIM}(${size})${RESET}  … "
+    gh release upload "${VERSION}" "${f}"
+    echo -e "${GREEN}✔${RESET}"
+  done
+  echo ""
+fi
+
+# ── Summary ──────────────────────────────────────────────────────────────────
+echo ""
+if [[ "$DRY_RUN" == true ]]; then
+  echo -e "${BOLD}${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo -e "${BOLD}${YELLOW}  ⚠   Dry run complete — no changes were made${RESET}"
+  echo -e "${BOLD}${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+else
+  echo -e "${BOLD}${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo -e "${BOLD}${GREEN}  ✅  Release ${VERSION} published successfully!${RESET}"
+  echo -e "${BOLD}${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+fi
+echo -e "  ${DIM}URL     :${RESET}  ${RELEASE_URL}"
+echo -e "  ${DIM}Commit  :${RESET}  ${GIT_HASH}"
+echo -e "  ${DIM}Assets  :${RESET}  ${#ASSETS[@]} files uploaded"
+echo -e "  ${DIM}Total   :${RESET}  $(elapsed)"
+echo ""
+
