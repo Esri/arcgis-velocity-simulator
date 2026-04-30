@@ -52,7 +52,7 @@ node scripts/check-build-prereqs.js --release   # also verify git/gh/auth
 |-------------------|-------------|
 | `<version>` | Release version, e.g. `v1.2.3` or `1.2.3`. Must be ≥ current `package.json` version. The `v` prefix is optional. |
 | `--dry-run` | Simulate the entire release without writing files, committing, or publishing. Shows each artifact that would be uploaded (with file size) and a full preview of the release notes. |
-| `--rerelease` | Re-publish an already-released version with rebuilt artifacts and refreshed release notes. Re-uses the requested version number (no `package.json` bump needed), generates the changelog against the **previous good tag** (skipping the version being re-released), deletes the existing GitHub release and git tag, and re-creates them pinned to the current `HEAD` commit. Use this to recover from a broken release of the same version. The clean-working-tree and version-gate checks still apply. |
+| `--re-release` | Re-publish an already-released version with rebuilt artifacts and refreshed release notes. Re-uses the requested version number (no `package.json` bump needed), generates the changelog against the **previous good tag** (skipping the version being re-released), deletes the existing GitHub release and git tag, and re-creates them pinned to the current `HEAD` commit. Use this to recover from a broken release of the same version. The clean-working-tree and version-gate checks still apply. |
 | `--seq` | Build platforms sequentially instead of in parallel (the default). Slower overall, but produces non-interleaved build output — useful for debugging build failures. |
 | `--help` / `-h` | Print usage information and exit. |
 
@@ -72,7 +72,7 @@ node scripts/check-build-prereqs.js --release   # also verify git/gh/auth
 ./scripts/release.sh v1.2.3 --dry-run
 
 # Re-release the same version after a failed or broken release (deletes existing release + tag first, rebuilds, refreshes notes)
-./scripts/release.sh --rerelease v1.2.3
+./scripts/release.sh --re-release v1.2.3
 
 # Build platforms sequentially instead of in parallel (clean output, slower)
 ./scripts/release.sh --seq v1.2.3

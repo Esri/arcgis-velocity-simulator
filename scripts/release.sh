@@ -28,7 +28,7 @@ ${BOLD}${WHITE}Options:${RESET}
                   Validates version, shows each artifact that would be uploaded
                   (with file size), and prints a full preview of the release notes.
                   No files are written, no commits made, nothing pushed or published.
-  ${BOLD}--rerelease${RESET}     Re-publish an already-released version with rebuilt artifacts and
+  ${BOLD}--re-release${RESET}     Re-publish an already-released version with rebuilt artifacts and
                   refreshed release notes. Re-uses the requested version number (no
                   package.json bump needed), generates the changelog against the
                   previous good tag (skipping the version being re-released),
@@ -74,7 +74,7 @@ ${BOLD}${WHITE}Examples:${RESET}
   ${CYAN}./scripts/release.sh v1.2.3 --dry-run${RESET}
 
   ${DIM}# Re-release the same version (deletes existing release + tag first, rebuilds, refreshes notes)${RESET}
-  ${CYAN}./scripts/release.sh --rerelease v1.2.3${RESET}
+  ${CYAN}./scripts/release.sh --re-release v1.2.3${RESET}
 
   ${DIM}# Build platforms sequentially (clean, non-interleaved output)${RESET}
   ${CYAN}./scripts/release.sh --seq v1.2.3${RESET}
@@ -107,7 +107,7 @@ banner() {
   local step="$1" msg="$2"
   local tag=""
   [[ "$DRY_RUN"   == true ]] && tag="${tag} ${BOLD}${YELLOW}[dry run]${RESET}${BOLD}${CYAN}"
-  [[ "$RERELEASE" == true ]] && tag="${tag} ${BOLD}${RED}[rerelease]${RESET}${BOLD}${CYAN}"
+  [[ "$RERELEASE" == true ]] && tag="${tag} ${BOLD}${RED}[re-release]${RESET}${BOLD}${CYAN}"
   [[ "$SEQ"       == true ]] && tag="${tag} ${BOLD}${CYAN}[seq]${RESET}${BOLD}${CYAN}"
   echo ""
   echo -e "${BOLD}${CYAN}┌─ Step ${step}${tag} ─────────────────────────────────────────────────────${RESET}"
@@ -159,7 +159,7 @@ VERSION=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run)              DRY_RUN=true ;;
-    --rerelease)            RERELEASE=true ;;
+    --re-release)            RERELEASE=true ;;
     --seq)                  SEQ=true ;;
     *)                      VERSION="$arg" ;;
   esac
@@ -182,7 +182,7 @@ if [[ "$DRY_RUN" == true ]]; then
   echo -e "${BOLD}${YELLOW}  ⚠   DRY RUN — no files will be written, no commits made, no release published${RESET}"
 fi
 if [[ "$RERELEASE" == true ]]; then
-  echo -e "${BOLD}${RED}  ⚠   RERELEASE — existing release and tag will be deleted and re-created${RESET}"
+  echo -e "${BOLD}${RED}  ⚠   RE-RELEASE — existing release and tag will be deleted and re-created${RESET}"
 fi
 if [[ "$SEQ" == true ]]; then
   echo -e "${BOLD}${CYAN}  ⓘ   SEQ — platforms will build sequentially (slower, clean output)${RESET}"
@@ -379,7 +379,7 @@ if [[ "$DRY_RUN" == true ]]; then
   RELEASE_URL="(not created — dry run)"
 else
   if [[ "$RERELEASE" == true ]]; then
-    warn "Deleting existing release and tag ${VERSION} (--rerelease)..."
+    warn "Deleting existing release and tag ${VERSION} (--re-release)..."
     gh release delete "${VERSION}" --yes 2>/dev/null || true
     git tag -d "${VERSION}" 2>/dev/null || true
     # Only try to delete the remote tag if it exists
