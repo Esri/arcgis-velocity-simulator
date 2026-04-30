@@ -25,16 +25,19 @@ ${BOLD}${WHITE}Arguments:${RESET}
 
 ${BOLD}${WHITE}Options:${RESET}
   ${BOLD}--dry-run${RESET}       Simulate the release without making any changes.
-                  Validates version, shows what would be committed, and
-                  prints a full preview of the GitHub release notes.
-                  No files are written, no commits are made, no release is published.
+                  Validates version, shows each artifact that would be uploaded
+                  (with file size), and prints a full preview of the release notes.
+                  No files are written, no commits made, nothing pushed or published.
+  ${BOLD}--force${RESET}         Skip the version gate and allow re-releasing an existing version.
+                  Deletes the existing GitHub release and git tag before re-creating them.
+                  Use with care — intended for fixing a broken release of the same version.
   ${BOLD}--help${RESET}          Show this help message and exit.
 
 ${BOLD}${WHITE}What the script does:${RESET}
   1. Validates the requested version against the current package.json version.
   2. Bumps the version in package.json (if it changed).
   3. Builds all platform packages via ${BOLD}npm run package:seq:clean${RESET}.
-  4. Commits the package.json version bump (if a change was made).
+  4. Commits and pushes the package.json version bump (if a change was made).
   5. Creates and publishes a GitHub release with all dist/ artifacts and rich release notes.
 
 ${BOLD}${WHITE}Prerequisites:${RESET}
@@ -55,6 +58,9 @@ ${BOLD}${WHITE}Examples:${RESET}
 
   ${DIM}# Flag order doesn't matter${RESET}
   ${CYAN}./scripts/release.sh v1.2.3 --dry-run${RESET}
+
+  ${DIM}# Re-release the same version (deletes existing release + tag first)${RESET}
+  ${CYAN}./scripts/release.sh --force v1.2.3${RESET}
 "
 }
 
@@ -82,10 +88,11 @@ SCRIPT_START=$(date +%s)
 
 banner() {
   local step="$1" msg="$2"
-  local dry_tag=""
-  [[ "$DRY_RUN" == true ]] && dry_tag=" ${BOLD}${YELLOW}[dry run]${RESET}${BOLD}${CYAN}"
+  local tag=""
+  [[ "$DRY_RUN" == true ]] && tag=" ${BOLD}${YELLOW}[dry run]${RESET}${BOLD}${CYAN}"
+  [[ "$FORCE" == true ]]   && tag=" ${BOLD}${RED}[force]${RESET}${BOLD}${CYAN}"
   echo ""
-  echo -e "${BOLD}${CYAN}┌─ Step ${step}${dry_tag} ─────────────────────────────────────────────────────${RESET}"
+  echo -e "${BOLD}${CYAN}┌─ Step ${step}${tag} ─────────────────────────────────────────────────────${RESET}"
   echo -e "${BOLD}${CYAN}│${RESET}  ${WHITE}${msg}${RESET}"
   echo -e "${BOLD}${CYAN}└────────────────────────────────────────────────────────────────${RESET}"
 }
@@ -127,11 +134,13 @@ semver_lt() {
 
 # ── Argument parsing ─────────────────────────────────────────────────────────
 DRY_RUN=false
+FORCE=false
 VERSION=""
 
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=true ;;
+    --force)   FORCE=true ;;
     *)         VERSION="$arg" ;;
   esac
 done
@@ -150,7 +159,10 @@ echo ""
 echo -e "${BOLD}${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 echo -e "${BOLD}${WHITE}  🚀  ${APP_NAME}  —  Release ${VERSION}${RESET}"
 if [[ "$DRY_RUN" == true ]]; then
-echo -e "${BOLD}${YELLOW}  ⚠   DRY RUN — no files will be written, no commits made, no release published${RESET}"
+  echo -e "${BOLD}${YELLOW}  ⚠   DRY RUN — no files will be written, no commits made, no release published${RESET}"
+fi
+if [[ "$FORCE" == true ]]; then
+  echo -e "${BOLD}${RED}  ⚠   FORCE — existing release and tag will be deleted and re-created${RESET}"
 fi
 echo -e "${BOLD}${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 
@@ -161,8 +173,12 @@ CURRENT_VERSION=$(node -p "require('./package.json').version")
 info "Current package.json version : ${BOLD}${CURRENT_VERSION}${RESET}"
 info "Requested release version    : ${BOLD}${VERSION_BARE}${RESET}"
 
-if semver_lt "${VERSION_BARE}" "${CURRENT_VERSION}"; then
-  fail "Requested version ${BOLD}${VERSION}${RESET} is lower than the current package.json version ${BOLD}v${CURRENT_VERSION}${RESET}.\n     Please provide a version >= v${CURRENT_VERSION}."
+if semver_lt "${VERSION_BARE}" "${CURRENT_VERSION}" && [[ "$FORCE" != true ]]; then
+  fail "Requested version ${BOLD}${VERSION}${RESET} is lower than the current package.json version ${BOLD}v${CURRENT_VERSION}${RESET}.\n     Please provide a version >= v${CURRENT_VERSION}, or use ${BOLD}--force${RESET} to override."
+fi
+
+if [[ "$FORCE" == true ]]; then
+  warn "Version gate skipped — --force is set"
 fi
 
 success "Version is valid"
@@ -202,8 +218,9 @@ banner 4 "Committing version bump"
 if [[ "$VERSION_CHANGED" == true ]] && { [[ "$DRY_RUN" == true ]] || ! git diff --quiet package.json; }; then
   run "Git add" git add package.json
   run "Git commit" git commit -m "chore: bump version to ${VERSION}"
+  run "Git push" git push
   GIT_HASH=$(git rev-parse --short HEAD)
-  success "Committed version bump — ${DIM}${GIT_HASH}${RESET}"
+  success "Committed and pushed version bump — ${DIM}${GIT_HASH}${RESET}"
 elif [[ "$VERSION_CHANGED" == true ]]; then
   GIT_HASH=$(git rev-parse --short HEAD)
   warn "package.json was updated but git diff is clean (already staged?) — skipping commit"
@@ -237,65 +254,77 @@ done
 ARTIFACT_TABLE=""
 for f in "${ASSETS[@]}"; do
   size=$(du -sh "$f" 2>/dev/null | cut -f1)
-  ARTIFACT_TABLE="${ARTIFACT_TABLE}\n| \`$(basename "$f")\` | ${size} |"
+  ARTIFACT_TABLE="${ARTIFACT_TABLE}
+| $(basename "$f") | ${size} |"
 done
 
-NOTES=$(cat <<EOF
+NOTES_FILE=$(mktemp /tmp/release-notes-XXXXXX.md)
+trap 'rm -f "${NOTES_FILE}"' EXIT
+
+cat > "${NOTES_FILE}" <<ENDOFNOTES
 ## ${APP_NAME} ${VERSION}
 
 **Released:** ${BUILD_DATE}
-**Commit:** \`${GIT_HASH}\`
+**Commit:** ${GIT_HASH}
 
 ---
 
-### 📦 Artifacts
+### Artifacts
 
 | File | Size |
 |------|------|
-$(echo -e "${ARTIFACT_TABLE}")
+${ARTIFACT_TABLE}
 
 ---
 
-### 🔧 Build Environment
+### Build Environment
 
 | Property | Value |
 |----------|-------|
-| App version | \`${VERSION_BARE}\` |
-| Node.js | \`${NODE_VERSION}\` |
-| Electron | \`${ELECTRON_VERSION}\` |
+| App version | ${VERSION_BARE} |
+| Node.js | ${NODE_VERSION} |
+| Electron | ${ELECTRON_VERSION} |
 
 ---
 
-### 📝 Changes ${SINCE_LABEL}
+### Changes ${SINCE_LABEL}
 
 ${CHANGELOG}
-EOF
-)
+ENDOFNOTES
 
 # ── Step 5: Publish GitHub release ──────────────────────────────────────────
 banner 5 "Publishing GitHub release"
 TOTAL_ASSETS=${#ASSETS[@]}
 
 if [[ "$DRY_RUN" == true ]]; then
-  dryrun "gh release create ${VERSION} --title \"${VERSION}\" --notes \"...\" (no assets)"
-  info "Would then upload ${TOTAL_ASSETS} artifact(s) individually:"
+  dryrun "gh release create ${VERSION} --title \"${VERSION}\" --notes-file <notes>"
+  echo ""
   idx=0
   for f in "${ASSETS[@]}"; do
     idx=$(( idx + 1 ))
+    fname=$(basename "$f")
     size=$(du -sh "$f" 2>/dev/null | cut -f1)
-    dryrun "[${idx}/${TOTAL_ASSETS}]  $(basename "$f")  ${DIM}(${size})${RESET}"
+    echo -e "  ${YELLOW}${DIM}◌  [dry run]${RESET}  ${CYAN}[${idx}/${TOTAL_ASSETS}]${RESET}  ${BOLD}${fname}${RESET}  ${DIM}(${size})${RESET}"
   done
   echo ""
   info "Release notes preview:"
   echo ""
-  echo "${NOTES}" | sed 's/^/    /'
+  cat "${NOTES_FILE}" | sed 's/^/    /'
   echo ""
   RELEASE_URL="(not created — dry run)"
 else
+  if [[ "$FORCE" == true ]]; then
+    warn "Deleting existing release and tag ${VERSION} (--force)..."
+    gh release delete "${VERSION}" --yes 2>/dev/null || true
+    git tag -d "${VERSION}" 2>/dev/null || true
+    git push origin ":refs/tags/${VERSION}" 2>/dev/null || true
+    success "Existing release and tag removed"
+    echo ""
+  fi
   info "Creating release (no assets yet)..."
   gh release create "${VERSION}" \
     --title "${VERSION}" \
-    --notes "${NOTES}"
+    --notes-file "${NOTES_FILE}"
   RELEASE_URL=$(gh release view "${VERSION}" --json url -q .url 2>/dev/null || echo "https://github.com")
 
   echo ""
@@ -307,8 +336,8 @@ else
     fname=$(basename "$f")
     size=$(du -sh "$f" 2>/dev/null | cut -f1)
     echo -ne "  ${CYAN}[${idx}/${TOTAL_ASSETS}]${RESET}  ${BOLD}${fname}${RESET}  ${DIM}(${size})${RESET}  … "
-    gh release upload "${VERSION}" "${f}"
-    echo -e "${GREEN}✔${RESET}"
+    gh release upload "${VERSION}" "${f}" > /dev/null 2>&1
+    echo -e "${GREEN}✔  uploaded${RESET}"
   done
   echo ""
 fi

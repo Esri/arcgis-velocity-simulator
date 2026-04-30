@@ -19,7 +19,7 @@ The script handles the full release pipeline in one command:
 1. **Validates** the requested version against the current `package.json` version (blocks downgrades)
 2. **Bumps** `package.json` to the new version
 3. **Builds** all platform packages via `npm run package:seq:clean`
-4. **Commits** the `package.json` version bump (only if the version changed)
+4. **Commits and pushes** the `package.json` version bump (only if the version changed)
 5. **Publishes** a GitHub Release with all `dist/` artifacts and rich release notes (changelog, artifact table, build environment info)
 
 ### Prerequisites
@@ -40,7 +40,8 @@ The script handles the full release pipeline in one command:
 | Argument / Option | Description |
 |-------------------|-------------|
 | `<version>` | Release version, e.g. `v1.2.3` or `1.2.3`. Must be ≥ current `package.json` version. The `v` prefix is optional. |
-| `--dry-run` | Simulate the entire release without writing files, committing, or publishing. Prints a full preview of the release notes. |
+| `--dry-run` | Simulate the entire release without writing files, committing, or publishing. Shows each artifact that would be uploaded (with file size) and a full preview of the release notes. |
+| `--force` | Skip the version gate and re-release an existing version. Deletes the existing GitHub release and git tag before re-creating them. Use with care — intended for fixing a broken release of the same version. |
 | `--help` / `-h` | Print usage information and exit. |
 
 ### Examples
@@ -57,6 +58,9 @@ The script handles the full release pipeline in one command:
 
 # Flag order is flexible
 ./scripts/release.sh v1.2.3 --dry-run
+
+# Re-release the same version after a failed or broken release (deletes existing release + tag first)
+./scripts/release.sh --force v1.2.3
 
 # Show help
 ./scripts/release.sh --help
