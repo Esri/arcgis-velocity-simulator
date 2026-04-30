@@ -20,7 +20,7 @@ This folder contains all technical and user-facing documentation for the ArcGIS 
 | [KEYBOARD-SHORTCUTS.md](./KEYBOARD-SHORTCUTS.md) | All keyboard shortcuts, context menu reference, and in-app Command Line Interface dialog shortcuts |
 | [OFFLINE-SPEECH-README.md](./OFFLINE-SPEECH-README.md) | Offline speech recognition: setup, supported commands, frequency-analysis internals, and troubleshooting |
 | [RELEASE-NOTES.md](./RELEASE-NOTES.md) | User-facing features, changes, and fixes by release |
-| [RELEASE.md](./RELEASE.md) | Release process: GitHub Actions workflow, version tagging, and code signing for macOS, Windows, and Linux |
+| [RELEASE.md](./RELEASE.md) | Release process: `scripts/release.sh` release script, version tagging, and code signing for macOS, Windows, and Linux |
 | [SPEECH-INTEGRATION-SUMMARY.md](./SPEECH-INTEGRATION-SUMMARY.md) | Architecture and integration summary for the offline Web Audio API speech recognition system |
 | [TESTING.md](./TESTING.md) | Test commands, test suite descriptions, manual smoke tests, and troubleshooting |
 | [THEME-REFACTORING.md](./THEME-REFACTORING.md) | Details of the theme system refactoring: per-file CSS, dynamic loader, and migration notes |

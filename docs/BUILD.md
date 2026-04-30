@@ -323,5 +323,5 @@ Cross-platform builds (e.g. building a Windows installer from macOS) require Win
 
 ## Publishing a Release
 
-For the full release workflow — including how to trigger GitHub Actions, version tagging, code signing recommendations for each platform, and manual upload steps — see **[RELEASE.md](./RELEASE.md)**.
+For the full release workflow — including how to run `scripts/release.sh`, version tagging, code signing recommendations for each platform, and manual upload steps — see **[RELEASE.md](./RELEASE.md)**.
 

@@ -30,7 +30,7 @@ A cross-platform desktop application for simulating data streams over TCP/UDP pr
 | [Keyboard Shortcuts](./docs/KEYBOARD-SHORTCUTS.md) | All keyboard shortcuts and context menu reference |
 | [Offline Speech](./docs/OFFLINE-SPEECH-README.md) | Offline speech recognition setup, commands, and troubleshooting |
 | [Release Notes](./docs/RELEASE-NOTES.md) | User-facing features and changes by release |
-| [Release Process](./docs/RELEASE.md) | GitHub Actions workflow, version tagging, and code signing for all platforms |
+| [Release Process](./docs/RELEASE.md) | `scripts/release.sh` release script, version tagging, and code signing for all platforms |
 | [Speech Integration Summary](./docs/SPEECH-INTEGRATION-SUMMARY.md) | Architecture summary for the Web Audio API offline speech system |
 | [Testing](./docs/TESTING.md) | Test commands, suite descriptions, and manual smoke tests |
 | [Theme Refactoring](./docs/THEME-REFACTORING.md) | Theme system refactoring: per-file CSS and dynamic loader |
@@ -381,7 +381,7 @@ The application uses [electron-builder](https://www.electron.build/) for creatin
 | `npm run package:seq:clean` | All (sequential) | Cleans `dist/` first |
 | `npm run clean` | — | Deletes `dist/` |
 
-For full details on all build options, compression, and artifact names, see [BUILD.md](./docs/BUILD.md). To publish a release via GitHub Actions or locally, see [RELEASE.md](./docs/RELEASE.md).
+For full details on all build options, compression, and artifact names, see [BUILD.md](./docs/BUILD.md). To publish a release using `scripts/release.sh` or manually, see [RELEASE.md](./docs/RELEASE.md).
 
 ### Code Quality
 - **Testing**: Comprehensive unit tests with JSDOM.

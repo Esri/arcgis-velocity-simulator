@@ -15,7 +15,7 @@ The project includes comprehensive documentation covering architecture, developm
 | [README.md](../README.md) | Project overview, quick start guide, and Help/Command Line Interface dialog overview | All users |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture and design patterns | Developers |
 | [BUILD.md](./BUILD.md) | Build scripts, package formats, compression options, output artifacts | Developers |
-| [RELEASE.md](./RELEASE.md) | Release process: GitHub Actions workflow, version tagging, code signing per platform | Developers |
+| [RELEASE.md](./RELEASE.md) | Release process: `scripts/release.sh` release script, version tagging, code signing per platform | Developers |
 | [CONFIG.md](./CONFIG.md) | Configuration management and settings | Users, Developers |
 | [DEBUGGING.md](./DEBUGGING.md) | Comprehensive debugging guide | Developers |
 | [COMMAND-LINE.md](./COMMAND-LINE.md) | Command-line parameters, unified six-column CLI reference, help layouts, defaults, and examples | Users, Developers |
@@ -61,7 +61,7 @@ The project includes comprehensive documentation covering architecture, developm
 ### For Developers
 - **Architecture**: [ARCHITECTURE.md](./ARCHITECTURE.md) - System design and patterns
 - **Build & Package**: [BUILD.md](./BUILD.md) - Build scripts, package formats, and artifacts
-- **Release**: [RELEASE.md](./RELEASE.md) - GitHub Actions release workflow and code signing
+- **Release**: [RELEASE.md](./RELEASE.md) - `scripts/release.sh` release script and code signing
 - **Debugging**: [DEBUGGING.md](./DEBUGGING.md) - Development and troubleshooting
 - **Testing**: [TESTING.md](./TESTING.md) - Test infrastructure and guidelines
 - **Development Summary**: [DEVELOPMENT-SUMMARY.md](./DEVELOPMENT-SUMMARY.md) - Technical details
