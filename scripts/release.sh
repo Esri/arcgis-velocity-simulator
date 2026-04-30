@@ -31,12 +31,20 @@ ${BOLD}${WHITE}Options:${RESET}
   ${BOLD}--force${RESET}         Skip the version gate and allow re-releasing an existing version.
                   Deletes the existing GitHub release and git tag before re-creating them.
                   Use with care — intended for fixing a broken release of the same version.
+  ${BOLD}--seq${RESET}           Build platforms sequentially instead of in parallel.
+                  Slower overall, but produces clean non-interleaved build output —
+                  useful for debugging build failures.
   ${BOLD}--help${RESET}          Show this help message and exit.
 
 ${BOLD}${WHITE}What the script does:${RESET}
+  0. Verifies prerequisites are installed:
+     • ${BOLD}node${RESET} ≥ 18, ${BOLD}npm${RESET}, ${BOLD}node_modules${RESET} (electron-builder)
+     • ${BOLD}git${RESET}, ${BOLD}gh${RESET} CLI (and that gh is authenticated)
+     • ${BOLD}dpkg${RESET}, ${BOLD}fakeroot${RESET}, GNU ${BOLD}ar${RESET} (for building .deb on macOS)
   1. Validates the requested version against the current package.json version.
   2. Bumps the version in package.json (if it changed).
-  3. Builds all platform packages via ${BOLD}npm run package:seq:clean${RESET}.
+  3. Builds all platform packages in parallel via ${BOLD}npm run package:all:clean${RESET}
+     (or sequentially via ${BOLD}npm run package:seq:clean${RESET} when ${BOLD}--seq${RESET} is set).
   4. Commits and pushes the package.json version bump (if a change was made).
   5. Creates and publishes a GitHub release with all dist/ artifacts and rich release notes.
 
@@ -61,6 +69,9 @@ ${BOLD}${WHITE}Examples:${RESET}
 
   ${DIM}# Re-release the same version (deletes existing release + tag first)${RESET}
   ${CYAN}./scripts/release.sh --force v1.2.3${RESET}
+
+  ${DIM}# Build platforms sequentially (clean, non-interleaved output)${RESET}
+  ${CYAN}./scripts/release.sh --seq v1.2.3${RESET}
 "
 }
 
@@ -89,8 +100,9 @@ SCRIPT_START=$(date +%s)
 banner() {
   local step="$1" msg="$2"
   local tag=""
-  [[ "$DRY_RUN" == true ]] && tag=" ${BOLD}${YELLOW}[dry run]${RESET}${BOLD}${CYAN}"
-  [[ "$FORCE" == true ]]   && tag=" ${BOLD}${RED}[force]${RESET}${BOLD}${CYAN}"
+  [[ "$DRY_RUN" == true ]] && tag="${tag} ${BOLD}${YELLOW}[dry run]${RESET}${BOLD}${CYAN}"
+  [[ "$FORCE" == true ]]   && tag="${tag} ${BOLD}${RED}[force]${RESET}${BOLD}${CYAN}"
+  [[ "$SEQ" == true ]]     && tag="${tag} ${BOLD}${CYAN}[seq]${RESET}${BOLD}${CYAN}"
   echo ""
   echo -e "${BOLD}${CYAN}┌─ Step ${step}${tag} ─────────────────────────────────────────────────────${RESET}"
   echo -e "${BOLD}${CYAN}│${RESET}  ${WHITE}${msg}${RESET}"
@@ -135,12 +147,14 @@ semver_lt() {
 # ── Argument parsing ─────────────────────────────────────────────────────────
 DRY_RUN=false
 FORCE=false
+SEQ=false
 VERSION=""
 
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=true ;;
     --force)   FORCE=true ;;
+    --seq)     SEQ=true ;;
     *)         VERSION="$arg" ;;
   esac
 done
@@ -164,7 +178,17 @@ fi
 if [[ "$FORCE" == true ]]; then
   echo -e "${BOLD}${RED}  ⚠   FORCE — existing release and tag will be deleted and re-created${RESET}"
 fi
+if [[ "$SEQ" == true ]]; then
+  echo -e "${BOLD}${CYAN}  ⓘ   SEQ — platforms will build sequentially (slower, clean output)${RESET}"
+fi
 echo -e "${BOLD}${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+
+# ── Step 0: Build prerequisites ──────────────────────────────────────────────
+banner 0 "Checking build prerequisites"
+
+if ! node scripts/check-build-prereqs.js --release; then
+  fail "Prerequisites missing. Install the listed tools and re-run."
+fi
 
 # ── Step 1: Version gate ─────────────────────────────────────────────────────
 banner 1 "Validating version"
@@ -202,11 +226,17 @@ fi
 
 # ── Step 3: Build ────────────────────────────────────────────────────────────
 banner 3 "Building platform packages"
-info "Running: npm run package:seq:clean"
+
+if [[ "$SEQ" == true ]]; then
+  BUILD_SCRIPT="package:seq:clean"
+else
+  BUILD_SCRIPT="package:all:clean"
+fi
+info "Running: npm run ${BUILD_SCRIPT}"
 echo ""
 
 BUILD_START=$(date +%s)
-run "Build" npm run package:seq:clean
+run "Build" npm run "${BUILD_SCRIPT}"
 BUILD_ELAPSED=$(( $(date +%s) - BUILD_START ))
 
 echo ""
@@ -251,14 +281,7 @@ for pattern in dist/*.AppImage dist/*.deb dist/*.dmg dist/*.zip dist/*.exe; do
   done
 done
 
-ARTIFACT_TABLE=""
-for f in "${ASSETS[@]}"; do
-  size=$(du -sh "$f" 2>/dev/null | cut -f1)
-  ARTIFACT_TABLE="${ARTIFACT_TABLE}
-| $(basename "$f") | ${size} |"
-done
-
-NOTES_FILE=$(mktemp /tmp/release-notes-XXXXXX.md)
+NODE_VERSION=$(node --version)
 trap 'rm -f "${NOTES_FILE}"' EXIT
 
 cat > "${NOTES_FILE}" <<ENDOFNOTES
@@ -269,13 +292,6 @@ cat > "${NOTES_FILE}" <<ENDOFNOTES
 
 ---
 
-### Artifacts
-
-| File | Size |
-|------|------|
-${ARTIFACT_TABLE}
-
----
 
 ### Build Environment
 

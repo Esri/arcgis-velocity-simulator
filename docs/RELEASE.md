@@ -16,20 +16,31 @@ The release script at `scripts/release.sh` is the primary way to cut a release. 
 
 The script handles the full release pipeline in one command:
 
+0. **Verifies** that all required tooling is installed (Node ≥ 18, npm, `node_modules`, git, gh + auth, and on macOS for `.deb`: `dpkg`, `fakeroot`, GNU `ar`) and fails fast with install hints if anything is missing
 1. **Validates** the requested version against the current `package.json` version (blocks downgrades)
 2. **Bumps** `package.json` to the new version
-3. **Builds** all platform packages via `npm run package:seq:clean`
+3. **Builds** all platform packages in parallel via `npm run package:all:clean` (mac, win, linux run simultaneously). Pass `--seq` to build sequentially instead.
 4. **Commits and pushes** the `package.json` version bump (only if the version changed)
 5. **Publishes** a GitHub Release with all `dist/` artifacts and rich release notes (changelog, artifact table, build environment info)
 
 ### Prerequisites
 
-| Requirement | Check / Install |
-|-------------|----------------|
-| `node` + `npm` | `node --version` |
-| `node_modules` present | `npm install` |
-| `gh` GitHub CLI | `brew install gh` then `gh auth login` |
-| `git` with push access | `git remote -v` |
+The release script auto-checks all of these in Step 0 and aborts with install hints if anything is missing. You can also verify your machine at any time with:
+
+```bash
+npm run check:build-prereqs              # build-only checks
+node scripts/check-build-prereqs.js --release   # also verify git/gh/auth
+```
+
+| Requirement | Used for | Install (macOS) |
+|-------------|----------|-----------------|
+| Node.js ≥ 18 + npm | Everything | [nodejs.org](https://nodejs.org/) or `brew install node` |
+| `node_modules/` (electron-builder) | Building | `npm install` |
+| `git` with push access | Commit + push version bump | Ships with macOS / `brew install git` |
+| `gh` GitHub CLI (authenticated) | Creating release, uploading assets | `brew install gh` then `gh auth login` |
+| `dpkg`, `fakeroot`, GNU `ar` | Building `.deb` packages | `brew install dpkg fakeroot binutils` |
+
+> **Note:** Without `dpkg`/`fakeroot`/GNU `ar`, electron-builder produces a malformed ~100-byte `.deb` stub instead of a real Debian package. After `brew install binutils` the build scripts auto-discover Homebrew's GNU `ar` and use it for the build — **no PATH edit needed**.
 
 ### Usage
 
@@ -42,6 +53,7 @@ The script handles the full release pipeline in one command:
 | `<version>` | Release version, e.g. `v1.2.3` or `1.2.3`. Must be ≥ current `package.json` version. The `v` prefix is optional. |
 | `--dry-run` | Simulate the entire release without writing files, committing, or publishing. Shows each artifact that would be uploaded (with file size) and a full preview of the release notes. |
 | `--force` | Skip the version gate and re-release an existing version. Deletes the existing GitHub release and git tag before re-creating them. Use with care — intended for fixing a broken release of the same version. |
+| `--seq` | Build platforms sequentially instead of in parallel (the default). Slower overall, but produces non-interleaved build output — useful for debugging build failures. |
 | `--help` / `-h` | Print usage information and exit. |
 
 ### Examples
@@ -61,6 +73,9 @@ The script handles the full release pipeline in one command:
 
 # Re-release the same version after a failed or broken release (deletes existing release + tag first)
 ./scripts/release.sh --force v1.2.3
+
+# Build platforms sequentially instead of in parallel (clean output, slower)
+./scripts/release.sh --seq v1.2.3
 
 # Show help
 ./scripts/release.sh --help
@@ -124,7 +139,10 @@ Push a version tag matching `v*`. The workflow also supports manual dispatch fro
 If you need to build and publish without using the release script (e.g. for partial builds or debugging):
 
 ```bash
-# Build all platforms sequentially (includes Windows ZIP)
+# Build all platforms in parallel (recommended — fastest)
+npm run package:all:clean
+
+# Or build all platforms sequentially (useful for debugging interleaved output)
 npm run package:seq:clean
 
 # Or build just one platform

@@ -17,9 +17,14 @@
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
+const { ensureGnuArPath } = require('./binutils-path');
 
 const bin = path.join(__dirname, '..', 'node_modules', '.bin', 'electron-builder');
 const distDir = path.join(__dirname, '..', 'dist');
+
+// PATH override: prepend Homebrew binutils on macOS so electron-builder finds
+// GNU `ar` instead of BSD `ar` (required for valid .deb archives).
+const childEnv = { ...process.env, PATH: ensureGnuArPath(process.env.PATH) };
 
 // ── Parse args ────────────────────────────────────────────────────────────────
 const rawArgs = process.argv.slice(2);
@@ -94,6 +99,7 @@ const promises = stepDefs.map(def => {
   return new Promise(resolve => {
     const child = spawn(bin, stepArgs, {
       shell: process.platform === 'win32',
+      env: childEnv,
     });
 
     // Stream stdout/stderr with label prefix

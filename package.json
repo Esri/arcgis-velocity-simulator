@@ -31,21 +31,24 @@
     "test:grpc": "node test/grpc-transport.test.js",
     "test:docs": "open docs/TESTING.md",
     "docs:check-links": "node scripts/check-doc-links.js",
-    "package:mac": "node scripts/timed-build.js --mac",
-    "package:mac:max": "node scripts/timed-build.js --mac --config.compression=maximum",
-    "package:win": "node scripts/timed-build.js --win",
-    "package:win:max": "node scripts/timed-build.js --win --config.compression=maximum",
-    "package:win:zip": "node scripts/timed-build.js --win zip --x64",
-    "package:linux": "node scripts/timed-build.js --linux",
-    "package:linux:max": "node scripts/timed-build.js --linux --config.compression=maximum",
-    "package": "node scripts/timed-parallel-build.js \"macOS:--mac\" \"Windows:--win\" \"Linux:--linux\"",
-    "package:all": "node scripts/timed-parallel-build.js \"macOS:--mac\" \"Windows:--win\" \"Linux:--linux\"",
-    "package:all:max": "node scripts/timed-parallel-build.js --compression=maximum \"macOS:--mac\" \"Windows:--win\" \"Linux:--linux\"",
+    "check:build-prereqs": "node scripts/check-build-prereqs.js",
+    "package:mac": "node scripts/check-build-prereqs.js --mac --quiet && node scripts/timed-build.js --mac",
+    "package:mac:max": "node scripts/check-build-prereqs.js --mac --quiet && node scripts/timed-build.js --mac --config.compression=maximum",
+    "package:win": "node scripts/check-build-prereqs.js --win --quiet && node scripts/timed-build.js --win",
+    "package:win:max": "node scripts/check-build-prereqs.js --win --quiet && node scripts/timed-build.js --win --config.compression=maximum",
+    "package:win:zip": "node scripts/check-build-prereqs.js --win --quiet && node scripts/timed-build.js --win --config.win.target=zip",
+    "package:linux": "node scripts/check-build-prereqs.js --linux --quiet && node scripts/timed-build.js --linux",
+    "package:linux:max": "node scripts/check-build-prereqs.js --linux --quiet && node scripts/timed-build.js --linux --config.compression=maximum",
+    "package": "node scripts/check-build-prereqs.js --quiet && node scripts/timed-parallel-build.js \"macOS:--mac\" \"Windows:--win\" \"Linux:--linux\"",
+    "package:all": "node scripts/check-build-prereqs.js --quiet && node scripts/timed-parallel-build.js \"macOS:--mac\" \"Windows:--win\" \"Linux:--linux\"",
+    "package:all:clean": "node scripts/check-build-prereqs.js --quiet && node scripts/timed-parallel-build.js --clean \"macOS:--mac\" \"Windows:--win\" \"Linux:--linux\"",
+    "package:all:max": "node scripts/check-build-prereqs.js --quiet && node scripts/timed-parallel-build.js --compression=maximum \"macOS:--mac\" \"Windows:--win\" \"Linux:--linux\"",
+    "package:all:max:clean": "node scripts/check-build-prereqs.js --quiet && node scripts/timed-parallel-build.js --clean --compression=maximum \"macOS:--mac\" \"Windows:--win\" \"Linux:--linux\"",
     "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true }); console.log('dist/ cleaned.');\"",
-    "package:seq": "node scripts/timed-seq-build.js \"macOS:--mac\" \"Windows:--win\" \"Windows ZIP:--win,zip,--x64\" \"Linux:--linux\"",
-    "package:seq:clean": "node scripts/timed-seq-build.js --clean \"macOS:--mac\" \"Windows:--win\" \"Windows ZIP:--win,zip,--x64\" \"Linux:--linux\"",
-    "package:seq:max": "node scripts/timed-seq-build.js --compression=maximum \"macOS:--mac\" \"Windows:--win\" \"Windows ZIP:--win,zip,--x64\" \"Linux:--linux\"",
-    "package:seq:max:clean": "node scripts/timed-seq-build.js --clean --compression=maximum \"macOS:--mac\" \"Windows:--win\" \"Windows ZIP:--win,zip,--x64\" \"Linux:--linux\""
+    "package:seq": "node scripts/check-build-prereqs.js --quiet && node scripts/timed-seq-build.js \"macOS:--mac\" \"Windows:--win\" \"Linux:--linux\"",
+    "package:seq:clean": "node scripts/check-build-prereqs.js --quiet && node scripts/timed-seq-build.js --clean \"macOS:--mac\" \"Windows:--win\" \"Linux:--linux\"",
+    "package:seq:max": "node scripts/check-build-prereqs.js --quiet && node scripts/timed-seq-build.js --compression=maximum \"macOS:--mac\" \"Windows:--win\" \"Linux:--linux\"",
+    "package:seq:max:clean": "node scripts/check-build-prereqs.js --quiet && node scripts/timed-seq-build.js --clean --compression=maximum \"macOS:--mac\" \"Windows:--win\" \"Linux:--linux\""
   },
   "repository": {
     "type": "git",
@@ -85,6 +88,7 @@
     },
     "win": {
       "icon": "src/assets/icon.png",
+      "artifactName": "${productName}-${version}-win.${ext}",
       "target": [
         {
           "target": "nsis",
@@ -94,6 +98,12 @@
         },
         {
           "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
           "arch": [
             "x64"
           ]

@@ -4,21 +4,23 @@
 
 | Script | Platforms | Compression | Notes |
 |--------|-----------|-------------|-------|
-| `npm run package:mac` | macOS | normal | |
-| `npm run package:win` | Windows | normal | NSIS + Portable |
+| `npm run package:mac` | macOS | normal | DMG + ZIP |
+| `npm run package:win` | Windows | normal | NSIS + Portable + ZIP |
 | `npm run package:win:zip` | Windows | normal | ZIP only |
-| `npm run package:linux` | Linux | normal | |
+| `npm run package:linux` | Linux | normal | AppImage + DEB |
 | `npm run package` | All three (parallel) | normal | Same as `package:all` |
-| `npm run package:all` | All three (parallel) | normal | |
-| `npm run package:seq` | All three (sequential) | normal | Includes Windows ZIP |
-| `npm run package:mac:max` | macOS | maximum | |
-| `npm run package:win:max` | Windows | maximum | NSIS + Portable |
-| `npm run package:linux:max` | Linux | maximum | |
+| `npm run package:all` | All three (parallel) | normal | All artifacts on every platform |
+| `npm run package:all:clean` | All three (parallel) | normal | Cleans `dist/` first |
+| `npm run package:seq` | All three (sequential) | normal | All artifacts on every platform |
+| `npm run package:mac:max` | macOS | maximum | DMG + ZIP |
+| `npm run package:win:max` | Windows | maximum | NSIS + Portable + ZIP |
+| `npm run package:linux:max` | Linux | maximum | AppImage + DEB |
 | `npm run package:all:max` | All three (parallel) | maximum | |
-| `npm run package:seq:max` | All three (sequential) | maximum | Includes Windows ZIP |
+| `npm run package:all:max:clean` | All three (parallel) | maximum | Cleans `dist/` first |
+| `npm run package:seq:max` | All three (sequential) | maximum | |
 | `npm run clean` | — | — | Deletes `dist/` |
-| `npm run package:seq:clean` | All three (sequential) | normal | Cleans `dist/` first, includes Windows ZIP |
-| `npm run package:seq:max:clean` | All three (sequential) | maximum | Cleans `dist/` first, includes Windows ZIP |
+| `npm run package:seq:clean` | All three (sequential) | normal | Cleans `dist/` first |
+| `npm run package:seq:max:clean` | All three (sequential) | maximum | Cleans `dist/` first |
 
 Output is written to `dist/`.
 
@@ -32,12 +34,32 @@ To remove all previously built artifacts before a fresh build:
 npm run clean
 ```
 
-This deletes the entire `dist/` folder. The `package:seq:clean` and `package:seq:max:clean` scripts do this automatically before building:
+This deletes the entire `dist/` folder. The `:clean` variants do this automatically before building:
 
 | Command | Description |
 |---------|-------------|
+| `npm run package:all:clean` | Clean `dist/` then parallel build (normal compression) |
+| `npm run package:all:max:clean` | Clean `dist/` then parallel build (maximum compression) |
 | `npm run package:seq:clean` | Clean `dist/` then sequential build (normal compression) |
 | `npm run package:seq:max:clean` | Clean `dist/` then sequential build (maximum compression) |
+
+---
+
+## Build Prerequisites
+
+Before running any `package:*` script, the build verifies that the required tooling is installed. Run the check manually any time:
+
+```bash
+npm run check:build-prereqs
+```
+
+| Requirement | Used for | Install (macOS) |
+|-------------|----------|-----------------|
+| Node.js ≥ 18 + npm | Everything | `brew install node` or [nodejs.org](https://nodejs.org/) |
+| `node_modules/` (electron-builder) | Building | `npm install` |
+| `dpkg`, `fakeroot`, GNU `ar` | Building `.deb` packages | `brew install dpkg fakeroot binutils` |
+
+> **Why GNU `ar` matters on macOS:** The system `/usr/bin/ar` is BSD `ar` and silently produces a malformed ~100-byte `.deb` stub. After `brew install binutils` the build scripts auto-discover Homebrew's GNU `ar` — **no PATH edit needed**.
 
 ---
 
@@ -47,16 +69,15 @@ All `package:seq*` scripts use `scripts/timed-seq-build.js`, which runs each pla
 
 ```
 ════════════════════════════════════════════════════════════
-📋 Build Summary  (10:00:00 AM → 10:42:17 AM)
+📋 Build Summary  (10:00:00 AM → 10:26:09 AM)
 ════════════════════════════════════════════════════════════
   Step           Time  Status
 ──────────────────────────────────────────────────────────
   macOS         12m 4s  ✅ ok
   Windows        8m 2s  ✅ ok
-  Windows ZIP    3m 1s  ✅ ok
   Linux          6m 3s  ✅ ok
 ──────────────────────────────────────────────────────────
-  ✅ Total       29m 10s
+  ✅ Total       26m 9s
 ════════════════════════════════════════════════════════════
 ```
 
