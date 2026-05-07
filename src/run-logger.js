@@ -48,8 +48,7 @@ class RunLogger {
       parts.push(this.runId);
     }
 
-    parts.push(message);
-    return `[${parts.join('] [')}]`;
+    return `[${parts.join('] [')}] ${message}`;
   }
 
   write(level, message) {

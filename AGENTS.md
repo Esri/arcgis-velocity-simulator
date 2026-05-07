@@ -67,6 +67,50 @@ When adding a new protocol, transport, or major feature:
 - All text-input controls (e.g. file paths, cert paths, URL paths) and dropdown selects (e.g. format, serialization) inside `.aligned-group` containers must use **`text-align: left`** (and `text-align-last: left` for selects). The default right-alignment in `.aligned-group > :not(label)` is for numeric/port inputs only. When adding a new text input or select dropdown, add an explicit `text-align: left` override in `style.css` following the existing patterns.
 - **Every interactive control** (buttons, checkboxes, dropdowns, text inputs) must have a meaningful `title` attribute (tooltip) that describes its purpose, accepted values, and any important context. For `<select>` dropdowns, add a `title` on each `<option>` as well as on the `<select>` itself. Use the JavaScript tooltip-updater pattern (see existing `*_TOOLTIPS` objects and `update*Tooltip()` functions in `renderer.js`) to keep each `<select>` element's tooltip in sync with the currently selected value. All tooltip text must also be captured in the corresponding `docs/*.md` file so documentation stays consistent with the UI.
 
+### Tooltip Authoring Rules
+
+Tooltips in this app use the native HTML `title` attribute, which Electron renders as a hover tooltip without any custom CSS or JavaScript. Follow these rules every time you add or edit a control:
+
+1. **Always add a `title` attribute.** Every `<button>`, `<input>`, `<select>`, `<label>`, and `<textarea>` must have one. Do not leave any interactive element without a tooltip.
+
+2. **Be descriptive, not just a label echo.** `title="Save"` on a save button tells the user nothing new. Instead write what it does and when: `title="Save logs to a file (Cmd+S)"`. Include the keyboard shortcut if one exists.
+
+3. **Use a colon or parentheses to separate the label from the description.** Avoid em dashes (`—`) and other Unicode punctuation in `title` strings — these characters have caused tooltips to silently fail to render in Electron. Stick to plain ASCII: colons, hyphens, parentheses, and newlines.
+
+4. **Use `&#10;` for multi-line tooltips.** Newlines inside a `title` attribute must be written as the HTML entity `&#10;` (not a literal newline or `\n`). Example:
+   ```html
+   title="Toggle Camera&#10;---&#10;Supported Gestures:&#10;👍 Connect&#10;🤙 Disconnect"
+   ```
+   Limit multi-line tooltips to buttons that have several distinct behaviors worth listing. Keep each line short.
+
+5. **Match the pattern of existing working buttons.** Before writing a new tooltip, look at a nearby working button in `index.html` (e.g. `toggle-connection-controls`, `save-logs-btn`) and follow exactly the same quoting, attribute placement, and text style.
+
+6. **Dynamic tooltips go in `renderer.js`, not in HTML.** When a button or select changes state (e.g. Play ↔ Pause, Ascending ↔ Descending), update `element.title` in JavaScript alongside the icon/label swap. Never hard-code a state-dependent tooltip into the HTML — it will become stale.
+
+7. **Test on hover before committing.** After adding a tooltip, run the app with `npm start` and hover over the control to confirm the tooltip appears. If it does not, check for em dashes, curly quotes, or other non-ASCII characters in the `title` value.
+
+## UX Design Standards
+
+Aim for the polish and refinement found in industry-leading desktop applications (VS Code, GitHub Desktop, Figma, Linear, Slack). Every user-facing interaction should feel intentional, responsive, and well-crafted:
+
+- **Error and status feedback** must never obscure other UI elements. Use inline banners or toast notifications within the relevant context area rather than cramming messages into fixed-height footers. Errors should be dismissible, wrap naturally for long messages, and use clear visual hierarchy (icon + colored border + readable text).
+- **Dialogs and panels** should have breathing room, consistent spacing, and a clear visual flow from top to bottom. Avoid overloading a single row with competing elements.
+- **Transitions and animations** should be subtle (150-200ms), purposeful, and never block interaction. Use them to orient the user, not to decorate.
+- **Progressive disclosure** — show only what the user needs at each step. Hide advanced options behind expandable sections or secondary views.
+- **Accessibility** — use semantic HTML, ARIA attributes (`role`, `aria-live`), and ensure keyboard navigation works for all interactive elements.
+
+## Logging Best Practices
+
+All network-facing operations (authentication, API queries, token refresh) must include structured console logging:
+
+- Use the shared `appLogger` (a `RunLogger` instance) via the `velocityLog(level, message)` helper. Levels: `'error'`, `'warn'`, `'info'`, `'debug'` (ordered by priority, lowest to highest).
+- Default log level is `'info'`. Configure via the `logLevel` CLI parameter (e.g. `logLevel=debug` for verbose output, `logLevel=error` for quiet operation). Works in both UI and headless modes.
+- All log output goes to both the console and a log file. The log file defaults to `./logs/velocity-simulator-YYYYMMDDTHHMMSS.log`. Override with `logFile=/custom/path.log`.
+- Log entries use the `RunLogger` format: `[timestamp] [LEVEL] [message]`.
+- Prefix each message with a context tag in brackets: `[Auth]`, `[API]`, `[Token]`, `[Transport]`, `[Startup]`, etc.
+- Log the operation being attempted on entry, and the outcome (success summary or error message) on completion.
+- Never log sensitive data (passwords). Tokens, usernames, and client IDs are acceptable for debugging context.
+
 ## Commit Messages
 
 Use the conventional-commits style:
@@ -166,3 +210,22 @@ git --no-pager diff HEAD~1 --stat
 - Never chain commit + push + log verification into a single command string. Run them as separate sequential tool calls so a failure in one step is isolated and visible.
 - Never use `git commit -m "…"` for messages longer than a subject line — apostrophes and punctuation break shell quoting. Always write to a file first.
 
+## Sister Repository: ArcGIS Velocity Logger
+
+This app (the **Simulator**) and the **ArcGIS Velocity Logger** are companion applications. They share a nearly identical Velocity Login dialog, but serve opposite roles:
+
+- **Simulator** — the login dialog queries **feeds** (data inputs that receive data sent by this app).
+- **Logger** — the login dialog queries **outputs** (data outputs that this companion app connects to for receiving/logging data).
+
+When making changes or enhancements to the **feeds** logic in this repository (e.g. feed picker UI, feed listing API calls, feed type icons/colors, dropdown styling), **apply the equivalent change to the outputs logic in the Logger repository**. The same applies in reverse: output-related improvements in the Logger should be mirrored here for feeds.
+
+Key mapping between the two apps:
+
+| Simulator (this repo)       | Logger (sister repo)        |
+|-----------------------------|------------------------------|
+| `listFeeds()`              | `listOutputs()`             |
+| `parseFeedItem()`          | `parseOutputItem()`         |
+| `item.feedType`            | `item.outputType`           |
+| `velocity:feed-applied`    | `velocity:output-applied`   |
+| Feed Picker dropdown       | Output Picker dropdown      |
+| "not yet supported by the Simulator" | "not yet supported by the Logger" |

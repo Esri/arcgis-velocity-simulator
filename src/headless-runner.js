@@ -74,13 +74,15 @@ function writeDoneFile(doneFile, payload) {
  *   and this function intentionally returns a never-resolving promise so the process stays alive
  *   for external control or inspection.
  */
-async function runHeadlessSession(options, { app = null } = {}) {
-  const logger = new RunLogger({
-    logLevel: options.logLevel,
-    stdout: options.stdout,
-    logFile: options.logFile,
-    runId: options.runId,
-  });
+async function runHeadlessSession(options, { app = null, logger = null } = {}) {
+  if (!logger) {
+    logger = new RunLogger({
+      logLevel: options.logLevel,
+      stdout: options.stdout,
+      logFile: options.logFile,
+      runId: options.runId,
+    });
+  }
 
   const transport = new TransportManager({ logger });
   const engine = new SimulationEngine({

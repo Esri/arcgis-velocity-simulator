@@ -87,6 +87,12 @@ contextBridge.exposeInMainWorld('api', {
   // --- Support State Queries (Renderer to Main) ---
   getCameraSupportState: () => ipcRenderer.invoke('get-camera-support-state'), // Gets current camera support state
   getMicrophoneSupportState: () => ipcRenderer.invoke('get-microphone-support-state'), // Gets current microphone support state
+
+  // --- Velocity Login / Feed Picker ---
+  openVelocityLogin: () => ipcRenderer.send('velocity:open-login'), // Opens the Velocity Sign-In dialog
+  onFeedApplied: (callback) => ipcRenderer.on('velocity:feed-applied', (_event, item) => callback(item)), // Receives applied feed properties
+  onTokenRefreshed: (callback) => ipcRenderer.on('velocity:token-refreshed', (_event, token) => callback(token)), // Token refresh notification
+  onTokenError: (callback) => ipcRenderer.on('velocity:token-error', (_event, msg) => callback(msg)), // Token refresh failure
 });
 
 /**

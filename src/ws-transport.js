@@ -78,6 +78,8 @@ function createWsClientTransport(opts) {
     wsSubscriptionMsg,
     wsIgnoreFirstMsg = false,
     wsHeaders,
+    authToken,
+    authBasic,
     onData,
   } = opts;
 
@@ -108,6 +110,14 @@ function createWsClientTransport(opts) {
         } catch (e) {
           throw new Error(`Invalid wsHeaders JSON: ${e.message}`);
         }
+      }
+
+      // Add auth header if configured
+      if (authToken) {
+        wsOpts.headers = { ...(wsOpts.headers || {}), Authorization: `Bearer ${authToken}` };
+      } else if (authBasic) {
+        const encoded = Buffer.from(`${authBasic.username}:${authBasic.password}`).toString('base64');
+        wsOpts.headers = { ...(wsOpts.headers || {}), Authorization: `Basic ${encoded}` };
       }
 
       return new Promise((resolve, reject) => {

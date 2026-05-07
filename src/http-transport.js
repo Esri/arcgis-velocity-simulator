@@ -62,7 +62,7 @@ class HttpClientTransport {
    * @param {string} [opts.httpTlsCertPath] - Client cert path
    * @param {string} [opts.httpTlsKeyPath] - Client key path
    */
-  constructor({ ip, port, httpFormat = 'json', httpPath = '/', httpTls = true, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, onData = null }) {
+  constructor({ ip, port, httpFormat = 'json', httpPath = '/', httpTls = true, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, onData = null, authToken, authBasic }) {
     this.ip = ip;
     this.port = port;
     this.httpFormat = httpFormat;
@@ -72,6 +72,8 @@ class HttpClientTransport {
     this.httpTlsCertPath = httpTlsCertPath;
     this.httpTlsKeyPath = httpTlsKeyPath;
     this.onData = onData;
+    this.authToken = authToken || null;
+    this.authBasic = authBasic || null; // { username, password }
     this._connected = false;
     this._agent = null;
     this._tlsInfo = '';
@@ -178,6 +180,14 @@ class HttpClientTransport {
           'Content-Length': Buffer.byteLength(payload),
         },
       };
+
+      // Add auth header if configured
+      if (this.authToken) {
+        options.headers['Authorization'] = `Bearer ${this.authToken}`;
+      } else if (this.authBasic) {
+        const encoded = Buffer.from(`${this.authBasic.username}:${this.authBasic.password}`).toString('base64');
+        options.headers['Authorization'] = `Basic ${encoded}`;
+      }
 
       const req = lib.request(options, (res) => {
         let body = '';

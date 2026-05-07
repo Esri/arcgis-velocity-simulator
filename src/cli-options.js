@@ -55,6 +55,7 @@ const VALID_MODES = new Set(['server', 'client']);
 const VALID_SERIALIZATIONS = new Set(['protobuf', 'kryo', 'text']);
 const VALID_GRPC_SEND_METHODS = new Set(['stream', 'unary']);
 const VALID_LOG_LEVELS = new Set(['error', 'warn', 'info', 'debug']);
+const DEFAULT_LOG_LEVEL = 'debug';
 const VALID_ON_ERROR = new Set(['exit', 'continue', 'pause']);
 const VALID_DATA_FORMATS = new Set(['json', 'delimited', 'esriJson', 'geojson', 'xml']);
 const CLI_OPTION_KEYS = new Set([
@@ -115,9 +116,7 @@ const CLI_OPTION_KEYS = new Set([
   'help-wide',
 ]);
 
-const DEFAULT_HEADLESS_OPTIONS = {
-  runMode: 'headless',
-  filename: null,
+const APP_DEFAULTS = {
   protocol: 'tcp',
   mode: 'server',
   ip: '127.0.0.1',
@@ -125,22 +124,6 @@ const DEFAULT_HEADLESS_OPTIONS = {
   linesPerInterval: 1,
   intervalMs: 1000,
   loop: false,
-  autoConnect: true,
-  autoStart: true,
-  exitOnComplete: true,
-  waitForClient: false,
-  connectWaitForServer: false,
-  connectRetryIntervalMs: 1000,
-  startLine: 1,
-  endLine: null,
-  maxLines: null,
-  connectTimeoutMs: 0,
-  logLevel: 'info',
-  logFile: null,
-  config: null,
-  onError: 'exit',
-  doneFile: null,
-  runId: null,
   grpcHeaderPath: 'replace.with.dedicated.uid',
   grpcHeaderPathKey: 'grpc-path',
   grpcSerialization: 'protobuf',
@@ -164,6 +147,28 @@ const DEFAULT_HEADLESS_OPTIONS = {
   wsSubscriptionMsg: null,
   wsIgnoreFirstMsg: false,
   wsHeaders: null,
+};
+
+const DEFAULT_HEADLESS_OPTIONS = {
+  ...APP_DEFAULTS,
+  runMode: 'headless',
+  filename: null,
+  autoConnect: true,
+  autoStart: true,
+  exitOnComplete: true,
+  waitForClient: false,
+  connectWaitForServer: false,
+  connectRetryIntervalMs: 1000,
+  startLine: 1,
+  endLine: null,
+  maxLines: null,
+  connectTimeoutMs: 0,
+  logLevel: DEFAULT_LOG_LEVEL,
+  logFile: null,
+  config: null,
+  onError: 'exit',
+  doneFile: null,
+  runId: null,
   stdout: true,
 };
 
@@ -193,8 +198,7 @@ const UI_PARAMETER_IGNORE_REASONS = {
   intervalMs: 'only used by the headless streaming scheduler; in UI mode configure the interval through the interface',
   ip: 'only used by the headless network transport; in UI mode configure the IP address through the interface',
   linesPerInterval: 'only used by the headless streaming scheduler; in UI mode configure the rate through the interface',
-  logFile: 'only used by the headless logger; the UI does not write to a log file',
-  logLevel: 'only used by the headless logger; in UI mode all events are shown in the status log',
+  // logFile and logLevel are now global (work in both UI and headless modes)
   loop: 'only used by the headless streaming scheduler; in UI mode toggle loop mode through the interface',
   maxLines: 'only used by the headless streaming scheduler; has no effect in UI mode',
   mode: 'only used by the headless network transport; in UI mode select server or client mode through the interface',
@@ -1791,7 +1795,7 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
       'wsSubscriptionMsg', 'wsIgnoreFirstMsg', 'wsHeaders',
       'intervalMs', 'linesPerInterval', 'loop',
     ]);
-    const uiRecognizedKeys = new Set(['filename', 'runMode', 'config', 'explain', 'help', 'help-detailed', 'help-table-narrow', 'help-table-wide', 'help-wide', ...uiPresetKeys]);
+    const uiRecognizedKeys = new Set(['filename', 'runMode', 'config', 'explain', 'logLevel', 'logFile', 'help', 'help-detailed', 'help-table-narrow', 'help-table-wide', 'help-wide', ...uiPresetKeys]);
     const ignoredKeys = Object.keys(mergedValues).filter((key) => CLI_OPTION_KEYS.has(key) && !uiRecognizedKeys.has(key));
     ignoredKeys.sort().forEach((key) => {
       const reason = UI_PARAMETER_IGNORE_REASONS[key] || 'not used in UI mode';
@@ -1823,9 +1827,20 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
     mode = 'error';
   }
 
+  // ─── Global logLevel / logFile (work in both UI and headless modes) ───
+  const globalLogLevel = (() => {
+    const raw = mergedValues.logLevel;
+    if (raw === undefined) return DEFAULT_LOG_LEVEL;
+    const v = String(raw).trim().toLowerCase();
+    return VALID_LOG_LEVELS.has(v) ? v : DEFAULT_LOG_LEVEL;
+  })();
+  const globalLogFile = mergedValues.logFile ? resolvePathValue(mergedValues.logFile) : null;
+
   return {
     mode,
     explain,
+    logLevel: globalLogLevel,
+    logFile: globalLogFile,
     errors,
     warnings,
     rawArgs,
@@ -2047,7 +2062,9 @@ function formatExplainOutput(cliOptions) {
   return lines.join('\n');
 }
 
+module.exports.APP_DEFAULTS = APP_DEFAULTS;
 module.exports.DEFAULT_HEADLESS_OPTIONS = DEFAULT_HEADLESS_OPTIONS;
+module.exports.DEFAULT_LOG_LEVEL = DEFAULT_LOG_LEVEL;
 module.exports.formatCliStartupErrorOutput = formatCliStartupErrorOutput;
 module.exports.formatExplainOutput = formatExplainOutput;
 module.exports.getCommandLineReferenceData = getCommandLineReferenceData;

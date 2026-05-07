@@ -1,0 +1,553 @@
+/* velocity-login.css — Polished dialog styling (VS Code / GitHub Desktop inspired) */
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  background: var(--bg-primary, #1e1e1e);
+  color: var(--text-primary, #e0e0e0);
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ─── Dialog Layout: flex column, body scrolls, footer sticks ─── */
+
+.velocity-login-dialog {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+}
+
+.dialog-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+h2 {
+  margin: 0 0 18px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+h3 {
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-secondary, #aaa);
+}
+
+/* ─── Auth Tabs ─── */
+
+.auth-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border-color, #3a3a3a);
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 9px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #999);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.auth-tab:hover {
+  color: var(--text-primary, #e0e0e0);
+}
+
+.auth-tab.active {
+  color: var(--accent-color, #4da6ff);
+  border-bottom-color: var(--accent-color, #4da6ff);
+}
+
+/* ─── Form Layout ─── */
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form.hidden,
+.hidden {
+  display: none !important;
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.form-row label {
+  min-width: 85px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: right;
+  flex-shrink: 0;
+  color: var(--text-secondary, #bbb);
+}
+
+.form-row input[type="text"],
+.form-row input[type="password"] {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--border-color, #3a3a3a);
+  border-radius: 5px;
+  background: var(--bg-secondary, #262626);
+  color: var(--text-primary, #e0e0e0);
+  font-size: 12px;
+  text-align: left;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-row input[type="text"]:focus,
+.form-row input[type="password"]:focus {
+  outline: none;
+  border-color: var(--accent-color, #4da6ff);
+  box-shadow: 0 0 0 2px rgba(77, 166, 255, 0.15);
+}
+
+.form-row select {
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border-color, #3a3a3a);
+  border-radius: 5px;
+  background: var(--bg-secondary, #262626);
+  color: var(--text-primary, #e0e0e0);
+  font-size: 12px;
+  text-align: left;
+  text-align-last: left;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.form-row select:focus {
+  outline: none;
+  border-color: var(--accent-color, #4da6ff);
+}
+
+.checkbox-row {
+  justify-content: flex-end;
+}
+
+.checkbox-row label {
+  min-width: unset;
+  text-align: left;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary, #bbb);
+}
+
+/* ─── Password Toggle ─── */
+
+.password-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-wrapper input {
+  flex: 1;
+  padding-right: 32px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+  line-height: 0;
+  color: var(--text-secondary, #999);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.password-toggle:hover {
+  opacity: 1;
+}
+
+/* ─── Sign In Row ─── */
+
+.sign-in-row {
+  margin-top: 16px;
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.sign-in-row-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+/* ─── Buttons ─── */
+
+.btn-primary,
+.btn-secondary {
+  padding: 0 20px;
+  height: 30px;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s, box-shadow 0.15s;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.btn-primary {
+  background: var(--accent-color, #4da6ff);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover, #3a8fd9);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--bg-secondary, #2d2d2d);
+  color: var(--text-primary, #e0e0e0);
+  border: 1px solid var(--border-color, #3a3a3a);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-tertiary, #3a3a3a);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+/* ─── Section Divider ─── */
+
+.section-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--border-color, #3a3a3a), transparent);
+  margin: 20px 0 18px;
+}
+
+/* ─── Picker Header (title + refresh button) ─── */
+
+.picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.picker-header h3 {
+  margin: 0;
+}
+
+.picker-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ─── Scope Toggle (My / Org) ─── */
+
+.scope-toggle {
+  display: flex;
+  border: 1px solid var(--border-color, #3a3a3a);
+  border-radius: 5px;
+  overflow: hidden;
+  height: 30px;
+  box-sizing: border-box;
+}
+
+.scope-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #999);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 0 10px;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.scope-btn:first-child {
+  border-right: 1px solid var(--border-color, #3a3a3a);
+}
+
+.scope-btn:hover:not(.active) {
+  background: var(--bg-secondary, #262626);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.scope-btn.active {
+  background: var(--accent-color, #4da6ff);
+  color: #fff;
+}
+
+.btn-icon {
+  background: none;
+  border: 1px solid var(--border-color, #3a3a3a);
+  border-radius: 4px;
+  color: var(--text-secondary, #999);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 8px;
+  transition: color 0.15s, border-color 0.15s, transform 0.2s;
+  line-height: 0;
+  box-sizing: border-box;
+}
+
+.btn-icon:hover {
+  color: var(--text-primary, #e0e0e0);
+  border-color: var(--accent-color, #4da6ff);
+  transform: rotate(30deg);
+}
+
+.btn-icon-toggle:hover {
+  transform: none;
+}
+
+.btn-icon-toggle.active {
+  background: var(--accent-color, #4da6ff);
+  border-color: var(--accent-color, #4da6ff);
+  color: #fff;
+}
+
+.btn-icon-toggle.active:hover {
+  background: var(--accent-hover, #3a8fd9);
+}
+
+/* ─── Text-label toggle button (Show/Hide Unsupported) ─── */
+
+.btn-toggle-text {
+  background: none;
+  border: 1px solid var(--border-color, #3a3a3a);
+  border-radius: 4px;
+  color: var(--text-secondary, #999);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  height: 24px;
+  padding: 0 9px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.btn-toggle-text:hover {
+  color: var(--text-primary, #e0e0e0);
+  border-color: var(--accent-color, #4da6ff);
+}
+
+.btn-toggle-text.active {
+  background: rgba(77, 166, 255, 0.12);
+  border-color: var(--accent-color, #4da6ff);
+  color: var(--accent-color, #4da6ff);
+}
+
+/* ─── Type badge in info panel ─── */
+
+.type-badge {
+  font-size: 14px;
+  font-style: normal;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* ─── Picker Fields ─── */
+
+.picker-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ─── Info Panel ─── */
+
+.info-panel {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--bg-secondary, #262626);
+  border: 1px solid var(--border-color, #3a3a3a);
+  border-radius: 6px;
+}
+
+.info-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.info-table th {
+  text-align: right;
+  padding: 4px 12px 4px 0;
+  font-weight: 600;
+  white-space: nowrap;
+  width: 95px;
+  vertical-align: top;
+  color: var(--text-secondary, #999);
+}
+
+.info-table td {
+  padding: 4px 0;
+  word-break: break-all;
+  color: var(--text-primary, #e0e0e0);
+}
+
+/* ─── Unsupported type styling ─── */
+
+.item-option-unsupported,
+.type-option-unsupported {
+  color: var(--text-secondary, #777);
+  font-style: italic;
+}
+
+/* ─── Dialog Footer (fixed at bottom) ─── */
+
+.dialog-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 12px 28px;
+  border-top: 1px solid var(--border-color, #3a3a3a);
+  background: var(--bg-primary, #1e1e1e);
+}
+
+.dialog-footer-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ─── Inline Status Banner — sits at the bottom of the dialog body ─── */
+
+.status-banner {
+  margin-top: auto;
+  padding: 10px 14px;
+  margin-bottom: 0;
+  border-radius: 6px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-word;
+  animation: banner-slide-in 0.2s ease-out;
+}
+
+.status-banner.hidden {
+  display: none !important;
+}
+
+.status-banner.error {
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid var(--error-color, #ff6b6b);
+  color: var(--error-color, #ff6b6b);
+}
+
+.status-banner.success {
+  background: rgba(102, 204, 102, 0.1);
+  border: 1px solid var(--success-color, #66cc66);
+  color: var(--success-color, #66cc66);
+}
+
+.status-banner.info {
+  background: rgba(77, 166, 255, 0.1);
+  border: 1px solid var(--accent-color, #4da6ff);
+  color: var(--accent-color, #4da6ff);
+}
+
+.status-banner-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.status-banner-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.status-banner-dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0.7;
+  line-height: 1;
+}
+
+.status-banner-dismiss:hover {
+  opacity: 1;
+}
+
+@keyframes banner-slide-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Spinner ─── */
+
+.spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--text-secondary, #999);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

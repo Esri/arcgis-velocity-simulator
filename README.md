@@ -35,6 +35,7 @@ A cross-platform desktop application for simulating data streams over TCP/UDP pr
 | [Testing](./docs/TESTING.md) | Test commands, suite descriptions, and manual smoke tests |
 | [Theme Refactoring](./docs/THEME-REFACTORING.md) | Theme system refactoring: per-file CSS and dynamic loader |
 | [TLS / SSL Security](./docs/TLS.md) | TLS concepts, certificate formats, OS trust stores, mTLS, auto self-signed certs, and TLS Trust Badge |
+| [Velocity Login](./docs/VELOCITY-LOGIN.md) | ArcGIS Velocity sign-in, feed picker, token-based authentication, and auto-configuration |
 | [Why Electron](./docs/WHY-ELECTRON.md) | Framework rationale and packaging overview |
 
 ### In-App Help

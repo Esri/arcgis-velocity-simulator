@@ -1021,6 +1021,99 @@ document.addEventListener('DOMContentLoaded', () => {
     connectionControlsGroup.classList.toggle('hidden', !isEnabled);
   });
 
+  // ─── Velocity Login / Feed Picker ─────────────────────────────────────────
+  const velocityLoginBtn = document.getElementById('velocity-login-btn');
+  const authBadge = document.getElementById('auth-badge');
+  const authBadgeContent = document.getElementById('auth-badge-content');
+
+  if (velocityLoginBtn) {
+    velocityLoginBtn.addEventListener('click', () => {
+      window.api.openVelocityLogin();
+    });
+  }
+
+  // When a feed is applied from the login dialog, auto-populate the UI
+  window.api.onFeedApplied((item) => {
+    if (!item) return;
+    const type = item.feedType || '';
+
+    // Map feed type to connection mode
+    if (type === 'grpc') {
+      connectionTypeSelect.value = 'grpc-client';
+      connectionTypeSelect.dispatchEvent(new Event('change'));
+      // Parse URL for host
+      if (item.url) {
+        ipAddressInput.value = item.url.replace(/^https?:\/\//, '').split(':')[0].split('/')[0];
+        portInput.value = '443';
+      }
+      if (item.headerPath) {
+        grpcHeaderPathInput.value = item.headerPath;
+      }
+      // Enable TLS for gRPC Velocity feeds
+      if (grpcTlsCheckbox) grpcTlsCheckbox.checked = true;
+      if (grpcTlsCheckbox) grpcTlsCheckbox.dispatchEvent(new Event('change'));
+    } else if (type === 'http-receiver') {
+      connectionTypeSelect.value = 'http-client';
+      connectionTypeSelect.dispatchEvent(new Event('change'));
+      if (item.url) {
+        try {
+          const u = new URL(item.url);
+          ipAddressInput.value = u.hostname;
+          portInput.value = u.port || (u.protocol === 'https:' ? '443' : '80');
+          if (httpPathInput) httpPathInput.value = u.pathname || '/';
+          if (httpTlsCheckbox) httpTlsCheckbox.checked = u.protocol === 'https:';
+        } catch (_) {
+          ipAddressInput.value = item.url;
+        }
+      }
+      // Set format if available
+      if (item.format && httpFormatSelect) {
+        const fmtMap = { 'delimited': 'delimited', 'json': 'json', 'geojson': 'geo-json', 'esrijson': 'esri-json', 'xml': 'xml' };
+        const mapped = fmtMap[item.format.toLowerCase()] || 'delimited';
+        httpFormatSelect.value = mapped;
+      }
+    } else if (type === 'websocket') {
+      connectionTypeSelect.value = 'ws-client';
+      connectionTypeSelect.dispatchEvent(new Event('change'));
+      if (item.url) {
+        try {
+          const u = new URL(item.url);
+          ipAddressInput.value = u.hostname;
+          portInput.value = u.port || (u.protocol === 'wss:' ? '443' : '80');
+          if (wsPathInput) wsPathInput.value = u.pathname || '/';
+          if (wsTlsCheckbox) wsTlsCheckbox.checked = u.protocol === 'wss:';
+        } catch (_) {
+          ipAddressInput.value = item.url;
+        }
+      }
+      if (item.format && wsFormatSelect) {
+        const fmtMap = { 'delimited': 'delimited', 'json': 'json', 'geojson': 'geo-json', 'esrijson': 'esri-json', 'xml': 'xml' };
+        wsFormatSelect.value = fmtMap[item.format.toLowerCase()] || 'delimited';
+      }
+    }
+
+    // Show auth badge
+    if (authBadge) {
+      authBadge.style.display = '';
+      if (authBadgeContent) {
+        authBadgeContent.textContent = `Velocity Feed: ${item.label || item.id}\nAuth: ${item.authType || 'token'}`;
+      }
+    }
+
+    logStatus('✓ Feed applied - ready to connect');
+  });
+
+  // Token refresh notification
+  window.api.onTokenRefreshed(() => {
+    logStatus('🔑 Velocity token refreshed');
+  });
+
+  window.api.onTokenError((msg) => {
+    logStatus(`⚠️ Velocity token refresh failed: ${msg}`);
+    if (authBadge) authBadge.style.display = '';
+    if (authBadgeContent) authBadgeContent.textContent = `Token Error: ${msg}`;
+  });
+
   window.api.onLoadStatusAreaVisibility((isVisible) => {
     initialStatusVisibility = (isVisible === undefined) ? true : isVisible;
     toggleStatusLog.dataset.enabled = initialStatusVisibility.toString();
@@ -1519,7 +1612,15 @@ document.addEventListener('DOMContentLoaded', () => {
         stream = await navigator.mediaDevices.getUserMedia({ video: true });
         videoFeed.srcObject = stream;
         videoFeed.style.display = 'block';
-        videoFeed.play();
+        const playPromise = videoFeed.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch((e) => {
+            // If the user toggles the camera quickly, play() can be interrupted by a new load().
+            // Avoid surfacing this as an unhandled rejection in the console.
+            if (e && e.name === 'AbortError') return;
+            console.warn('Video play failed:', e);
+          });
+        }
 
         // Wait for the video to be ready before starting gesture detection
         videoFeed.addEventListener('loadedmetadata', () => {

@@ -148,14 +148,15 @@ async function runCliOptionsTests() {
   runTest('Formatted CLI startup errors for positional args include guidance and help', () => formattedPositionalOutput.includes('CLI error: Unknown CLI argument: hhh. Use name=value syntax') && formattedPositionalOutput.includes('ArcGIS Velocity Simulator command-line help'));
 
   console.log('\n--- Test 5: Ignored-parameter warnings ---');
-  // logLevel, maxLines, and startLine are simulator headless-only params and should be warned in UI mode.
-  // Note: port and protocol are recognized as UI preset keys (they pre-populate the UI form)
+  // doneFile, maxLines, and startLine are simulator headless-only params and should be warned in UI mode.
+  // Note: logLevel and logFile are now global (work in both UI and headless modes).
+  // port and protocol are recognized as UI preset keys (they pre-populate the UI form)
   // so they do not produce "ignored" warnings.
-  const uiIgnoredResult = parseCommandLineArgs(createArgv(['logLevel=debug', 'maxLines=100', 'startLine=5']));
+  const uiIgnoredResult = parseCommandLineArgs(createArgv(['doneFile=./done.json', 'maxLines=100', 'startLine=5']));
   runTest('UI mode produces per-parameter warnings for headless-only params', () => uiIgnoredResult.mode === 'ui' && uiIgnoredResult.warnings.length === 3);
   runTest('UI mode warning for maxLines explains it is not used', () => uiIgnoredResult.warnings.some((w) => w.includes("'maxLines'") && w.includes('UI mode') && w.includes('ignored')));
   runTest('UI mode warning for startLine explains it is not used', () => uiIgnoredResult.warnings.some((w) => w.includes("'startLine'") && w.includes('UI mode') && w.includes('ignored')));
-  runTest('UI mode warning for logLevel explains it is not used', () => uiIgnoredResult.warnings.some((w) => w.includes("'logLevel'") && w.includes('UI mode') && w.includes('ignored')));
+  runTest('UI mode warning for doneFile explains it is not used', () => uiIgnoredResult.warnings.some((w) => w.includes("'doneFile'") && w.includes('UI mode') && w.includes('ignored')));
   runTest('UI mode ignored-param warnings do not produce an error', () => uiIgnoredResult.errors.length === 0);
 
   const headlessRetryWarningResult = parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv', 'connectRetryIntervalMs=3000']));
@@ -196,9 +197,9 @@ async function runCliOptionsTests() {
   runTest('Headless explain output shows streaming rate', () => headlessExplainOutput.includes('1 line(s) every 1000ms'));
   runTest('Headless explain output shows parameter values', () => headlessExplainOutput.includes('protocol') && headlessExplainOutput.includes('tcp'));
 
-  const warnExplainResult = parseCommandLineArgs(createArgv(['logLevel=debug', 'maxLines=100']));
+  const warnExplainResult = parseCommandLineArgs(createArgv(['doneFile=./done.json', 'maxLines=100']));
   const warnExplainOutput = formatExplainOutput(warnExplainResult);
-  runTest('Explain output includes warnings section when there are warnings', () => warnExplainOutput.includes('Warnings') && warnExplainOutput.includes("'logLevel'") && warnExplainOutput.includes("'maxLines'"));
+  runTest('Explain output includes warnings section when there are warnings', () => warnExplainOutput.includes('Warnings') && warnExplainOutput.includes("'doneFile'") && warnExplainOutput.includes("'maxLines'"));
 
   console.log('\n--- Test 7: gRPC header path CLI options ---');
   const grpcHeaderResult = parseCommandLineArgs(createArgv([

@@ -182,7 +182,8 @@ In headless mode:
   "microphoneSupport": false,
   "dialogSizes": {
     "appConfig": { "width": 660, "height": 400, "x": null, "y": null },
-    "launchConfig": { "width": 500, "height": 400, "x": null, "y": null }
+    "launchConfig": { "width": 500, "height": 400, "x": null, "y": null },
+    "velocityLogin": { "width": 590, "height": 840, "x": null, "y": null }
   }
 }
 ```

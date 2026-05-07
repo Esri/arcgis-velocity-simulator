@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Sign In to ArcGIS Velocity</title>
+  <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="velocity-login.css">
+</head>
+<body>
+  <div class="velocity-login-dialog">
+    <!-- ─── Scrollable Body ─── -->
+    <div class="dialog-body">
+      <h2>Sign In to ArcGIS Velocity</h2>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="password" title="Sign in with ArcGIS username and password">Username / Password</button>
+        <button class="auth-tab" data-tab="oauth" title="Sign in with OAuth 2.0 client credentials (supported for HTTP Poller feeds only)">OAuth 2.0</button>
+      </div>
+
+      <div class="auth-form" id="auth-form-password">
+        <div class="form-row">
+          <label for="portal-url">Portal URL:</label>
+          <input type="text" id="portal-url" value="https://velocitydemo.maps.arcgis.com" title="ArcGIS Enterprise or ArcGIS Online portal URL" spellcheck="false">
+        </div>
+        <div class="form-row">
+          <label for="username">Username:</label>
+          <input type="text" id="username" placeholder="Enter username" title="ArcGIS account username" spellcheck="false" autocomplete="username">
+        </div>
+        <div class="form-row">
+          <label for="password">Password:</label>
+          <div class="password-wrapper">
+            <input type="password" id="password" placeholder="Enter password" title="ArcGIS account password (press Enter to sign in)" autocomplete="current-password">
+            <button type="button" class="password-toggle" id="toggle-password" title="Show password"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg></button>
+          </div>
+        </div>
+        <div class="form-row checkbox-row">
+          <label><input type="checkbox" id="remember-me" title="Remember portal URL and username for next session"> Remember me</label>
+        </div>
+      </div>
+
+      <div class="auth-form hidden" id="auth-form-oauth">
+        <div class="form-row">
+          <label for="oauth-portal-url">Portal URL:</label>
+          <input type="text" id="oauth-portal-url" value="https://velocitydemo.maps.arcgis.com" title="ArcGIS Enterprise or ArcGIS Online portal URL" spellcheck="false">
+        </div>
+        <div class="form-row">
+          <label for="client-id">Client ID:</label>
+          <input type="text" id="client-id" placeholder="Enter Client ID" title="OAuth 2.0 application Client ID" spellcheck="false">
+        </div>
+        <div class="form-row">
+          <label for="client-secret">Client Secret:</label>
+          <div class="password-wrapper">
+            <input type="password" id="client-secret" placeholder="Enter Client Secret" title="OAuth 2.0 application Client Secret (press Enter to sign in)">
+            <button type="button" class="password-toggle" id="toggle-client-secret" title="Show client secret"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sign-in-row">
+        <button id="sign-in-btn" class="btn-primary" title="Authenticate and retrieve feeds from your Velocity organization">Sign In</button>
+        <div class="sign-in-row-actions">
+          <div class="scope-toggle" title="My feeds: show only feeds you own&#10;ORG Feeds: show all feeds in your organization (requires admin privileges)">
+            <button class="scope-btn" id="scope-my" title="Show only feeds you own">My Feeds</button>
+            <button class="scope-btn active" id="scope-org" title="Show all feeds in your organization (requires admin privileges)">ORG Feeds</button>
+          </div>
+          <button id="refresh-btn" class="btn-icon" title="Refresh: re-request the list of feeds from Velocity">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ─── Feed Picker (hidden until authenticated) ─── -->
+      <div class="picker-section hidden" id="picker-section">
+        <div class="section-divider"></div>
+        <div class="picker-header">
+          <h3 id="picker-title">Select a Feed</h3>
+          <div class="scope-toggle" id="unsupported-toggle" title="Supported: show only feed types supported by the Simulator&#10;All: show all feed types including unsupported ones">
+            <button class="scope-btn active" id="filter-supported-btn" title="Show only feed types supported by the Simulator">Supported</button>
+            <button class="scope-btn" id="filter-all-btn" title="Show all feed types, including those not yet supported by the Simulator">All</button>
+          </div>
+        </div>
+
+        <div class="picker-fields">
+          <div class="form-row">
+            <label for="item-type-select">Type:</label>
+            <select id="item-type-select" title="Filter by feed type. Types marked with a warning are not yet supported by the Simulator.">
+              <option value="">All Types</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="item-select">Feed:</label>
+            <select id="item-select" title="Select a feed to view its details and apply connection settings.">
+              <option value="">-- Select --</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="info-panel hidden" id="info-panel">
+          <table class="info-table">
+            <tr><th>Label</th><td id="info-label">--</td></tr>
+            <tr><th>ID</th><td id="info-id">--</td></tr>
+            <tr><th>Type</th><td><span id="info-type-badge" class="type-badge"></span><span id="info-type">--</span></td></tr>
+            <tr><th>URL / Host</th><td id="info-url">--</td></tr>
+            <tr><th>Auth Type</th><td id="info-auth">--</td></tr>
+            <tr><th>Format</th><td id="info-format">--</td></tr>
+            <tr><th>Schema Fields</th><td id="info-schema">--</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- ─── Inline Status Banner — pinned above footer ─── -->
+      <div id="status-banner" class="status-banner hidden" role="status" aria-live="polite">
+        <span id="status-banner-icon" class="status-banner-icon"></span>
+        <span id="status-banner-text" class="status-banner-text"></span>
+        <button id="status-banner-dismiss" class="status-banner-dismiss" title="Dismiss this message">&times;</button>
+      </div>
+    </div>
+
+    <!-- ─── Fixed Footer ─── -->
+    <div class="dialog-footer">
+      <div class="dialog-footer-actions">
+        <button id="apply-btn" class="btn-primary" disabled title="Apply the selected feed's connection settings to the main window.">Apply</button>
+        <button id="close-btn" class="btn-secondary" title="Close this dialog">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="velocity-login-renderer.js"></script>
+</body>
+</html>
+

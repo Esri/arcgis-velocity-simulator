@@ -32,7 +32,7 @@ app.commandLine.appendSwitch('enable-speech-dispatcher');
 // Define a base path for all resources to ensure they are found correctly.
 const basePath = __dirname;
 const { ConfigManager } = require(path.join(basePath, 'config.js'));
-const { formatCliStartupErrorOutput, formatExplainOutput, getCommandLineReferenceData, parseCommandLineArgs } = require(path.join(basePath, 'cli-options.js'));
+const { APP_DEFAULTS, DEFAULT_LOG_LEVEL, formatCliStartupErrorOutput, formatExplainOutput, getCommandLineReferenceData, parseCommandLineArgs } = require(path.join(basePath, 'cli-options.js'));
 const { EXIT_CODES, runHeadlessSession } = require(path.join(basePath, 'headless-runner.js'));
 
 function requestGracefulCliExit(exitCode) {
@@ -99,9 +99,37 @@ let inspectModeActive = false; // Tracks whether Inspect Element pick mode is ac
 let devToolsOpen = false; // Tracks whether DevTools is currently open (synced via devtools-opened/closed events).
 let httpTransport = null; // Holds active HTTP transport (HttpClientTransport or HttpServerTransport).
 let wsTransport = null; // Holds active WebSocket transport (WsClientTransport or WsServerTransport).
+let velocityLoginWindow = null; // Holds the Velocity Login dialog window.
 const { createGrpcClientTransport, createGrpcServerTransport } = require(path.join(basePath, 'grpc-transport.js'));
 const { createHttpClientTransport, createHttpServerTransport, FORMAT_CONTENT_TYPES } = require(path.join(basePath, 'http-transport.js'));
 const { createWsClientTransport, createWsServerTransport } = require(path.join(basePath, 'ws-transport.js'));
+const { generateToken, generateOAuthToken, getVelocityApiUrl, listFeeds, getFeedDetails, TokenManager } = require(path.join(basePath, 'velocity-api.js'));
+const velocityTokenManager = new TokenManager();
+
+// ─── Application Logger (works in both UI and headless modes) ────────────────
+const { RunLogger } = require(path.join(basePath, 'run-logger.js'));
+
+const appLogFile = cliOptions.logFile || (() => {
+  const ts = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, '');
+  const logDir = path.resolve('./logs');
+  fs.mkdirSync(logDir, { recursive: true });
+  return path.join(logDir, `velocity-simulator-${ts}.log`);
+})();
+
+const appLogger = new RunLogger({
+  logLevel: cliOptions.logLevel,
+  logFile: appLogFile,
+  stdout: true,
+});
+
+function velocityLog(level, ...args) {
+  const message = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ');
+  appLogger.write(level, message);
+}
+
+velocityLog('info', '[Startup] Log file: ' + appLogFile);
+velocityLog('info', '[Startup] Log level: ' + cliOptions.logLevel);
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Make mainWindow globally accessible for speech recognition
 global.mainWindow = null;
@@ -888,6 +916,10 @@ function createMainMenu() {
           label: 'Apply Launch Configuration From...',
           click: applyLaunchConfigFrom
         },
+        {
+          label: 'Reset Launch Configuration',
+          click: resetLaunchConfig
+        },
         { type: 'separator' },
         {
           label: 'Camera Support',
@@ -965,6 +997,10 @@ function createMainMenu() {
           }
         },
         {
+          label: 'Log Level',
+          submenu: buildLogLevelSubmenu()
+        },
+        {
           label: 'About',
           accelerator: 'F2',
           click: () => showAboutDialog()
@@ -974,6 +1010,50 @@ function createMainMenu() {
   ];
 
   return Menu.buildFromTemplate(template);
+}
+
+/**
+ * Resets the launch configuration to default values, restoring the app
+ * to the same state as if no launch config had been applied.
+ */
+function resetLaunchConfig() {
+  // Map null paths to empty strings for UI compatibility
+  const defaults = {};
+  for (const [key, value] of Object.entries(APP_DEFAULTS)) {
+    defaults[key] = value === null ? '' : value;
+  }
+  if (mainWindow) {
+    mainWindow.webContents.send('cli-presets', defaults);
+    appLogger.logLevel = DEFAULT_LOG_LEVEL;
+    logStatus('Launch configuration reset to defaults.');
+  }
+}
+
+/**
+ * Change the runtime log level, persist it in app config, and rebuild menus.
+ */
+function setLogLevel(level) {
+  appLogger.logLevel = level;
+  if (appConfig) {
+    appConfig.logLevel = level;
+    if (configManager) configManager.saveConfig(appConfig);
+  }
+  const applicationMenu = createMainMenu();
+  Menu.setApplicationMenu(applicationMenu);
+  velocityLog('info', `[Config] Log level changed to: ${level}`);
+}
+
+/**
+ * Build a submenu array of radio items for selecting the log level.
+ */
+function buildLogLevelSubmenu() {
+  const current = (appConfig && appConfig.logLevel) || DEFAULT_LOG_LEVEL;
+  return ['error', 'warn', 'info', 'debug'].map(level => ({
+    label: level,
+    type: 'radio',
+    checked: current === level,
+    click: () => setLogLevel(level),
+  }));
 }
 
 
@@ -990,13 +1070,18 @@ app.on('ready', async () => {
     if (process.platform === 'darwin' && app.dock) {
       app.dock.hide();
     }
-    await runHeadlessSession(cliOptions.headless, { app });
+    await runHeadlessSession(cliOptions.headless, { app, logger: appLogger });
     return;
   }
 
   // Initialize configuration manager and load the saved application configuration.
   configManager = new ConfigManager();
   appConfig = configManager.loadConfig();
+
+  // Restore persisted log level
+  if (appConfig.logLevel) {
+    appLogger.logLevel = appConfig.logLevel;
+  }
 
   // Command-line default behavior: when the user provides no parameters, start in
   // normal UI mode and preserve saved UI behavior from configuration, including
@@ -1132,6 +1217,15 @@ function resetToDefaultConfig() {
 
     // Update appConfig in memory with the reset values
     appConfig = { ...defaultConfig };
+
+    // If the login dialog is open/hidden, resize and re-center it to match reset defaults
+    if (velocityLoginWindow && !velocityLoginWindow.isDestroyed()) {
+      const defaults = defaultConfig.dialogSizes && defaultConfig.dialogSizes.velocityLogin;
+      const w = (defaults && defaults.width) || 590;
+      const h = (defaults && defaults.height) || 840;
+      velocityLoginWindow.setSize(w, h);
+      velocityLoginWindow.center();
+    }
 
     // Force an immediate save to ensure the reset config is persisted
     saveAppState();
@@ -1395,9 +1489,12 @@ async function getCurrentLaunchConfig() {
       httpTlsCaPath: s.httpTlsCaPath,
       httpTlsCertPath: s.httpTlsCertPath,
       httpTlsKeyPath: s.httpTlsKeyPath,
+      intervalMs: s.intervalMs,
       ip: s.ip,
+      linesPerInterval: s.linesPerInterval,
+      loop: s.loop,
       mode: s.mode,
-      port: s.port,
+      port: parseInt(s.port, 10) || 5565,
       protocol: s.protocol,
       tlsCaPath: s.tlsCaPath,
       tlsCertPath: s.tlsCertPath,
@@ -1417,7 +1514,7 @@ async function getCurrentLaunchConfig() {
     output: {
       doneFile: null,
       logFile: null,
-      logLevel: 'info',
+      logLevel: (appConfig && appConfig.logLevel) || DEFAULT_LOG_LEVEL,
       runId: null,
       stdout: true,
     },
@@ -1768,6 +1865,10 @@ function buildContextMenu(isCompact) {
       label: 'Apply Launch Configuration From...',
       click: applyLaunchConfigFrom
     },
+    {
+      label: 'Reset Launch Configuration',
+      click: resetLaunchConfig
+    },
     { type: 'separator' },
     {
       label: 'Camera Support',
@@ -1836,6 +1937,10 @@ function buildContextMenu(isCompact) {
       click: () => {
         throw new Error('This is a test error to verify the global error handler.');
       }
+    },
+    {
+      label: 'Log Level',
+      submenu: buildLogLevelSubmenu()
     },
     { type: 'separator' },
     {
@@ -2114,8 +2219,9 @@ ipcMain.handle('connect', (event, { protocol, mode, ip, port, grpcSerialization,
       }
     } else if (protocol === 'grpc') {
       const ser = grpcSerialization || 'protobuf';
+      const authToken = velocityTokenManager.token || null;
       if (mode === 'client') {
-        grpcTransport = createGrpcClientTransport({ ip, port, grpcSerialization, useStreaming: grpcSendMethod !== 'unary', headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath });
+        grpcTransport = createGrpcClientTransport({ ip, port, grpcSerialization, useStreaming: grpcSendMethod !== 'unary', headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, authToken });
         grpcTransport.connect().then((result) => {
           connection = grpcTransport;
           emitConnectionStatus('connected', `gRPC client connected to ${ip}:${port} [${ser}] ${headerPathKey}=${headerPath}\n  ${result.tlsInfo || 'tls=off'}`);
@@ -2134,8 +2240,9 @@ ipcMain.handle('connect', (event, { protocol, mode, ip, port, grpcSerialization,
         });
       }
     } else if (protocol === 'http') {
+      const authToken = velocityTokenManager.token || null;
       if (mode === 'client') {
-        httpTransport = createHttpClientTransport({ ip, port, httpFormat, httpPath, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath });
+        httpTransport = createHttpClientTransport({ ip, port, httpFormat, httpPath, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, authToken });
         httpTransport.connect().then((result) => {
           connection = httpTransport;
           const contentType = FORMAT_CONTENT_TYPES[httpFormat] || 'text/plain';
@@ -2157,8 +2264,9 @@ ipcMain.handle('connect', (event, { protocol, mode, ip, port, grpcSerialization,
       }
     } else if (protocol === 'ws') {
       const { FORMAT_CONTENT_TYPES: WS_CT } = require(path.join(basePath, 'format-utils.js'));
+      const authToken = velocityTokenManager.token || null;
       if (mode === 'client') {
-        wsTransport = createWsClientTransport({ ip, port, wsFormat, wsPath, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders });
+        wsTransport = createWsClientTransport({ ip, port, wsFormat, wsPath, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders, authToken });
         wsTransport.connect().then((result) => {
           connection = wsTransport;
           const contentType = WS_CT[wsFormat] || 'text/plain';
@@ -2310,3 +2418,199 @@ ipcMain.on('send-data', (event, data) => {
     logStatus(`Send data error: ${err.message}`);
   }
 });
+
+// ─── Velocity Login / Feed Picker IPC ────────────────────────────────────────
+
+const velocityCredsFile = path.join(userDataPath, 'velocity-credentials.json');
+
+/**
+ * Opens the Velocity Login dialog as a modal child window.
+ */
+async function showVelocityLoginDialog() {
+  if (velocityLoginWindow && !velocityLoginWindow.isDestroyed()) {
+    velocityLoginWindow.show();
+    velocityLoginWindow.focus();
+    return;
+  }
+  if (!mainWindow) return;
+
+  const currentTheme = await mainWindow.webContents.executeJavaScript('localStorage.getItem("theme");', true);
+
+  const loginDialogSaved = (appConfig.dialogSizes && appConfig.dialogSizes.velocityLogin) || {};
+
+  velocityLoginWindow = new BrowserWindow({
+    width: loginDialogSaved.width || 590,
+    height: loginDialogSaved.height || 840,
+    x: loginDialogSaved.x || undefined,
+    y: loginDialogSaved.y || undefined,
+    parent: mainWindow,
+    modal: process.platform !== 'darwin',
+    show: true,
+    resizable: true,
+    minimizable: false,
+    maximizable: false,
+    icon: path.join(basePath, 'assets/icon.png'),
+    title: 'Sign In to ArcGIS Velocity',
+    webPreferences: {
+      preload: path.join(basePath, 'velocity-login-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  velocityLoginWindow.setMenuBarVisibility(false);
+  velocityLoginWindow.setMenu(null);
+  velocityLoginWindow.loadFile(path.join(basePath, 'velocity-login.html'));
+
+  velocityLoginWindow.webContents.on('did-finish-load', () => {
+    if (currentTheme) {
+      velocityLoginWindow.webContents.executeJavaScript(`document.documentElement.setAttribute('data-theme', '${currentTheme}');`);
+    }
+  });
+
+  const saveLoginDialogBounds = () => {
+    if (velocityLoginWindow && !velocityLoginWindow.isDestroyed()) {
+      const [width, height] = velocityLoginWindow.getSize();
+      const [x, y] = velocityLoginWindow.getPosition();
+      if (!appConfig.dialogSizes) appConfig.dialogSizes = {};
+      appConfig.dialogSizes.velocityLogin = { width, height, x, y };
+      configManager.saveConfig(appConfig);
+    }
+  };
+  velocityLoginWindow.on('resize', saveLoginDialogBounds);
+  velocityLoginWindow.on('move', saveLoginDialogBounds);
+
+  // Hide instead of destroy when closed — preserves state for next open
+  velocityLoginWindow.on('close', (e) => {
+    if (velocityLoginWindow && !velocityLoginWindow.isDestroyed()) {
+      e.preventDefault();
+      velocityLoginWindow.hide();
+    }
+  });
+
+  velocityLoginWindow.on('closed', () => {
+    velocityLoginWindow = null;
+  });
+}
+
+// Hide the login dialog without destroying it (preserves all state)
+ipcMain.on('velocity:hide-login', () => {
+  if (velocityLoginWindow && !velocityLoginWindow.isDestroyed()) {
+    velocityLoginWindow.hide();
+  }
+});
+
+// Open the Velocity login dialog from the renderer
+ipcMain.on('velocity:open-login', () => {
+  showVelocityLoginDialog();
+});
+
+// Login with username/password
+ipcMain.handle('velocity:login', async (event, { portalUrl, username, password }) => {
+  velocityLog('info', `[Auth] Sign-in attempt (password) to ${portalUrl} as "${username}"`);
+  try {
+    const tokenResult = await generateToken(portalUrl, username, password);
+    const velocityUrl = await getVelocityApiUrl(portalUrl, tokenResult.token);
+    // Start the token manager session
+    await velocityTokenManager.loginWithPassword(portalUrl, username, password);
+    velocityLog('info', `[Auth] Sign-in successful. Velocity URL: ${velocityUrl}`);
+    velocityLog('debug', `[Auth] Token: ${tokenResult.token}`);
+    velocityLog('debug', `[Auth] Query feeds URL: ${velocityUrl}/iot/feeds?f=json&token=${tokenResult.token}&num=1000`);
+    velocityLog('debug', `[Auth] Request headers: Authorization: token=${tokenResult.token}`);
+    return { token: tokenResult.token, expires: tokenResult.expires, velocityUrl };
+  } catch (err) {
+    velocityLog('error', `[Auth] Sign-in failed: ${err.message}`);
+    return { error: err.message };
+  }
+});
+
+// Login with OAuth 2.0
+ipcMain.handle('velocity:login-oauth', async (event, { portalUrl, clientId, clientSecret }) => {
+  velocityLog('info', `[Auth] OAuth sign-in attempt to ${portalUrl} with client "${clientId}"`);
+  try {
+    const tokenResult = await generateOAuthToken(portalUrl, clientId, clientSecret);
+    const velocityUrl = await getVelocityApiUrl(portalUrl, tokenResult.token);
+    await velocityTokenManager.loginWithOAuth(portalUrl, clientId, clientSecret);
+    velocityLog('info', `[Auth] OAuth sign-in successful. Velocity URL: ${velocityUrl}`);
+    velocityLog('debug', `[Auth] Token: ${tokenResult.token}`);
+    velocityLog('debug', `[Auth] Query feeds URL: ${velocityUrl}/iot/feeds?f=json&token=${tokenResult.token}&num=1000`);
+    velocityLog('debug', `[Auth] Request headers: Authorization: token=${tokenResult.token}`);
+    return { token: tokenResult.token, expires: tokenResult.expires, velocityUrl };
+  } catch (err) {
+    velocityLog('error', `[Auth] OAuth sign-in failed: ${err.message}`);
+    return { error: err.message };
+  }
+});
+
+// List feeds (for feed picker)
+ipcMain.handle('velocity:list-items', async (event, { velocityUrl, token, adminScope }) => {
+  velocityLog('info', `[API] Listing feeds from ${velocityUrl} (scope: ${adminScope ? 'org' : 'my'})`);
+  try {
+    const results = await listFeeds(velocityUrl, token, adminScope);
+    velocityLog('info', `[API] Listed ${Array.isArray(results) ? results.length : 0} feed(s)`);
+    return results;
+  } catch (err) {
+    velocityLog('error', `[API] List feeds failed: ${err.message}`);
+    return { error: err.message };
+  }
+});
+
+// Get details for a single feed
+ipcMain.handle('velocity:get-item-details', async (event, { velocityUrl, feedId, token }) => {
+  try {
+    return await getFeedDetails(velocityUrl, feedId, token);
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+// Store credentials (portal URL + username only)
+ipcMain.handle('velocity:store-credentials', async (event, creds) => {
+  try {
+    fs.writeFileSync(velocityCredsFile, JSON.stringify(creds, null, 2));
+    return { success: true };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+// Retrieve stored credentials
+ipcMain.handle('velocity:get-stored-credentials', async () => {
+  try {
+    if (fs.existsSync(velocityCredsFile)) {
+      return JSON.parse(fs.readFileSync(velocityCredsFile, 'utf8'));
+    }
+    return null;
+  } catch (err) {
+    return null;
+  }
+});
+
+// Apply a selected feed — forward to main renderer
+ipcMain.on('velocity:apply-item', (event, item) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('velocity:feed-applied', item);
+  }
+});
+
+// Forward token refresh events to all renderer processes
+velocityTokenManager.on('refreshed', (token) => {
+  // Hot-swap token on active client transports
+  if (grpcTransport && grpcTransport.authToken !== undefined) {
+    grpcTransport.authToken = token;
+  }
+  if (httpTransport && httpTransport.authToken !== undefined) {
+    httpTransport.authToken = token;
+  }
+  // WS transport doesn't support mid-session header changes (token used at connect time only)
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('velocity:token-refreshed', token);
+  }
+});
+
+velocityTokenManager.on('error', (err) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('velocity:token-error', err.message);
+  }
+});
+

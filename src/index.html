@@ -46,6 +46,9 @@
       <button id="toggle-connection-controls" class="control-button" title="Toggle Connection Controls" data-enabled="true">
         <div class="button-icon icon-connection-controls"></div>
       </button>
+      <button id="velocity-login-btn" class="control-button" title="Sign In to ArcGIS Velocity: browse feeds and auto-configure connection" aria-label="Sign In to ArcGIS Velocity">
+        <div class="button-icon" style="font-size: 14px;">🔑</div>
+      </button>
     </div>
   </div>
 
@@ -217,24 +220,24 @@
       <!-- All buttons use SVG icons with tooltips for accessibility -->
       <div class="control-group action-buttons">
         <!-- Connect Button: Establishes connection to data source -->
-        <button id="connect" title="Connect">
+        <button id="connect" title="Connect to the configured endpoint (Cmd+Shift+C)">
           <div class="button-icon icon-connect"></div>
         </button>
         
         <!-- Disconnect Button: Terminates connection to data source -->
-        <button id="disconnect" title="Disconnect" disabled>
+        <button id="disconnect" title="Disconnect from the current connection (Cmd+D)" disabled>
           <div class="button-icon icon-disconnect"></div>
         </button>
         
         <!-- Play/Pause Button: Contains both icons, CSS controls which is visible -->
         <!-- JavaScript toggles 'is-playing' class to swap between play and pause icons -->
-        <button id="play-pause" title="Play" disabled>
+        <button id="play-pause" title="Play: start streaming data from the loaded file" disabled>
           <div class="button-icon icon-play"></div>
           <div class="button-icon icon-pause"></div>
         </button>
         
         <!-- Step Button: Sends a single data point manually -->
-        <button id="send-manual" title="Step" disabled>
+        <button id="send-manual" title="Step: send the next single line of data" disabled>
           <div class="button-icon icon-step"></div>
         </button>
       </div>
@@ -306,6 +309,12 @@
         <span id="tls-badge-icon" class="tls-badge-icon">🔒</span>
         <div id="tls-badge-popover" class="tls-badge-popover" role="tooltip">
           <pre id="tls-badge-content" class="tls-badge-content"></pre>
+        </div>
+      </div>
+      <div id="auth-badge" class="tls-badge" style="display:none;" aria-label="Velocity auth status">
+        <span id="auth-badge-icon" class="tls-badge-icon">🔑</span>
+        <div id="auth-badge-popover" class="tls-badge-popover" role="tooltip">
+          <pre id="auth-badge-content" class="tls-badge-content"></pre>
         </div>
       </div>
     </div>
