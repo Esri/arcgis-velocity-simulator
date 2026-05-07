@@ -2557,8 +2557,6 @@ ipcMain.handle('velocity:login', async (event, { portalUrl, username, password }
     await velocityTokenManager.loginWithPassword(portalUrl, username, password);
     velocityLog('info', `[Auth] Sign-in successful. Velocity URL: ${velocityUrl}`);
     velocityLog('debug', `[Auth] Token: ${tokenResult.token}`);
-    velocityLog('debug', `[Auth] Query feeds URL: ${velocityUrl}/iot/feeds?f=json&token=${tokenResult.token}&num=1000`);
-    velocityLog('debug', `[Auth] Request headers: Authorization: token=${tokenResult.token}`);
     return { token: tokenResult.token, expires: tokenResult.expires, velocityUrl };
   } catch (err) {
     velocityLog('error', `[Auth] Sign-in failed: ${err.message}`);
@@ -2575,8 +2573,6 @@ ipcMain.handle('velocity:login-oauth', async (event, { portalUrl, clientId, clie
     await velocityTokenManager.loginWithOAuth(portalUrl, clientId, clientSecret);
     velocityLog('info', `[Auth] OAuth sign-in successful. Velocity URL: ${velocityUrl}`);
     velocityLog('debug', `[Auth] Token: ${tokenResult.token}`);
-    velocityLog('debug', `[Auth] Query feeds URL: ${velocityUrl}/iot/feeds?f=json&token=${tokenResult.token}&num=1000`);
-    velocityLog('debug', `[Auth] Request headers: Authorization: token=${tokenResult.token}`);
     return { token: tokenResult.token, expires: tokenResult.expires, velocityUrl };
   } catch (err) {
     velocityLog('error', `[Auth] OAuth sign-in failed: ${err.message}`);
