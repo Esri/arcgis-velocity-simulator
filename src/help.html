@@ -95,9 +95,9 @@
                     <li><strong>Portal URL:</strong> Your ArcGIS Online or Enterprise portal URL (default: <code>https://velocitydemo.maps.arcgis.com</code>).</li>
                     <li><strong>Username / Password:</strong> ArcGIS account credentials. A token is generated and automatically refreshed before expiry.</li>
                     <li><strong>OAuth 2.0:</strong> Alternative tab for OAuth client credentials (Client ID + Secret). Currently supported only for HTTP Poller feeds.</li>
-                    <li><strong>My Feeds / ORG Feeds:</strong> Segmented toggle to switch scope. "My Feeds" (default) returns only your feeds. "ORG Feeds" adds <code>view=admin</code> to fetch all org feeds (requires admin privileges).</li>
+                    <li><strong>My Feeds / ORG Feeds:</strong> Segmented toggle to switch scope. "ORG Feeds" is the default and adds <code>view=admin</code> to fetch all org feeds (requires admin privileges). "My Feeds" returns only your feeds.</li>
                     <li><strong>Refresh ⟳:</strong> Re-fetches the feed list for the current scope without re-authenticating.</li>
-                    <li><strong>Show / Hide Unsupported:</strong> Client-side filter toggle that shows or hides feed types not yet supported by the Simulator. Default: shown.</li>
+                    <li><strong>Supported / All:</strong> Client-side filter toggle that shows only supported feed types by default, or all feed types including unsupported ones.</li>
                     <li><strong>Feed Type dropdown:</strong> Filters feeds by type. Each type has a unique icon prefix and colour (see Feed Type Reference below).</li>
                     <li><strong>Feed dropdown:</strong> Select a specific feed to view its details. Unsupported types shown with ⚠ prefix and muted styling.</li>
                     <li><strong>Info panel:</strong> Displays the feed's label, ID, type (with coloured icon badge), URL, auth type, format, and schema fields.</li>
@@ -135,6 +135,17 @@
                     <li><strong>Connect/Disconnect:</strong> Establish/terminate connection</li>
                     <li><strong>Play/Pause/Step:</strong> Control data streaming</li>
                     <li><strong>Continuous Loop:</strong> ➿ button toggles file looping</li>
+                    <li><strong>Command Line Interface:</strong> <code>&gt;_</code> opens the CLI reference and option builder dialog (F3)</li>
+                </ul>
+            </div>
+
+            <div class="help-section">
+                <h3>Tooltips</h3>
+                <p>Hover or keyboard-focus controls to show custom tooltips. Tooltips are rendered by the app on all operating systems for consistent behavior on macOS, Windows, and Linux.</p>
+                <ul>
+                    <li><strong>Icons:</strong> Tooltip icons help identify actions such as authentication (🔑), TLS/security (🔒), warnings (⚠), and refresh (↻).</li>
+                    <li><strong>Colors:</strong> Tooltip accents are theme-aware. Info, auth, secure, success, warning, and error states use different accent colors.</li>
+                    <li><strong>Accessibility:</strong> Controls keep ARIA labels while native title tooltips are replaced by the custom renderer.</li>
                 </ul>
             </div>
 
@@ -343,5 +354,6 @@
 
         });
     </script>
+  <script src="tooltip-utils.js"></script>
 </body>
 </html>

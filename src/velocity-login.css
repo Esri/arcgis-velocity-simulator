@@ -551,3 +551,38 @@ h3 {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Custom tooltips (replaces unreliable native title tooltips) */
+.custom-tooltip {
+  position: fixed;
+  z-index: 10000;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: min(360px, calc(100vw - 20px));
+  padding: 8px 10px;
+  border: 1px solid var(--border-color, #3a3a3a);
+  border-left: 3px solid var(--custom-tooltip-accent, var(--accent-color, #4da6ff));
+  border-radius: 6px;
+  background: var(--bg-secondary, #262626);
+  color: var(--text-primary, #e0e0e0);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  font-size: 12px;
+  line-height: 1.35;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px) scale(0.98);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  white-space: pre-line;
+}
+
+.custom-tooltip.visible { opacity: 1; transform: translateY(0) scale(1); }
+.custom-tooltip-icon { flex: 0 0 auto; color: var(--custom-tooltip-accent, var(--accent-color, #4da6ff)); font-size: 14px; line-height: 1.2; }
+.custom-tooltip-text { min-width: 0; overflow-wrap: anywhere; }
+.custom-tooltip-info { --custom-tooltip-accent: var(--accent-color, #4da6ff); }
+.custom-tooltip-auth { --custom-tooltip-accent: #14b8a6; }
+.custom-tooltip-secure { --custom-tooltip-accent: #38bdf8; }
+.custom-tooltip-success { --custom-tooltip-accent: #66cc66; }
+.custom-tooltip-warning { --custom-tooltip-accent: #f5a623; }
+.custom-tooltip-error { --custom-tooltip-accent: #ff6b6b; }
+

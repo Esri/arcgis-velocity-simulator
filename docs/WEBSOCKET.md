@@ -74,15 +74,15 @@ When WebSocket is selected as the connection type, a **▸ WebSocket Options** s
 
 The following controls appear inside the expanded section:
 
-- **Format** — `Delimited (CSV)` (default), `JSON`, `Esri JSON`, `GeoJSON`, or `XML`.
-- **Use TLS** — Checkbox: checked = `wss://` (port 8443), unchecked = `ws://` (port 8080).
-- **CA cert path** — Custom CA certificate (PEM).
-- **TLS cert path** — Client/server certificate (PEM).
-- **TLS key path** — Private key (PEM).
-- **WS Path** — URL path (default `/`).
-- **Subscribe** — Optional subscription message sent after connecting.
-- **Ignore 1st msg** — Checkbox to skip the first received message.
-- **Headers** — Custom HTTP headers as JSON for the upgrade handshake.
+- **Format** - `Delimited (CSV)` (default), `JSON`, `Esri JSON`, `GeoJSON`, or `XML`.
+- **Use TLS** - Checkbox: checked = `wss://` (port 8443), unchecked = `ws://` (port 8080).
+- **CA cert path** - Custom CA certificate (PEM).
+- **TLS cert path** - Client/server certificate (PEM).
+- **TLS key path** - Private key (PEM).
+- **WS Path** - URL path (default `/`).
+- **Subscribe** - Optional subscription message sent after connecting.
+- **Ignore 1st msg** - Checkbox to skip the first received message.
+- **Headers** - Custom HTTP headers as JSON for the upgrade handshake.
 
 ## Tooltip Reference
 
@@ -90,8 +90,8 @@ The following controls appear inside the expanded section:
 
 | Mode | Tooltip |
 |------|---------|
-| WebSocket Client | WebSocket Client — connects to a remote WebSocket server (ws:// or wss://) and sends data as text frames. |
-| WebSocket Server | WebSocket Server — starts a local WebSocket server that accepts incoming ws:// or wss:// connections. |
+| WebSocket Client | WebSocket Client - connects to a remote WebSocket server (ws:// or wss://) and sends data as text frames. |
+| WebSocket Server | WebSocket Server - starts a local WebSocket server that accepts incoming ws:// or wss:// connections. |
 
 ### Format Tooltips
 
@@ -118,15 +118,15 @@ The following controls appear inside the expanded section:
 
 ### TLS Trust Badge
 
-When connected, the status bar displays a lock icon reflecting the trust level at a glance. The icon **shape** and **colour** both encode the trust level so it is unambiguous for colour-blind users. No text label is shown beside the icon — hover or click the badge for full details.
+When connected, the status bar displays a lock icon reflecting the trust level at a glance. The icon **shape** and **colour** both encode the trust level so it is unambiguous for colour-blind users. No text label is shown beside the icon - hover or click the badge for full details.
 
 | Icon | Colour | Trust Level | Meaning |
 |------|--------|-------------|---------|
-| 🔓 | Grey / dimmed | off | No TLS — plaintext, unsecure connection |
-| 🔒 | Amber | on | TLS on — OS certificate store, trust level not fully determined |
+| 🔓 | Grey / dimmed | off | No TLS - plaintext, unsecure connection |
+| 🔒 | Amber | on | TLS on - OS certificate store, trust level not fully determined |
 | 🔒⚠ | Amber | self-signed | TLS on, self-signed or cert-chain not verified |
 | 🔒✓ | Green | ca-verified | TLS on, CA-verified certificate chain |
-| 🔐 | Blue / cyan | mtls | Mutual TLS — both client and server present certificates |
+| 🔐 | Blue / cyan | mtls | Mutual TLS - both client and server present certificates |
 
 See [TLS.md](./TLS.md) for full TLS concepts, certificate file formats, OS trust store behaviour, and setup guides.
 
@@ -134,17 +134,17 @@ See [TLS.md](./TLS.md) for full TLS concepts, certificate file formats, OS trust
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `--protocol ws` | Use WebSocket transport | — |
+| `--protocol ws` | Use WebSocket transport | - |
 | `--mode client\|server` | Connection mode | `server` |
 | `--wsFormat <format>` | Data format (`delimited`, `json`, `esri-json`, `geo-json`, `xml`) | `delimited` |
 | `--wsTls` | Enable TLS (WSS) | `true` |
 | `--wsTlsCaPath <path>` | CA certificate file path | system default |
-| `--wsTlsCertPath <path>` | Client/server certificate file path | — |
-| `--wsTlsKeyPath <path>` | Private key file path | — |
+| `--wsTlsCertPath <path>` | Client/server certificate file path | - |
+| `--wsTlsKeyPath <path>` | Private key file path | - |
 | `--wsPath <path>` | WebSocket endpoint URL path | `/` |
-| `--wsSubscriptionMsg <msg>` | Subscription message sent after connecting | — |
+| `--wsSubscriptionMsg <msg>` | Subscription message sent after connecting | - |
 | `--wsIgnoreFirstMsg` | Ignore first received message | `false` |
-| `--wsHeaders <json>` | Custom HTTP headers as JSON string | — |
+| `--wsHeaders <json>` | Custom HTTP headers as JSON string | - |
 
 ## Metadata Logging
 

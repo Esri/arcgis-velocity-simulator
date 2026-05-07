@@ -32,11 +32,11 @@
       <button id="toggle-gesture-report" class="control-button" title="Report Camera Gestures" data-enabled="false">
         <div class="button-icon icon-report-gesture"></div>
       </button>
-      <button id="toggle-camera-button" class="control-button" title="Toggle Camera&#10;---&#10;Supported Gestures:&#10;👍 Connect&#10;🤙 Disconnect&#10;👊 Play&#10;🖐️ Pause&#10;✌️ Step">
+      <button id="toggle-camera-button" class="control-button" title="Toggle Camera&#10;---&#10;Supported Gestures:&#10;👍 Thumbs up: Connect&#10;🤙 Call me hand: Disconnect&#10;👊 Fist: Play&#10;🖐️ Open hand: Pause&#10;✌️ Peace sign: Step">
         <svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/><path fill-rule="evenodd" d="M3.25 6.25a3 3 0 013-3h11.5a3 3 0 013 3v10.5a3 3 0 01-3 3H6.25a3 3 0 01-3-3V6.25zm3-1.5a1.5 1.5 0 00-1.5 1.5v10.5a1.5 1.5 0 001.5 1.5h11.5a1.5 1.5 0 001.5-1.5V6.25a1.5 1.5 0 00-1.5-1.5H6.25z" clip-rule="evenodd"/></svg>
       </button>
-      <button id="toggle-mic-button" class="control-button" title="Toggle Microphone (Web Speech API)&#10;---&#10;Requires internet connection&#10;Supported Commands:&#10;• connect&#10;• disconnect&#10;• play / start&#10;• pause / stop&#10;• step&#10;• switch / toggle view"><svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M11.999 15a3 3 0 003-3V6a3 3 0 00-6 0v6a3 3 0 003 3z"/><path d="M18.75 12a.75.75 0 01-.75.75a6.002 6.002 0 01-12.004 0A.75.75 0 016.75 12v-1.5a.75.75 0 011.5 0V12a4.5 4.5 0 009 0v-1.5a.75.75 0 011.5 0V12z"/><path d="M11.999 17.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V18a.75.75 0 01.75-.75z"/><path d="M10 18a2 2 0 114 0h-4z"/></svg></button>
-      <button id="offline-mic-button" class="control-button" title="Toggle Offline Speech Recognition (Web Audio API)&#10;---&#10;100% Offline Voice Control&#10;• No internet required&#10;• Privacy-focused&#10;• Real-time audio analysis&#10;---&#10;Supported Commands:&#10;• connect&#10;• disconnect&#10;• play / start&#10;• pause / stop&#10;• step&#10;• switch / toggle view">
+      <button id="toggle-mic-button" class="control-button" title="Toggle Microphone (Web Speech API)&#10;---&#10;Requires internet connection&#10;Supported Commands:&#10;🔌 connect&#10;✕ disconnect&#10;▶ play / start&#10;⏸ pause / stop&#10;⏭ step&#10;⇔ switch / toggle view"><svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M11.999 15a3 3 0 003-3V6a3 3 0 00-6 0v6a3 3 0 003 3z"/><path d="M18.75 12a.75.75 0 01-.75.75a6.002 6.002 0 01-12.004 0A.75.75 0 016.75 12v-1.5a.75.75 0 011.5 0V12a4.5 4.5 0 009 0v-1.5a.75.75 0 011.5 0V12z"/><path d="M11.999 17.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V18a.75.75 0 01.75-.75z"/><path d="M10 18a2 2 0 114 0h-4z"/></svg></button>
+      <button id="offline-mic-button" class="control-button" title="Toggle Offline Speech Recognition (Web Audio API)&#10;---&#10;100% Offline Voice Control&#10;✓ No internet required&#10;🔒 Privacy-focused&#10;⚡ Real-time audio analysis&#10;---&#10;Supported Commands:&#10;🔌 connect&#10;✕ disconnect&#10;▶ play / start&#10;⏸ pause / stop&#10;⏭ step&#10;⇔ switch / toggle view">
         <div class="button-icon icon-offline-microphone"></div>
       </button>
       <button id="toggle-view-button" class="control-button" title="Switch to Compact View"><svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 4.5a1.5 1.5 0 00-1.5 1.5v10.5a1.5 1.5 0 001.5 1.5h15a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5h-15zM3 6a3 3 0 013-3h15a3 3 0 013 3v10.5a3 3 0 01-3 3H6a3 3 0 01-3-3V6z"/><path d="M6 8.25a.75.75 0 000 1.5h12a.75.75 0 000-1.5H6z"/></svg></button>
@@ -46,8 +46,11 @@
       <button id="toggle-connection-controls" class="control-button" title="Toggle Connection Controls" data-enabled="true">
         <div class="button-icon icon-connection-controls"></div>
       </button>
+      <button id="cli-btn" class="control-button" title="Command Line Interface (F3)" aria-label="Open Command Line Interface dialog">
+        <span class="button-icon text-button-icon" aria-hidden="true" style="font-family: monospace; font-weight: bold; font-size: 13px;">&gt;_</span>
+      </button>
       <button id="velocity-login-btn" class="control-button" title="Sign In to ArcGIS Velocity: browse feeds and auto-configure connection" aria-label="Sign In to ArcGIS Velocity">
-        <div class="button-icon" style="font-size: 14px;">🔑</div>
+        <span class="button-icon text-button-icon" style="font-size: 14px;">🔑</span>
       </button>
     </div>
   </div>
@@ -66,19 +69,19 @@
           <div class="control-group aligned-group">
             <label for="connection-type">Mode:</label>
             <select id="connection-type">
-              <option value="tcp-server" selected title="TCP Server — listens on the specified port and accepts incoming TCP connections from clients. Use when the receiver (e.g. ArcGIS Velocity TCP feed) connects to this app.">TCP Server</option>
-              <option value="tcp-client" title="TCP Client — connects to a remote TCP server at the specified host and port. Use when sending data to a listening TCP endpoint.">TCP Client</option>
-              <option value="udp-server" title="UDP Server — binds to the specified port and receives incoming UDP datagrams. Connectionless; each datagram is independent.">UDP Server</option>
-              <option value="udp-client" title="UDP Client — sends UDP datagrams to the specified host and port. Connectionless; no handshake or acknowledgment.">UDP Client</option>
-              <option value="http-client" title="HTTP Client — sends data via HTTP/HTTPS POST requests to a remote endpoint (e.g. an ArcGIS Velocity HTTP Receiver feed). Supports JSON, CSV, Esri JSON, GeoJSON, and XML formats.">HTTP Client</option>
-              <option value="http-server" title="HTTP Server — starts a local HTTP/HTTPS server that accepts POST requests from clients. Use for testing or when the Velocity HTTP Receiver connects to this app.">HTTP Server</option>
-              <option value="ws-client" title="WebSocket Client — connects to a remote WebSocket server (ws:// or wss://) and sends data as text frames. Supports the same formats as HTTP. Use when the receiver is a WebSocket endpoint such as an ArcGIS Velocity WebSocket feed.">WebSocket Client</option>
-              <option value="ws-server" title="WebSocket Server — starts a local WebSocket server that accepts incoming ws:// or wss:// connections from clients. Broadcasts data to all connected clients as text frames.">WebSocket Server</option>
-              <option value="grpc-client" title="gRPC Client — connects to a remote gRPC server using HTTP/2. Supports Protobuf, Kryo, and Text serialization with client-streaming or unary RPCs.">gRPC Client</option>
-              <option value="grpc-server" title="gRPC Server — starts a local gRPC server that accepts incoming RPC calls from clients. Use for testing or when Velocity connects as a gRPC client.">gRPC Server</option>
+              <option value="tcp-server" selected title="TCP Server - listens on the specified port and accepts incoming TCP connections from clients. Use when the receiver (e.g. ArcGIS Velocity TCP feed) connects to this app.">TCP Server</option>
+              <option value="tcp-client" title="TCP Client - connects to a remote TCP server at the specified host and port. Use when sending data to a listening TCP endpoint.">TCP Client</option>
+              <option value="udp-server" title="UDP Server - binds to the specified port and receives incoming UDP datagrams. Connectionless; each datagram is independent.">UDP Server</option>
+              <option value="udp-client" title="UDP Client - sends UDP datagrams to the specified host and port. Connectionless; no handshake or acknowledgment.">UDP Client</option>
+              <option value="http-client" title="HTTP Client - sends data via HTTP/HTTPS POST requests to a remote endpoint (e.g. an ArcGIS Velocity HTTP Receiver feed). Supports JSON, CSV, Esri JSON, GeoJSON, and XML formats.">HTTP Client</option>
+              <option value="http-server" title="HTTP Server - starts a local HTTP/HTTPS server that accepts POST requests from clients. Use for testing or when the Velocity HTTP Receiver connects to this app.">HTTP Server</option>
+              <option value="ws-client" title="WebSocket Client - connects to a remote WebSocket server (ws:// or wss://) and sends data as text frames. Supports the same formats as HTTP. Use when the receiver is a WebSocket endpoint such as an ArcGIS Velocity WebSocket feed.">WebSocket Client</option>
+              <option value="ws-server" title="WebSocket Server - starts a local WebSocket server that accepts incoming ws:// or wss:// connections from clients. Broadcasts data to all connected clients as text frames.">WebSocket Server</option>
+              <option value="grpc-client" title="gRPC Client - connects to a remote gRPC server using HTTP/2. Supports Protobuf, Kryo, and Text serialization with client-streaming or unary RPCs.">gRPC Client</option>
+              <option value="grpc-server" title="gRPC Server - starts a local gRPC server that accepts incoming RPC calls from clients. Use for testing or when Velocity connects as a gRPC client.">gRPC Server</option>
             </select>
           </div>
-          <!-- Extra Options disclosure row — shown only for HTTP/WS/gRPC modes -->
+          <!-- Extra Options disclosure row - shown only for HTTP/WS/gRPC modes -->
           <div class="extra-options-toggle-row" id="extra-options-toggle-row" style="display: none;">
             <button id="extra-options-toggle" class="extra-options-toggle-btn" type="button" title="Expand protocol-specific connection options." aria-expanded="false" aria-controls="extra-options-body" aria-label="Expand protocol-specific connection options.">
               <span class="extra-options-arrow" aria-hidden="true">▸</span>
@@ -89,12 +92,12 @@
           <div id="extra-options-body" class="extra-options-body" style="display: none;">
           <div class="control-group aligned-group" id="http-format-group" style="display: none;">
             <label for="http-format">Format:</label>
-            <select id="http-format" title="HTTP data format — controls the Content-Type header used when sending/receiving data. Must match the format configured in the ArcGIS Velocity HTTP Receiver feed.">
-              <option value="delimited" selected title="Delimited (CSV) — sends data as text/plain. Each line is a comma-separated row of field values. This is the default format for ArcGIS Velocity TCP and HTTP feeds. Best for simple tabular data without nested structures.">Delimited (CSV)</option>
-              <option value="json" title="JSON — sends data as application/json. The standard format for most HTTP feeds. Each request body is a JSON object or array of features.">JSON</option>
-              <option value="esri-json" title="Esri JSON — sends data as application/json using the Esri Feature JSON schema (with geometry and attributes objects). Use when the Velocity HTTP Receiver expects ArcGIS-native feature format.">Esri JSON</option>
-              <option value="geo-json" title="GeoJSON — sends data as application/geo+json per RFC 7946 with FeatureCollection and Feature objects. Use when the receiver expects standard geospatial interchange format.">GeoJSON</option>
-              <option value="xml" title="XML — sends data as application/xml. Use when the Velocity HTTP Receiver is configured for XML input.">XML</option>
+            <select id="http-format" title="HTTP data format - controls the Content-Type header used when sending/receiving data. Must match the format configured in the ArcGIS Velocity HTTP Receiver feed.">
+              <option value="delimited" selected title="Delimited (CSV) - sends data as text/plain. Each line is a comma-separated row of field values. This is the default format for ArcGIS Velocity TCP and HTTP feeds. Best for simple tabular data without nested structures.">Delimited (CSV)</option>
+              <option value="json" title="JSON - sends data as application/json. The standard format for most HTTP feeds. Each request body is a JSON object or array of features.">JSON</option>
+              <option value="esri-json" title="Esri JSON - sends data as application/json using the Esri Feature JSON schema (with geometry and attributes objects). Use when the Velocity HTTP Receiver expects ArcGIS-native feature format.">Esri JSON</option>
+              <option value="geo-json" title="GeoJSON - sends data as application/geo+json per RFC 7946 with FeatureCollection and Feature objects. Use when the receiver expects standard geospatial interchange format.">GeoJSON</option>
+              <option value="xml" title="XML - sends data as application/xml. Use when the Velocity HTTP Receiver is configured for XML input.">XML</option>
             </select>
           </div>
           <div class="control-group aligned-group" id="http-tls-group" style="display: none;">
@@ -120,12 +123,12 @@
           </div>
           <div class="control-group aligned-group" id="ws-format-group" style="display: none;">
             <label for="ws-format">Format:</label>
-            <select id="ws-format" title="WebSocket data format — controls the Content-Type associated with each message. Must match the format configured in the ArcGIS Velocity WebSocket feed.">
-              <option value="delimited" selected title="Delimited (CSV) — each message is a comma-separated row of field values (text/plain). Default format for ArcGIS Velocity WebSocket feeds.">Delimited (CSV)</option>
-              <option value="json" title="JSON — each message is a JSON object or array (application/json).">JSON</option>
-              <option value="esri-json" title="Esri JSON — each message uses the Esri Feature JSON schema (application/json).">Esri JSON</option>
-              <option value="geo-json" title="GeoJSON — each message is a GeoJSON FeatureCollection or Feature (application/geo+json).">GeoJSON</option>
-              <option value="xml" title="XML — each message is an XML payload (application/xml).">XML</option>
+            <select id="ws-format" title="WebSocket data format - controls the Content-Type associated with each message. Must match the format configured in the ArcGIS Velocity WebSocket feed.">
+              <option value="delimited" selected title="Delimited (CSV) - each message is a comma-separated row of field values (text/plain). Default format for ArcGIS Velocity WebSocket feeds.">Delimited (CSV)</option>
+              <option value="json" title="JSON - each message is a JSON object or array (application/json).">JSON</option>
+              <option value="esri-json" title="Esri JSON - each message uses the Esri Feature JSON schema (application/json).">Esri JSON</option>
+              <option value="geo-json" title="GeoJSON - each message is a GeoJSON FeatureCollection or Feature (application/geo+json).">GeoJSON</option>
+              <option value="xml" title="XML - each message is an XML payload (application/xml).">XML</option>
             </select>
           </div>
           <div class="control-group aligned-group" id="ws-tls-group" style="display: none;">
@@ -173,8 +176,8 @@
           <div class="control-group aligned-group" id="grpc-send-method-group" style="display: none;">
             <label for="grpc-send-method">RPC type:</label>
             <select id="grpc-send-method">
-              <option value="stream" selected title="Client Streaming RPC — opens a persistent stream and sends all messages over a single long-lived connection. Higher throughput and lower per-message overhead. Uses Stream (GrpcFeed) or executeMulti (GrpcFeatureService).">Client Streaming</option>
-              <option value="unary" title="Unary RPC — sends each message as an independent request/response call. Simpler to debug and reason about, but higher per-message overhead. Uses Send (GrpcFeed) or execute (GrpcFeatureService).">Unary</option>
+              <option value="stream" selected title="Client Streaming RPC - opens a persistent stream and sends all messages over a single long-lived connection. Higher throughput and lower per-message overhead. Uses Stream (GrpcFeed) or executeMulti (GrpcFeatureService).">Client Streaming</option>
+              <option value="unary" title="Unary RPC - sends each message as an independent request/response call. Simpler to debug and reason about, but higher per-message overhead. Uses Send (GrpcFeed) or execute (GrpcFeatureService).">Unary</option>
             </select>
           </div>
           <div class="control-group aligned-group" id="grpc-tls-group" style="display: none;">
@@ -327,6 +330,7 @@
   </div>
 
   <script src="gestures.js"></script>
+  <script src="tooltip-utils.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

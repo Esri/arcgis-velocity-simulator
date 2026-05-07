@@ -398,6 +398,11 @@ async function showCommandLineDialog() {
   });
 }
 
+// Renderer → main request to open the Command Line Interface dialog (e.g. toolbar button).
+ipcMain.on('show-cli-dialog', () => {
+  showCommandLineDialog();
+});
+
 /**
  * Creates and displays the 'About' dialog window.
  */

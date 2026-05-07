@@ -75,6 +75,8 @@ The Velocity Login dialog opens at **590 x 840** pixels by default. After resizi
 
 ## UI Controls
 
+Tooltips are rendered by the app's custom tooltip system on all operating systems. The tooltip renderer supports Unicode icons and theme-aware accent colors through structured attributes such as `data-tooltip-icon` and `data-tooltip-kind`; tooltip text is inserted as text content, not arbitrary HTML.
+
 | Control | Tooltip / Behaviour |
 |---|---|
 | 🔑 button | "Sign In to ArcGIS Velocity — browse and apply feed connection settings" |

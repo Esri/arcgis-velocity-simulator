@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('api', {
   
   // --- UI and System Operations (Renderer to Main) ---
   showContextMenu: () => ipcRenderer.send('show-context-menu'), // Shows application context menu
+  showCommandLineDialog: () => ipcRenderer.send('show-cli-dialog'), // Opens Command Line Interface dialog
   themeApplied: () => ipcRenderer.send('theme-applied'), // Notifies main process that theme was applied
   configThemeApplied: () => ipcRenderer.send('config-theme-applied'), // Notifies main process that config dialog theme was applied
   launchConfigThemeApplied: () => ipcRenderer.send('launch-config-theme-applied'), // Notifies main process that launch config dialog theme was applied

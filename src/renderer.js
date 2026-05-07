@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const GRPC_SEND_METHOD_TOOLTIPS = {
     stream: 'gRPC RPC Type: Client Streaming. Opens a persistent client-streaming RPC and multiplexes all messages over a single long-lived HTTP/2 stream. The client writes multiple request messages before the server responds once. Ideal for high-throughput ingestion with minimal per-message overhead. Maps to Stream (GrpcFeed) or executeMulti (GrpcFeatureService).',
-    unary: 'gRPC RPC Type: Unary. Each message is sent as a discrete request/response round-trip — one request in, one response out. The simplest gRPC call pattern, analogous to a traditional REST call. Easier to trace and debug, but incurs per-call overhead (HTTP/2 framing, header compression). Maps to Send (GrpcFeed) or execute (GrpcFeatureService).',
+    unary: 'gRPC RPC Type: Unary. Each message is sent as a discrete request/response round-trip - one request in, one response out. The simplest gRPC call pattern, analogous to a traditional REST call. Easier to trace and debug, but incurs per-call overhead (HTTP/2 framing, header compression). Maps to Send (GrpcFeed) or execute (GrpcFeatureService).',
   };
 
   // --- State Variables ---
@@ -186,16 +186,16 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const CONNECTION_MODE_TOOLTIPS = {
-    'tcp-server': 'TCP Server — listens on the specified port and accepts incoming TCP connections from clients.',
-    'tcp-client': 'TCP Client — connects to a remote TCP server at the specified host and port.',
-    'udp-server': 'UDP Server — binds to the specified port and receives incoming UDP datagrams.',
-    'udp-client': 'UDP Client — sends UDP datagrams to the specified host and port.',
-    'http-client': 'HTTP Client — sends data via HTTP/HTTPS POST requests to a remote endpoint.',
-    'http-server': 'HTTP Server — starts a local HTTP/HTTPS server that accepts POST requests from clients.',
-    'ws-client': 'WebSocket Client — connects to a remote WebSocket server (ws:// or wss://) and sends data as text frames.',
-    'ws-server': 'WebSocket Server — starts a local WebSocket server that accepts incoming ws:// or wss:// connections.',
-    'grpc-client': 'gRPC Client — connects to a remote gRPC server using HTTP/2.',
-    'grpc-server': 'gRPC Server — starts a local gRPC server that accepts incoming RPC calls.',
+    'tcp-server': 'TCP Server - listens on the specified port and accepts incoming TCP connections from clients.',
+    'tcp-client': 'TCP Client - connects to a remote TCP server at the specified host and port.',
+    'udp-server': 'UDP Server - binds to the specified port and receives incoming UDP datagrams.',
+    'udp-client': 'UDP Client - sends UDP datagrams to the specified host and port.',
+    'http-client': 'HTTP Client - sends data via HTTP/HTTPS POST requests to a remote endpoint.',
+    'http-server': 'HTTP Server - starts a local HTTP/HTTPS server that accepts POST requests from clients.',
+    'ws-client': 'WebSocket Client - connects to a remote WebSocket server (ws:// or wss://) and sends data as text frames.',
+    'ws-server': 'WebSocket Server - starts a local WebSocket server that accepts incoming ws:// or wss:// connections.',
+    'grpc-client': 'gRPC Client - connects to a remote gRPC server using HTTP/2.',
+    'grpc-server': 'gRPC Server - starts a local gRPC server that accepts incoming RPC calls.',
   };
 
   function updateHttpFormatTooltip() {
@@ -398,7 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Also call updateExtraOptionsToggleRow on mode change (hook into existing listener)
   connectionTypeSelect.addEventListener('change', updateExtraOptionsToggleRow);
-  // Set initial state (TCP server selected by default — no extras)
+  // Set initial state (TCP server selected by default - no extras)
   updateExtraOptionsToggleRow();
 
   const applyInitialSplitterPosition = () => {
@@ -449,7 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
    *
    * Examples of raw values:
    *   "tls=off (unsecure)"
-   *   "tls=on (cert verification skipped — no CA provided), 142 trusted CAs loaded, ..."
+   *   "tls=on (cert verification skipped - no CA provided), 142 trusted CAs loaded, ..."
    *   "tls=on, custom certs: ca=/path/ca.pem"
    *   "tls=on, cert=self-signed (auto-generated), key=self-signed (auto-generated)"
    *
@@ -459,22 +459,22 @@ document.addEventListener('DOMContentLoaded', () => {
   function tlsInfoToTooltip(raw) {
     if (!raw) return '';
     if (/tls=off/i.test(raw)) {
-      return 'TLS: off — connection is unsecure (plaintext, no encryption)';
+      return 'TLS: off - connection is unsecure (plaintext, no encryption)';
     }
     if (/self-signed/i.test(raw)) {
-      return 'TLS: self-signed — connection is encrypted but the server certificate is auto-generated and not CA-verified; peer identity is unverified';
+      return 'TLS: self-signed - connection is encrypted but the server certificate is auto-generated and not CA-verified; peer identity is unverified';
     }
     if (/cert verification skipped/i.test(raw)) {
-      return 'TLS: self-signed — connection is encrypted but certificate authority verification is skipped; peer identity is unverified';
+      return 'TLS: self-signed - connection is encrypted but certificate authority verification is skipped; peer identity is unverified';
     }
     if (/mtls|client.*cert|cert.*client/i.test(raw)) {
-      return 'TLS: mTLS — mutual TLS; both client and server certificates are verified';
+      return 'TLS: mTLS - mutual TLS; both client and server certificates are verified';
     }
     if (/custom certs/i.test(raw)) {
-      return 'TLS: CA-verified — connection is encrypted and the certificate chain is validated against a custom CA';
+      return 'TLS: CA-verified - connection is encrypted and the certificate chain is validated against a custom CA';
     }
     if (/tls=on/i.test(raw)) {
-      return 'TLS: on — connection is encrypted';
+      return 'TLS: on - connection is encrypted';
     }
     return raw;
   }
@@ -504,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // without relying on colour alone (colour-blindness accessibility).
     // 🔓 open lock  = no TLS (plaintext)
     // 🔒⚠          = TLS on, self-signed / cert-chain not verified
-    // 🔐            = mTLS — key icon signals mutual authentication
+    // 🔐            = mTLS - key icon signals mutual authentication
     // 🔒✓           = TLS on, CA-verified certificate chain
     let trust, iconChar;
     if (/tls.*off|unsecure|plaintext/i.test(tooltip)) {
@@ -1020,6 +1020,14 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleConnectionControls.dataset.enabled = isEnabled.toString();
     connectionControlsGroup.classList.toggle('hidden', !isEnabled);
   });
+
+  // ─── Command Line Interface ───────────────────────────────────────────────
+  const cliBtn = document.getElementById('cli-btn');
+  if (cliBtn) {
+    cliBtn.addEventListener('click', () => {
+      window.api.showCommandLineDialog();
+    });
+  }
 
   // ─── Velocity Login / Feed Picker ─────────────────────────────────────────
   const velocityLoginBtn = document.getElementById('velocity-login-btn');

@@ -69,25 +69,25 @@ When adding a new protocol, transport, or major feature:
 
 ### Tooltip Authoring Rules
 
-Tooltips in this app use the native HTML `title` attribute, which Electron renders as a hover tooltip without any custom CSS or JavaScript. Follow these rules every time you add or edit a control:
+Tooltips in this app use the shared custom tooltip system in `src/tooltip-utils.js`, enabled on all operating systems because native Electron/macOS `title` tooltips are unreliable. Follow these rules every time you add or edit a control:
 
-1. **Always add a `title` attribute.** Every `<button>`, `<input>`, `<select>`, `<label>`, and `<textarea>` must have one. Do not leave any interactive element without a tooltip.
+1. **Always add tooltip content.** Every `<button>`, `<input>`, `<select>`, `<label>`, and `<textarea>` must have a meaningful `data-tooltip` and `aria-label` (or a `title` that `tooltip-utils.js` can migrate at runtime). Prefer explicit `data-tooltip` for new controls.
 
-2. **Be descriptive, not just a label echo.** `title="Save"` on a save button tells the user nothing new. Instead write what it does and when: `title="Save logs to a file (Cmd+S)"`. Include the keyboard shortcut if one exists.
+2. **Be descriptive, not just a label echo.** `data-tooltip="Save"` on a save button tells the user nothing new. Instead write what it does and when: `data-tooltip="Save logs to a file (Cmd+S)"`. Include the keyboard shortcut if one exists.
 
-3. **Use a colon or parentheses to separate the label from the description.** Avoid em dashes (`—`) and other Unicode punctuation in `title` strings — these characters have caused tooltips to silently fail to render in Electron. Stick to plain ASCII: colons, hyphens, parentheses, and newlines.
+3. **Use structured tooltip attributes.** Custom tooltips may use Unicode icons and theme-aware colors through approved attributes such as `data-tooltip-icon="🔑"` and `data-tooltip-kind="auth|info|success|warning|error|secure"`. Do not put arbitrary HTML in tooltip strings.
 
-4. **Use `&#10;` for multi-line tooltips.** Newlines inside a `title` attribute must be written as the HTML entity `&#10;` (not a literal newline or `\n`). Example:
+4. **Use `&#10;` for multi-line tooltip text in HTML attributes.** Newlines inside `data-tooltip` or `title` attributes must be written as the HTML entity `&#10;` (not a literal newline or `\n`). Example:
    ```html
-   title="Toggle Camera&#10;---&#10;Supported Gestures:&#10;👍 Connect&#10;🤙 Disconnect"
+   data-tooltip="Toggle Camera&#10;---&#10;Supported Gestures:&#10;Thumbs up: Connect&#10;Call me hand: Disconnect" data-tooltip-icon="📷" data-tooltip-kind="info"
    ```
    Limit multi-line tooltips to buttons that have several distinct behaviors worth listing. Keep each line short.
 
 5. **Match the pattern of existing working buttons.** Before writing a new tooltip, look at a nearby working button in `index.html` (e.g. `toggle-connection-controls`, `save-logs-btn`) and follow exactly the same quoting, attribute placement, and text style.
 
-6. **Dynamic tooltips go in `renderer.js`, not in HTML.** When a button or select changes state (e.g. Play ↔ Pause, Ascending ↔ Descending), update `element.title` in JavaScript alongside the icon/label swap. Never hard-code a state-dependent tooltip into the HTML — it will become stale.
+6. **Dynamic tooltips go in `renderer.js`, not in HTML.** When a button or select changes state (e.g. Play/Pause, Ascending/Descending), update `element.dataset.tooltip` (or `element.title`, which is migrated by `tooltip-utils.js`) in JavaScript alongside the icon/label swap. Never hard-code a state-dependent tooltip into the HTML - it will become stale.
 
-7. **Test on hover before committing.** After adding a tooltip, run the app with `npm start` and hover over the control to confirm the tooltip appears. If it does not, check for em dashes, curly quotes, or other non-ASCII characters in the `title` value.
+7. **Test on hover before committing.** After adding a tooltip, run the app with `npm start` and hover/focus the control to confirm the custom tooltip appears with the expected icon, color, and line wrapping.
 
 ## UX Design Standards
 

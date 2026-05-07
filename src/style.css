@@ -209,6 +209,16 @@ h1 {
   display: block; /* Ensures the icon is treated as a block element */
 }
 
+.text-button-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 16px;
+  background-color: transparent;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
 /* External SVG icon styling with CSS masks for theming support */
 .icon-connect {
   background-color: currentColor;
@@ -1194,6 +1204,7 @@ body {
 }
 
 /* ── end TLS trust badge ─────────────────────────────────────────────────── */
+body.compact #live-gesture-received {
   padding: 4px 8px;
   margin: 2px 0;
   font-size: 16px;
@@ -1418,3 +1429,53 @@ body.compact .extra-options-toggle-btn {
   font-size: 0.68em;
   padding: 0 3px;
 }
+
+/* Custom tooltips (replaces unreliable native title tooltips) */
+.custom-tooltip {
+  position: fixed;
+  z-index: 10000;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: min(360px, calc(100vw - 20px));
+  padding: 8px 10px;
+  border: 1px solid var(--border-color, #404040);
+  border-left: 3px solid var(--custom-tooltip-accent, var(--button-info-bg, #17a2b8));
+  border-radius: 6px;
+  background: var(--container-bg, var(--status-bg, #2d2d2d));
+  color: var(--text-color, #d4d4d4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  font-family: var(--font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  font-size: 12px;
+  line-height: 1.35;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px) scale(0.98);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  white-space: pre-line;
+}
+
+.custom-tooltip.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.custom-tooltip-icon {
+  flex: 0 0 auto;
+  color: var(--custom-tooltip-accent, var(--button-info-bg, #17a2b8));
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.custom-tooltip-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.custom-tooltip-info { --custom-tooltip-accent: var(--button-info-bg, #17a2b8); }
+.custom-tooltip-auth { --custom-tooltip-accent: #14b8a6; }
+.custom-tooltip-secure { --custom-tooltip-accent: #38bdf8; }
+.custom-tooltip-success { --custom-tooltip-accent: var(--button-success-bg, #28a745); }
+.custom-tooltip-warning { --custom-tooltip-accent: var(--button-warning-bg, #ffc107); }
+.custom-tooltip-error { --custom-tooltip-accent: var(--button-danger-bg, #dc3545); }
+
