@@ -173,7 +173,7 @@
       tooltipEl.classList.add('visible');
       tooltipEl.setAttribute('aria-hidden', 'false');
       positionTooltip(activeTarget);
-    }, 240);
+    }, 500);
   }
 
   function hideTooltip() {

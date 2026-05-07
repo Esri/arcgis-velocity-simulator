@@ -54,19 +54,65 @@ function requestGracefulCliExit(exitCode) {
 const cliOptions = parseCommandLineArgs(process.argv, { isPackaged: app.isPackaged });
 const startupFilePathFromCli = cliOptions.ui.startupFilePath;
 
-cliOptions.warnings.forEach((warning) => console.warn(`CLI warning: ${warning}`));
+// ─── Application Logger (works in both UI and headless modes) ────────────────
+// Initialised immediately after CLI parsing so every subsequent print — including
+// startup warnings, help text, and error output — is captured in the log file.
+const { RunLogger } = require(path.join(basePath, 'run-logger.js'));
+
+const appLogFile = cliOptions.logFile || (() => {
+  const ts = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, '');
+  const logDir = path.resolve('./logs');
+  fs.mkdirSync(logDir, { recursive: true });
+  return path.join(logDir, `velocity-simulator-${ts}.log`);
+})();
+
+const appLogger = new RunLogger({
+  logLevel: cliOptions.logLevel,
+  logFile: appLogFile,
+  stdout: true,
+});
+
+function velocityLog(level, ...args) {
+  const message = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ');
+  appLogger.write(level, message);
+}
+
+// Intercept console.* so all stdout/stderr lines also appear in the log file.
+// We preserve the original console methods for actual terminal output; appLogger
+// writes to the file (stdout flag is false here to avoid double-printing).
+(function patchConsole() {
+  const fileOnly = new RunLogger({
+    logLevel: 'debug',
+    logFile: appLogFile,
+    stdout: false,
+  });
+  const serialize = (...a) => a.map(x => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ');
+  const _log   = console.log.bind(console);
+  const _warn  = console.warn.bind(console);
+  const _error = console.error.bind(console);
+  const _debug = console.debug.bind(console);
+  console.log   = (...a) => { _log(...a);   fileOnly.info(serialize(...a));  };
+  console.warn  = (...a) => { _warn(...a);  fileOnly.warn(serialize(...a));  };
+  console.error = (...a) => { _error(...a); fileOnly.error(serialize(...a)); };
+  console.debug = (...a) => { _debug(...a); fileOnly.debug(serialize(...a)); };
+}());
+
+velocityLog('info', '[Startup] Log file: ' + appLogFile);
+velocityLog('info', '[Startup] Log level: ' + cliOptions.logLevel);
+
+cliOptions.warnings.forEach((warning) => velocityLog('warn', `[Startup] CLI warning: ${warning}`));
 
 if (cliOptions.explain && cliOptions.mode !== 'help') {
-  console.log(formatExplainOutput(cliOptions));
+  velocityLog('info', '[Startup] ' + formatExplainOutput(cliOptions));
 }
 
 if (cliOptions.mode === 'help') {
-  console.log(cliOptions.helpText);
+  velocityLog('info', '[Startup] ' + cliOptions.helpText);
   requestGracefulCliExit(EXIT_CODES.success);
 }
 
 if (cliOptions.mode === 'error') {
-  console.error(formatCliStartupErrorOutput(cliOptions));
+  velocityLog('error', '[Startup] ' + formatCliStartupErrorOutput(cliOptions));
   requestGracefulCliExit(EXIT_CODES.configurationError);
 }
 
@@ -106,29 +152,6 @@ const { createWsClientTransport, createWsServerTransport } = require(path.join(b
 const { generateToken, generateOAuthToken, getVelocityApiUrl, listFeeds, getFeedDetails, TokenManager } = require(path.join(basePath, 'velocity-api.js'));
 const velocityTokenManager = new TokenManager();
 
-// ─── Application Logger (works in both UI and headless modes) ────────────────
-const { RunLogger } = require(path.join(basePath, 'run-logger.js'));
-
-const appLogFile = cliOptions.logFile || (() => {
-  const ts = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, '');
-  const logDir = path.resolve('./logs');
-  fs.mkdirSync(logDir, { recursive: true });
-  return path.join(logDir, `velocity-simulator-${ts}.log`);
-})();
-
-const appLogger = new RunLogger({
-  logLevel: cliOptions.logLevel,
-  logFile: appLogFile,
-  stdout: true,
-});
-
-function velocityLog(level, ...args) {
-  const message = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ');
-  appLogger.write(level, message);
-}
-
-velocityLog('info', '[Startup] Log file: ' + appLogFile);
-velocityLog('info', '[Startup] Log level: ' + cliOptions.logLevel);
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Make mainWindow globally accessible for speech recognition
@@ -632,7 +655,21 @@ function createWindow() {
     Menu.setApplicationMenu(applicationMenu);
   });
 
-  // --- Debounced State Saving for Window Changes ---
+  // Forward renderer-process console output to the log file.
+  mainWindow.webContents.on('console-message', (event) => {
+    // Support both the legacy positional-arg form and the current event-object form.
+    const level     = typeof event.level   === 'number' ? event.level   : event[1];
+    const message   = typeof event.message === 'string' ? event.message : event[2];
+    const line      = event.line     ?? event[3];
+    const sourceId  = event.sourceId ?? event[4];
+    // Suppress noisy Electron dev-only warnings that aren't actionable at runtime.
+    if (typeof message === 'string' && message.includes('Electron Security Warning')) return;
+    const levelMap = { 0: 'debug', 1: 'info', 2: 'warn', 3: 'error' };
+    const logLevel = levelMap[level] || 'info';
+    const src = sourceId ? ` (${path.basename(sourceId)}:${line})` : '';
+    velocityLog(logLevel, `[Renderer]${src} ${message}`);
+  });
+
   let saveStateTimeout;
   const debouncedSaveAppState = () => {
     clearTimeout(saveStateTimeout);

@@ -217,9 +217,9 @@ async function listFeeds(velocityUrl, token, adminScope = false) {
     const shape = Array.isArray(feeds)
       ? `array(${feeds.length})`
       : (feeds && typeof feeds === 'object' ? `object{${Object.keys(feeds).filter(k => !k.startsWith('__')).join(',')}}` : typeof feeds);
-    console.log(`[API][listFeeds] raw response shape: ${shape}`);
+    console.log(`[API] [listFeeds] raw response shape: ${shape}`);
     if (!Array.isArray(feeds)) {
-      console.log(`[API][listFeeds] raw body (first 500): ${(feeds.__rawBody || '').slice(0, 500)}`);
+      console.log(`[API] [listFeeds] raw body (first 500): ${(feeds.__rawBody || '').slice(0, 500)}`);
     }
   }
 
