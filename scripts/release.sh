@@ -224,6 +224,31 @@ LIST_LIMIT=10
 VERSION=""
 PREV_ARG=""
 
+# closest_flag <unknown> — prints the known flag most similar to <unknown>
+# Uses character-overlap heuristic: counts shared chars after stripping leading dashes.
+closest_flag() {
+  local input="${1#--}"; input="${input#-}"
+  local best_flag="" best_score=-1
+  local known=(
+    "--dry-run" "--simulate" "--re-release" "--seq"
+    "--prepare-only" "--upload-only" "--install-prereqs" "--install-deps"
+    "--list" "--limit" "--help"
+  )
+  for flag in "${known[@]}"; do
+    local f="${flag#--}"
+    local score=0
+    local len=${#input}
+    for (( i=0; i<len; i++ )); do
+      [[ "$f" == *"${input:$i:1}"* ]] && score=$(( score + 1 ))
+    done
+    if (( score > best_score )); then
+      best_score=$score
+      best_flag=$flag
+    fi
+  done
+  echo "$best_flag"
+}
+
 for arg in "$@"; do
   case "$arg" in
     --dry-run|--simulate|-s)             DRY_RUN=true ;;
@@ -235,6 +260,19 @@ for arg in "$@"; do
     --list|-l)                           LIST=true ;;
     --limit=*)                           LIST_LIMIT="${arg#--limit=}" ;;
     --limit)                             ;;   # value consumed in next iteration
+    --*)
+      # Unknown long flag — suggest the closest known one and exit
+      suggestion=$(closest_flag "$arg")
+      echo -e "\n  ${RED}${BOLD}✖  ERROR:${RESET}  Unrecognized option: ${BOLD}${arg}${RESET}" >&2
+      echo -e "     Did you mean ${BOLD}${suggestion}${RESET}?\n" >&2
+      exit 1
+      ;;
+    -[a-zA-Z]*)
+      # Unknown short flag
+      echo -e "\n  ${RED}${BOLD}✖  ERROR:${RESET}  Unrecognized option: ${BOLD}${arg}${RESET}" >&2
+      echo -e "     Run ${BOLD}./scripts/release.sh --help${RESET} to see available options.\n" >&2
+      exit 1
+      ;;
     *)
       if [[ "$PREV_ARG" == "--limit" ]]; then
         LIST_LIMIT="$arg"
