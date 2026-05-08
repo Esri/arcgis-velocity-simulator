@@ -60,12 +60,16 @@ See **[BUILD.md → Bootstrapping a Fresh Machine](./BUILD.md#bootstrapping-a-fr
 
 | Argument / Option | Description |
 |-------------------|-------------|
-| `<version>` | Release version, e.g. `v1.2.3` or `1.2.3`. Must be ≥ current `package.json` version. The `v` prefix is optional. |
-| `--dry-run` | Simulate the entire release without writing files, committing, or publishing. Shows each artifact that would be uploaded (with file size) and a full preview of the release notes. |
-| `--re-release` | Re-publish an already-released version with rebuilt artifacts and refreshed release notes. Re-uses the requested version number (no `package.json` bump needed), generates the changelog against the **previous good tag** (skipping the version being re-released), deletes the existing GitHub release and git tag, and re-creates them pinned to the current `HEAD` commit. Use this to recover from a broken release of the same version. The clean-working-tree and version-gate checks still apply. |
-| `--seq` | Build platforms sequentially instead of in parallel (the default). Slower overall, but produces non-interleaved build output — useful for debugging build failures. |
-| `--install-prereqs` | Auto-install any missing build/release prerequisites before running Step 0 (uses Homebrew on macOS, apt/dnf/pacman on Linux, winget/choco on Windows). Combine with `--dry-run` to preview the install plan only. Tools that are too risky to auto-install (Node major upgrades, `gh auth login`, `.deb` tooling on Windows → WSL) are surfaced as manual steps. **Signing tools and signing-related env vars (`CSC_LINK`, `WIN_CSC_LINK`, `APPLE_*`) are NOT auto-installed** — see the [Code Signing](#code-signing) section. Alias: `--install-deps`. |
+| `<version>` | Release version, e.g. `v1.2.3` or `1.2.3`. Must be ≥ current `package.json` version. The `v` prefix is optional. Not required when using `--upload-only` / `-u` (version is read from `package.json`). |
+| `--dry-run` / `--simulate` / `-s` | Simulate the entire release without writing files, committing, or publishing. Shows each artifact that would be uploaded (with file size) and a full preview of the release notes. |
+| `--re-release` / `-R` | Re-publish an already-released version with rebuilt artifacts and refreshed release notes. Re-uses the requested version number (no `package.json` bump needed), generates the changelog against the **previous good tag** (skipping the version being re-released), deletes the existing GitHub release and git tag, and re-creates them pinned to the current `HEAD` commit. Use this to recover from a broken release of the same version. The clean-working-tree and version-gate checks still apply. |
+| `--seq` / `-S` | Build platforms sequentially instead of in parallel (the default). Slower overall, but produces non-interleaved build output — useful for debugging build failures. |
+| `--prepare-only` / `-p` | Run Steps 0–4 only (prereqs check, version bump, build all platforms, commit + push) and exit **before** creating or uploading any GitHub release. Use this to build and inspect artifacts locally before committing to a public release. When ready, complete the release with `--upload-only`. Compatible with `--seq`, `--install-prereqs`, and `--dry-run`. |
+| `--upload-only` / `-u` | Skip Steps 0–4 entirely and jump straight to Step 5 (create GitHub release + upload `dist/` artifacts). The version is read automatically from `package.json` — no version argument needed. Use this after a prior `--prepare-only` run, or when artifacts were produced by another process (e.g. CI). Only `gh` CLI is required — build tools are not checked. Compatible with `--re-release` and `--dry-run`. |
+| `--install-prereqs` / `-i` | Auto-install any missing build/release prerequisites before running Step 0 (uses Homebrew on macOS, apt/dnf/pacman on Linux, winget/choco on Windows). Combine with `--dry-run` to preview the install plan only. Tools that are too risky to auto-install (Node major upgrades, `gh auth login`, `.deb` tooling on Windows → WSL) are surfaced as manual steps. **Signing tools and signing-related env vars (`CSC_LINK`, `WIN_CSC_LINK`, `APPLE_*`) are NOT auto-installed** — see the [Code Signing](#code-signing) section. Aliases: `--install-deps`, `-i`. |
 | `--help` / `-h` | Print usage information and exit. |
+| `--list` / `-l` | List all published GitHub releases for this repository and exit. Requires `gh` CLI to be installed and authenticated. Shows tag, date, and title for each release with colour-coded status (latest / pre-release / draft). Pair with `--limit <n>` to control how many are shown (default: 10). Also prints the local `package.json` version for quick comparison. |
+| `--limit <n>` | Maximum number of releases to show when using `--list`. Default: `10`. |
 
 ### Examples
 
@@ -94,9 +98,53 @@ See **[BUILD.md → Bootstrapping a Fresh Machine](./BUILD.md#bootstrapping-a-fr
 # Preview just the prereq install plan (no install, no release)
 ./scripts/release.sh --install-prereqs --dry-run v1.2.3
 
+# Two-phase release: build + commit now, upload to GitHub later
+./scripts/release.sh --prepare-only v1.2.3
+# ... inspect dist/ artifacts, sign them if needed, then:
+./scripts/release.sh --upload-only
+
+# Two-phase with sequential build (useful when debugging build output)
+./scripts/release.sh --prepare-only --seq v1.2.3
+./scripts/release.sh --upload-only
+
+# Upload-only after artifacts were produced externally (e.g. by CI)
+./scripts/release.sh --upload-only
+
+# Re-release upload-only: delete existing GitHub release + re-upload freshly built artifacts
+./scripts/release.sh --upload-only --re-release
+
+# Preview the upload step without actually publishing
+./scripts/release.sh --upload-only --dry-run
+
 # Show help
 ./scripts/release.sh --help
+
+# List all published releases
+./scripts/release.sh --list
+
+# List the 5 most recent releases
+./scripts/release.sh --list --limit 5
 ```
+
+### Two-Phase Release
+
+The `--prepare-only` and `--upload-only` flags split the release pipeline into two independent phases:
+
+| Phase | Flag | Steps run | What it does |
+|-------|------|-----------|--------------|
+| **Prepare** | `--prepare-only` | 0–4 | Checks prereqs, bumps version, builds all platform artifacts, commits + pushes the version bump. Exits before touching GitHub. |
+| **Upload** | `--upload-only` | 5 only | Creates the GitHub release and uploads all `dist/` artifacts. Reads the version from `package.json` — no version argument needed. |
+
+**When to use this:**
+
+- **Inspect before publishing** — run `--prepare-only`, verify the artifacts in `dist/` (size, content, naming), then run `--upload-only` to publish once satisfied.
+- **Build on one machine, upload from another** — run `--prepare-only` on your build machine, copy `dist/` to the upload machine, then run `--upload-only` there.
+- **CI-produced artifacts** — if your CI pipeline builds the artifacts, run `./scripts/release.sh --upload-only` locally to publish them to GitHub without triggering a rebuild.
+- **Staged releases** — prepare multiple versions back-to-back, then upload them in sequence.
+
+> **Note:** `--upload-only` skips the clean-working-tree and prerequisites checks for build tools. Make sure `gh` is authenticated (`gh auth login`) and that `dist/` contains the expected artifacts before running it.
+
+> **Mutual exclusivity:** `--prepare-only` and `--upload-only` cannot be combined — the script will abort with an error if both are passed.
 
 > **Tip:** Always do a `--dry-run` first to preview the release notes and verify the artifact list before publishing.
 

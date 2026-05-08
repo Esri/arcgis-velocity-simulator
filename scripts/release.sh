@@ -15,85 +15,125 @@ YELLOW='\033[0;33m'
 RESET='\033[0m'
 
 print_help() {
+  local W=30   # description indent width (must match flag-column width below)
   echo -e "
-${BOLD}${WHITE}Usage:${RESET}
+${BOLD}${WHITE}USAGE${RESET}
   ${CYAN}./scripts/release.sh${RESET} [options] <version>
 
-${BOLD}${WHITE}Arguments:${RESET}
-  ${BOLD}<version>${RESET}       Release version. Must be >= current package.json version.
-                  The leading ${BOLD}v${RESET} is optional — both ${BOLD}v1.2.3${RESET} and ${BOLD}1.2.3${RESET} are accepted.
+${BOLD}${WHITE}ARGUMENTS${RESET}
+  ${BOLD}<version>${RESET}
+        Release version — e.g. ${CYAN}v1.2.3${RESET} or ${CYAN}1.2.3${RESET}.
+        Must be >= the current package.json version. The leading ${BOLD}v${RESET} is optional.
+        Omit entirely when using ${BOLD}--upload-only${RESET} (inferred from package.json).
 
-${BOLD}${WHITE}Options:${RESET}
-  ${BOLD}--dry-run${RESET}       Simulate the release without making any changes.
-                  Validates version, shows each artifact that would be uploaded
-                  (with file size), and prints a full preview of the release notes.
-                  No files are written, no commits made, nothing pushed or published.
-  ${BOLD}--re-release${RESET}     Re-publish an already-released version with rebuilt artifacts and
-                  refreshed release notes. Re-uses the requested version number (no
-                  package.json bump needed), generates the changelog against the
-                  previous good tag (skipping the version being re-released),
-                  deletes the existing GitHub release and git tag, and re-creates
-                  them pinned to the current HEAD commit. Use this to recover from
-                  a broken release of the same version.
-  ${BOLD}--seq${RESET}           Build platforms sequentially instead of in parallel.
-                  Slower overall, but produces clean non-interleaved build output —
-                  useful for debugging build failures.
-  ${BOLD}--install-prereqs${RESET}  Auto-install any missing build/release prerequisites before
-                  proceeding (uses Homebrew on macOS, apt/dnf/pacman on Linux,
-                  winget/choco on Windows). Combine with ${BOLD}--dry-run${RESET} to preview
-                  the install plan only. Things that are too risky to auto-install
-                  (Node major upgrades, ${DIM}gh auth login${RESET}, .deb tooling on Windows →
-                  WSL) are surfaced as manual steps. Alias: ${BOLD}--install-deps${RESET}.
-                  Signing tools (codesign, signtool) and signing-related env vars
-                  (CSC_LINK, WIN_CSC_LINK, APPLE_*) are NOT auto-installed.
-  ${BOLD}--help${RESET}          Show this help message and exit.
+${BOLD}${WHITE}OPTIONS${RESET}
+  ${BOLD}--dry-run${RESET}  ${DIM}--simulate  -s${RESET}
+        Simulate the release without making any changes. Validates the version,
+        lists each artifact that would be uploaded (with file size), and prints a
+        full preview of the release notes. Nothing is written, committed, or published.
 
-${BOLD}${WHITE}What the script does:${RESET}
-  0. Verifies prerequisites are installed:
-     • ${BOLD}node${RESET} ≥ 18, ${BOLD}npm${RESET}, ${BOLD}node_modules${RESET} (electron-builder)
-     • ${BOLD}git${RESET}, ${BOLD}gh${RESET} CLI (and that gh is authenticated)
-     • ${BOLD}dpkg${RESET}, ${BOLD}fakeroot${RESET}, GNU ${BOLD}ar${RESET} (for building .deb on macOS)
-     With ${BOLD}--install-prereqs${RESET}, missing tools are installed automatically
-     (or, where unsafe to auto-install, surfaced as manual steps).
-     Also verifies the working tree is clean (no uncommitted changes apart
-     from package.json, no unpushed commits) so the published tag is reproducible.
-  1. Validates the requested version against the current package.json version.
-  2. Bumps the version in package.json (if it changed).
-  3. Builds all platform packages in parallel via ${BOLD}npm run package:all:clean${RESET}
-     (or sequentially via ${BOLD}npm run package:seq:clean${RESET} when ${BOLD}--seq${RESET} is set).
-  4. Commits and pushes the package.json version bump (if a change was made).
-  5. Creates and publishes a GitHub release with all dist/ artifacts and rich release notes.
+  ${BOLD}--prepare-only${RESET}  ${DIM}-p${RESET}
+        Run Steps 0–4 only (prereqs, version bump, build, commit + push) then exit
+        before creating or uploading the GitHub release. Inspect ${CYAN}dist/${RESET} artifacts,
+        sign them if needed, then publish with ${BOLD}--upload-only${RESET}.
+        Stacks with ${BOLD}--seq${RESET}, ${BOLD}--install-prereqs${RESET}, and ${BOLD}--dry-run${RESET}.
 
-${BOLD}${WHITE}Prerequisites:${RESET}
-  • Run from the repository root directory.
-  • ${BOLD}node${RESET} and ${BOLD}npm${RESET} must be installed and ${BOLD}node_modules${RESET} present (${DIM}npm install${RESET}).
-  • ${BOLD}gh${RESET} (GitHub CLI) must be installed and authenticated (${DIM}gh auth login${RESET}).
-  • ${BOLD}git${RESET} must be configured with commit access to the repository.
+  ${BOLD}--upload-only${RESET}  ${DIM}-u${RESET}
+        Skip Steps 0–4 and jump straight to Step 5 (create GitHub release + upload
+        ${CYAN}dist/${RESET} artifacts). Version is read from package.json — no argument needed.
+        Use after ${BOLD}--prepare-only${RESET}, or when artifacts were built externally (e.g. CI).
+        Only ${BOLD}gh${RESET} CLI is required — build tools are not checked.
+        Stacks with ${BOLD}--re-release${RESET} and ${BOLD}--dry-run${RESET}.
 
-${BOLD}${WHITE}Examples:${RESET}
-  ${DIM}# Standard release${RESET}
+  ${BOLD}--re-release${RESET}  ${DIM}-R${RESET}
+        Re-publish an already-released version with rebuilt artifacts and refreshed
+        release notes. Deletes the existing GitHub release and git tag, then
+        re-creates them pinned to HEAD. Generates the changelog against the previous
+        good tag (skipping the version being re-released). Use this to recover from
+        a broken release of the same version.
+
+  ${BOLD}--seq${RESET}  ${DIM}-S${RESET}
+        Build platforms sequentially instead of in parallel. Slower overall, but
+        produces clean non-interleaved output — useful for debugging build failures.
+
+  ${BOLD}--install-prereqs${RESET}  ${DIM}--install-deps  -i${RESET}
+        Auto-install any missing build/release prerequisites (Homebrew on macOS,
+        apt/dnf/pacman on Linux, winget/choco on Windows). Combine with ${BOLD}--dry-run${RESET}
+        to preview the install plan only. Node major upgrades, ${BOLD}gh auth login${RESET}, and
+        .deb tooling on Windows (→ WSL) are surfaced as manual steps.
+        ${YELLOW}⚠${RESET}  Signing tools and env vars (CSC_LINK, WIN_CSC_LINK, APPLE_*) are NOT
+           auto-installed.
+
+  ${BOLD}--help${RESET}  ${DIM}-h${RESET}
+        Show this help message and exit.
+
+  ${BOLD}--list${RESET}  ${DIM}-l${RESET}
+        List all published GitHub releases for this repository and exit.
+        Requires ${BOLD}gh${RESET} CLI to be installed and authenticated.
+        Pair with ${BOLD}--limit${RESET} ${DIM}<n>${RESET} to control how many releases are shown ${DIM}(default: 10)${RESET}.
+
+  ${BOLD}--limit${RESET}  ${DIM}<n>${RESET}
+        Maximum number of releases to show with ${BOLD}--list${RESET}. Default: ${DIM}10${RESET}.
+
+${BOLD}${WHITE}PIPELINE${RESET}
+  Step 0  Check prerequisites + verify clean working tree
+  Step 1  Validate requested version (blocks downgrades)
+  Step 2  Bump version in package.json
+  Step 3  Build all platform packages  ${DIM}(parallel by default; --seq for serial)${RESET}
+  Step 4  Commit + push the version bump
+  Step 5  Create GitHub release + upload dist/ artifacts
+
+  ${DIM}--prepare-only  stops after Step 4  (build + commit, no GitHub upload)${RESET}
+  ${DIM}--upload-only   starts at  Step 5  (upload only, skips build entirely)${RESET}
+
+${BOLD}${WHITE}PREREQUISITES${RESET}
+  • Run from the repository root
+  • ${BOLD}node${RESET} ≥ 18, ${BOLD}npm${RESET}, and ${BOLD}node_modules${RESET} present  ${DIM}(npm install)${RESET}
+  • ${BOLD}gh${RESET} (GitHub CLI) installed and authenticated  ${DIM}(gh auth login)${RESET}
+  • ${BOLD}git${RESET} configured with push access
+  • ${BOLD}dpkg${RESET}, ${BOLD}fakeroot${RESET}, GNU ${BOLD}ar${RESET}  ${DIM}(macOS .deb builds — brew install dpkg fakeroot binutils)${RESET}
+
+${BOLD}${WHITE}EXAMPLES${RESET}
+  ${DIM}# Full release — does everything in one command${RESET}
   ${CYAN}./scripts/release.sh v1.2.3${RESET}
 
-  ${DIM}# Version without 'v' prefix (equivalent)${RESET}
+  ${DIM}# Same, without the v prefix${RESET}
   ${CYAN}./scripts/release.sh 1.2.3${RESET}
 
-  ${DIM}# Preview everything without making any changes${RESET}
-  ${CYAN}./scripts/release.sh --dry-run v1.2.3${RESET}
+  ${DIM}# Preview the full release without making any changes (recommended first step)${RESET}
+  ${CYAN}./scripts/release.sh -s v1.2.3${RESET}
 
-  ${DIM}# Flag order doesn't matter${RESET}
-  ${CYAN}./scripts/release.sh v1.2.3 --dry-run${RESET}
+  ${DIM}# Two-phase: build + commit now, review artifacts, upload later${RESET}
+  ${CYAN}./scripts/release.sh --prepare-only v1.2.3${RESET}
+  ${CYAN}./scripts/release.sh --upload-only${RESET}
 
-  ${DIM}# Re-release the same version (deletes existing release + tag first, rebuilds, refreshes notes)${RESET}
+  ${DIM}# Two-phase with sequential build (clean output, useful for debugging)${RESET}
+  ${CYAN}./scripts/release.sh -p -S v1.2.3${RESET}
+  ${CYAN}./scripts/release.sh -u${RESET}
+
+  ${DIM}# Upload-only for externally produced artifacts (e.g. from CI)${RESET}
+  ${CYAN}./scripts/release.sh -u${RESET}
+
+  ${DIM}# Recover from a broken release — delete + rebuild + re-upload${RESET}
   ${CYAN}./scripts/release.sh --re-release v1.2.3${RESET}
 
-  ${DIM}# Build platforms sequentially (clean, non-interleaved output)${RESET}
+  ${DIM}# Re-upload only (skip rebuild — reuse existing dist/ artifacts)${RESET}
+  ${CYAN}./scripts/release.sh -u -R${RESET}
+
+  ${DIM}# Sequential build (clean output, slower)${RESET}
   ${CYAN}./scripts/release.sh --seq v1.2.3${RESET}
 
-  ${DIM}# Auto-install any missing prerequisites first (brew / apt / winget)${RESET}
+  ${DIM}# Auto-install missing prerequisites, then release${RESET}
   ${CYAN}./scripts/release.sh --install-prereqs v1.2.3${RESET}
 
-  ${DIM}# Preview just the prereq install plan (no install, no release)${RESET}
-  ${CYAN}./scripts/release.sh --install-prereqs --dry-run v1.2.3${RESET}
+  ${DIM}# Preview prereq install plan only (no install, no release)${RESET}
+  ${CYAN}./scripts/release.sh -i -s v1.2.3${RESET}
+
+  ${DIM}# List all published releases${RESET}
+  ${CYAN}./scripts/release.sh --list${RESET}
+
+  ${DIM}# List the 5 most recent releases${RESET}
+  ${CYAN}./scripts/release.sh --list --limit 5${RESET}
 "
 }
 
@@ -125,6 +165,8 @@ banner() {
   [[ "$DRY_RUN"          == true ]] && tag="${tag} ${BOLD}${YELLOW}[dry run]${RESET}${BOLD}${CYAN}"
   [[ "$RERELEASE"        == true ]] && tag="${tag} ${BOLD}${RED}[re-release]${RESET}${BOLD}${CYAN}"
   [[ "$SEQ"              == true ]] && tag="${tag} ${BOLD}${CYAN}[seq]${RESET}${BOLD}${CYAN}"
+  [[ "$PREPARE_ONLY"     == true ]] && tag="${tag} ${BOLD}${CYAN}[prepare-only]${RESET}${BOLD}${CYAN}"
+  [[ "$UPLOAD_ONLY"      == true ]] && tag="${tag} ${BOLD}${GREEN}[upload-only]${RESET}${BOLD}${CYAN}"
   [[ "$INSTALL_PREREQS"  == true ]] && tag="${tag} ${BOLD}${GREEN}[install-prereqs]${RESET}${BOLD}${CYAN}"
   echo ""
   echo -e "${BOLD}${CYAN}┌─ Step ${step}${tag} ─────────────────────────────────────────────────────${RESET}"
@@ -172,20 +214,87 @@ DRY_RUN=false
 RERELEASE=false
 SEQ=false
 INSTALL_PREREQS=false
+PREPARE_ONLY=false
+UPLOAD_ONLY=false
+LIST=false
+LIST_LIMIT=10
 VERSION=""
+PREV_ARG=""
 
 for arg in "$@"; do
   case "$arg" in
-    --dry-run)              DRY_RUN=true ;;
-    --re-release)            RERELEASE=true ;;
-    --seq)                  SEQ=true ;;
-    --install-prereqs|--install-deps)  INSTALL_PREREQS=true ;;
-    *)                      VERSION="$arg" ;;
+    --dry-run|--simulate|-s)             DRY_RUN=true ;;
+    --re-release|-R)                     RERELEASE=true ;;
+    --seq|-S)                            SEQ=true ;;
+    --prepare-only|-p)                   PREPARE_ONLY=true ;;
+    --upload-only|-u)                    UPLOAD_ONLY=true ;;
+    --install-prereqs|--install-deps|-i) INSTALL_PREREQS=true ;;
+    --list|-l)                           LIST=true ;;
+    --limit=*)                           LIST_LIMIT="${arg#--limit=}" ;;
+    --limit)                             ;;   # value consumed in next iteration
+    *)
+      if [[ "$PREV_ARG" == "--limit" ]]; then
+        LIST_LIMIT="$arg"
+      else
+        VERSION="$arg"
+      fi
+      ;;
   esac
+  PREV_ARG="$arg"
 done
 
+# ── --list: show published releases and exit ─────────────────────────────────
+if [[ "$LIST" == true ]]; then
+  APP_NAME=$(node -p "require('./package.json').productName" 2>/dev/null || echo "")
+  CURRENT_VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "")
+  echo ""
+  echo -e "${BOLD}${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo -e "${BOLD}${WHITE}  🏷   ${APP_NAME}  —  Published Releases${RESET}"
+  echo -e "${BOLD}${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo ""
+  if ! command -v gh &>/dev/null; then
+    fail "gh CLI is not installed.\n     Install with: ${CYAN}brew install gh${RESET}"
+  fi
+  if ! gh auth status &>/dev/null 2>&1; then
+    fail "gh CLI is not authenticated.\n     Run: ${CYAN}gh auth login${RESET}"
+  fi
+  if gh release list --limit 1 --json tagName &>/dev/null 2>&1; then
+    gh release list --limit "${LIST_LIMIT}" \
+      --json tagName,name,publishedAt,isDraft,isPrerelease \
+      --jq '.[] | [
+        (if .isDraft then "draft" elif .isPrerelease then "pre" else "latest" end),
+        .tagName,
+        (.publishedAt | split("T")[0]),
+        .name
+      ] | @tsv' \
+    | while IFS=$'\t' read -r status tag date title; do
+        case "$status" in
+          latest) label="${GREEN}${BOLD}●${RESET} ${BOLD}latest${RESET} " ;;
+          pre)    label="${YELLOW}${BOLD}◐${RESET} ${YELLOW}pre   ${RESET} " ;;
+          draft)  label="${DIM}○ draft ${RESET} " ;;
+          *)      label="  " ;;
+        esac
+        echo -e "  ${label} ${BOLD}${tag}${RESET}  ${DIM}${date}${RESET}  ${title}"
+      done
+  else
+    gh release list --limit "${LIST_LIMIT}"
+  fi
+  echo ""
+  if [[ -n "$CURRENT_VERSION" ]]; then
+    echo -e "  ${DIM}local package.json${RESET}  →  ${BOLD}v${CURRENT_VERSION}${RESET}"
+  fi
+  echo ""
+  exit 0
+fi
+
+# --upload-only can infer the version from package.json
+if [[ -z "$VERSION" && "$UPLOAD_ONLY" == true ]]; then
+  VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "")
+  [[ -n "$VERSION" ]] && VERSION="v${VERSION#v}"
+fi
+
 if [[ -z "$VERSION" ]]; then
-  fail "Version argument is required.\n     Usage: $0 [--dry-run] <version>  (e.g. $0 v1.0.0)"
+  fail "Version argument is required.\n     Usage: $0 [--dry-run] <version>  (e.g. $0 v1.0.0)\n     Exception: --upload-only can infer the version from package.json."
 fi
 
 # Normalise: ensure leading 'v'
@@ -206,23 +315,40 @@ fi
 if [[ "$SEQ" == true ]]; then
   echo -e "${BOLD}${CYAN}  ⓘ   SEQ — platforms will build sequentially (slower, clean output)${RESET}"
 fi
+if [[ "$PREPARE_ONLY" == true ]]; then
+  echo -e "${BOLD}${CYAN}  ⓘ   PREPARE-ONLY — will stop after Step 4 (build + commit); skipping GitHub upload${RESET}"
+fi
+if [[ "$UPLOAD_ONLY" == true ]]; then
+  echo -e "${BOLD}${GREEN}  ⓘ   UPLOAD-ONLY — skipping build; will publish existing dist/ artifacts to GitHub${RESET}"
+fi
 if [[ "$INSTALL_PREREQS" == true ]]; then
   echo -e "${BOLD}${GREEN}  ⓘ   INSTALL-PREREQS — missing build/release tools will be auto-installed${RESET}"
 fi
 echo -e "${BOLD}${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 
-# ── Step 0: Build prerequisites ──────────────────────────────────────────────
-banner 0 "Checking build prerequisites"
+# ── Mutual exclusivity guard ─────────────────────────────────────────────────
+if [[ "$PREPARE_ONLY" == true && "$UPLOAD_ONLY" == true ]]; then
+  fail "--prepare-only and --upload-only are mutually exclusive.\n     Use one or the other, or neither (to run the full pipeline)."
+fi
 
-if [[ "$INSTALL_PREREQS" == true ]]; then
-  INSTALL_ARGS=(--release)
-  [[ "$DRY_RUN" == true ]] && INSTALL_ARGS+=(--dry-run)
-  if ! node scripts/install-prereqs.js "${INSTALL_ARGS[@]}"; then
-    fail "Prerequisites missing. Install the listed tools and re-run."
-  fi
+# ── Step 0: Build prerequisites ──────────────────────────────────────────────
+# Skipped entirely when --upload-only is set (build tools are not needed).
+if [[ "$UPLOAD_ONLY" == true ]]; then
+  banner 0 "Skipping build prerequisites (--upload-only)"
+  info "Build tools not required — only gh CLI is needed for upload."
 else
-  if ! node scripts/check-build-prereqs.js --release; then
-    fail "Prerequisites missing. Install the listed tools and re-run.\n     Tip: re-run with ${BOLD}--install-prereqs${RESET} to auto-install where possible."
+  banner 0 "Checking build prerequisites"
+
+  if [[ "$INSTALL_PREREQS" == true ]]; then
+    INSTALL_ARGS=(--release)
+    [[ "$DRY_RUN" == true ]] && INSTALL_ARGS+=(--dry-run)
+    if ! node scripts/install-prereqs.js "${INSTALL_ARGS[@]}"; then
+      fail "Prerequisites missing. Install the listed tools and re-run."
+    fi
+  else
+    if ! node scripts/check-build-prereqs.js --release; then
+      fail "Prerequisites missing. Install the listed tools and re-run.\n     Tip: re-run with ${BOLD}--install-prereqs${RESET} to auto-install where possible."
+    fi
   fi
 fi
 
@@ -230,102 +356,158 @@ fi
 # Block the release if there are uncommitted changes (other than package.json,
 # which the script itself may modify) or unpushed commits — a release should
 # always reflect what's on the remote and be reproducible from the published tag.
-banner 0 "Verifying clean working tree"
-
-WORKING_TREE_OK=true
-
-# 1) Uncommitted changes (excluding package.json, which Step 2 may bump)
-DIRTY_FILES=$(git status --porcelain | awk '{print $2}' | grep -v '^package\.json$' || true)
-if [[ -n "$DIRTY_FILES" ]]; then
-  WORKING_TREE_OK=false
-  warn "Uncommitted changes detected:"
-  echo "${DIRTY_FILES}" | sed 's/^/       • /'
-fi
-
-# 2) Unpushed commits on the current branch
-UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo "")
-if [[ -z "$UPSTREAM" ]]; then
-  WORKING_TREE_OK=false
-  warn "Current branch has no upstream — cannot verify it's pushed."
+# Skipped when --upload-only is set (artifacts already built, tree state irrelevant).
+if [[ "$UPLOAD_ONLY" == true ]]; then
+  banner 0 "Skipping working tree check (--upload-only)"
+  info "Tree cleanliness is not enforced when uploading pre-built artifacts."
+  GIT_HASH=$(git rev-parse --short HEAD)
 else
-  AHEAD=$(git rev-list --count "${UPSTREAM}..HEAD" 2>/dev/null || echo "0")
-  if [[ "${AHEAD}" -gt 0 ]]; then
+  banner 0 "Verifying clean working tree"
+
+  WORKING_TREE_OK=true
+
+  # 1) Uncommitted changes (excluding package.json, which Step 2 may bump)
+  DIRTY_FILES=$(git status --porcelain | awk '{print $2}' | grep -v '^package\.json$' || true)
+  if [[ -n "$DIRTY_FILES" ]]; then
     WORKING_TREE_OK=false
-    warn "${AHEAD} unpushed commit(s) on the current branch:"
-    git log "${UPSTREAM}..HEAD" --pretty=format:"       • %h %s" | sed -e 's/$//'
-    echo ""
+    warn "Uncommitted changes detected:"
+    echo "${DIRTY_FILES}" | sed 's/^/       • /'
+  fi
+
+  # 2) Unpushed commits on the current branch
+  UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo "")
+  if [[ -z "$UPSTREAM" ]]; then
+    WORKING_TREE_OK=false
+    warn "Current branch has no upstream — cannot verify it's pushed."
+  else
+    AHEAD=$(git rev-list --count "${UPSTREAM}..HEAD" 2>/dev/null || echo "0")
+    if [[ "${AHEAD}" -gt 0 ]]; then
+      WORKING_TREE_OK=false
+      warn "${AHEAD} unpushed commit(s) on the current branch:"
+      git log "${UPSTREAM}..HEAD" --pretty=format:"       • %h %s" | sed -e 's/$//'
+      echo ""
+    fi
+  fi
+
+  if [[ "$WORKING_TREE_OK" != true ]]; then
+    fail "Working tree must be clean before releasing.\n     Commit & push your changes, then re-run."
+  else
+    success "Working tree is clean and up to date with ${UPSTREAM}"
   fi
 fi
 
-if [[ "$WORKING_TREE_OK" != true ]]; then
-  fail "Working tree must be clean before releasing.\n     Commit & push your changes, then re-run."
-else
-  success "Working tree is clean and up to date with ${UPSTREAM}"
-fi
-
 # ── Step 1: Version gate ─────────────────────────────────────────────────────
-banner 1 "Validating version"
+if [[ "$UPLOAD_ONLY" == true ]]; then
+  banner 1 "Skipping version gate (--upload-only)"
+  info "Using version from package.json: ${BOLD}${VERSION_BARE}${RESET}"
+else
+  banner 1 "Validating version"
 
-CURRENT_VERSION=$(node -p "require('./package.json').version")
-info "Current package.json version : ${BOLD}${CURRENT_VERSION}${RESET}"
-info "Requested release version    : ${BOLD}${VERSION_BARE}${RESET}"
+  CURRENT_VERSION=$(node -p "require('./package.json').version")
+  info "Current package.json version : ${BOLD}${CURRENT_VERSION}${RESET}"
+  info "Requested release version    : ${BOLD}${VERSION_BARE}${RESET}"
 
-if semver_lt "${VERSION_BARE}" "${CURRENT_VERSION}"; then
-  fail "Requested version ${BOLD}${VERSION}${RESET} is lower than the current package.json version ${BOLD}v${CURRENT_VERSION}${RESET}.\n     Please provide a version >= v${CURRENT_VERSION}."
+  if semver_lt "${VERSION_BARE}" "${CURRENT_VERSION}"; then
+    fail "Requested version ${BOLD}${VERSION}${RESET} is lower than the current package.json version ${BOLD}v${CURRENT_VERSION}${RESET}.\n     Please provide a version >= v${CURRENT_VERSION}."
+  fi
+
+  success "Version is valid"
 fi
-
-success "Version is valid"
 
 # ── Step 2: Bump package.json ────────────────────────────────────────────────
-banner 2 "Updating package.json version"
-
-if [[ "${VERSION_BARE}" == "${CURRENT_VERSION}" ]]; then
-  warn "package.json already at ${VERSION_BARE} — no change needed"
+if [[ "$UPLOAD_ONLY" == true ]]; then
+  banner 2 "Skipping package.json bump (--upload-only)"
+  info "package.json version is already ${BOLD}${VERSION_BARE}${RESET}"
   VERSION_CHANGED=false
 else
-  run "Write package.json" node -e "
-    const fs = require('fs');
-    const pkg = require('./package.json');
-    pkg.version = '${VERSION_BARE}';
-    fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');
-  "
-  success "package.json version updated: ${DIM}${CURRENT_VERSION}${RESET} → ${BOLD}${VERSION_BARE}${RESET}"
-  VERSION_CHANGED=true
+  banner 2 "Updating package.json version"
+
+  CURRENT_VERSION=$(node -p "require('./package.json').version")
+  if [[ "${VERSION_BARE}" == "${CURRENT_VERSION}" ]]; then
+    warn "package.json already at ${VERSION_BARE} — no change needed"
+    VERSION_CHANGED=false
+  else
+    run "Write package.json" node -e "
+      const fs = require('fs');
+      const pkg = require('./package.json');
+      pkg.version = '${VERSION_BARE}';
+      fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');
+    "
+    success "package.json version updated: ${DIM}${CURRENT_VERSION}${RESET} → ${BOLD}${VERSION_BARE}${RESET}"
+    VERSION_CHANGED=true
+  fi
 fi
 
 # ── Step 3: Build ────────────────────────────────────────────────────────────
-banner 3 "Building platform packages"
-
-if [[ "$SEQ" == true ]]; then
-  BUILD_SCRIPT="package:seq:clean"
+if [[ "$UPLOAD_ONLY" == true ]]; then
+  banner 3 "Skipping build (--upload-only)"
+  info "Using existing artifacts in dist/"
 else
-  BUILD_SCRIPT="package:all:clean"
+  banner 3 "Building platform packages"
+
+  if [[ "$SEQ" == true ]]; then
+    BUILD_SCRIPT="package:seq:clean"
+  else
+    BUILD_SCRIPT="package:all:clean"
+  fi
+  info "Running: npm run ${BUILD_SCRIPT}"
+  echo ""
+
+  BUILD_START=$(date +%s)
+  run "Build" npm run "${BUILD_SCRIPT}"
+  BUILD_ELAPSED=$(( $(date +%s) - BUILD_START ))
+
+  echo ""
+  success "Build complete in ${BOLD}${BUILD_ELAPSED}s${RESET}"
 fi
-info "Running: npm run ${BUILD_SCRIPT}"
-echo ""
-
-BUILD_START=$(date +%s)
-run "Build" npm run "${BUILD_SCRIPT}"
-BUILD_ELAPSED=$(( $(date +%s) - BUILD_START ))
-
-echo ""
-success "Build complete in ${BOLD}${BUILD_ELAPSED}s${RESET}"
 
 # ── Step 4: Commit version bump ──────────────────────────────────────────────
-banner 4 "Committing version bump"
-
-if [[ "$VERSION_CHANGED" == true ]] && { [[ "$DRY_RUN" == true ]] || ! git diff --quiet package.json; }; then
-  run "Git add" git add package.json
-  run "Git commit" git commit -m "chore: bump version to ${VERSION}"
-  run "Git push" git push
+if [[ "$UPLOAD_ONLY" == true ]]; then
+  banner 4 "Skipping version bump commit (--upload-only)"
   GIT_HASH=$(git rev-parse --short HEAD)
-  success "Committed and pushed version bump — ${DIM}${GIT_HASH}${RESET}"
-elif [[ "$VERSION_CHANGED" == true ]]; then
-  GIT_HASH=$(git rev-parse --short HEAD)
-  warn "package.json was updated but git diff is clean (already staged?) — skipping commit"
+  info "HEAD is at ${DIM}${GIT_HASH}${RESET}"
 else
-  GIT_HASH=$(git rev-parse --short HEAD)
-  warn "No version change — skipping commit"
+  banner 4 "Committing version bump"
+
+  if [[ "$VERSION_CHANGED" == true ]] && { [[ "$DRY_RUN" == true ]] || ! git diff --quiet package.json; }; then
+    run "Git add" git add package.json
+    run "Git commit" git commit -m "chore: bump version to ${VERSION}"
+    run "Git push" git push
+    GIT_HASH=$(git rev-parse --short HEAD)
+    success "Committed and pushed version bump — ${DIM}${GIT_HASH}${RESET}"
+  elif [[ "$VERSION_CHANGED" == true ]]; then
+    GIT_HASH=$(git rev-parse --short HEAD)
+    warn "package.json was updated but git diff is clean (already staged?) — skipping commit"
+  else
+    GIT_HASH=$(git rev-parse --short HEAD)
+    warn "No version change — skipping commit"
+  fi
+fi
+
+# ── --prepare-only: exit here before touching GitHub ─────────────────────────
+if [[ "$PREPARE_ONLY" == true ]]; then
+  echo ""
+  if [[ "$DRY_RUN" == true ]]; then
+    echo -e "${BOLD}${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "${BOLD}${YELLOW}  ⚠   Dry run + prepare-only complete — no changes were made${RESET}"
+    echo -e "${BOLD}${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "  ${DIM}Next    :${RESET}  Run without ${BOLD}--dry-run${RESET} to actually build and prepare:"
+    echo -e "           ${CYAN}./scripts/release.sh --prepare-only ${VERSION}${RESET}"
+  else
+    echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "${BOLD}${CYAN}  ✔   Prepare phase complete — artifacts are in dist/${RESET}"
+    echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "  ${DIM}Commit  :${RESET}  ${GIT_HASH}"
+    ASSET_COUNT=0
+    for pattern in dist/*.AppImage dist/*.deb dist/*.dmg dist/*.zip dist/*.exe; do
+      for f in $pattern; do [[ -f "$f" ]] && ASSET_COUNT=$(( ASSET_COUNT + 1 )); done
+    done
+    echo -e "  ${DIM}Assets  :${RESET}  ${ASSET_COUNT} file(s) in dist/"
+    echo -e "  ${DIM}Next    :${RESET}  Review artifacts, then run:"
+    echo -e "           ${CYAN}./scripts/release.sh --upload-only${RESET}"
+  fi
+  echo ""
+  exit 0
 fi
 
 # ── Gather release note metadata ─────────────────────────────────────────────
