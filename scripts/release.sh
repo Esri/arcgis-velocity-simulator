@@ -70,6 +70,8 @@ ${BOLD}${WHITE}OPTIONS${RESET}
   ${BOLD}--list${RESET}  ${DIM}-l${RESET}
         List all published GitHub releases for this repository and exit.
         Requires ${BOLD}gh${RESET} CLI to be installed and authenticated.
+        Outputs a table with columns: ${BOLD}TAG · DATE · STATUS · URL${RESET}.
+        STATUS is colour-coded: ${GREEN}● latest${RESET}  ${YELLOW}◐ pre${RESET}  ${DIM}○ draft${RESET}.
         Pair with ${BOLD}--limit${RESET} ${DIM}<n>${RESET} to control how many releases are shown ${DIM}(default: 10)${RESET}.
 
   ${BOLD}--limit${RESET}  ${DIM}<n>${RESET}
@@ -259,22 +261,27 @@ if [[ "$LIST" == true ]]; then
     fail "gh CLI is not authenticated.\n     Run: ${CYAN}gh auth login${RESET}"
   fi
   if gh release list --limit 1 --json tagName &>/dev/null 2>&1; then
+    REPO_URL=$(gh repo view --json url -q .url 2>/dev/null || echo "https://github.com")
+    echo -e "  ${BOLD}${WHITE}TAG          DATE        STATUS    URL${RESET}"
+    echo -e "  ${DIM}───────────  ──────────  ────────  ──────────────────────────────────────────────────────────${RESET}"
     gh release list --limit "${LIST_LIMIT}" \
-      --json tagName,name,publishedAt,isDraft,isPrerelease \
+      --json tagName,publishedAt,isDraft,isPrerelease \
       --jq '.[] | [
-        (if .isDraft then "draft" elif .isPrerelease then "pre" else "latest" end),
         .tagName,
-        (.publishedAt | split("T")[0]),
-        .name
+        (if .publishedAt != "" and .publishedAt != null then (.publishedAt | split("T")[0]) else "—" end),
+        (if .isDraft then "draft" elif .isPrerelease then "pre" else "latest" end)
       ] | @tsv' \
-    | while IFS=$'\t' read -r status tag date title; do
+    | while IFS=$'\t' read -r tag date status; do
         case "$status" in
-          latest) label="${GREEN}${BOLD}●${RESET} ${BOLD}latest${RESET} " ;;
-          pre)    label="${YELLOW}${BOLD}◐${RESET} ${YELLOW}pre   ${RESET} " ;;
-          draft)  label="${DIM}○ draft ${RESET} " ;;
-          *)      label="  " ;;
+          latest) label="${GREEN}${BOLD}● latest${RESET}" ;;
+          pre)    label="${YELLOW}${BOLD}◐ pre   ${RESET}" ;;
+          draft)  label="${DIM}○ draft ${RESET}" ;;
+          *)      label="        " ;;
         esac
-        echo -e "  ${label} ${BOLD}${tag}${RESET}  ${DIM}${date}${RESET}  ${title}"
+        printf -v tagpad  "%-11s" "$tag"
+        printf -v datepad "%-10s" "$date"
+        url="${REPO_URL}/releases/tag/${tag}"
+        echo -e "  ${BOLD}${tagpad}${RESET}  ${DIM}${datepad}${RESET}  ${label}  ${CYAN}${url}${RESET}"
       done
   else
     gh release list --limit "${LIST_LIMIT}"
