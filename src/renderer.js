@@ -1043,6 +1043,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // When a feed is applied from the login dialog, auto-populate the UI
   window.api.onFeedApplied((item) => {
     if (!item) return;
+
+    // Token-only mode: authenticate without changing connection settings
+    if (item.tokenOnly) {
+      if (authBadge) {
+        authBadge.style.display = '';
+        if (authBadgeContent) {
+          authBadgeContent.textContent = 'Velocity Token Only\nAuth: token (no feed selected)';
+        }
+      }
+      logStatus('🔑 Velocity token applied — using your own connection settings');
+      return;
+    }
+
     const type = item.feedType || '';
 
     // Map feed type to connection mode

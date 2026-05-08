@@ -254,6 +254,31 @@ h3 {
   box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 }
 
+.btn-token-only {
+  background: transparent;
+  color: var(--accent-color, #4fc3f7);
+  border: 1px solid var(--accent-color, #4fc3f7);
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-token-only:hover:not(:disabled) {
+  background: var(--accent-color, #4fc3f7);
+  color: var(--bg-primary, #1e1e1e);
+}
+
+.btn-token-only:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-token-only.hidden {
+  display: none;
+}
+
 /* ─── Section Divider ─── */
 
 .section-divider {

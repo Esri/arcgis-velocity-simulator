@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const infoPanel = document.getElementById('info-panel');
   const applyBtn = document.getElementById('apply-btn');
   const closeBtn = document.getElementById('close-btn');
+  const useTokenBtn = document.getElementById('use-token-btn');
   const refreshBtn = document.getElementById('refresh-btn');
   const scopeMyBtn = document.getElementById('scope-my');
   const scopeOrgBtn = document.getElementById('scope-org');
@@ -203,6 +204,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       setStatus('success', 'Signed in. Loading feeds…');
+      // Enable 'Use Token Only' after successful sign-in
+      if (useTokenBtn) { useTokenBtn.disabled = false; useTokenBtn.classList.remove('hidden'); }
       await loadItems(result.velocityUrl, result.token);
       setStatus('success', `Signed in${allItems.length > 0 ? ` • ${allItems.filter(i=>i.supported).length} supported feed(s) of ${allItems.length} total` : ' • No feeds found (check org permissions)'}`);
     } catch (err) {
@@ -334,6 +337,14 @@ document.addEventListener('DOMContentLoaded', () => {
     window.velocityApi.applyItem(selectedItem);
     window.velocityApi.hideWindow();
   });
+
+  // ─── Use Token Only ───────────────────────────────────────────────────────
+  if (useTokenBtn) {
+    useTokenBtn.addEventListener('click', () => {
+      window.velocityApi.applyItem({ tokenOnly: true, authType: 'token' });
+      window.velocityApi.hideWindow();
+    });
+  }
 
   // ─── Close ─────────────────────────────────────────────────────────────────
   closeBtn.addEventListener('click', () => { window.velocityApi.hideWindow(); });
