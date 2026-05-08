@@ -1,7 +1,7 @@
 {
   "name": "arcgis-velocity-simulator",
   "productName": "arcgis-velocity-simulator",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "ArcGIS Velocity Simulator",
   "main": "src/main.js",
   "homepage": "https://github.com/esri/arcgis-velocity-simulator",
