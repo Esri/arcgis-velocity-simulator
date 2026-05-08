@@ -10,6 +10,7 @@ set -euo pipefail
 BOLD='\033[1m'
 DIM='\033[2m'
 CYAN='\033[0;36m'
+GREEN='\033[0;32m'
 WHITE='\033[0;97m'
 YELLOW='\033[0;33m'
 RESET='\033[0m'
@@ -27,36 +28,36 @@ ${BOLD}${WHITE}ARGUMENTS${RESET}
         Omit entirely when using ${BOLD}--upload-only${RESET} (inferred from package.json).
 
 ${BOLD}${WHITE}OPTIONS${RESET}
-  ${BOLD}--dry-run${RESET}  ${DIM}--simulate  -s${RESET}
+  ${BOLD}-s${RESET}  ${DIM}--dry-run  --simulate${RESET}
         Simulate the release without making any changes. Validates the version,
         lists each artifact that would be uploaded (with file size), and prints a
         full preview of the release notes. Nothing is written, committed, or published.
 
-  ${BOLD}--prepare-only${RESET}  ${DIM}-p${RESET}
+  ${BOLD}-p${RESET}  ${DIM}--prepare-only${RESET}
         Run Steps 0–4 only (prereqs, version bump, build, commit + push) then exit
         before creating or uploading the GitHub release. Inspect ${CYAN}dist/${RESET} artifacts,
         sign them if needed, then publish with ${BOLD}--upload-only${RESET}.
         Stacks with ${BOLD}--seq${RESET}, ${BOLD}--install-prereqs${RESET}, and ${BOLD}--dry-run${RESET}.
 
-  ${BOLD}--upload-only${RESET}  ${DIM}-u${RESET}
+  ${BOLD}-u${RESET}  ${DIM}--upload-only${RESET}
         Skip Steps 0–4 and jump straight to Step 5 (create GitHub release + upload
         ${CYAN}dist/${RESET} artifacts). Version is read from package.json — no argument needed.
         Use after ${BOLD}--prepare-only${RESET}, or when artifacts were built externally (e.g. CI).
         Only ${BOLD}gh${RESET} CLI is required — build tools are not checked.
         Stacks with ${BOLD}--re-release${RESET} and ${BOLD}--dry-run${RESET}.
 
-  ${BOLD}--re-release${RESET}  ${DIM}-R${RESET}
+  ${BOLD}-R${RESET}  ${DIM}--re-release${RESET}
         Re-publish an already-released version with rebuilt artifacts and refreshed
         release notes. Deletes the existing GitHub release and git tag, then
         re-creates them pinned to HEAD. Generates the changelog against the previous
         good tag (skipping the version being re-released). Use this to recover from
         a broken release of the same version.
 
-  ${BOLD}--seq${RESET}  ${DIM}-S${RESET}
+  ${BOLD}-S${RESET}  ${DIM}--seq${RESET}
         Build platforms sequentially instead of in parallel. Slower overall, but
         produces clean non-interleaved output — useful for debugging build failures.
 
-  ${BOLD}--install-prereqs${RESET}  ${DIM}--install-deps  -i${RESET}
+  ${BOLD}-i${RESET}  ${DIM}--install-prereqs  --install-deps${RESET}
         Auto-install any missing build/release prerequisites (Homebrew on macOS,
         apt/dnf/pacman on Linux, winget/choco on Windows). Combine with ${BOLD}--dry-run${RESET}
         to preview the install plan only. Node major upgrades, ${BOLD}gh auth login${RESET}, and
@@ -64,10 +65,10 @@ ${BOLD}${WHITE}OPTIONS${RESET}
         ${YELLOW}⚠${RESET}  Signing tools and env vars (CSC_LINK, WIN_CSC_LINK, APPLE_*) are NOT
            auto-installed.
 
-  ${BOLD}--help${RESET}  ${DIM}-h${RESET}
+  ${BOLD}-h${RESET}  ${DIM}--help${RESET}
         Show this help message and exit.
 
-  ${BOLD}--list${RESET}  ${DIM}-l${RESET}
+  ${BOLD}-l${RESET}  ${DIM}--list${RESET}
         List all published GitHub releases for this repository and exit.
         Requires ${BOLD}gh${RESET} CLI to be installed and authenticated.
         Outputs a table with columns: ${BOLD}TAG · DATE · STATUS · URL${RESET}.
