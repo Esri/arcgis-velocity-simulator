@@ -490,6 +490,55 @@ else
     GIT_HASH=$(git rev-parse --short HEAD)
     warn "No version change — skipping commit"
   fi
+
+  # ── Re-release: rebase bump commit to HEAD so the tag lands on it ──────────
+  # When re-releasing, any fix commits pushed after the original release sit
+  # between the bump commit and HEAD. Rebase the bump commit onto HEAD so it
+  # becomes the last commit — the canonical anchor for the new tag.
+  if [[ "$RERELEASE" == true ]]; then
+    BUMP_MSG="chore: bump version to ${VERSION}"
+    BUMP_SHA=$(git log --grep="${BUMP_MSG}" --format="%H" --all | head -1 || true)
+
+    if [[ -z "$BUMP_SHA" ]]; then
+      # No bump commit found — create one now (e.g. very first release being re-released)
+      warn "No prior bump commit found — creating one now"
+      if [[ "$DRY_RUN" == true ]]; then
+        dryrun "git add package.json && git commit -m \"${BUMP_MSG}\""
+        dryrun "git push"
+      else
+        git add package.json
+        git commit --allow-empty -m "${BUMP_MSG}"
+        git push
+      fi
+      GIT_HASH=$(git rev-parse --short HEAD)
+      success "Created bump commit — ${DIM}${GIT_HASH}${RESET}"
+    elif [[ "$(git rev-parse "${BUMP_SHA}")" == "$(git rev-parse HEAD)" ]]; then
+      # Bump commit is already HEAD — nothing to rebase
+      GIT_HASH=$(git rev-parse --short HEAD)
+      info "Bump commit is already HEAD — no rebase needed (${DIM}${GIT_HASH}${RESET})"
+    else
+      # Bump commit exists but is not HEAD — rebase it onto HEAD
+      BUMP_SHA_SHORT=$(git rev-parse --short "${BUMP_SHA}")
+      BUMP_PARENT=$(git rev-parse "${BUMP_SHA}^")
+      info "Rebasing bump commit ${DIM}${BUMP_SHA_SHORT}${RESET} onto HEAD…"
+      if [[ "$DRY_RUN" == true ]]; then
+        dryrun "git rebase --onto HEAD ${BUMP_PARENT} ${BUMP_SHA}"
+        dryrun "git push --force-with-lease"
+      else
+        # Detach HEAD, cherry-pick the bump commit on top of it, then update the branch
+        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        OLD_HEAD=$(git rev-parse HEAD)
+        git rebase --onto HEAD "${BUMP_PARENT}" "${BUMP_SHA}"
+        # After rebase, HEAD is detached at the newly placed commit — update branch ref
+        REBASED_SHA=$(git rev-parse HEAD)
+        git checkout -q "${CURRENT_BRANCH}"
+        git reset --hard "${REBASED_SHA}"
+        git push --force-with-lease
+        GIT_HASH=$(git rev-parse --short HEAD)
+        success "Rebased bump commit onto HEAD — ${DIM}${BUMP_SHA_SHORT}${RESET} → ${BOLD}${GIT_HASH}${RESET}"
+      fi
+    fi
+  fi
 fi
 
 # ── --prepare-only: exit here before touching GitHub ─────────────────────────
@@ -616,6 +665,8 @@ else
     --target "${RELEASE_TARGET}" \
     --title "${VERSION}" \
     --notes-file "${NOTES_FILE}"
+  # Explicitly create (or move) the local tag ref to match the commit GitHub tagged.
+  git tag -f "${VERSION}" "${RELEASE_TARGET}"
   RELEASE_URL=$(gh release view "${VERSION}" --json url -q .url 2>/dev/null || echo "https://github.com")
 
   echo ""
