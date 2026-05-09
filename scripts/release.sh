@@ -491,51 +491,43 @@ else
     warn "No version change — skipping commit"
   fi
 
-  # ── Re-release: rebase bump commit to HEAD so the tag lands on it ──────────
-  # When re-releasing, any fix commits pushed after the original release sit
-  # between the bump commit and HEAD. Rebase the bump commit onto HEAD so it
-  # becomes the last commit — the canonical anchor for the new tag.
+  # ── Re-release: cherry-pick bump commit to HEAD so the tag lands on it ──────
+  # On re-release the version bump commit already exists in history. Any fix
+  # commits pushed since the original release sit on top of it, so the bump
+  # is no longer the tip. Cherry-pick it onto HEAD (creating a fresh copy)
+  # so the release tag always points to the bump commit as the last entry.
   if [[ "$RERELEASE" == true ]]; then
     BUMP_MSG="chore: bump version to ${VERSION}"
-    BUMP_SHA=$(git log --grep="${BUMP_MSG}" --format="%H" --all | head -1 || true)
+    BUMP_SHA=$(git log --grep="^${BUMP_MSG}$" --format="%H" | head -1 || true)
 
     if [[ -z "$BUMP_SHA" ]]; then
-      # No bump commit found — create one now (e.g. very first release being re-released)
+      # No prior bump commit found — create one fresh (first-ever re-release edge case)
       warn "No prior bump commit found — creating one now"
       if [[ "$DRY_RUN" == true ]]; then
-        dryrun "git add package.json && git commit -m \"${BUMP_MSG}\""
+        dryrun "git commit --allow-empty -m \"${BUMP_MSG}\""
         dryrun "git push"
       else
-        git add package.json
         git commit --allow-empty -m "${BUMP_MSG}"
         git push
       fi
       GIT_HASH=$(git rev-parse --short HEAD)
       success "Created bump commit — ${DIM}${GIT_HASH}${RESET}"
     elif [[ "$(git rev-parse "${BUMP_SHA}")" == "$(git rev-parse HEAD)" ]]; then
-      # Bump commit is already HEAD — nothing to rebase
+      # Bump commit is already HEAD — nothing to do
       GIT_HASH=$(git rev-parse --short HEAD)
-      info "Bump commit is already HEAD — no rebase needed (${DIM}${GIT_HASH}${RESET})"
+      info "Bump commit is already HEAD — no cherry-pick needed (${DIM}${GIT_HASH}${RESET})"
     else
-      # Bump commit exists but is not HEAD — rebase it onto HEAD
+      # Cherry-pick the bump commit onto HEAD to make it the new tip
       BUMP_SHA_SHORT=$(git rev-parse --short "${BUMP_SHA}")
-      BUMP_PARENT=$(git rev-parse "${BUMP_SHA}^")
-      info "Rebasing bump commit ${DIM}${BUMP_SHA_SHORT}${RESET} onto HEAD…"
+      info "Cherry-picking bump commit ${DIM}${BUMP_SHA_SHORT}${RESET} onto HEAD…"
       if [[ "$DRY_RUN" == true ]]; then
-        dryrun "git rebase --onto HEAD ${BUMP_PARENT} ${BUMP_SHA}"
-        dryrun "git push --force-with-lease"
+        dryrun "git cherry-pick ${BUMP_SHA}"
+        dryrun "git push"
       else
-        # Detach HEAD, cherry-pick the bump commit on top of it, then update the branch
-        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-        OLD_HEAD=$(git rev-parse HEAD)
-        git rebase --onto HEAD "${BUMP_PARENT}" "${BUMP_SHA}"
-        # After rebase, HEAD is detached at the newly placed commit — update branch ref
-        REBASED_SHA=$(git rev-parse HEAD)
-        git checkout -q "${CURRENT_BRANCH}"
-        git reset --hard "${REBASED_SHA}"
-        git push --force-with-lease
+        git cherry-pick "${BUMP_SHA}"
+        git push
         GIT_HASH=$(git rev-parse --short HEAD)
-        success "Rebased bump commit onto HEAD — ${DIM}${BUMP_SHA_SHORT}${RESET} → ${BOLD}${GIT_HASH}${RESET}"
+        success "Cherry-picked bump commit onto HEAD — ${DIM}${BUMP_SHA_SHORT}${RESET} → ${BOLD}${GIT_HASH}${RESET}"
       fi
     fi
   fi
@@ -651,9 +643,19 @@ else
     warn "Deleting existing release and tag ${VERSION} (--re-release)..."
     gh release delete "${VERSION}" --yes 2>/dev/null || true
     git tag -d "${VERSION}" 2>/dev/null || true
-    # Only try to delete the remote tag if it exists
+    # Delete the remote tag and wait until it is confirmed gone before proceeding —
+    # gh release create will return HTTP 422 if the tag still exists on the remote.
     if git ls-remote --tags origin "refs/tags/${VERSION}" 2>/dev/null | grep -q .; then
-      git push origin ":refs/tags/${VERSION}" 2>/dev/null || true
+      git push origin ":refs/tags/${VERSION}"
+      # Poll until the remote tag is gone (up to ~10s)
+      for i in 1 2 3 4 5; do
+        sleep 2
+        git ls-remote --tags origin "refs/tags/${VERSION}" 2>/dev/null | grep -q . || break
+        warn "Waiting for remote tag ${VERSION} to be removed… (${i}/5)"
+      done
+      if git ls-remote --tags origin "refs/tags/${VERSION}" 2>/dev/null | grep -q .; then
+        fail "Remote tag ${VERSION} could not be removed. Try:\n     git push origin :refs/tags/${VERSION}"
+      fi
     fi
     success "Existing release and tag removed"
     echo ""
