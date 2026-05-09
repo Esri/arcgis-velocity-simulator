@@ -37,7 +37,7 @@ The Command Line Interface dialog supports:
 
 If you prefer a terminal-first workflow, the `help`, `help-detailed`, `help-table-narrow`, `help-table-wide`, and `help-wide` launch options below expose the same parameter catalog in text form.
 
-Unknown CLI parameters are treated as startup errors. If you pass an unsupported `name=value` parameter, an unsupported bare flag like `--bogus`, or a bare positional argument without `name=value` syntax (e.g. `npm start -- hhh`), the app logs a clear console error, prints the help text, and exits gracefully without launching the UI or headless runner.
+Unknown CLI parameters are treated as startup errors. If you pass an unsupported `name=value` parameter, an unsupported bare flag like `--bogus`, or a bare positional argument without `name=value` syntax (e.g. `npm start -- hhh`), the app logs a clear console error and exits gracefully without launching the UI or headless runner. For close misspellings, the error includes a `Did you mean ...?` suggestion selected with Levenshtein edit distance. Unknown-parameter errors also show how to open help (for example `electron . help=true` or `--help`) but do **not** dump the full help table because that output is too verbose.
 
 **Inapplicable parameters in the correct mode are warnings, not errors.** When a headless-only parameter (e.g. `port=6000`, `protocol=udp`, `logLevel=debug`) is passed in UI mode, the app logs a `CLI warning:` line per parameter explaining why it has no effect, then continues to launch normally. The same applies in headless mode for parameters that don't apply to the selected sub-configuration (e.g. `connectRetryIntervalMs` when `connectWaitForServer=false`).
 
@@ -127,7 +127,7 @@ Quick rule of thumb:
 - `--help-table-wide` and `help-table-wide=true` print the wide table help layout
 - `--help-table-narrow` and `help-table-narrow=true` print the narrow table help layout
 - `--help-wide` and `help-wide=true` print the compact ASCII-table help with the example column
-- Unknown `name=value` parameters, unknown bare flags, and bare positional arguments all abort startup with an error, print the help text, and exit the app
+- Unknown `name=value` parameters, unknown bare flags, and bare positional arguments all abort startup with an error and exit the app. Close misspellings include `Did you mean ...?` suggestions. Unknown-parameter errors show a help command instead of printing the full help table automatically.
 - Headless-only parameters supplied in UI mode (e.g. `port`, `protocol`, `logLevel`) are **not** errors; a `CLI warning:` line is logged per parameter explaining why it is ignored, and the app continues to launch normally
 - In headless mode, `connectRetryIntervalMs` is warned and ignored when `connectWaitForServer=false`; `waitForClient` is warned and ignored in client mode; `connectWaitForServer` is warned and ignored in server mode
 - If multiple help layouts are requested together, `help-table-narrow` wins, then `help-table-wide`, then `help-detailed`, then `help-wide`, then `help`
@@ -155,6 +155,30 @@ If more than one help layout is requested in the same launch:
 5. `help` is used only when no higher-priority layout is requested
 
 This allows mixed commands such as `npm start -- help=true help-table-narrow=true` to still produce a predictable result.
+
+## Typo Suggestions
+
+Unknown CLI parameter names and unknown help flags use **Levenshtein edit distance** to choose `Did you mean ...?` suggestions when the misspelling is close enough to a supported option.
+
+Levenshtein distance is a formal edit-distance algorithm: it counts the minimum number of single-character **insertions**, **deletions**, and **substitutions** needed to transform one string into another. That is different from a character-overlap heuristic, which only counts whether the misspelled input's characters appear somewhere in a candidate option. Character overlap is fast, but it ignores character order and can over-score unrelated options that happen to share letters. Edit distance is the better CLI choice because typical mistakes are missing letters, extra letters, swapped-adjacent letters counted as two edits, or one wrong character.
+
+| Approach | What it does | Pros | Cons | Used here? |
+| --- | --- | --- | --- | --- |
+| Exact allowlist validation | Checks whether the provided parameter exactly matches a supported parameter or alias. | Safe, deterministic, prevents unsupported options from being accepted. | No typo recovery by itself. | **Yes** — always used first to decide whether input is valid. |
+| Character-overlap scoring | Counts shared characters between the typo and each candidate. | Very simple and shell-friendly. | Ignores order and edit operations; unrelated options with shared letters can score too high. | **No** — not used for app CLI suggestions. |
+| Levenshtein edit distance | Counts insertions, deletions, and substitutions. | Predictable for CLI typos such as missing letters, extra letters, missing hyphens, and substitutions; dependency-free implementation. | Adjacent transpositions count as two edits. | **Yes** — used for `Did you mean ...?` suggestions in the app CLI. |
+| Damerau-Levenshtein | Like Levenshtein, but adjacent transpositions count as one edit. | Slightly better for swapped adjacent letters. | More complex; current thresholds already handle common swapped-letter cases well enough. | No — considered but not needed. |
+| Prefix/substring matching | Suggests candidates that start with or contain the typo. | Useful for autocomplete. | Poor fit for misspellings in the middle of a flag or parameter. | No. |
+
+The validation flow is: **exact allowlist check first**, then if the name is unknown, **Levenshtein suggestion only when the edit distance is below a conservative threshold**. Distant unknown parameters do not get a suggestion, avoiding misleading output. Unknown-parameter startup errors stay concise: they show the bad parameter, any `Did you mean ...?` suggestion, and a help command such as `electron . help=true`; the full help table is only shown when you explicitly request help.
+
+Examples:
+
+```text
+Unknown CLI parameter: protocl. Did you mean 'protocol'? These parameters are not supported.
+Unknown CLI parameter: filname. Did you mean 'filename'? These parameters are not supported.
+Unknown CLI parameter: --help-detaled. Did you mean '--help-detailed'? These parameters are not supported.
+```
 
 ## Usage Examples
 

@@ -78,6 +78,19 @@ ${BOLD}${WHITE}OPTIONS${RESET}
   ${BOLD}--limit${RESET}  ${DIM}<n>${RESET}
         Maximum number of releases to show with ${BOLD}--list${RESET}. Default: ${DIM}10${RESET}.
 
+${BOLD}${WHITE}TYPO SUGGESTIONS${RESET}
+  Unknown long flags use ${BOLD}Levenshtein edit distance${RESET} to suggest the closest valid
+  option when the typo is near enough. Unlike character-overlap scoring, edit
+  distance accounts for order plus inserted, deleted, and substituted characters.
+  Example: ${CYAN}--prepareonly${RESET} → ${CYAN}--prepare-only${RESET}.
+
+  Options considered:
+    • Exact allowlist validation — still used to decide if a flag is valid.
+    • Character overlap — simple, but ignores order and can over-score shared letters.
+    • Damerau-Levenshtein — handles adjacent swaps as one edit, but adds complexity.
+    • Levenshtein — selected for suggestions: deterministic, dependency-free, and
+      good for missing hyphens, omitted characters, extra characters, and substitutions.
+
 ${BOLD}${WHITE}PIPELINE${RESET}
   Step 0  Check prerequisites + verify clean working tree
   Step 1  Validate requested version (blocks downgrades)
@@ -224,11 +237,48 @@ LIST_LIMIT=10
 VERSION=""
 PREV_ARG=""
 
-# closest_flag <unknown> — prints the known flag most similar to <unknown>
-# Uses character-overlap heuristic: counts shared chars after stripping leading dashes.
+# levenshtein_distance <left> <right> — minimum insert/delete/substitute edits.
+levenshtein_distance() {
+  local left="$1" right="$2"
+  local left_len=${#left} right_len=${#right}
+  local -a previous current
+  local i j cost deletion insertion substitution min
+
+  for (( j=0; j<=right_len; j++ )); do previous[$j]=$j; done
+
+  for (( i=1; i<=left_len; i++ )); do
+    current[0]=$i
+    for (( j=1; j<=right_len; j++ )); do
+      if [[ "${left:i-1:1}" == "${right:j-1:1}" ]]; then cost=0; else cost=1; fi
+      deletion=$(( previous[j] + 1 ))
+      insertion=$(( current[j-1] + 1 ))
+      substitution=$(( previous[j-1] + cost ))
+      min=$deletion
+      (( insertion < min )) && min=$insertion
+      (( substitution < min )) && min=$substitution
+      current[$j]=$min
+    done
+    previous=("${current[@]}")
+  done
+
+  echo "${previous[$right_len]}"
+}
+
+suggestion_max_distance() {
+  local input="$1" candidate="$2" length=${#input}
+  (( ${#candidate} > length )) && length=${#candidate}
+  if (( length <= 4 )); then echo 1
+  elif (( length <= 8 )); then echo 2
+  elif (( length <= 14 )); then echo 3
+  else echo 4
+  fi
+}
+
+# closest_flag <unknown> — prints a valid flag when Levenshtein distance is small.
 closest_flag() {
   local input="${1#--}"; input="${input#-}"
-  local best_flag="" best_score=-1
+  input="$(printf '%s' "$input" | tr '[:upper:]' '[:lower:]')"
+  local best_flag="" best_distance=999
   local known=(
     "--dry-run" "--simulate" "--re-release" "--seq"
     "--prepare-only" "--upload-only" "--install-prereqs" "--install-deps"
@@ -236,13 +286,11 @@ closest_flag() {
   )
   for flag in "${known[@]}"; do
     local f="${flag#--}"
-    local score=0
-    local len=${#input}
-    for (( i=0; i<len; i++ )); do
-      [[ "$f" == *"${input:$i:1}"* ]] && score=$(( score + 1 ))
-    done
-    if (( score > best_score )); then
-      best_score=$score
+    local distance threshold
+    distance=$(levenshtein_distance "$input" "$f")
+    threshold=$(suggestion_max_distance "$input" "$f")
+    if (( distance <= threshold && distance < best_distance )); then
+      best_distance=$distance
       best_flag=$flag
     fi
   done
@@ -261,10 +309,15 @@ for arg in "$@"; do
     --limit=*)                           LIST_LIMIT="${arg#--limit=}" ;;
     --limit)                             ;;   # value consumed in next iteration
     --*)
-      # Unknown long flag — suggest the closest known one and exit
+      # Unknown long flag — suggest the closest known one when edit distance is small
       suggestion=$(closest_flag "$arg")
       echo -e "\n  ${RED}${BOLD}✖  ERROR:${RESET}  Unrecognized option: ${BOLD}${arg}${RESET}" >&2
-      echo -e "     Did you mean ${BOLD}${suggestion}${RESET}?\n" >&2
+      if [[ -n "$suggestion" ]]; then
+        echo -e "     Did you mean ${BOLD}${suggestion}${RESET}?" >&2
+        echo -e "     Run ${BOLD}./scripts/release.sh --help${RESET} to see available options.\n" >&2
+      else
+        echo -e "     Run ${BOLD}./scripts/release.sh --help${RESET} to see available options.\n" >&2
+      fi
       exit 1
       ;;
     -[a-zA-Z]*)

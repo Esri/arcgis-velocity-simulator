@@ -34,6 +34,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { formatDidYouMean } = require('./cli-suggestions');
 
 const IS_WINDOWS_CONSOLE = os.platform() === 'win32';
 const CLI_SYMBOLS = {
@@ -115,6 +116,17 @@ const CLI_OPTION_KEYS = new Set([
   'help-table-wide',
   'help-wide',
 ]);
+
+const CLI_OPTION_ALIASES = new Set(['h', 'rateMs', 'silent']);
+const CLI_PARAMETER_CANDIDATES = [...CLI_OPTION_KEYS, ...CLI_OPTION_ALIASES];
+const CLI_HELP_FLAG_CANDIDATES = [
+  '--help',
+  '-h',
+  '--help-detailed',
+  '--help-table-wide',
+  '--help-table-narrow',
+  '--help-wide',
+];
 
 const APP_DEFAULTS = {
   protocol: 'tcp',
@@ -825,7 +837,7 @@ function getHelpRows() {
     ['note', '127.0.0.1', 'default ip', 'No', 'ip=127.0.0.1', 'Loopback/local-only. Use it when sender and receiver are on the same machine.'],
     ['note', '0.0.0.0', 'server bind', 'No', 'ip=0.0.0.0', 'Typical server bind value; listens on all interfaces so other machines can connect.'],
     ['note', 'help layouts', 'help', 'No', 'help=true / help-detailed=true / help-table-narrow=true / help-table-wide=true / help-wide=true', 'help omits the example column. help-wide adds the example column. help-detailed is the full text layout. Use help-table-* for ASCII table layouts.'],
-    ['note', 'unknown parameters', 'startup error', 'No', HELP_COMMAND, 'Unknown CLI parameters abort startup with an error. Use help=true to review the supported parameter set.'],
+    ['note', 'unknown parameters', 'startup error', 'No', HELP_COMMAND, 'Unknown CLI parameters abort startup with an error. Close typos show "Did you mean ...?" suggestions selected with Levenshtein edit distance. Use help=true to review the supported parameter set.'],
     ['example', 'UI default', '-', '-', 'electron .', 'Launch the app in normal UI mode.'],
     ['example', 'UI + file', '-', '-', 'electron . filename=/absolute/path/to/data.csv', 'Launch UI mode with a startup file.'],
     ['example', 'headless server', '-', '-', 'electron . runMode=headless filename=./data.csv protocol=tcp mode=server ip=0.0.0.0 port=5565 waitForClient=true doneFile=./run.done.json', 'Headless TCP server listening beyond localhost.'],
@@ -918,7 +930,8 @@ function getCommandLineReferenceData() {
       'rateMs is accepted as an alias for intervalMs.',
       'config=/path/to/file.json accepts top-level or nested headless/connection/streaming/output sections.',
       '127.0.0.1 is the default loopback/local-only address; 0.0.0.0 is a typical server bind value when remote clients should connect.',
-      `Unknown CLI parameters abort startup with an error. Review the supported parameter set with ${HELP_COMMAND}.`,
+      `Unknown CLI parameters abort startup with an error. Close typos show "Did you mean ...?" suggestions selected with Levenshtein edit distance. Unknown-parameter errors show a help command such as ${HELP_COMMAND}, but do not print the full help table automatically.`,
+      'Typo strategy comparison: exact allowlist validation decides whether an option is valid; character-overlap scoring is simple but ignores order; Damerau-Levenshtein also treats adjacent swaps as one edit but is more complex; Levenshtein is used here because it is deterministic, dependency-free, and matches common CLI mistakes such as missing letters, extra letters, missing hyphens, and substitutions.',
       'Headless-only parameters (e.g. port, protocol, logLevel) are ignored in UI mode; a per-parameter warning is logged to the console for each one explaining why it has no effect.',
       'In headless mode, connectRetryIntervalMs is ignored and a warning is logged when connectWaitForServer=false. waitForClient is ignored in client mode. connectWaitForServer is ignored in server mode.',
       'When multiple help layouts are requested together, help-table-narrow wins, then help-table-wide, then help-detailed, then help-wide, then help.',
@@ -962,7 +975,8 @@ function getDetailedHelpText() {
     '  - rateMs is accepted as an alias for intervalMs.',
     '  - config=/path/to/file.json accepts top-level or nested headless/connection/streaming/output sections; CLI values override config-file values.',
     '  - Default ip is 127.0.0.1 for loopback/local-only use. 0.0.0.0 is a typical server bind value when other machines should be allowed to connect.',
-    `  - Unknown CLI parameters abort startup with an error. Review the supported parameter set with ${HELP_COMMAND}.`,
+    `  - Unknown CLI parameters abort startup with an error. Close typos show "Did you mean ...?" suggestions selected with Levenshtein edit distance. Unknown-parameter errors show a help command such as ${HELP_COMMAND}, but do not print the full help table automatically.`,
+    '  - Typo strategy comparison: exact allowlist validation decides whether an option is valid; character-overlap scoring is simple but ignores order; Damerau-Levenshtein also treats adjacent swaps as one edit but is more complex; Levenshtein is used here because it is deterministic, dependency-free, and matches common CLI mistakes such as missing letters, extra letters, missing hyphens, and substitutions.',
     '  - Headless-only parameters passed in UI mode (e.g. port, protocol, logLevel) are not treated as errors; instead a warning is logged per parameter explaining why it is ignored.',
     '  - In headless mode: connectRetryIntervalMs is warned and ignored when connectWaitForServer=false; waitForClient is ignored in client mode; connectWaitForServer is ignored in server mode.',
     '  - When multiple help layouts are requested, help-table-narrow wins, then help-table-wide, then help-detailed, then help-wide, then help.',
@@ -1000,6 +1014,7 @@ function getWideHelpText() {
     '',
     'Aliases: runMode=silent = runMode=headless | rateMs = intervalMs',
     'Bare flags: --help | --help-detailed | --help-table-wide | --help-table-narrow | --help-wide',
+    'Typo help: exact allowlist validation rejects invalid options; close-match suggestions use Levenshtein edit distance. Unknown-parameter errors show a help command, not the full help table.',
     'Warnings: headless-only params in UI mode log a per-parameter warning and are ignored; connectRetryIntervalMs warns when connectWaitForServer=false',
   ];
 
@@ -1041,6 +1056,7 @@ function getStandardHelpText() {
     '',
     'Aliases: runMode=silent = runMode=headless | rateMs = intervalMs',
     'Bare flags: --help | --help-detailed | --help-table-wide | --help-table-narrow | --help-wide',
+    'Typo help: exact allowlist validation rejects invalid options; close-match suggestions use Levenshtein edit distance. Unknown-parameter errors show a help command, not the full help table.',
     'Warnings: headless-only params in UI mode log a per-parameter warning and are ignored; connectRetryIntervalMs warns when connectWaitForServer=false',
   ];
 
@@ -1111,14 +1127,24 @@ function mergeHelpLayout(currentLayout, nextLayout) {
 function formatUnknownCliParametersError(unknownParameters) {
   const parameterList = [...new Set(unknownParameters)].sort();
   const label = parameterList.length === 1 ? 'parameter' : 'parameters';
+  const formattedParameters = parameterList.map((parameter) => {
+    const candidates = String(parameter).startsWith('-')
+      ? CLI_HELP_FLAG_CANDIDATES
+      : CLI_PARAMETER_CANDIDATES;
+    const suggestion = formatDidYouMean(parameter, candidates);
+    return suggestion ? `${parameter}.${suggestion}` : parameter;
+  });
+  const details = formattedParameters.join(', ');
+  const separator = details.endsWith('?') ? ' ' : '. ';
 
-  return `Unknown CLI ${label}: ${parameterList.join(', ')}. These parameters are not supported. Review valid CLI parameters with: ${HELP_COMMAND}`;
+  return `Unknown CLI ${label}: ${details}${separator}These parameters are not supported. Review valid CLI parameters with: ${HELP_COMMAND}`;
 }
 
 function formatCliStartupErrorOutput(cliArgs) {
   const normalizedErrors = Array.isArray(cliArgs?.errors) ? cliArgs.errors : [];
   const helpText = cliArgs?.helpText || getCommandHelpText();
   const helpReviewText = `Review valid CLI parameters with: ${HELP_COMMAND}`;
+  const hasUnknownCliParameter = normalizedErrors.some((error) => String(error || '').trim().startsWith('Unknown CLI parameter'));
 
   const startupLines = [
     'CLI startup aborted due to invalid command-line parameters. The application will exit without launching.',
@@ -1131,6 +1157,11 @@ function formatCliStartupErrorOutput(cliArgs) {
     }
     startupLines.push(`CLI error: ${detail}`);
   });
+
+  if (hasUnknownCliParameter) {
+    startupLines.push(`CLI help: run ${HELP_COMMAND} (or --help) to view supported parameters.`);
+    return startupLines.join('\n');
+  }
 
   return `${startupLines.join('\n')}\n\n${helpText}`;
 }
@@ -1755,7 +1786,7 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
     );
   }
 
-  const unknownKeys = Object.keys(rawValues).filter((key) => !CLI_OPTION_KEYS.has(key) && key !== 'h' && key !== 'rateMs' && key !== 'silent');
+  const unknownKeys = Object.keys(rawValues).filter((key) => !CLI_OPTION_KEYS.has(key) && !CLI_OPTION_ALIASES.has(key));
   const unknownParameters = [...unknownKeys, ...unknownFlags];
 
   if (unknownParameters.length > 0) {

@@ -71,6 +71,26 @@ See **[BUILD.md → Bootstrapping a Fresh Machine](./BUILD.md#bootstrapping-a-fr
 | `--list` / `-l` | List all published GitHub releases for this repository and exit. Requires `gh` CLI to be installed and authenticated. Outputs a table with columns **TAG · DATE · STATUS · URL** — STATUS is colour-coded (● latest, ◐ pre-release, ○ draft). Also prints the local `package.json` version for quick comparison. Pair with `--limit <n>` to control how many are shown (default: 10). |
 | `--limit <n>` | Maximum number of releases to show when using `--list`. Default: `10`. |
 
+### Typo Suggestions
+
+Unknown long options use **Levenshtein edit distance** to suggest the closest valid release flag when the typo is close enough:
+
+```text
+✖  ERROR:  Unrecognized option: --prepareonly
+   Did you mean --prepare-only?
+```
+
+Levenshtein distance counts the minimum number of single-character insertions, deletions, and substitutions needed to transform the mistyped flag into a supported flag. This replaced the previous character-overlap heuristic, which only counted shared letters and ignored order; edit distance produces more predictable suggestions for CLI typos such as missing hyphens, omitted characters, or one wrong character.
+
+| Approach | What it does | Pros | Cons | Used by `release.sh`? |
+| --- | --- | --- | --- | --- |
+| Exact allowlist validation | Accepts only declared flags such as `--dry-run`, `--prepare-only`, and `--upload-only`. | Safest way to decide whether to proceed. | Does not explain likely typos by itself. | **Yes** — the `case` statement remains the source of truth. |
+| Character-overlap heuristic | Counts shared characters after stripping leading dashes. | Small and easy to implement in shell. | Ignores order and can choose a weak match when flags share letters. | **No** — replaced. |
+| Levenshtein edit distance | Counts insertions, deletions, and substitutions between the typo and each known long flag. | Better for missing hyphens (`--prepareonly`), omitted characters (`--uplod-only`), extra characters, and substitutions. | Adjacent transpositions count as two edits. | **Yes** — used for `Did you mean ...?` suggestions when the edit distance is below a conservative threshold. |
+| Damerau-Levenshtein | Adds adjacent transposition as a one-edit operation. | Better for pure swapped-letter typos. | More complex for a portable shell script; current thresholds already cover common transpositions. | No. |
+
+Short unknown flags such as `-x` still show the generic `--help` guidance instead of a suggestion because the short-flag namespace is intentionally small and ambiguous.
+
 ### Examples
 
 ```bash
