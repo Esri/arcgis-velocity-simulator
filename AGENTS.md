@@ -178,6 +178,7 @@ node -e 'require("fs").writeFileSync("/tmp/cm.txt", `subject\n\nbody line 1\nbod
 ### When to Commit and Push
 
 - **Do not auto-commit after every change.** Wait until the user explicitly asks to "commit" or "commit and push". At that point, group all pending changes into a single logical commit (or the fewest meaningful commits).
+- **Never commit and push in the same turn as making code changes.** After implementing a change, stop and wait for the user to review and approve before staging anything.
 - **Always show the proposed commit message and list of files** to be staged, and wait for the user's "go ahead" before running `git commit`.
 - **Always ask the user before pushing.** Show the commit(s) that will be pushed and wait for explicit approval before running `git push`.
 - **Pushing is always a separate tool call** after verifying the commit landed cleanly:

@@ -528,47 +528,6 @@ else
     GIT_HASH=$(git rev-parse --short HEAD)
     warn "No version change — skipping commit"
   fi
-
-  # ── Re-release: cherry-pick bump commit to HEAD so the tag lands on it ──────
-  # On re-release the version bump commit already exists in history. Any fix
-  # commits pushed since the original release sit on top of it, so the bump
-  # is no longer the tip. Cherry-pick it onto HEAD (creating a fresh copy)
-  # so the release tag always points to the bump commit as the last entry.
-  if [[ "$RERELEASE" == true ]]; then
-    BUMP_MSG="chore: bump version to ${VERSION}"
-    BUMP_SHA=$(git log --grep="^${BUMP_MSG}$" --format="%H" | head -1 || true)
-
-    if [[ -z "$BUMP_SHA" ]]; then
-      # No prior bump commit found — create one fresh (first-ever re-release edge case)
-      warn "No prior bump commit found — creating one now"
-      if [[ "$DRY_RUN" == true ]]; then
-        dryrun "git commit --allow-empty -m \"${BUMP_MSG}\""
-        dryrun "git push"
-      else
-        git commit --allow-empty -m "${BUMP_MSG}"
-        git push
-      fi
-      GIT_HASH=$(git rev-parse --short HEAD)
-      success "Created bump commit — ${DIM}${GIT_HASH}${RESET}"
-    elif [[ "$(git rev-parse "${BUMP_SHA}")" == "$(git rev-parse HEAD)" ]]; then
-      # Bump commit is already HEAD — nothing to do
-      GIT_HASH=$(git rev-parse --short HEAD)
-      info "Bump commit is already HEAD — no cherry-pick needed (${DIM}${GIT_HASH}${RESET})"
-    else
-      # Cherry-pick the bump commit onto HEAD to make it the new tip
-      BUMP_SHA_SHORT=$(git rev-parse --short "${BUMP_SHA}")
-      info "Cherry-picking bump commit ${DIM}${BUMP_SHA_SHORT}${RESET} onto HEAD…"
-      if [[ "$DRY_RUN" == true ]]; then
-        dryrun "git cherry-pick ${BUMP_SHA}"
-        dryrun "git push"
-      else
-        git cherry-pick "${BUMP_SHA}"
-        git push
-        GIT_HASH=$(git rev-parse --short HEAD)
-        success "Cherry-picked bump commit onto HEAD — ${DIM}${BUMP_SHA_SHORT}${RESET} → ${BOLD}${GIT_HASH}${RESET}"
-      fi
-    fi
-  fi
 fi
 
 # ── --prepare-only: exit here before touching GitHub ─────────────────────────
