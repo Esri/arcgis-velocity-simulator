@@ -137,7 +137,7 @@ async function runCliOptionsTests() {
   runTest('Validation error is descriptive', () => invalidResult.errors.some((error) => error.includes('Invalid protocol')));
   runTest('Headless mode requires filename', () => parseCommandLineArgs(createArgv(['runMode=headless'])).errors.some((error) => error.includes('filename')));
   runTest('Unknown key=value CLI parameters produce error mode', () => unknownParameterResult.mode === 'error');
-  runTest('Unknown CLI parameter errors include the help example', () => unknownParameterResult.errors.some((error) => error.includes('mysteryOption') && error.includes('electron . help=true')));
+  runTest('Unknown CLI parameter errors include the help example', () => unknownParameterResult.errors.some((error) => error.includes('mysteryOption')));
   runTest('Levenshtein distance scores nearby CLI typos predictably', () => levenshteinDistance('protocl', 'protocol') === 1);
   runTest('Unknown CLI parameter typo suggests closest parameter', () => typoParameterResult.mode === 'error' && typoParameterResult.errors.some((error) => error.includes("Did you mean 'protocol'?")));
   runTest('Unknown help flag typo suggests closest help flag', () => typoFlagResult.mode === 'error' && typoFlagResult.errors.some((error) => error.includes("Did you mean '--help-detailed'?")));
@@ -150,9 +150,15 @@ async function runCliOptionsTests() {
   runTest('Unknown positional argument error mentions name=value syntax', () => unknownPositionalResult.errors.some((error) => error.includes('hhh') && error.includes('name=value')));
   const multiPositionalResult = parseCommandLineArgs(createArgv(['abc', 'def']));
   runTest('Multiple unknown positional arguments are all reported', () => multiPositionalResult.mode === 'error' && multiPositionalResult.errors.some((error) => error.includes('abc') && error.includes('def')));
-  runTest('Formatted CLI startup errors keep unknown-parameter output concise', () => formattedUnknownParameterOutput.includes('CLI startup aborted due to invalid command-line parameters. The application will exit without launching.') && formattedUnknownParameterOutput.includes('CLI error: Unknown CLI parameter: mysteryOption. These parameters are not supported. Review valid CLI parameters with: electron . help=true') && formattedUnknownParameterOutput.includes('CLI help: run electron . help=true (or --help) to view supported parameters.') && !formattedUnknownParameterOutput.includes('\n\nArcGIS Velocity Simulator command-line help\n'));
+  runTest('Formatted CLI startup errors keep unknown-parameter output concise', () =>
+    formattedUnknownParameterOutput.includes('CLI startup aborted due to invalid command-line parameters. The application will exit without launching.') &&
+    formattedUnknownParameterOutput.includes('CLI help: run electron . help=true (or --help) to view supported parameters.') &&
+    formattedUnknownParameterOutput.includes('ERROR:  Unknown CLI parameter: mysteryOption.') &&
+    !formattedUnknownParameterOutput.includes('These parameters are not supported.') &&
+    !formattedUnknownParameterOutput.includes('Review valid CLI parameters with:') &&
+    !formattedUnknownParameterOutput.includes('\n\nArcGIS Velocity Simulator command-line help\n'));
   const formattedPositionalOutput = formatCliStartupErrorOutput(unknownPositionalResult);
-  runTest('Formatted CLI startup errors for positional args include guidance and help', () => formattedPositionalOutput.includes('CLI error: Unknown CLI argument: hhh. Use name=value syntax') && formattedPositionalOutput.includes('ArcGIS Velocity Simulator command-line help'));
+  runTest('Formatted CLI startup errors for positional args include guidance and help', () => formattedPositionalOutput.includes('ERROR:  Unknown CLI argument: hhh. Use name=value syntax') && formattedPositionalOutput.includes('ArcGIS Velocity Simulator command-line help'));
 
   console.log('\n--- Test 5: Ignored-parameter warnings ---');
   // doneFile, maxLines, and startLine are simulator headless-only params and should be warned in UI mode.
