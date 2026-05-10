@@ -28,10 +28,9 @@ The **🔑 Sign In to ArcGIS Velocity** button in the toolbar opens a modal dial
 
 ### Token Refresh
 
-- Tokens are refreshed proactively at **80% of their lifetime** (e.g., a 60-minute token refreshes at 48 minutes).
-- On failure, retries with exponential backoff (1s, 2s, 4s… up to 5 attempts).
-- The footer **🔑 Token On / ◇ Token Off** badge shows whether an authenticated token is available and whether it will be sent with new gRPC, HTTP, and WebSocket client connections.
-- The app never displays the raw bearer token in the tooltip or status popover. The tooltip shows safe metadata only: selected feed, auth type, expiry time, and toggle action.
+- Tokens refresh at **80% of lifetime** and retry with exponential backoff on failure.
+- The footer auth badge shows whether a token is available and sent with new gRPC, HTTP, and WebSocket client connections.
+- Raw bearer tokens are never shown; tooltips show safe metadata only.
 
 ### Token Sending Toggle
 
@@ -88,7 +87,7 @@ The Velocity Login dialog opens at **590 x 840** pixels by default. After resizi
 
 ## UI Controls
 
-Tooltips are rendered by the app's custom tooltip system on all operating systems. The tooltip renderer supports Unicode icons and theme-aware accent colors through structured attributes such as `data-tooltip-icon` and `data-tooltip-kind`; tooltip text is inserted as text content, not arbitrary HTML.
+Tooltips use the app's custom renderer with theme-aware icons/colors. Tooltip text is plain text only.
 
 | Control | Tooltip / Behaviour |
 |---|---|
@@ -109,10 +108,8 @@ Tooltips are rendered by the app's custom tooltip system on all operating system
 | Use Token Only | "Use Velocity token for authentication only — keep your own connection settings in the main window" |
 | Apply | "Apply the selected feed connection settings to the main window." Disabled for unsupported types. |
 | Close | "Close this dialog without applying." |
-| Footer 🔑 Token On | "Token On — Velocity token will be sent with new gRPC, HTTP, and WebSocket client connections. Scope: New client connections only. Token: Hidden for security. Selected feed: … Auth type: … Expires: … Action: Click to turn token sending off for new client connections." |
-| Footer ◇ Token Off | "Token Off — A Velocity token is available, but it will not be sent with new client connections. Scope: New client connections only. Token: Hidden for security. Selected feed: … Auth type: … Expires: … Action: Click to turn token sending on for new client connections." |
-| Footer ⚠ Token Error | "Token Error — Velocity token refresh failed. Token: Hidden for security. Status: … Action: Sign in again if reconnecting fails." |
-| Footer 🔒… TLS badge | Mirrors the selected protocol's Use TLS checkbox while disconnected. Example configured tooltip: "TLS Configured — HTTP Client will use HTTPS on the next connection. Scope: New HTTP connections only. Encryption: Enabled in the UI. Certificate trust: Checked after connection. Endpoint: … Action: Click to turn TLS off for HTTP Client. Auth: Token status is shown separately by the key badge." Connected trust tooltips describe encryption and certificate trust only. |
+| Footer auth badge | Shows token on/off/error state, selected feed, auth type, expiry, and next toggle action. |
+| Footer TLS badge | Mirrors the selected protocol's TLS checkbox while disconnected; connected tooltips describe encryption and certificate trust. |
 
 ## Credential Storage
 

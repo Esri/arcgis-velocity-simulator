@@ -141,11 +141,10 @@
 
             <div class="help-section">
                 <h3>Tooltips</h3>
-                <p>Hover or keyboard-focus controls to show custom tooltips. Tooltips are rendered by the app on all operating systems for consistent behavior on macOS, Windows, and Linux.</p>
+                <p>Hover or focus controls for custom, theme-aware tooltips rendered consistently on all platforms.</p>
                 <ul>
-                    <li><strong>Icons:</strong> Tooltip icons help identify actions such as authentication (🔑), TLS/security (🔒), warnings (⚠), and refresh (↻).</li>
-                    <li><strong>Colors:</strong> Tooltip accents are theme-aware. Info, auth, secure, success, warning, and error states use different accent colors.</li>
-                    <li><strong>Accessibility:</strong> Controls keep ARIA labels while native title tooltips are replaced by the custom renderer.</li>
+                    <li><strong>Icons/colours:</strong> Auth, TLS, warning, success, and error states use distinct theme-aware accents.</li>
+                    <li><strong>Accessibility:</strong> Controls keep ARIA labels while native title tooltips are replaced.</li>
                 </ul>
             </div>
 
@@ -190,7 +189,7 @@
             <div class="help-section">
                 <h3>Status & Logging</h3>
                 <ul>
-                    <li><strong>TLS Trust Badge:</strong> When HTTP, WebSocket, or gRPC is selected, a lock icon appears in the status bar. While disconnected, click it to toggle TLS for the selected protocol; it stays synchronized with the Use TLS checkbox, certificate fields, default port behavior, and the next connection. While connected, click it to pin details and disconnect before changing TLS. Hover for a formatted tooltip with encryption state, certificate trust, endpoint, action, and auth context:
+                    <li><strong>TLS Trust Badge:</strong> For HTTP, WebSocket, and gRPC, the footer lock mirrors the selected protocol's TLS setting while disconnected. Connected tooltips describe encryption and certificate trust.
                         <table style="margin-top:6px;border-collapse:collapse;font-size:0.9em;">
                             <thead><tr><th style="padding:2px 8px;text-align:left;">Icon</th><th style="padding:2px 8px;text-align:left;">Colour</th><th style="padding:2px 8px;text-align:left;">Meaning</th></tr></thead>
                             <tbody>
@@ -203,7 +202,7 @@
                             </tbody>
                         </table>
                     </li>
-                    <li><strong>Velocity Auth Badge:</strong> The key badge is separate from TLS. It shows whether an ArcGIS Velocity token is available and whether it will be sent with new gRPC, HTTP, and WebSocket client connections. Click the badge to toggle token sending on or off. The tooltip never displays the raw bearer token; it only shows safe details such as selected feed, auth type, expiry, and the next toggle action.</li>
+                    <li><strong>Velocity Auth Badge:</strong> The key badge is separate from TLS. It shows token availability and whether new supported client connections send the token. Raw bearer tokens are never displayed.</li>
                     <li class="sub-item">🔑 Token On — token will be sent with new supported client connections</li>
                     <li class="sub-item">◇ Token Off — token is available but will not be sent</li>
                     <li class="sub-item">⚠ Token Error — token refresh failed; sign in again if reconnecting fails</li>

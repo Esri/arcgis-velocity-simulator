@@ -393,7 +393,7 @@ For full details on all build options, compression, and artifact names, see [BUI
 
 ## Issues
 
-Find a bug or want to request a new feature? Please let us know by [submitting an issue](../../issues).
+Find a bug or want to request a new feature? Please [submit an issue](https://github.com/Esri/arcgis-velocity-simulator/issues).
 
 ## Contributing
 
