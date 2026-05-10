@@ -564,17 +564,20 @@ To enable mTLS on the **client** side, supply both `tlsCertPath` and `tlsKeyPath
 
 ## TLS Trust Badge
 
-When connected over HTTP, WebSocket, or gRPC with TLS enabled, a small lock icon appears in the **status bar centre**. The icon **shape** and **colour** both encode the trust level so it is unambiguous even for colour-blind users. No text label is shown beside the icon — hover or click the badge for full TLS details in a popover.
+When HTTP, WebSocket, or gRPC is selected, a small lock icon appears in the **status bar centre**. The footer badge mirrors the active protocol's `useTls` checkbox: click it while disconnected to enable or disable TLS for the next connection, and the checkbox, certificate fields, default port logic, and connection behavior stay synchronized. While connected, click the badge to pin the detail popover; disconnect before changing TLS for an active connection.
+
+The icon **shape** and **colour** both encode the configured state or connected trust level so it is unambiguous even for colour-blind users. No text label is shown beside the icon — hover the badge for full TLS details, including encryption state, certificate trust, endpoint, and a reminder that token authentication is shown separately by the key badge.
 
 | Icon | Colour | Trust Level | Meaning |
 |------|--------|-------------|---------|
 | 🔓 | Grey / dimmed | off | No TLS — plaintext, unsecure connection |
+| 🔒… | Blue | configured | TLS enabled in the UI; certificate trust will be checked after connection |
 | 🔒 | Amber | on | TLS on — OS certificate store, trust level not fully determined |
 | 🔒⚠ | Amber | self-signed | TLS on, self-signed or cert-chain not verified |
 | 🔒✓ | Green | ca-verified | TLS on, CA-verified certificate chain |
 | 🔐 | Blue / cyan | mtls | Mutual TLS — both client and server present certificates |
 
-The badge is hidden while disconnected and reappears on every new connection. Click the badge to pin the detail popover open; click anywhere else to dismiss it.
+The badge is hidden for TCP and UDP because those transports do not support TLS.
 
 ### Implementation notes
 

@@ -91,9 +91,11 @@ contextBridge.exposeInMainWorld('api', {
 
   // --- Velocity Login / Feed Picker ---
   openVelocityLogin: () => ipcRenderer.send('velocity:open-login'), // Opens the Velocity Sign-In dialog
+  setVelocityTokenSending: (enabled) => ipcRenderer.send('velocity:set-token-sending', enabled), // Toggles whether the Velocity token is sent on client connections
   onFeedApplied: (callback) => ipcRenderer.on('velocity:feed-applied', (_event, item) => callback(item)), // Receives applied feed properties
   onTokenRefreshed: (callback) => ipcRenderer.on('velocity:token-refreshed', (_event, token) => callback(token)), // Token refresh notification
   onTokenError: (callback) => ipcRenderer.on('velocity:token-error', (_event, msg) => callback(msg)), // Token refresh failure
+  onTokenState: (callback) => ipcRenderer.on('velocity:token-state', (_event, state) => callback(state)), // Safe token state without exposing token value
 });
 
 /**

@@ -18,6 +18,8 @@ const testSuites = [
   { file: 'grpc-transport.test.js', description: '🔌 gRPC Transport Tests' },
   { file: 'format-utils.test.js', description: '📦 Format Utils Tests' },
   { file: 'ws-transport.test.js', description: '🌐 WebSocket Transport Tests' },
+  { file: 'velocity-auth-utils.test.js', description: '🔑 Velocity Auth Utility Tests' },
+  { file: 'tooltip-utils.test.js', description: '💬 Tooltip Utility Tests' },
 ];
 
 function runTest(suite) {

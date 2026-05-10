@@ -190,11 +190,12 @@
             <div class="help-section">
                 <h3>Status & Logging</h3>
                 <ul>
-                    <li><strong>TLS Trust Badge:</strong> When connected over HTTP, WebSocket, or gRPC with TLS, a lock icon appears in the status bar. The icon shape <em>and</em> colour both encode the trust level — distinguishable without relying on colour alone. Hover or click for full details:
+                    <li><strong>TLS Trust Badge:</strong> When HTTP, WebSocket, or gRPC is selected, a lock icon appears in the status bar. While disconnected, click it to toggle TLS for the selected protocol; it stays synchronized with the Use TLS checkbox, certificate fields, default port behavior, and the next connection. While connected, click it to pin details and disconnect before changing TLS. Hover for a formatted tooltip with encryption state, certificate trust, endpoint, action, and auth context:
                         <table style="margin-top:6px;border-collapse:collapse;font-size:0.9em;">
                             <thead><tr><th style="padding:2px 8px;text-align:left;">Icon</th><th style="padding:2px 8px;text-align:left;">Colour</th><th style="padding:2px 8px;text-align:left;">Meaning</th></tr></thead>
                             <tbody>
                                 <tr><td style="padding:2px 8px;">🔓</td><td style="padding:2px 8px;">Grey / dimmed</td><td style="padding:2px 8px;">No TLS — plaintext, unsecure connection</td></tr>
+                                <tr><td style="padding:2px 8px;">🔒…</td><td style="padding:2px 8px;">Blue</td><td style="padding:2px 8px;">TLS enabled in the UI; certificate trust will be checked after connection</td></tr>
                                 <tr><td style="padding:2px 8px;">🔒⚠</td><td style="padding:2px 8px;">Amber / orange</td><td style="padding:2px 8px;">TLS on, self-signed or cert-chain not verified</td></tr>
                                 <tr><td style="padding:2px 8px;">🔒</td><td style="padding:2px 8px;">Amber / orange</td><td style="padding:2px 8px;">TLS on, OS certificate store (trust level not fully determined)</td></tr>
                                 <tr><td style="padding:2px 8px;">🔒✓</td><td style="padding:2px 8px;">Green</td><td style="padding:2px 8px;">TLS on, CA-verified certificate chain</td></tr>
@@ -202,6 +203,10 @@
                             </tbody>
                         </table>
                     </li>
+                    <li><strong>Velocity Auth Badge:</strong> The key badge is separate from TLS. It shows whether an ArcGIS Velocity token is available and whether it will be sent with new gRPC, HTTP, and WebSocket client connections. Click the badge to toggle token sending on or off. The tooltip never displays the raw bearer token; it only shows safe details such as selected feed, auth type, expiry, and the next toggle action.</li>
+                    <li class="sub-item">🔑 Token On — token will be sent with new supported client connections</li>
+                    <li class="sub-item">◇ Token Off — token is available but will not be sent</li>
+                    <li class="sub-item">⚠ Token Error — token refresh failed; sign in again if reconnecting fails</li>
                     <li><strong>Status Bar:</strong> Bottom bar shows app state with emoji indicators</li>
                     <li class="sub-item">🔴 Disconnected</li>
                     <li class="sub-item">🟢 Connected - Ready</li>

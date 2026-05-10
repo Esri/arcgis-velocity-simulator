@@ -1148,52 +1148,77 @@ body {
    distinct colour filter so the badge is unambiguous for colour-blind users too.
    Filters are applied to the emoji glyph rendered as an image by the OS.
      off          → grey/dimmed    (🔓  open lock)
+     configured   → blue           (🔒… TLS enabled in UI, trust pending)
      self-signed  → amber/orange   (🔒⚠ lock + warning)
      on           → amber/orange   (🔒  plain lock, trust level unknown)
      ca-verified  → green          (🔒✓ lock + checkmark)
      mtls         → blue/cyan      (🔐  key-in-lock)
 */
 .tls-badge[data-trust="off"]         .tls-badge-icon { filter: grayscale(1) opacity(0.55); }
+.tls-badge[data-trust="configured"]  .tls-badge-icon { filter: sepia(1) saturate(5) hue-rotate(175deg) brightness(1.05); }
 .tls-badge[data-trust="self-signed"] .tls-badge-icon { filter: sepia(1) saturate(4) hue-rotate(5deg)   brightness(1.05); }
 .tls-badge[data-trust="on"]          .tls-badge-icon { filter: sepia(1) saturate(4) hue-rotate(5deg)   brightness(1.05); }
 .tls-badge[data-trust="ca-verified"] .tls-badge-icon { filter: sepia(1) saturate(5) hue-rotate(90deg)  brightness(0.95); }
 .tls-badge[data-trust="mtls"]        .tls-badge-icon { filter: sepia(1) saturate(5) hue-rotate(190deg) brightness(1.05); }
 
+.tls-badge[data-tls-toggleable="false"] {
+  cursor: default;
+}
+
+.auth-badge {
+  appearance: none;
+  background: transparent;
+  color: var(--text-color);
+  font: inherit;
+  gap: 4px;
+}
+
+.auth-badge-wrapper {
+  position: relative;
+  align-items: center;
+}
+
+.auth-badge-label {
+  font-size: 0.78em;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.auth-badge[data-auth-state="on"] {
+  background-color: rgba(20, 184, 166, 0.16);
+  border-color: rgba(20, 184, 166, 0.5);
+}
+
+.auth-badge[data-auth-state="on"] .tls-badge-icon {
+  filter: sepia(1) saturate(5) hue-rotate(115deg) brightness(1.05);
+}
+
+.auth-badge[data-auth-state="off"] {
+  background-color: rgba(128, 128, 128, 0.08);
+}
+
+.auth-badge[data-auth-state="off"] .tls-badge-icon {
+  filter: grayscale(1) opacity(0.62);
+}
+
+.auth-badge[data-auth-state="warning"] {
+  background-color: rgba(245, 166, 35, 0.16);
+  border-color: rgba(245, 166, 35, 0.55);
+}
+
+.auth-badge[data-auth-state="error"] {
+  background-color: rgba(220, 53, 69, 0.16);
+  border-color: rgba(220, 53, 69, 0.58);
+}
+
 .tls-badge-popover {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  transform: translateX(-50%) translateY(6px);
-  z-index: 500;
-  background: var(--bg-color, #fff);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 10px 14px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
-  min-width: 260px;
-  max-width: min(480px, 90vw);
+  display: none !important;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.12s ease, transform 0.12s ease;
-  transition-delay: 0s;
-}
-
-.tls-badge:hover .tls-badge-popover {
-  pointer-events: auto;
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-  transition-delay: 0.2s;
-}
-
-.tls-badge.pinned .tls-badge-popover {
-  pointer-events: auto;
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-  transition-delay: 0s;
-  border-left: 3px solid var(--accent-color, var(--border-color));
 }
 
 .tls-badge-content {
+  display: block;
   margin: 0;
   font-family: var(--font-family);
   font-size: 0.82em;
@@ -1434,42 +1459,112 @@ body.compact .extra-options-toggle-btn {
 .custom-tooltip {
   position: fixed;
   z-index: 10000;
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 8px;
-  max-width: min(360px, calc(100vw - 20px));
-  padding: 8px 10px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 9px;
+  max-width: min(460px, calc(100vw - 20px));
+  padding: 10px 11px;
   border: 1px solid var(--border-color, #404040);
-  border-left: 3px solid var(--custom-tooltip-accent, var(--button-info-bg, #17a2b8));
-  border-radius: 6px;
+  border-left: 4px solid var(--custom-tooltip-accent, var(--button-info-bg, #17a2b8));
+  border-radius: 9px;
   background: var(--container-bg, var(--status-bg, #2d2d2d));
   color: var(--text-color, #d4d4d4);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38), 0 2px 8px rgba(0, 0, 0, 0.25);
   font-family: var(--font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   font-size: 12px;
-  line-height: 1.35;
+  line-height: 1.42;
   pointer-events: none;
   opacity: 0;
   transform: translateY(4px) scale(0.98);
-  transition: opacity 0.12s ease, transform 0.12s ease;
-  white-space: pre-line;
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  user-select: text;
 }
 
 .custom-tooltip.visible {
   opacity: 1;
   transform: translateY(0) scale(1);
+  pointer-events: auto;
 }
 
 .custom-tooltip-icon {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(23, 162, 184, 0.14);
   color: var(--custom-tooltip-accent, var(--button-info-bg, #17a2b8));
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.2;
 }
 
 .custom-tooltip-text {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.custom-tooltip-title {
+  font-weight: 700;
+  color: var(--text-color, #f3f4f6);
+  letter-spacing: 0.01em;
+}
+
+.custom-tooltip-row {
+  display: grid;
+  grid-template-columns: minmax(88px, max-content) minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: start;
+}
+
+.custom-tooltip-label {
+  color: var(--custom-tooltip-accent, var(--button-info-bg, #17a2b8));
+  font-weight: 650;
+}
+
+.custom-tooltip-bullet {
+  position: relative;
+  padding-left: 13px;
+}
+
+.custom-tooltip-bullet::before {
+  content: '•';
+  position: absolute;
+  left: 2px;
+  color: var(--custom-tooltip-accent, var(--button-info-bg, #17a2b8));
+  font-weight: 700;
+}
+
+.custom-tooltip-separator {
+  height: 1px;
+  margin: 3px 0;
+  background: rgba(23, 162, 184, 0.24);
+}
+
+.custom-tooltip-copy {
+  appearance: none;
+  border: 1px solid rgba(23, 162, 184, 0.34);
+  border-radius: 6px;
+  background: rgba(23, 162, 184, 0.12);
+  color: var(--text-color, #d4d4d4);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 5px;
+  opacity: 0.72;
+}
+
+.custom-tooltip-copy:hover,
+.custom-tooltip-copy:focus {
+  opacity: 1;
+  outline: none;
+  background: rgba(23, 162, 184, 0.2);
 }
 
 .custom-tooltip-info { --custom-tooltip-accent: var(--button-info-bg, #17a2b8); }
