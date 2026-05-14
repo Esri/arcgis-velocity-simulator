@@ -244,6 +244,8 @@ npm run package:mac
 
 ## Windows
 
+The packaged Windows app metadata uses the official product name **ArcGIS Velocity Simulator**. This is the value written to the Windows executable **Product name** and **File description** fields. Release artifact filenames intentionally keep the slug prefix `arcgis-velocity-simulator` for stable, script-friendly downloads.
+
 ### Output Formats
 
 | Format | Artifact | Description |
@@ -289,6 +291,54 @@ npm run package:win
 ```
 
 EV (Extended Validation) certificates suppress the SmartScreen warning immediately without requiring a reputation build-up period.
+
+#### Optional external signing script
+
+Windows builds can also call an external signing script, such as Esri's `sign.sh`, by passing an optional script path to the build wrapper:
+
+```bash
+npm run package:win -- --sign-script /absolute/path/to/sign.sh
+```
+
+Short aliases are available:
+
+| Option | Alias | Required? | Passed to `sign.sh` |
+|--------|-------|-----------|---------------------|
+| `--sign-script <path>` | `-x <path>` | Optional | External script to run. Supports absolute, relative (`../../../sign.sh`), and `~` paths, resolved to an absolute path before use. If omitted or not found/readable, the build logs a warning and falls back to the current electron-builder signing/unsigned behavior. When found, the build logs the resolved path before invoking it. |
+| `--sign-share-dir <UNC>` | `-d <UNC>` | Optional | `-sd <UNC>` / `--share-dir <UNC>` |
+| `--sign-arg <arg>` | `-a <arg>` | Optional, repeatable | Extra argument appended to the signing command, useful for `--jenkins-email-to`, `--jenkins-api-token`, `--smb-user`, `--smb-pass`, `--quiet`, or a test-only `--dry-run`. |
+
+The external signing hook auto-populates these values for this repo:
+
+| Signing phase | Auto `--source-dirs` value | Auto `--product-names` value | Files signed |
+|---------------|----------------------------------|--------------------------------------|--------------|
+| Windows unpacked app (`afterPack`) | `dist/win-unpacked` | `ArcGIS Velocity Simulator` | Top-level files matching `*.exe;*.msi;*.msp` in `win-unpacked` (normally `ArcGIS Velocity Simulator.exe`). |
+| Final Windows artifacts (`afterAllArtifactBuild`) | The final artifact folder, normally `dist` | `ArcGIS Velocity Simulator` | Only the generated signable final artifacts from the current build, using an exact file mask such as `arcgis-velocity-simulator-<version>-setup.exe;arcgis-velocity-simulator-<version>-portable.exe`. ZIP files are not signed directly. |
+
+The hook calls the external script with `--run` by default:
+
+```bash
+bash /absolute/path/to/sign.sh --run \
+  --source-dirs /Users/hano4470/github/Esri/arcgis-velocity-simulator/dist/win-unpacked \
+  --product-names "ArcGIS Velocity Simulator"
+```
+
+If `--sign-share-dir` is supplied, the hook adds `--share-dir <UNC>`. Extra `--sign-arg` values are appended last so you can pass Jenkins, SMB, quiet, or test-only dry-run settings. Examples use full option names for readability:
+
+```bash
+npm run package:win -- \
+  --sign-script /absolute/path/to/sign.sh \
+  --sign-share-dir '\\storm\upload\DigitalSign\Velocity' \
+  --sign-arg --jenkins-email-to --sign-arg build@example.com \
+  --sign-arg --jenkins-api-token --sign-arg "$JENKINS_API_TOKEN"
+```
+
+```bash
+npm run package:win -- \
+  --sign-script ../../../signing/sign.sh \
+  --sign-share-dir '\\storm\upload\DigitalSign\Velocity' \
+  --sign-arg --quiet
+```
 
 ---
 

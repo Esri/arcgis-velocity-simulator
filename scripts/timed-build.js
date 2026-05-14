@@ -8,7 +8,15 @@
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { ensureGnuArPath } = require('./binutils-path');
-const args = process.argv.slice(2);
+const { buildSignEnv, describeSignOptions, parseSignOptions } = require('./sign-options');
+let parsed;
+try {
+  parsed = parseSignOptions(process.argv.slice(2));
+} catch (error) {
+  console.error(`\n❌ ${error.message}`);
+  process.exit(1);
+}
+const args = parsed.passthroughArgs;
 // Resolve the binary relative to the repo root so this works whether invoked
 // via `npm run` or directly via `node scripts/timed-build.js`.
 const bin = path.join(__dirname, '..', 'node_modules', '.bin', 'electron-builder');
@@ -16,10 +24,11 @@ const startMs = Date.now();
 const startTime = new Date().toLocaleTimeString();
 console.log('\n\u23f1  Build started at ' + startTime);
 console.log('   electron-builder ' + args.join(' ') + '\n');
+console.log('   ' + describeSignOptions(parsed) + '\n');
 // shell: true is required on Windows so the .cmd shim in node_modules/.bin resolves correctly.
 // PATH override: prepend Homebrew binutils on macOS so electron-builder finds
 // GNU `ar` instead of BSD `ar` (required for valid .deb archives).
-const env = { ...process.env, PATH: ensureGnuArPath(process.env.PATH) };
+const env = buildSignEnv({ ...process.env, PATH: ensureGnuArPath(process.env.PATH) }, parsed);
 const result = spawnSync(bin, args, {
   stdio: 'inherit',
   shell: process.platform === 'win32',

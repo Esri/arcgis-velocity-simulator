@@ -67,6 +67,9 @@ See **[BUILD.md → Bootstrapping a Fresh Machine](./BUILD.md#bootstrapping-a-fr
 | `--prepare-only` / `-p` | Run Steps 0–4 only (prereqs check, version bump, build all platforms, commit + push) and exit **before** creating or uploading any GitHub release. Use this to build and inspect artifacts locally before committing to a public release. When ready, complete the release with `--upload-only`. Compatible with `--seq`, `--install-prereqs`, and `--dry-run`. |
 | `--upload-only` / `-u` | Skip Steps 0–4 entirely and jump straight to Step 5 (create GitHub release + upload `dist/` artifacts). The version is read automatically from `package.json` — no version argument needed. Use this after a prior `--prepare-only` run, or when artifacts were produced by another process (e.g. CI). Only `gh` CLI is required — build tools are not checked. Compatible with `--re-release` and `--dry-run`. |
 | `--install-prereqs` / `-i` | Auto-install any missing build/release prerequisites before running Step 0 (uses Homebrew on macOS, apt/dnf/pacman on Linux, winget/choco on Windows). Combine with `--dry-run` to preview the install plan only. Tools that are too risky to auto-install (Node major upgrades, `gh auth login`, `.deb` tooling on Windows → WSL) are surfaced as manual steps. **Signing tools and signing-related env vars (`CSC_LINK`, `WIN_CSC_LINK`, `APPLE_*`) are NOT auto-installed** — see the [Code Signing](#code-signing) section. Aliases: `--install-deps`, `-i`. |
+| `--sign-script <path>` / `-x <path>` | Optional path to an external Windows signing script such as Esri's `sign.sh`. Supports absolute, relative (`../../../sign.sh`), and `~` paths, resolved to an absolute path before use. When provided and found/readable, Windows build hooks call it with `--run`, auto-populated `--source-dirs` source folders, and `--product-names "ArcGIS Velocity Simulator"`. If omitted or unusable, the build logs a warning and falls back to the current electron-builder signing/unsigned behavior. |
+| `--sign-share-dir <UNC>` / `-d <UNC>` | Optional signing share passed to the external signing script as `-sd <UNC>` / `--share-dir <UNC>`. Only used with `--sign-script`. |
+| `--sign-arg <arg>` / `-a <arg>` | Optional repeatable extra argument appended to the external signing script. Use repeated `--sign-arg` values for options and their values, including values beginning with dashes. |
 | `--help` / `-h` | Print usage information and exit. |
 | `--list` / `-l` | List all published GitHub releases for this repository and exit. Requires `gh` CLI to be installed and authenticated. Outputs a table with columns **TAG · DATE · STATUS · URL** — STATUS is colour-coded (● latest, ◐ pre-release, ○ draft). Also prints the local `package.json` version for quick comparison. Pair with `--limit <n>` to control how many are shown (default: 10). |
 | `--limit <n>` | Maximum number of releases to show when using `--list`. Default: `10`. |
@@ -122,6 +125,19 @@ Short unknown flags such as `-x` still show the generic `--help` guidance instea
 ./scripts/release.sh --prepare-only v1.2.3
 # ... inspect dist/ artifacts, sign them if needed, then:
 ./scripts/release.sh --upload-only
+
+# Release build with optional external Windows signing
+./scripts/release.sh v1.2.3 \
+  --sign-script /absolute/path/to/sign.sh \
+  --sign-share-dir '\\storm\upload\DigitalSign\Velocity' \
+  --sign-arg --jenkins-email-to --sign-arg build@example.com \
+  --sign-arg --jenkins-api-token --sign-arg "$JENKINS_API_TOKEN"
+
+# Preview release + external signing; invokes sign.sh with its own --dry-run mode
+./scripts/release.sh --dry-run v1.2.3 \
+  --sign-script ../../../signing/sign.sh \
+  --sign-share-dir '\\storm\upload\DigitalSign\Velocity' \
+  --sign-arg --jenkins-email-to --sign-arg build@example.com
 
 # Two-phase with sequential build (useful when debugging build output)
 ./scripts/release.sh --prepare-only --seq v1.2.3
@@ -281,6 +297,37 @@ npm run package:win:zip
 ```
 
 The same environment variables are picked up automatically when running `./scripts/release.sh` — export them in your shell (or source them from a local, git-ignored `.env` file) before invoking the script.
+
+#### Optional external signing script
+
+For release builds, the script can pass optional external signing settings through to the Windows build hooks:
+
+```bash
+./scripts/release.sh v1.2.3 \
+  --sign-script /absolute/path/to/sign.sh \
+  --sign-share-dir '\\storm\upload\DigitalSign\Velocity' \
+  --sign-arg --jenkins-email-to --sign-arg build@example.com \
+  --sign-arg --jenkins-api-token --sign-arg "$JENKINS_API_TOKEN"
+```
+
+```bash
+./scripts/release.sh --dry-run v1.2.3 \
+  --sign-script ~/signing/sign.sh \
+  --sign-share-dir '\\storm\upload\DigitalSign\Velocity' \
+  --sign-arg --jenkins-email-to --sign-arg build@example.com
+```
+
+Both `--sign-script` / `-x` and `--sign-share-dir` / `-d` are optional. If the script path is omitted or cannot be found/read, release builds use the same electron-builder signing/unsigned behavior as before. When a script path is provided, the logs show the resolved absolute path and whether it can be used.
+
+When `./scripts/release.sh --dry-run` is used with a valid `--sign-script`, the release script invokes the external signing script with its own `--dry-run` mode for any existing signable Windows files currently under `dist/win-unpacked` or `dist/`. The dry-run invocation does not include `--run`. The normal build hooks still run the external script with `--run` during real Windows builds.
+
+When a valid external script is supplied, the Windows hooks call it with `--run` by default and auto-populate:
+
+| Repo | Auto product name (`--product-names`) | Auto unpacked source (`--source-dirs`) | Final artifact signing |
+|------|--------------------------|-----------------------------|------------------------|
+| Simulator | `ArcGIS Velocity Simulator` | `/Users/hano4470/github/Esri/arcgis-velocity-simulator/dist/win-unpacked` | The hook signs only current generated `*.exe`, `*.msi`, and `*.msp` final artifacts in `dist/` via an exact `--file-mask` value. |
+
+The unpacked phase signs top-level `*.exe;*.msi;*.msp` files in `dist/win-unpacked` (normally `ArcGIS Velocity Simulator.exe`). Final `.zip`, `.dmg`, `.deb`, and `.AppImage` artifacts are not directly signed by this Windows signing script.
 
 ---
 

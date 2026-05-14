@@ -17,16 +17,24 @@ const path = require('path');
 const fs = require('fs');
 const { spawnSync } = require('child_process');
 const { ensureGnuArPath } = require('./binutils-path');
+const { buildSignEnv, describeSignOptions, parseSignOptions } = require('./sign-options');
 
 const bin = path.join(__dirname, '..', 'node_modules', '.bin', 'electron-builder');
 const distDir = path.join(__dirname, '..', 'dist');
 
 // PATH override: prepend Homebrew binutils on macOS so electron-builder finds
 // GNU `ar` instead of BSD `ar` (required for valid .deb archives).
-const childEnv = { ...process.env, PATH: ensureGnuArPath(process.env.PATH) };
+let parsedSignOptions;
+try {
+  parsedSignOptions = parseSignOptions(process.argv.slice(2));
+} catch (error) {
+  console.error(`\n❌ ${error.message}`);
+  process.exit(1);
+}
+const childEnv = buildSignEnv({ ...process.env, PATH: ensureGnuArPath(process.env.PATH) }, parsedSignOptions);
 
 // ── Parse args ────────────────────────────────────────────────────────────────
-const rawArgs = process.argv.slice(2);
+const rawArgs = parsedSignOptions.passthroughArgs;
 let clean = false;
 let compressionOverride = null;
 const stepDefs = [];
@@ -90,6 +98,7 @@ const results = [];
 console.log(`\n${'═'.repeat(60)}`);
 console.log(`⏱  Sequential build started at ${totalStartTime}`);
 console.log(`${'═'.repeat(60)}\n`);
+console.log(`   ${describeSignOptions(parsedSignOptions)}\n`);
 
 for (const def of stepDefs) {
   const colonIdx = def.indexOf(':');

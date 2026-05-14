@@ -1,6 +1,6 @@
 {
   "name": "arcgis-velocity-simulator",
-  "productName": "arcgis-velocity-simulator",
+  "productName": "ArcGIS Velocity Simulator",
   "version": "1.0.2",
   "description": "ArcGIS Velocity Simulator",
   "main": "src/main.js",
@@ -79,7 +79,9 @@
   },
   "build": {
     "appId": "com.esri.arcgis-velocity-simulator",
-    "productName": "arcgis-velocity-simulator",
+    "productName": "ArcGIS Velocity Simulator",
+    "afterPack": "scripts/external-sign.js",
+    "afterAllArtifactBuild": "scripts/external-sign.js",
     "files": [
       "src/**/*",
       "package.json"
@@ -97,11 +99,11 @@
         "dmg",
         "zip"
       ],
-      "artifactName": "${productName}-${version}-mac.${ext}"
+      "artifactName": "arcgis-velocity-simulator-${version}-mac.${ext}"
     },
     "win": {
       "icon": "src/assets/icon.png",
-      "artifactName": "${productName}-${version}-win.${ext}",
+      "artifactName": "arcgis-velocity-simulator-${version}-win.${ext}",
       "target": [
         {
           "target": "nsis",
@@ -131,15 +133,15 @@
       ],
       "category": "Utility",
       "maintainer": "Hanoch Kalmanovich <hkalmanovich@esri.com>",
-      "artifactName": "${productName}-${version}-linux.${ext}"
+      "artifactName": "arcgis-velocity-simulator-${version}-linux.${ext}"
     },
     "nsis": {
-      "artifactName": "${productName}-${version}-setup.${ext}",
+      "artifactName": "arcgis-velocity-simulator-${version}-setup.${ext}",
       "installerIcon": "src/assets/installerIcon.ico",
       "uninstallerIcon": "src/assets/installerIcon.ico"
     },
     "portable": {
-      "artifactName": "${productName}-${version}-portable.${ext}"
+      "artifactName": "arcgis-velocity-simulator-${version}-portable.${ext}"
     }
   },
   "dependencies": {

@@ -7,6 +7,7 @@ This file provides rules and guidance for AI coding agents (e.g. GitHub Copilot,
 - Follow the existing code style and conventions found in the source files.
 - Do not introduce new dependencies without updating `package.json`.
 - Keep all documentation in the `docs/` folder up to date when changing related functionality.
+- In help text and documentation examples, always use full long option names rather than short aliases. This includes wrapper options (for example `--sign-script`, not `-x`) and pass-through external signing options (for example `--jenkins-email-to`, not `-je`).
 - Run `npm test` after making code changes and ensure all tests pass.
 - **Always prefer a DRY (Don't Repeat Yourself) implementation approach.** When logic is shared across modules (e.g. TLS utilities used by both gRPC, HTTP, and WebSocket transports), extract it into a dedicated shared module rather than duplicating it. Reference `src/tls-utils.js` and `src/format-utils.js` as examples of this pattern.
 

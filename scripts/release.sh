@@ -65,6 +65,22 @@ ${BOLD}${WHITE}OPTIONS${RESET}
         ${YELLOW}⚠${RESET}  Signing tools and env vars (CSC_LINK, WIN_CSC_LINK, APPLE_*) are NOT
            auto-installed.
 
+  ${BOLD}-x${RESET}  ${DIM}--sign-script <path>${RESET}
+        Optional path to an external Windows signing script. Supports absolute,
+        relative, and ${BOLD}~${RESET}-based paths, resolved to an absolute path before use.
+        When present and found, Windows build hooks call it with ${BOLD}--run${RESET}, an auto-populated
+        source folder (${CYAN}dist/win-unpacked${RESET} or final artifact folder), and the
+        official product name (${BOLD}ArcGIS Velocity Simulator${RESET}). If omitted or missing,
+        the build falls back to the current electron-builder signing/unsigned behavior.
+
+  ${BOLD}-d${RESET}  ${DIM}--sign-share-dir <UNC>${RESET}
+        Optional share directory passed to the external signing script as ${BOLD}-sd${RESET} / ${BOLD}--share-dir${RESET}.
+        Only used when ${BOLD}--sign-script${RESET} is provided and found.
+
+  ${BOLD}-a${RESET}  ${DIM}--sign-arg <arg>${RESET}
+        Extra argument passed through to the external signing script. Repeat for
+        multiple values, including values that start with dashes.
+
   ${BOLD}-h${RESET}  ${DIM}--help${RESET}
         Show this help message and exit.
 
@@ -91,16 +107,18 @@ ${BOLD}${WHITE}TYPO SUGGESTIONS${RESET}
     • Levenshtein — selected for suggestions: deterministic, dependency-free, and
       good for missing hyphens, omitted characters, extra characters, and substitutions.
 
-${BOLD}${WHITE}PIPELINE${RESET}
-  Step 0  Check prerequisites + verify clean working tree
-  Step 1  Validate requested version (blocks downgrades)
-  Step 2  Bump version in package.json
-  Step 3  Build all platform packages  ${DIM}(parallel by default; --seq for serial)${RESET}
-  Step 4  Commit + push the version bump
-  Step 5  Create GitHub release + upload dist/ artifacts
+${BOLD}${WHITE}RELEASE PIPELINE${RESET}
+  Phase 1  Check build prerequisites
+  Phase 2  Verify clean working tree
+  Phase 3  Validate requested version (blocks downgrades)
+  Phase 4  Bump version in package.json
+  Phase 5  Build all platform packages  ${DIM}(parallel by default; --seq for serial)${RESET}
+  Phase 6  Commit + push the version bump
+  Phase 7  Create GitHub release + upload dist/ artifacts
 
-  ${DIM}--prepare-only  stops after Step 4  (build + commit, no GitHub upload)${RESET}
-  ${DIM}--upload-only   starts at  Step 5  (upload only, skips build entirely)${RESET}
+  ${DIM}Banners show the selected-mode count, for example: VELOCITY RELEASE Step 3/7.${RESET}
+  ${DIM}--prepare-only  stops after Phase 6  (build + commit, no GitHub upload)${RESET}
+  ${DIM}--upload-only   still shows skipped prep phases, then runs Phase 7 upload only${RESET}
 
 ${BOLD}${WHITE}PREREQUISITES${RESET}
   • Run from the repository root
@@ -117,24 +135,24 @@ ${BOLD}${WHITE}EXAMPLES${RESET}
   ${CYAN}./scripts/release.sh 1.2.3${RESET}
 
   ${DIM}# Preview the full release without making any changes (recommended first step)${RESET}
-  ${CYAN}./scripts/release.sh -s v1.2.3${RESET}
+  ${CYAN}./scripts/release.sh --dry-run v1.2.3${RESET}
 
   ${DIM}# Two-phase: build + commit now, review artifacts, upload later${RESET}
   ${CYAN}./scripts/release.sh --prepare-only v1.2.3${RESET}
   ${CYAN}./scripts/release.sh --upload-only${RESET}
 
   ${DIM}# Two-phase with sequential build (clean output, useful for debugging)${RESET}
-  ${CYAN}./scripts/release.sh -p -S v1.2.3${RESET}
-  ${CYAN}./scripts/release.sh -u${RESET}
+  ${CYAN}./scripts/release.sh --prepare-only --seq v1.2.3${RESET}
+  ${CYAN}./scripts/release.sh --upload-only${RESET}
 
   ${DIM}# Upload-only for externally produced artifacts (e.g. from CI)${RESET}
-  ${CYAN}./scripts/release.sh -u${RESET}
+  ${CYAN}./scripts/release.sh --upload-only${RESET}
 
   ${DIM}# Recover from a broken release — delete + rebuild + re-upload${RESET}
   ${CYAN}./scripts/release.sh --re-release v1.2.3${RESET}
 
   ${DIM}# Re-upload only (skip rebuild — reuse existing dist/ artifacts)${RESET}
-  ${CYAN}./scripts/release.sh -u -R${RESET}
+  ${CYAN}./scripts/release.sh --upload-only --re-release${RESET}
 
   ${DIM}# Sequential build (clean output, slower)${RESET}
   ${CYAN}./scripts/release.sh --seq v1.2.3${RESET}
@@ -143,7 +161,20 @@ ${BOLD}${WHITE}EXAMPLES${RESET}
   ${CYAN}./scripts/release.sh --install-prereqs v1.2.3${RESET}
 
   ${DIM}# Preview prereq install plan only (no install, no release)${RESET}
-  ${CYAN}./scripts/release.sh -i -s v1.2.3${RESET}
+  ${CYAN}./scripts/release.sh --install-prereqs --dry-run v1.2.3${RESET}
+
+  ${DIM}# Release with an external Windows signing script (paths can be absolute, relative, or ~-based)${RESET}
+  ${CYAN}./scripts/release.sh v1.2.3 \\
+    --sign-script ~/signing/sign.sh \\
+    --sign-share-dir '\\\\\\\\storm\upload\DigitalSign\Velocity' \\
+    --sign-arg --jenkins-email-to --sign-arg build@example.com \\
+    --sign-arg --jenkins-api-token --sign-arg \$JENKINS_API_TOKEN${RESET}
+
+  ${DIM}# Preview release + external signing; invokes sign.sh with its own --dry-run mode${RESET}
+  ${CYAN}./scripts/release.sh --dry-run v1.2.3 \\
+    --sign-script ../../../signing/sign.sh \\
+    --sign-share-dir '\\\\\\\\storm\upload\DigitalSign\Velocity' \\
+    --sign-arg --jenkins-email-to --sign-arg build@example.com${RESET}
 
   ${DIM}# List all published releases${RESET}
   ${CYAN}./scripts/release.sh --list${RESET}
@@ -174,9 +205,36 @@ WHITE='\033[0;97m'
 RESET='\033[0m'
 
 SCRIPT_START=$(date +%s)
+RELEASE_STEP_INDEX=0
+
+release_step_total() {
+  if [[ "${PREPARE_ONLY:-false}" == true ]]; then
+    echo 6
+  else
+    echo 7
+  fi
+}
+
+release_step_icon() {
+  local msg="$1"
+  case "$msg" in
+    *prerequisite*) echo "🧰" ;;
+    *working\ tree*) echo "🌿" ;;
+    *version*) echo "🏷️" ;;
+    *build*|*Build*|*package*|*Package*) echo "📦" ;;
+    *commit*|*Commit*) echo "🔖" ;;
+    *GitHub*|*release*|*Release*) echo "🚀" ;;
+    *) echo "▶" ;;
+  esac
+}
 
 banner() {
-  local step="$1" msg="$2"
+  local _legacy_step="$1" msg="$2"
+  RELEASE_STEP_INDEX=$(( RELEASE_STEP_INDEX + 1 ))
+  local total
+  total=$(release_step_total)
+  local icon
+  icon=$(release_step_icon "$msg")
   local tag=""
   [[ "$DRY_RUN"          == true ]] && tag="${tag} ${BOLD}${YELLOW}[dry run]${RESET}${BOLD}${CYAN}"
   [[ "$RERELEASE"        == true ]] && tag="${tag} ${BOLD}${RED}[re-release]${RESET}${BOLD}${CYAN}"
@@ -185,8 +243,8 @@ banner() {
   [[ "$UPLOAD_ONLY"      == true ]] && tag="${tag} ${BOLD}${GREEN}[upload-only]${RESET}${BOLD}${CYAN}"
   [[ "$INSTALL_PREREQS"  == true ]] && tag="${tag} ${BOLD}${GREEN}[install-prereqs]${RESET}${BOLD}${CYAN}"
   echo ""
-  echo -e "${BOLD}${CYAN}┌─ Step ${step}${tag} ─────────────────────────────────────────────────────${RESET}"
-  echo -e "${BOLD}${CYAN}│${RESET}  ${WHITE}${msg}${RESET}"
+  echo -e "${BOLD}${CYAN}┌─ 🚀 VELOCITY RELEASE Step ${RELEASE_STEP_INDEX}/${total}${tag} ─────────────────────────────────────────${RESET}"
+  echo -e "${BOLD}${CYAN}│${RESET}  ${icon}  ${WHITE}${msg}${RESET}"
   echo -e "${BOLD}${CYAN}└────────────────────────────────────────────────────────────────${RESET}"
 }
 
@@ -212,6 +270,7 @@ run() {
   fi
 }
 
+
 # ── Semver comparison ────────────────────────────────────────────────────────
 # Returns 0 (true) if $1 < $2
 semver_lt() {
@@ -235,7 +294,9 @@ UPLOAD_ONLY=false
 LIST=false
 LIST_LIMIT=10
 VERSION=""
-PREV_ARG=""
+SIGN_SCRIPT=""
+SIGN_SHARE_DIR=""
+SIGN_ARGS=()
 
 # levenshtein_distance <left> <right> — minimum insert/delete/substitute edits.
 levenshtein_distance() {
@@ -282,6 +343,7 @@ closest_flag() {
   local known=(
     "--dry-run" "--simulate" "--re-release" "--seq"
     "--prepare-only" "--upload-only" "--install-prereqs" "--install-deps"
+    "--sign-script" "--sign-share-dir" "--sign-arg"
     "--list" "--limit" "--help"
   )
   for flag in "${known[@]}"; do
@@ -297,17 +359,24 @@ closest_flag() {
   echo "$best_flag"
 }
 
-for arg in "$@"; do
+while [[ $# -gt 0 ]]; do
+  arg="$1"
   case "$arg" in
-    --dry-run|--simulate|-s)             DRY_RUN=true ;;
-    --re-release|-R)                     RERELEASE=true ;;
-    --seq|-S)                            SEQ=true ;;
-    --prepare-only|-p)                   PREPARE_ONLY=true ;;
-    --upload-only|-u)                    UPLOAD_ONLY=true ;;
-    --install-prereqs|--install-deps|-i) INSTALL_PREREQS=true ;;
-    --list|-l)                           LIST=true ;;
-    --limit=*)                           LIST_LIMIT="${arg#--limit=}" ;;
-    --limit)                             ;;   # value consumed in next iteration
+    --dry-run|--simulate|-s)             DRY_RUN=true; shift ;;
+    --re-release|-R)                     RERELEASE=true; shift ;;
+    --seq|-S)                            SEQ=true; shift ;;
+    --prepare-only|-p)                   PREPARE_ONLY=true; shift ;;
+    --upload-only|-u)                    UPLOAD_ONLY=true; shift ;;
+    --install-prereqs|--install-deps|-i) INSTALL_PREREQS=true; shift ;;
+    --list|-l)                           LIST=true; shift ;;
+    --limit=*)                           LIST_LIMIT="${arg#--limit=}"; shift ;;
+    --limit)                             [[ $# -ge 2 ]] || fail "--limit requires a value"; LIST_LIMIT="$2"; shift 2 ;;
+    --sign-script=*)                     SIGN_SCRIPT="${arg#--sign-script=}"; shift ;;
+    --sign-script|-x)                    [[ $# -ge 2 ]] || fail "${arg} requires a value"; SIGN_SCRIPT="$2"; shift 2 ;;
+    --sign-share-dir=*)                  SIGN_SHARE_DIR="${arg#--sign-share-dir=}"; shift ;;
+    --sign-share-dir|-d)                 [[ $# -ge 2 ]] || fail "${arg} requires a value"; SIGN_SHARE_DIR="$2"; shift 2 ;;
+    --sign-arg=*)                        SIGN_ARGS+=("${arg#--sign-arg=}"); shift ;;
+    --sign-arg|-a)                       [[ $# -ge 2 ]] || fail "${arg} requires a value"; SIGN_ARGS+=("$2"); shift 2 ;;
     --*)
       # Unknown long flag — suggest the closest known one when edit distance is small
       suggestion=$(closest_flag "$arg")
@@ -327,14 +396,9 @@ for arg in "$@"; do
       exit 1
       ;;
     *)
-      if [[ "$PREV_ARG" == "--limit" ]]; then
-        LIST_LIMIT="$arg"
-      else
-        VERSION="$arg"
-      fi
+      VERSION="$arg"; shift
       ;;
   esac
-  PREV_ARG="$arg"
 done
 
 # ── --list: show published releases and exit ─────────────────────────────────
@@ -400,6 +464,10 @@ fi
 [[ "$VERSION" != v* ]] && VERSION="v${VERSION}"
 VERSION_BARE="${VERSION#v}"   # strip 'v' for package.json / semver math
 
+if [[ -n "$SIGN_SCRIPT" ]]; then
+  SIGN_SCRIPT=$(node -e 'const { resolveSignScriptPath } = require("./scripts/sign-options"); process.stdout.write(resolveSignScriptPath(process.argv[1]));' "$SIGN_SCRIPT")
+fi
+
 # ── Header ──────────────────────────────────────────────────────────────────
 APP_NAME=$(node -p "require('./package.json').productName")
 echo ""
@@ -422,6 +490,10 @@ if [[ "$UPLOAD_ONLY" == true ]]; then
 fi
 if [[ "$INSTALL_PREREQS" == true ]]; then
   echo -e "${BOLD}${GREEN}  ⓘ   INSTALL-PREREQS — missing build/release tools will be auto-installed${RESET}"
+fi
+if [[ -n "$SIGN_SCRIPT" ]]; then
+  echo -e "${BOLD}${CYAN}  ⓘ   SIGN-SCRIPT — external Windows signing requested: ${SIGN_SCRIPT}${RESET}"
+  [[ -n "$SIGN_SHARE_DIR" ]] && echo -e "${BOLD}${CYAN}      SIGN-SHARE — ${SIGN_SHARE_DIR}${RESET}"
 fi
 echo -e "${BOLD}${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 
@@ -455,6 +527,7 @@ fi
 # Block the release if there are uncommitted changes (other than package.json,
 # which the script itself may modify) or unpushed commits — a release should
 # always reflect what's on the remote and be reproducible from the published tag.
+# Dry runs warn and continue so changes can be previewed before committing.
 # Skipped when --upload-only is set (artifacts already built, tree state irrelevant).
 if [[ "$UPLOAD_ONLY" == true ]]; then
   banner 0 "Skipping working tree check (--upload-only)"
@@ -489,7 +562,11 @@ else
   fi
 
   if [[ "$WORKING_TREE_OK" != true ]]; then
-    fail "Working tree must be clean before releasing.\n     Commit & push your changes, then re-run."
+    if [[ "$DRY_RUN" == true ]]; then
+      warn "Working tree is not clean. Dry-run will continue, but a real release requires a clean tree.\n     Commit & push your changes before running without --dry-run."
+    else
+      fail "Working tree must be clean before releasing.\n     Commit & push your changes, then re-run."
+    fi
   else
     success "Working tree is clean and up to date with ${UPSTREAM}"
   fi
@@ -550,10 +627,26 @@ else
     BUILD_SCRIPT="package:all:clean"
   fi
   info "Running: npm run ${BUILD_SCRIPT}"
+  if [[ -n "$SIGN_SCRIPT" ]]; then
+    export VELOCITY_SIGN_SCRIPT="$SIGN_SCRIPT"
+    [[ -n "$SIGN_SHARE_DIR" ]] && export VELOCITY_SIGN_SHARE_DIR="$SIGN_SHARE_DIR" || unset VELOCITY_SIGN_SHARE_DIR
+    if (( ${#SIGN_ARGS[@]} > 0 )); then
+      VELOCITY_SIGN_ARGS=$(node -e 'process.stdout.write(JSON.stringify(process.argv.slice(1)))' "${SIGN_ARGS[@]}")
+      export VELOCITY_SIGN_ARGS
+    else
+      unset VELOCITY_SIGN_ARGS
+    fi
+    info "External Windows signing: ${SIGN_SCRIPT}"
+    [[ -n "$SIGN_SHARE_DIR" ]] && info "Signing share directory: ${SIGN_SHARE_DIR}"
+    (( ${#SIGN_ARGS[@]} > 0 )) && info "Signing extra args: ${SIGN_ARGS[*]}"
+  else
+    unset VELOCITY_SIGN_SCRIPT VELOCITY_SIGN_SHARE_DIR VELOCITY_SIGN_ARGS
+  fi
   echo ""
 
   BUILD_START=$(date +%s)
   run "Build" npm run "${BUILD_SCRIPT}"
+  [[ "$DRY_RUN" == true && -n "$SIGN_SCRIPT" ]] && node scripts/external-sign.js --dry-run-preview
   BUILD_ELAPSED=$(( $(date +%s) - BUILD_START ))
 
   echo ""
