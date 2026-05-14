@@ -603,13 +603,18 @@ else
     warn "package.json already at ${VERSION_BARE} — no change needed"
     VERSION_CHANGED=false
   else
-    run "Write package.json" node -e "
-      const fs = require('fs');
-      const pkg = require('./package.json');
-      pkg.version = '${VERSION_BARE}';
-      fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');
-    "
-    success "package.json version updated: ${DIM}${CURRENT_VERSION}${RESET} → ${BOLD}${VERSION_BARE}${RESET}"
+    if [[ "$DRY_RUN" == true ]]; then
+      dryrun "package.json version would change: ${CURRENT_VERSION} → ${VERSION_BARE}"
+      success "package.json version change planned: ${DIM}${CURRENT_VERSION}${RESET} → ${BOLD}${VERSION_BARE}${RESET}"
+    else
+      node -e "
+        const fs = require('fs');
+        const pkg = require('./package.json');
+        pkg.version = '${VERSION_BARE}';
+        fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');
+      "
+      success "package.json version updated: ${DIM}${CURRENT_VERSION}${RESET} → ${BOLD}${VERSION_BARE}${RESET}"
+    fi
     VERSION_CHANGED=true
   fi
 fi

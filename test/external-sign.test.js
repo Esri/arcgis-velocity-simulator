@@ -1,11 +1,20 @@
 const assert = require('assert');
+const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
 const { parseSignOptions, resolveSignScriptPath } = require('../scripts/sign-options');
 const externalSign = require('../scripts/external-sign');
 
-const { buildSignCommand, getArtifactSigningPlan, getOfficialProductName, getSignScriptStatus } = externalSign._private;
+const {
+  buildSignCommand,
+  getArtifactSigningPlan,
+  getExistingArtifactSigningPlan,
+  getOfficialProductName,
+  getSignScriptStatus,
+  hasSignableFile,
+  parseExtraArgs,
+} = externalSign._private;
 
 (function testParseSignOptions() {
   const parsed = parseSignOptions([
@@ -21,6 +30,15 @@ const { buildSignCommand, getArtifactSigningPlan, getOfficialProductName, getSig
   assert.strictEqual(parsed.signScript, '/opt/sign/sign.sh');
   assert.strictEqual(parsed.signShareDir, '\\\\storm\\upload\\DigitalSign\\Velocity');
   assert.deepStrictEqual(parsed.signArgs, ['-je', 'build@example.com']);
+})();
+
+(function testParseExtraArgs() {
+  assert.deepStrictEqual(parseExtraArgs('["--quiet","--jenkins-email-to","build@example.com"]'), [
+    '--quiet',
+    '--jenkins-email-to',
+    'build@example.com',
+  ]);
+  assert.deepStrictEqual(parseExtraArgs('--quiet --verbose'), ['--quiet', '--verbose']);
 })();
 
 (function testSignScriptPathResolution() {
@@ -95,6 +113,21 @@ const { buildSignCommand, getArtifactSigningPlan, getOfficialProductName, getSig
 
   assert.deepStrictEqual(plan.sourceDirs, ['/repo/dist']);
   assert.strictEqual(plan.fileMask, 'arcgis-velocity-simulator-1.0.2-setup.exe;arcgis-velocity-simulator-1.0.2-portable.exe');
+})();
+
+(function testExistingArtifactSigningPlanAndSignableFileDetection() {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'velocity-simulator-sign-test-'));
+  try {
+    fs.writeFileSync(path.join(tempDir, 'simulator-setup.exe'), 'fake');
+    fs.writeFileSync(path.join(tempDir, 'simulator-win.zip'), 'fake');
+
+    assert.strictEqual(hasSignableFile(tempDir, '*.exe;*.msi;*.msp'), true);
+    const plan = getExistingArtifactSigningPlan(tempDir);
+    assert.deepStrictEqual(plan.sourceDirs, [tempDir]);
+    assert.strictEqual(plan.fileMask, 'simulator-setup.exe');
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 })();
 
 (function testOfficialProductName() {

@@ -13,6 +13,13 @@ const {
 
 const DEFAULT_FILE_MASK = '*.exe;*.msi;*.msp';
 const SIGNABLE_ARTIFACT_RE = /\.(exe|msi|msp)$/i;
+const BOLD = '\x1b[1m';
+const DIM = '\x1b[2m';
+const RED = '\x1b[0;31m';
+const GREEN = '\x1b[0;32m';
+const CYAN = '\x1b[0;36m';
+const WHITE = '\x1b[0;97m';
+const RESET = '\x1b[0m';
 
 function log(message) {
   console.log(`[external-sign] ${message}`);
@@ -20,6 +27,37 @@ function log(message) {
 
 function warn(message) {
   console.warn(`[external-sign] Warning: ${message}`);
+}
+
+function getSignPhaseType(phase) {
+  if (/unpacked app/i.test(phase)) return 'unpacked app';
+  if (/final artifacts/i.test(phase)) return 'final artifacts';
+  return String(phase || 'files').replace(/\s+dry-run\b/i, '').trim().toLowerCase();
+}
+
+function signBoxStart(phase, mode) {
+  const typeLabel = getSignPhaseType(phase);
+  const modeLabel = mode === '--dry-run' ? ` ${BOLD}[dry run]${RESET}${BOLD}${CYAN}` : '';
+  console.log('');
+  console.log(`${BOLD}${CYAN}  ┌─ ✍️  External Windows signing - ${typeLabel}${modeLabel} ─────────────────────────────${RESET}`);
+  console.log(`${BOLD}${CYAN}  │${RESET}  ${WHITE}${phase}${RESET}`);
+}
+
+function signBoxLine(message = '') {
+  console.log(`${BOLD}${CYAN}  │${RESET}  ${message}`);
+}
+
+function signBoxEnd(message = 'External Windows signing complete', color = GREEN) {
+  console.log(`${BOLD}${CYAN}  └─ ${color}${message}${RESET}${BOLD}${CYAN} ───────────────────────────${RESET}`);
+}
+
+function writeNestedOutput(output, writeLine = signBoxLine) {
+  const text = String(output || '');
+  if (!text) return;
+  text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').forEach((line, index, lines) => {
+    if (index === lines.length - 1 && line === '') return;
+    writeLine(line);
+  });
 }
 
 function parseExtraArgs(raw) {
@@ -113,16 +151,29 @@ function runExternalSign({ scriptPath, sourceDirs, productName, shareDir, fileMa
   }
 
   const { command, args } = buildSignCommand({ scriptPath, sourceDirs, productName, shareDir, fileMask, extraArgs, mode });
-  log(`Signing ${phase} with product "${productName}"`);
-  log(`Source: ${sourceDirs.join(':')}`);
-  if (shareDir) log(`Share: ${shareDir}`);
-  if (fileMask) log(`Mask: ${fileMask}`);
+  signBoxStart(phase, mode);
+  signBoxLine(`${DIM}[external-sign]${RESET} Product: ${productName}`);
+  signBoxLine(`${DIM}[external-sign]${RESET} Source: ${sourceDirs.join(':')}`);
+  if (shareDir) signBoxLine(`${DIM}[external-sign]${RESET} Share: ${shareDir}`);
+  if (fileMask) signBoxLine(`${DIM}[external-sign]${RESET} Mask: ${fileMask}`);
+  signBoxLine(`${DIM}[external-sign]${RESET} Mode: ${mode}`);
 
-  const result = spawnSync(command, args, { stdio: 'inherit' });
-  if (result.error) throw result.error;
+  const result = spawnSync(command, args, {
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024 * 100,
+    stdio: ['inherit', 'pipe', 'pipe'],
+  });
+  writeNestedOutput(result.stdout);
+  writeNestedOutput(result.stderr);
+  if (result.error) {
+    signBoxEnd(`External Windows signing failed: ${result.error.message}`, RED);
+    throw result.error;
+  }
   if (result.status !== 0) {
+    signBoxEnd(`External Windows signing failed with exit code ${result.status || 1}`, RED);
     throw new Error(`External signing failed for ${phase} with exit code ${result.status || 1}`);
   }
+  signBoxEnd();
 }
 
 function getArtifactSigningPlan(context) {
