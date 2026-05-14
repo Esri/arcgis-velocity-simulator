@@ -28,36 +28,42 @@ ${BOLD}${WHITE}ARGUMENTS${RESET}
         Omit entirely when using ${BOLD}--upload-only${RESET} (inferred from package.json).
 
 ${BOLD}${WHITE}OPTIONS${RESET}
-  ${BOLD}-s${RESET}  ${DIM}--dry-run  --simulate${RESET}
+  ${BOLD}--dry-run${RESET}  ${DIM}--simulate${RESET}
         Simulate the release without making any changes. Validates the version,
         lists each artifact that would be uploaded (with file size), and prints a
         full preview of the release notes. Nothing is written, committed, or published.
 
-  ${BOLD}-p${RESET}  ${DIM}--prepare-only${RESET}
+  ${BOLD}--prepare-only${RESET}
         Run Steps 0–4 only (prereqs, version bump, build, commit + push) then exit
         before creating or uploading the GitHub release. Inspect ${CYAN}dist/${RESET} artifacts,
         sign them if needed, then publish with ${BOLD}--upload-only${RESET}.
         Stacks with ${BOLD}--seq${RESET}, ${BOLD}--install-prereqs${RESET}, and ${BOLD}--dry-run${RESET}.
 
-  ${BOLD}-u${RESET}  ${DIM}--upload-only${RESET}
+  ${BOLD}--upload-only${RESET}
         Skip Steps 0–4 and jump straight to Step 5 (create GitHub release + upload
         ${CYAN}dist/${RESET} artifacts). Version is read from package.json — no argument needed.
         Use after ${BOLD}--prepare-only${RESET}, or when artifacts were built externally (e.g. CI).
         Only ${BOLD}gh${RESET} CLI is required — build tools are not checked.
         Stacks with ${BOLD}--re-release${RESET} and ${BOLD}--dry-run${RESET}.
 
-  ${BOLD}-R${RESET}  ${DIM}--re-release${RESET}
+  ${BOLD}--re-release${RESET}
         Re-publish an already-released version with rebuilt artifacts and refreshed
         release notes. Deletes the existing GitHub release and git tag, then
         re-creates them pinned to HEAD. Generates the changelog against the previous
         good tag (skipping the version being re-released). Use this to recover from
         a broken release of the same version.
 
-  ${BOLD}-S${RESET}  ${DIM}--seq${RESET}
+  ${BOLD}--seq${RESET}
         Build platforms sequentially instead of in parallel. Slower overall, but
         produces clean non-interleaved output — useful for debugging build failures.
+        External Windows signing does not require this; signing jobs are serialized separately.
 
-  ${BOLD}-i${RESET}  ${DIM}--install-prereqs  --install-deps${RESET}
+  ${BOLD}--debug-skip-clean-tree-check${RESET}
+        Debug-only escape hatch for release/signing validation. The script still
+        reports dirty files and unpushed commits, but does not fail the release
+        at the clean working-tree gate. Do not use for production releases.
+
+  ${BOLD}--install-prereqs${RESET}  ${DIM}--install-deps${RESET}
         Auto-install any missing build/release prerequisites (Homebrew on macOS,
         apt/dnf/pacman on Linux, winget/choco on Windows). Combine with ${BOLD}--dry-run${RESET}
         to preview the install plan only. Node major upgrades, ${BOLD}gh auth login${RESET}, and
@@ -65,26 +71,40 @@ ${BOLD}${WHITE}OPTIONS${RESET}
         ${YELLOW}⚠${RESET}  Signing tools and env vars (CSC_LINK, WIN_CSC_LINK, APPLE_*) are NOT
            auto-installed.
 
-  ${BOLD}-x${RESET}  ${DIM}--sign-script <path>${RESET}
+  ${BOLD}--sign-script <path>${RESET}
         Optional path to an external Windows signing script. Supports absolute,
         relative, and ${BOLD}~${RESET}-based paths, resolved to an absolute path before use.
-        When present and found, Windows build hooks call it with ${BOLD}--run${RESET}, an auto-populated
-        source folder (${CYAN}dist/win-unpacked${RESET} or final artifact folder), and the
-        official product name (${BOLD}ArcGIS Velocity Simulator${RESET}). If omitted or missing,
+        When present and found, Windows build wrappers skip electron-builder's built-in
+        Authenticode signing for direct signable files in ${CYAN}dist/win-unpacked${RESET}
+        and direct final ${CYAN}dist/*.{exe,msi,msp}${RESET} artifacts,
+        leaving nested helpers eligible for signtool, then hooks call the script with ${BOLD}--run${RESET},
+        an auto-populated source folder (${CYAN}dist/win-unpacked${RESET} after resource editing,
+        or final artifact folder), and the official product name (${BOLD}ArcGIS Velocity Simulator${RESET}).
+        If omitted or missing,
         the build falls back to the current electron-builder signing/unsigned behavior.
+        Each external signing invocation uses a shared lock so the parallel build can remain enabled.
+        Output streams live in the nested signing log. Stdin is closed so prompts fail instead
+        of hanging. The wrapper prints heartbeat progress every 30 seconds while sign.sh is quiet and uses
+        ${BOLD}--sign-timeout-minutes${RESET} plus a 5-minute watchdog buffer (${BOLD}VELOCITY_SIGN_TIMEOUT_MS=0${RESET} disables it).
 
-  ${BOLD}-d${RESET}  ${DIM}--sign-share-dir <UNC>${RESET}
-        Optional share directory passed to the external signing script as ${BOLD}-sd${RESET} / ${BOLD}--share-dir${RESET}.
+  ${BOLD}--sign-share-dir <UNC>${RESET}
+        Optional share directory passed to the external signing script as ${BOLD}--share-dir${RESET}.
         Only used when ${BOLD}--sign-script${RESET} is provided and found.
 
-  ${BOLD}-a${RESET}  ${DIM}--sign-arg <arg>${RESET}
-        Extra argument passed through to the external signing script. Repeat for
-        multiple values, including values that start with dashes.
+  ${BOLD}--sign-product-names <names>${RESET}
+        Optional value passed to the external signing script as ${BOLD}--product-names${RESET}.
+        Defaults to the official app product name (${BOLD}ArcGIS Velocity Simulator${RESET}).
+        Use colon-separated names when signing multiple source directories.
 
-  ${BOLD}-h${RESET}  ${DIM}--help${RESET}
+  ${BOLD}--sign-timeout-minutes <minutes>${RESET}
+        External signing script timeout passed to ${BOLD}sign.sh${RESET} as ${BOLD}--timeout-minutes${RESET}.
+        Default: ${BOLD}20${RESET}. Must be a positive whole number of minutes.
+
+
+  ${BOLD}--help${RESET}
         Show this help message and exit.
 
-  ${BOLD}-l${RESET}  ${DIM}--list${RESET}
+  ${BOLD}--list${RESET}
         List all published GitHub releases for this repository and exit.
         Requires ${BOLD}gh${RESET} CLI to be installed and authenticated.
         Outputs a table with columns: ${BOLD}TAG · DATE · STATUS · URL${RESET}.
@@ -112,7 +132,7 @@ ${BOLD}${WHITE}RELEASE PIPELINE${RESET}
   Phase 2  Verify clean working tree
   Phase 3  Validate requested version (blocks downgrades)
   Phase 4  Bump version in package.json
-  Phase 5  Build all platform packages  ${DIM}(parallel by default; --seq for serial)${RESET}
+  Phase 5  Build all platform packages  ${DIM}(parallel by default; signing jobs are locked)${RESET}
   Phase 6  Commit + push the version bump
   Phase 7  Create GitHub release + upload dist/ artifacts
 
@@ -167,14 +187,13 @@ ${BOLD}${WHITE}EXAMPLES${RESET}
   ${CYAN}./scripts/release.sh v1.2.3 \\
     --sign-script ~/signing/sign.sh \\
     --sign-share-dir '\\\\\\\\storm\upload\DigitalSign\Velocity' \\
-    --sign-arg --jenkins-email-to --sign-arg build@example.com \\
-    --sign-arg --jenkins-api-token --sign-arg \$JENKINS_API_TOKEN${RESET}
+    --sign-timeout-minutes 30 \\
+    --sign-product-names "ArcGIS Velocity Simulator"${RESET}
 
   ${DIM}# Preview release + external signing; invokes sign.sh with its own --dry-run mode${RESET}
   ${CYAN}./scripts/release.sh --dry-run v1.2.3 \\
     --sign-script ../../../signing/sign.sh \\
-    --sign-share-dir '\\\\\\\\storm\upload\DigitalSign\Velocity' \\
-    --sign-arg --jenkins-email-to --sign-arg build@example.com${RESET}
+    --sign-share-dir '\\\\storm\upload\DigitalSign\Velocity'${RESET}
 
   ${DIM}# List all published releases${RESET}
   ${CYAN}./scripts/release.sh --list${RESET}
@@ -242,6 +261,7 @@ banner() {
   [[ "$PREPARE_ONLY"     == true ]] && tag="${tag} ${BOLD}${CYAN}[prepare-only]${RESET}${BOLD}${CYAN}"
   [[ "$UPLOAD_ONLY"      == true ]] && tag="${tag} ${BOLD}${GREEN}[upload-only]${RESET}${BOLD}${CYAN}"
   [[ "$INSTALL_PREREQS"  == true ]] && tag="${tag} ${BOLD}${GREEN}[install-prereqs]${RESET}${BOLD}${CYAN}"
+  [[ "$DEBUG_SKIP_CLEAN_TREE_CHECK" == true ]] && tag="${tag} ${BOLD}${YELLOW}[debug-skip-clean-tree-check]${RESET}${BOLD}${CYAN}"
   echo ""
   echo -e "${BOLD}${CYAN}┌─ 🚀 VELOCITY RELEASE Step ${RELEASE_STEP_INDEX}/${total}${tag} ─────────────────────────────────────────${RESET}"
   echo -e "${BOLD}${CYAN}│${RESET}  ${icon}  ${WHITE}${msg}${RESET}"
@@ -291,12 +311,14 @@ SEQ=false
 INSTALL_PREREQS=false
 PREPARE_ONLY=false
 UPLOAD_ONLY=false
+DEBUG_SKIP_CLEAN_TREE_CHECK=false
 LIST=false
 LIST_LIMIT=10
 VERSION=""
 SIGN_SCRIPT=""
 SIGN_SHARE_DIR=""
-SIGN_ARGS=()
+SIGN_PRODUCT_NAMES=""
+SIGN_TIMEOUT_MINUTES=""
 
 # levenshtein_distance <left> <right> — minimum insert/delete/substitute edits.
 levenshtein_distance() {
@@ -343,7 +365,8 @@ closest_flag() {
   local known=(
     "--dry-run" "--simulate" "--re-release" "--seq"
     "--prepare-only" "--upload-only" "--install-prereqs" "--install-deps"
-    "--sign-script" "--sign-share-dir" "--sign-arg"
+    "--debug-skip-clean-tree-check"
+    "--sign-script" "--sign-share-dir" "--sign-product-names" "--sign-timeout-minutes"
     "--list" "--limit" "--help"
   )
   for flag in "${known[@]}"; do
@@ -367,6 +390,7 @@ while [[ $# -gt 0 ]]; do
     --seq|-S)                            SEQ=true; shift ;;
     --prepare-only|-p)                   PREPARE_ONLY=true; shift ;;
     --upload-only|-u)                    UPLOAD_ONLY=true; shift ;;
+    --debug-skip-clean-tree-check)       DEBUG_SKIP_CLEAN_TREE_CHECK=true; shift ;;
     --install-prereqs|--install-deps|-i) INSTALL_PREREQS=true; shift ;;
     --list|-l)                           LIST=true; shift ;;
     --limit=*)                           LIST_LIMIT="${arg#--limit=}"; shift ;;
@@ -375,8 +399,10 @@ while [[ $# -gt 0 ]]; do
     --sign-script|-x)                    [[ $# -ge 2 ]] || fail "${arg} requires a value"; SIGN_SCRIPT="$2"; shift 2 ;;
     --sign-share-dir=*)                  SIGN_SHARE_DIR="${arg#--sign-share-dir=}"; shift ;;
     --sign-share-dir|-d)                 [[ $# -ge 2 ]] || fail "${arg} requires a value"; SIGN_SHARE_DIR="$2"; shift 2 ;;
-    --sign-arg=*)                        SIGN_ARGS+=("${arg#--sign-arg=}"); shift ;;
-    --sign-arg|-a)                       [[ $# -ge 2 ]] || fail "${arg} requires a value"; SIGN_ARGS+=("$2"); shift 2 ;;
+    --sign-product-names=*)              SIGN_PRODUCT_NAMES="${arg#--sign-product-names=}"; shift ;;
+    --sign-product-names)                [[ $# -ge 2 ]] || fail "${arg} requires a value"; SIGN_PRODUCT_NAMES="$2"; shift 2 ;;
+    --sign-timeout-minutes=*)            SIGN_TIMEOUT_MINUTES="${arg#--sign-timeout-minutes=}"; shift ;;
+    --sign-timeout-minutes)              [[ $# -ge 2 ]] || fail "${arg} requires a value"; SIGN_TIMEOUT_MINUTES="$2"; shift 2 ;;
     --*)
       # Unknown long flag — suggest the closest known one when edit distance is small
       suggestion=$(closest_flag "$arg")
@@ -467,6 +493,9 @@ VERSION_BARE="${VERSION#v}"   # strip 'v' for package.json / semver math
 if [[ -n "$SIGN_SCRIPT" ]]; then
   SIGN_SCRIPT=$(node -e 'const { resolveSignScriptPath } = require("./scripts/sign-options"); process.stdout.write(resolveSignScriptPath(process.argv[1]));' "$SIGN_SCRIPT")
 fi
+if [[ -n "$SIGN_TIMEOUT_MINUTES" && ! "$SIGN_TIMEOUT_MINUTES" =~ ^[1-9][0-9]*$ ]]; then
+  fail "--sign-timeout-minutes must be a positive whole number of minutes."
+fi
 
 # ── Header ──────────────────────────────────────────────────────────────────
 APP_NAME=$(node -p "require('./package.json').productName")
@@ -491,9 +520,15 @@ fi
 if [[ "$INSTALL_PREREQS" == true ]]; then
   echo -e "${BOLD}${GREEN}  ⓘ   INSTALL-PREREQS — missing build/release tools will be auto-installed${RESET}"
 fi
+if [[ "$DEBUG_SKIP_CLEAN_TREE_CHECK" == true ]]; then
+  echo -e "${BOLD}${YELLOW}  ⚠   DEBUG — clean working-tree enforcement is disabled${RESET}"
+  echo -e "${BOLD}${YELLOW}      Use only for local release/signing validation; production releases should be clean.${RESET}"
+fi
 if [[ -n "$SIGN_SCRIPT" ]]; then
   echo -e "${BOLD}${CYAN}  ⓘ   SIGN-SCRIPT — external Windows signing requested: ${SIGN_SCRIPT}${RESET}"
   [[ -n "$SIGN_SHARE_DIR" ]] && echo -e "${BOLD}${CYAN}      SIGN-SHARE — ${SIGN_SHARE_DIR}${RESET}"
+  [[ -n "$SIGN_PRODUCT_NAMES" ]] && echo -e "${BOLD}${CYAN}      SIGN-PRODUCT-NAMES — ${SIGN_PRODUCT_NAMES}${RESET}"
+  echo -e "${BOLD}${CYAN}      SIGN-TIMEOUT — sign.sh --timeout-minutes ${SIGN_TIMEOUT_MINUTES:-20}${RESET}"
 fi
 echo -e "${BOLD}${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 
@@ -528,6 +563,7 @@ fi
 # which the script itself may modify) or unpushed commits — a release should
 # always reflect what's on the remote and be reproducible from the published tag.
 # Dry runs warn and continue so changes can be previewed before committing.
+# --debug-skip-clean-tree-check also warns and continues for local release/signing debugging only.
 # Skipped when --upload-only is set (artifacts already built, tree state irrelevant).
 if [[ "$UPLOAD_ONLY" == true ]]; then
   banner 0 "Skipping working tree check (--upload-only)"
@@ -564,6 +600,8 @@ else
   if [[ "$WORKING_TREE_OK" != true ]]; then
     if [[ "$DRY_RUN" == true ]]; then
       warn "Working tree is not clean. Dry-run will continue, but a real release requires a clean tree.\n     Commit & push your changes before running without --dry-run."
+    elif [[ "$DEBUG_SKIP_CLEAN_TREE_CHECK" == true ]]; then
+      warn "Working tree is not clean. Continuing because --debug-skip-clean-tree-check was provided.\n     Use this only for local release/signing validation; production releases should be clean."
     else
       fail "Working tree must be clean before releasing.\n     Commit & push your changes, then re-run."
     fi
@@ -634,18 +672,17 @@ else
   info "Running: npm run ${BUILD_SCRIPT}"
   if [[ -n "$SIGN_SCRIPT" ]]; then
     export VELOCITY_SIGN_SCRIPT="$SIGN_SCRIPT"
+    export VELOCITY_SIGN_TIMEOUT_MINUTES="${SIGN_TIMEOUT_MINUTES:-20}"
     [[ -n "$SIGN_SHARE_DIR" ]] && export VELOCITY_SIGN_SHARE_DIR="$SIGN_SHARE_DIR" || unset VELOCITY_SIGN_SHARE_DIR
-    if (( ${#SIGN_ARGS[@]} > 0 )); then
-      VELOCITY_SIGN_ARGS=$(node -e 'process.stdout.write(JSON.stringify(process.argv.slice(1)))' "${SIGN_ARGS[@]}")
-      export VELOCITY_SIGN_ARGS
-    else
-      unset VELOCITY_SIGN_ARGS
-    fi
+    [[ -n "$SIGN_PRODUCT_NAMES" ]] && export VELOCITY_SIGN_PRODUCT_NAMES="$SIGN_PRODUCT_NAMES" || unset VELOCITY_SIGN_PRODUCT_NAMES
     info "External Windows signing: ${SIGN_SCRIPT}"
+    SIGN_LOCK_DIR=$(node -e 'const { getLockDir } = require("./scripts/sign-lock"); process.stdout.write(getLockDir());')
+    info "External signing lock: ${SIGN_LOCK_DIR}"
+    info "External sign.sh timeout: ${VELOCITY_SIGN_TIMEOUT_MINUTES} minute(s)"
     [[ -n "$SIGN_SHARE_DIR" ]] && info "Signing share directory: ${SIGN_SHARE_DIR}"
-    (( ${#SIGN_ARGS[@]} > 0 )) && info "Signing extra args: ${SIGN_ARGS[*]}"
+    [[ -n "$SIGN_PRODUCT_NAMES" ]] && info "Signing product names: ${SIGN_PRODUCT_NAMES}"
   else
-    unset VELOCITY_SIGN_SCRIPT VELOCITY_SIGN_SHARE_DIR VELOCITY_SIGN_ARGS
+    unset VELOCITY_SIGN_SCRIPT VELOCITY_SIGN_SHARE_DIR VELOCITY_SIGN_PRODUCT_NAMES VELOCITY_SIGN_TIMEOUT_MINUTES
   fi
   echo ""
 

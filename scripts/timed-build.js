@@ -8,7 +8,7 @@
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { ensureGnuArPath } = require('./binutils-path');
-const { buildSignEnv, describeSignOptions, parseSignOptions } = require('./sign-options');
+const { buildSignEnv, describeSignOptions, parseSignOptions, withExternalWindowsSigningConfigArgs } = require('./sign-options');
 let parsed;
 try {
   parsed = parseSignOptions(process.argv.slice(2));
@@ -16,19 +16,26 @@ try {
   console.error(`\n❌ ${error.message}`);
   process.exit(1);
 }
-const args = parsed.passthroughArgs;
+const baseEnv = { ...process.env, PATH: ensureGnuArPath(process.env.PATH) };
+
+function isWindowsBuildStep(stepArgs) {
+  return stepArgs.some((arg) => arg === '--win' || arg.startsWith('--win=') || arg.startsWith('--config.win'));
+}
+
 // Resolve the binary relative to the repo root so this works whether invoked
 // via `npm run` or directly via `node scripts/timed-build.js`.
 const bin = path.join(__dirname, '..', 'node_modules', '.bin', 'electron-builder');
+const windowsBuildStep = isWindowsBuildStep(parsed.passthroughArgs);
+const args = withExternalWindowsSigningConfigArgs(parsed.passthroughArgs, baseEnv, parsed, { disableBuiltInWindowsSigning: windowsBuildStep });
 const startMs = Date.now();
 const startTime = new Date().toLocaleTimeString();
 console.log('\n\u23f1  Build started at ' + startTime);
 console.log('   electron-builder ' + args.join(' ') + '\n');
-console.log('   ' + describeSignOptions(parsed) + '\n');
+console.log('   ' + describeSignOptions(parsed, baseEnv) + '\n');
 // shell: true is required on Windows so the .cmd shim in node_modules/.bin resolves correctly.
 // PATH override: prepend Homebrew binutils on macOS so electron-builder finds
 // GNU `ar` instead of BSD `ar` (required for valid .deb archives).
-const env = buildSignEnv({ ...process.env, PATH: ensureGnuArPath(process.env.PATH) }, parsed);
+const env = buildSignEnv(baseEnv, parsed, { disableBuiltInWindowsSigning: windowsBuildStep });
 const result = spawnSync(bin, args, {
   stdio: 'inherit',
   shell: process.platform === 'win32',

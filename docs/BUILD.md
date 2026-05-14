@@ -278,6 +278,8 @@ The packaged Windows app metadata uses the official product name **ArcGIS Veloci
 
 **Architecture:** x64 only (as configured). 32-bit (ia32) and arm64 builds are possible by adding them to the `arch` array in `package.json → build.win.target`.
 
+**Executable/app bundle name:** `package.json → build.executableName` is set to `VelocitySimulator`, so unpacked app outputs use space-free names such as `VelocitySimulator.exe` on Windows and `VelocitySimulator.app` on macOS while `productName` remains `ArcGIS Velocity Simulator` for display metadata.
+
 ### Code Signing
 
 Unsigned builds trigger a Windows SmartScreen warning ("Windows protected your PC"). Users can click **More info → Run anyway**, but this degrades trust for end users.
@@ -300,44 +302,49 @@ Windows builds can also call an external signing script, such as Esri's `sign.sh
 npm run package:win -- --sign-script /absolute/path/to/sign.sh
 ```
 
-Short aliases are available:
+Supported options:
 
-| Option | Alias | Required? | Passed to `sign.sh` |
-|--------|-------|-----------|---------------------|
-| `--sign-script <path>` | `-x <path>` | Optional | External script to run. Supports absolute, relative (`../../../sign.sh`), and `~` paths, resolved to an absolute path before use. If omitted or not found/readable, the build logs a warning and falls back to the current electron-builder signing/unsigned behavior. When found, the build logs the resolved path before invoking it. |
-| `--sign-share-dir <UNC>` | `-d <UNC>` | Optional | `-sd <UNC>` / `--share-dir <UNC>` |
-| `--sign-arg <arg>` | `-a <arg>` | Optional, repeatable | Extra argument appended to the signing command, useful for `--jenkins-email-to`, `--jenkins-api-token`, `--smb-user`, `--smb-pass`, `--quiet`, or a test-only `--dry-run`. |
+| Option | Required? | Passed to `sign.sh` |
+|--------|-----------|---------------------|
+| `--sign-script <path>` | Optional | External script to run. Supports absolute, relative (`../../../sign.sh`), and `~` paths, resolved to an absolute path before use. If omitted or not found/readable, the build logs a warning and falls back to the current electron-builder signing/unsigned behavior. When found, the Windows build wrapper uses a path-aware signing hook so direct signable files in external signing source folders (`dist/win-unpacked` and direct final artifacts in `dist/`) are left for the external signer while nested helper files can still be signed by electron-builder. |
+| `--sign-share-dir <UNC>` | Optional | `--share-dir <UNC>` |
+| `--sign-timeout-minutes <minutes>` | Optional | Passed to `sign.sh` as `--timeout-minutes <minutes>`. Default: `20`. Must be a positive whole number. |
+| `--sign-product-names <names>` | Optional | Passed to `sign.sh` as `--product-names <names>`. Defaults to `ArcGIS Velocity Simulator`. Use colon-separated names for multiple source directories. |
 
 The external signing hook auto-populates these values for this repo:
 
 | Signing phase | Auto `--source-dirs` value | Auto `--product-names` value | Files signed |
 |---------------|----------------------------------|--------------------------------------|--------------|
-| Windows unpacked app (`afterPack`) | `dist/win-unpacked` | `ArcGIS Velocity Simulator` | Top-level files matching `*.exe;*.msi;*.msp` in `win-unpacked` (normally `ArcGIS Velocity Simulator.exe`). |
+| Windows unpacked app (`afterSign`) | `dist/win-unpacked` | `ArcGIS Velocity Simulator` | Top-level files matching `*.exe;*.msi;*.msp` in `win-unpacked` (normally `VelocitySimulator.exe`) after electron-builder has finished Windows resource editing. The path-aware hook skips electron-builder/signtool signing for those direct files because this phase signs them externally. |
 | Final Windows artifacts (`afterAllArtifactBuild`) | The final artifact folder, normally `dist` | `ArcGIS Velocity Simulator` | Only the generated signable final artifacts from the current build, using an exact file mask such as `arcgis-velocity-simulator-<version>-setup.exe;arcgis-velocity-simulator-<version>-portable.exe`. ZIP files are not signed directly. |
+
+The external signing hook uses a shared cross-process lock at `${TMPDIR}/arcgis-velocity-external-sign.lock` (or the platform temp equivalent). Because the lock is acquired only around each external signing script invocation, `npm run package:all:clean` can still build macOS, Windows, and Linux in parallel while guaranteeing that only one external signing job is active at a time. The Windows build still runs in the required order: edit Windows executable resources, skip electron-builder/signtool signing for direct files in `dist/win-unpacked` that the external unpacked-app phase will sign, sign nested/helper files such as `dist/win-unpacked/resources/elevate.exe` with electron-builder when signing credentials are configured, externally sign the unpacked app, create packages while skipping built-in signing only for direct `dist/*.{exe,msi,msp}` final artifacts, then externally sign those final signable package artifacts.
+
+External signing output is streamed live inside the nested signing log box, including lock acquisition, process start, stdout/stderr, and lock release. The hook runs the external script with stdin closed so interactive prompts fail visibly instead of hanging the build. A signing process has a 45-minute timeout by default; set `VELOCITY_SIGN_TIMEOUT_MS=0` to disable the timeout, or set it to a millisecond value such as `VELOCITY_SIGN_TIMEOUT_MS=900000` for 15 minutes.
 
 The hook calls the external script with `--run` by default:
 
 ```bash
 bash /absolute/path/to/sign.sh --run \
+  --timeout-minutes 20 \
   --source-dirs /Users/hano4470/github/Esri/arcgis-velocity-simulator/dist/win-unpacked \
   --product-names "ArcGIS Velocity Simulator"
 ```
 
-If `--sign-share-dir` is supplied, the hook adds `--share-dir <UNC>`. Extra `--sign-arg` values are appended last so you can pass Jenkins, SMB, quiet, or test-only dry-run settings. Examples use full option names for readability:
+If `--sign-share-dir` is supplied, the hook adds `--share-dir <UNC>`. Use `--sign-timeout-minutes` to change the external script timeout passed as `--timeout-minutes`, and `--sign-product-names` to override the value passed as `--product-names`. Examples use full option names for readability:
 
 ```bash
 npm run package:win -- \
   --sign-script /absolute/path/to/sign.sh \
   --sign-share-dir '\\storm\upload\DigitalSign\Velocity' \
-  --sign-arg --jenkins-email-to --sign-arg build@example.com \
-  --sign-arg --jenkins-api-token --sign-arg "$JENKINS_API_TOKEN"
+  --sign-timeout-minutes 30 \
+  --sign-product-names "ArcGIS Velocity Simulator"
 ```
 
 ```bash
 npm run package:win -- \
   --sign-script ../../../signing/sign.sh \
-  --sign-share-dir '\\storm\upload\DigitalSign\Velocity' \
-  --sign-arg --quiet
+  --sign-share-dir '\\storm\upload\DigitalSign\Velocity'
 ```
 
 ---

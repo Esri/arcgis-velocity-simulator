@@ -17,7 +17,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawnSync } = require('child_process');
 const { ensureGnuArPath } = require('./binutils-path');
-const { buildSignEnv, describeSignOptions, parseSignOptions } = require('./sign-options');
+const { buildSignEnv, describeSignOptions, parseSignOptions, withExternalWindowsSigningConfigArgs } = require('./sign-options');
 
 const bin = path.join(__dirname, '..', 'node_modules', '.bin', 'electron-builder');
 const distDir = path.join(__dirname, '..', 'dist');
@@ -31,7 +31,11 @@ try {
   console.error(`\n❌ ${error.message}`);
   process.exit(1);
 }
-const childEnv = buildSignEnv({ ...process.env, PATH: ensureGnuArPath(process.env.PATH) }, parsedSignOptions);
+const baseChildEnv = { ...process.env, PATH: ensureGnuArPath(process.env.PATH) };
+
+function isWindowsBuildStep(stepArgs) {
+  return stepArgs.some((arg) => arg === '--win' || arg.startsWith('--win=') || arg.startsWith('--config.win'));
+}
 
 // ── Parse args ────────────────────────────────────────────────────────────────
 const rawArgs = parsedSignOptions.passthroughArgs;
@@ -98,7 +102,7 @@ const results = [];
 console.log(`\n${'═'.repeat(60)}`);
 console.log(`⏱  Sequential build started at ${totalStartTime}`);
 console.log(`${'═'.repeat(60)}\n`);
-console.log(`   ${describeSignOptions(parsedSignOptions)}\n`);
+console.log(`   ${describeSignOptions(parsedSignOptions, baseChildEnv)}\n`);
 
 for (const def of stepDefs) {
   const colonIdx = def.indexOf(':');
@@ -111,6 +115,9 @@ for (const def of stepDefs) {
     stepArgs.push(`--config.compression=${compressionOverride}`);
   }
 
+  const windowsBuildStep = isWindowsBuildStep(stepArgs);
+  stepArgs = withExternalWindowsSigningConfigArgs(stepArgs, baseChildEnv, parsedSignOptions, { disableBuiltInWindowsSigning: windowsBuildStep });
+
   cleanUnpacked();
 
   const stepStart = Date.now();
@@ -119,11 +126,12 @@ for (const def of stepDefs) {
   console.log(`${'─'.repeat(60)}`);
   console.log(`▶  [${label}]  electron-builder ${stepArgs.join(' ')}`);
   console.log(`   Started at ${stepStartTime}\n`);
+  const stepEnv = buildSignEnv(baseChildEnv, parsedSignOptions, { disableBuiltInWindowsSigning: windowsBuildStep });
 
   const result = spawnSync(bin, stepArgs, {
     stdio: 'inherit',
     shell: process.platform === 'win32',
-    env: childEnv,
+    env: stepEnv,
   });
 
   const elapsed = Date.now() - stepStart;

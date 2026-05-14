@@ -17,6 +17,7 @@ const testSuites = [
   { file: 'headless-runner.test.js', description: '🧪 Headless Runner Tests' },
   { file: 'grpc-transport.test.js', description: '🔌 gRPC Transport Tests' },
   { file: 'external-sign.test.js', description: '✍️  External Signing Tests' },
+  { file: 'sign-lock.test.js', description: '🔒 External Signing Lock Tests' },
   { file: 'format-utils.test.js', description: '📦 Format Utils Tests' },
   { file: 'ws-transport.test.js', description: '🌐 WebSocket Transport Tests' },
   { file: 'velocity-auth-utils.test.js', description: '🔑 Velocity Auth Utility Tests' },

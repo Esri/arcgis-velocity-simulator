@@ -80,7 +80,8 @@
   "build": {
     "appId": "com.esri.arcgis-velocity-simulator",
     "productName": "ArcGIS Velocity Simulator",
-    "afterPack": "scripts/external-sign.js",
+    "executableName": "VelocitySimulator",
+    "afterSign": "scripts/external-sign.js",
     "afterAllArtifactBuild": "scripts/external-sign.js",
     "files": [
       "src/**/*",

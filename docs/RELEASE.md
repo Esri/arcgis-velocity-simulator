@@ -19,7 +19,7 @@ The script handles the full release pipeline in one command:
 0. **Verifies** that all required tooling is installed (Node ≥ 18, npm, `node_modules`, git, gh + auth, and on macOS for `.deb`: `dpkg`, `fakeroot`, GNU `ar`) and that the working tree is clean (no uncommitted changes apart from `package.json`, no unpushed commits) — fails fast with install hints or a list of dirty files if anything is wrong
 1. **Validates** the requested version against the current `package.json` version (blocks downgrades)
 2. **Bumps** `package.json` to the new version
-3. **Builds** all platform packages in parallel via `npm run package:all:clean` (mac, win, linux run simultaneously). Pass `--seq` to build sequentially instead.
+3. **Builds** all platform packages in parallel via `npm run package:all:clean` (mac, win, linux run simultaneously). Pass `--seq` to build sequentially instead. Optional external Windows signing remains compatible with the parallel build because each external signing invocation uses a shared lock.
 4. **Commits and pushes** the `package.json` version bump (only if the version changed)
 5. **Publishes** a GitHub Release with all `dist/` artifacts and rich release notes (changelog, artifact table, build environment info)
 
@@ -60,18 +60,19 @@ See **[BUILD.md → Bootstrapping a Fresh Machine](./BUILD.md#bootstrapping-a-fr
 
 | Argument / Option | Description |
 |-------------------|-------------|
-| `<version>` | Release version, e.g. `v1.2.3` or `1.2.3`. Must be ≥ current `package.json` version. The `v` prefix is optional. Not required when using `--upload-only` / `-u` (version is read from `package.json`). |
-| `--dry-run` / `--simulate` / `-s` | Simulate the entire release without writing files, committing, or publishing. Shows each artifact that would be uploaded (with file size) and a full preview of the release notes. |
-| `--re-release` / `-R` | Re-publish an already-released version with rebuilt artifacts and refreshed release notes. Re-uses the requested version number (no `package.json` bump needed), generates the changelog against the **previous good tag** (skipping the version being re-released), deletes the existing GitHub release and git tag, and re-creates them pinned to the current `HEAD` commit. Use this to recover from a broken release of the same version. The clean-working-tree and version-gate checks still apply. |
-| `--seq` / `-S` | Build platforms sequentially instead of in parallel (the default). Slower overall, but produces non-interleaved build output — useful for debugging build failures. |
-| `--prepare-only` / `-p` | Run Steps 0–4 only (prereqs check, version bump, build all platforms, commit + push) and exit **before** creating or uploading any GitHub release. Use this to build and inspect artifacts locally before committing to a public release. When ready, complete the release with `--upload-only`. Compatible with `--seq`, `--install-prereqs`, and `--dry-run`. |
-| `--upload-only` / `-u` | Skip Steps 0–4 entirely and jump straight to Step 5 (create GitHub release + upload `dist/` artifacts). The version is read automatically from `package.json` — no version argument needed. Use this after a prior `--prepare-only` run, or when artifacts were produced by another process (e.g. CI). Only `gh` CLI is required — build tools are not checked. Compatible with `--re-release` and `--dry-run`. |
-| `--install-prereqs` / `-i` | Auto-install any missing build/release prerequisites before running Step 0 (uses Homebrew on macOS, apt/dnf/pacman on Linux, winget/choco on Windows). Combine with `--dry-run` to preview the install plan only. Tools that are too risky to auto-install (Node major upgrades, `gh auth login`, `.deb` tooling on Windows → WSL) are surfaced as manual steps. **Signing tools and signing-related env vars (`CSC_LINK`, `WIN_CSC_LINK`, `APPLE_*`) are NOT auto-installed** — see the [Code Signing](#code-signing) section. Aliases: `--install-deps`, `-i`. |
-| `--sign-script <path>` / `-x <path>` | Optional path to an external Windows signing script such as Esri's `sign.sh`. Supports absolute, relative (`../../../sign.sh`), and `~` paths, resolved to an absolute path before use. When provided and found/readable, Windows build hooks call it with `--run`, auto-populated `--source-dirs` source folders, and `--product-names "ArcGIS Velocity Simulator"`. If omitted or unusable, the build logs a warning and falls back to the current electron-builder signing/unsigned behavior. |
-| `--sign-share-dir <UNC>` / `-d <UNC>` | Optional signing share passed to the external signing script as `-sd <UNC>` / `--share-dir <UNC>`. Only used with `--sign-script`. |
-| `--sign-arg <arg>` / `-a <arg>` | Optional repeatable extra argument appended to the external signing script. Use repeated `--sign-arg` values for options and their values, including values beginning with dashes. |
-| `--help` / `-h` | Print usage information and exit. |
-| `--list` / `-l` | List all published GitHub releases for this repository and exit. Requires `gh` CLI to be installed and authenticated. Outputs a table with columns **TAG · DATE · STATUS · URL** — STATUS is colour-coded (● latest, ◐ pre-release, ○ draft). Also prints the local `package.json` version for quick comparison. Pair with `--limit <n>` to control how many are shown (default: 10). |
+| `<version>` | Release version, e.g. `v1.2.3` or `1.2.3`. Must be ≥ current `package.json` version. The `v` prefix is optional. Not required when using `--upload-only` (version is read from `package.json`). |
+| `--dry-run`, `--simulate` | Simulate the entire release without writing files, committing, or publishing. Shows each artifact that would be uploaded (with file size) and a full preview of the release notes. |
+| `--re-release` | Re-publish an already-released version with rebuilt artifacts and refreshed release notes. Re-uses the requested version number (no `package.json` bump needed), generates the changelog against the **previous good tag** (skipping the version being re-released), deletes the existing GitHub release and git tag, and re-creates them pinned to the current `HEAD` commit. Use this to recover from a broken release of the same version. The clean-working-tree and version-gate checks still apply. |
+| `--seq` | Build platforms sequentially instead of in parallel (the default). Slower overall, but produces non-interleaved build output — useful for debugging build failures. This is not required for external Windows signing; signing jobs are serialized separately. |
+| `--prepare-only` | Run Steps 0–4 only (prereqs check, version bump, build all platforms, commit + push) and exit **before** creating or uploading any GitHub release. Use this to build and inspect artifacts locally before committing to a public release. When ready, complete the release with `--upload-only`. Compatible with `--seq`, `--install-prereqs`, and `--dry-run`. |
+| `--upload-only` | Skip Steps 0–4 entirely and jump straight to Step 5 (create GitHub release + upload `dist/` artifacts). The version is read automatically from `package.json` — no version argument needed. Use this after a prior `--prepare-only` run, or when artifacts were produced by another process (e.g. CI). Only `gh` CLI is required — build tools are not checked. Compatible with `--re-release` and `--dry-run`. |
+| `--install-prereqs`, `--install-deps` | Auto-install any missing build/release prerequisites before running Step 0 (uses Homebrew on macOS, apt/dnf/pacman on Linux, winget/choco on Windows). Combine with `--dry-run` to preview the install plan only. Tools that are too risky to auto-install (Node major upgrades, `gh auth login`, `.deb` tooling on Windows → WSL) are surfaced as manual steps. **Signing tools and signing-related env vars (`CSC_LINK`, `WIN_CSC_LINK`, `APPLE_*`) are NOT auto-installed** — see the [Code Signing](#code-signing) section. |
+| `--sign-script <path>` | Optional path to an external Windows signing script such as Esri's `sign.sh`. Supports absolute, relative (`../../../sign.sh`), and `~` paths, resolved to an absolute path before use. When provided and found/readable, Windows build wrappers skip electron-builder's built-in Windows Authenticode signing for direct signable files in external signing source folders (`dist/win-unpacked` and direct final artifacts in `dist/`), then hooks call the external script with `--run`, auto-populated `--source-dirs` source folders, `--product-names "ArcGIS Velocity Simulator"`, and `--timeout-minutes 20` by default. Nested helpers remain eligible for normal electron-builder/signtool signing. The signing script's output streams live inside the nested signing log, stdin is closed so prompts fail visibly instead of hanging, and each signing process has a hook watchdog timeout of at least 45 minutes (`VELOCITY_SIGN_TIMEOUT_MS=0` disables the watchdog). If omitted or unusable, the build logs a warning and falls back to the current electron-builder signing/unsigned behavior. |
+| `--sign-share-dir <UNC>` | Optional signing share passed to the external signing script as `--share-dir <UNC>`. Only used with `--sign-script`. |
+| `--sign-timeout-minutes <minutes>` | Optional external signing script timeout passed to `sign.sh` as `--timeout-minutes <minutes>`. Default: `20`. Must be a positive whole number of minutes. |
+| `--sign-product-names <names>` | Optional external signing product names passed to `sign.sh` as `--product-names <names>`. Defaults to `ArcGIS Velocity Simulator`; use colon-separated names for multiple source directories. |
+| `--help` | Print usage information and exit. |
+| `--list` | List all published GitHub releases for this repository and exit. Requires `gh` CLI to be installed and authenticated. Outputs a table with columns **TAG · DATE · STATUS · URL** — STATUS is colour-coded (● latest, ◐ pre-release, ○ draft). Also prints the local `package.json` version for quick comparison. Pair with `--limit <n>` to control how many are shown (default: 10). |
 | `--limit <n>` | Maximum number of releases to show when using `--list`. Default: `10`. |
 
 ### Typo Suggestions
@@ -92,7 +93,7 @@ Levenshtein distance counts the minimum number of single-character insertions, d
 | Levenshtein edit distance | Counts insertions, deletions, and substitutions between the typo and each known long flag. | Better for missing hyphens (`--prepareonly`), omitted characters (`--uplod-only`), extra characters, and substitutions. | Adjacent transpositions count as two edits. | **Yes** — used for `Did you mean ...?` suggestions when the edit distance is below a conservative threshold. |
 | Damerau-Levenshtein | Adds adjacent transposition as a one-edit operation. | Better for pure swapped-letter typos. | More complex for a portable shell script; current thresholds already cover common transpositions. | No. |
 
-Short unknown flags such as `-x` still show the generic `--help` guidance instead of a suggestion because the short-flag namespace is intentionally small and ambiguous.
+Unknown short flags still show the generic `--help` guidance instead of a suggestion because the short-flag namespace is intentionally small and ambiguous.
 
 ### Examples
 
@@ -130,14 +131,13 @@ Short unknown flags such as `-x` still show the generic `--help` guidance instea
 ./scripts/release.sh v1.2.3 \
   --sign-script /absolute/path/to/sign.sh \
   --sign-share-dir '\\storm\upload\DigitalSign\Velocity' \
-  --sign-arg --jenkins-email-to --sign-arg build@example.com \
-  --sign-arg --jenkins-api-token --sign-arg "$JENKINS_API_TOKEN"
+  --sign-product-names "ArcGIS Velocity Simulator"
 
 # Preview release + external signing; invokes sign.sh with its own --dry-run mode
 ./scripts/release.sh --dry-run v1.2.3 \
   --sign-script ../../../signing/sign.sh \
   --sign-share-dir '\\storm\upload\DigitalSign\Velocity' \
-  --sign-arg --jenkins-email-to --sign-arg build@example.com
+  --sign-product-names "ArcGIS Velocity Simulator"
 
 # Two-phase with sequential build (useful when debugging build output)
 ./scripts/release.sh --prepare-only --seq v1.2.3
@@ -306,18 +306,17 @@ For release builds, the script can pass optional external signing settings throu
 ./scripts/release.sh v1.2.3 \
   --sign-script /absolute/path/to/sign.sh \
   --sign-share-dir '\\storm\upload\DigitalSign\Velocity' \
-  --sign-arg --jenkins-email-to --sign-arg build@example.com \
-  --sign-arg --jenkins-api-token --sign-arg "$JENKINS_API_TOKEN"
+  --sign-product-names "ArcGIS Velocity Simulator"
 ```
 
 ```bash
 ./scripts/release.sh --dry-run v1.2.3 \
   --sign-script ~/signing/sign.sh \
   --sign-share-dir '\\storm\upload\DigitalSign\Velocity' \
-  --sign-arg --jenkins-email-to --sign-arg build@example.com
+  --sign-product-names "ArcGIS Velocity Simulator"
 ```
 
-Both `--sign-script` / `-x` and `--sign-share-dir` / `-d` are optional. If the script path is omitted or cannot be found/read, release builds use the same electron-builder signing/unsigned behavior as before. When a script path is provided, the logs show the resolved absolute path and whether it can be used.
+Both `--sign-script` and `--sign-share-dir` are optional. If the script path is omitted or cannot be found/read, release builds use the same electron-builder signing/unsigned behavior as before. When a script path is provided and readable, the Windows build step injects a path-aware signing hook that skips electron-builder's built-in Authenticode signing for signable `.exe`, `.msi`, and `.msp` files directly in external signing source folders (`dist/win-unpacked` and `dist/`); nested files such as `dist/win-unpacked/resources/elevate.exe` remain eligible for normal electron-builder/signtool signing. The logs show the resolved absolute path and whether it can be used.
 
 When `./scripts/release.sh --dry-run` is used with a valid `--sign-script`, the release script invokes the external signing script with its own `--dry-run` mode for any existing signable Windows files currently under `dist/win-unpacked` or `dist/`. The dry-run invocation does not include `--run`. The normal build hooks still run the external script with `--run` during real Windows builds.
 
@@ -325,9 +324,11 @@ When a valid external script is supplied, the Windows hooks call it with `--run`
 
 | Repo | Auto product name (`--product-names`) | Auto unpacked source (`--source-dirs`) | Final artifact signing |
 |------|--------------------------|-----------------------------|------------------------|
-| Simulator | `ArcGIS Velocity Simulator` | `/Users/hano4470/github/Esri/arcgis-velocity-simulator/dist/win-unpacked` | The hook signs only current generated `*.exe`, `*.msi`, and `*.msp` final artifacts in `dist/` via an exact `--file-mask` value. |
+| Simulator | `ArcGIS Velocity Simulator` | `/Users/hano4470/github/Esri/arcgis-velocity-simulator/dist/win-unpacked` | The hook signs direct `*.exe`, `*.msi`, and `*.msp` files in `dist/win-unpacked`, then only current generated final artifacts in `dist/` via an exact `--file-mask` value. |
 
-The unpacked phase signs top-level `*.exe;*.msi;*.msp` files in `dist/win-unpacked` (normally `ArcGIS Velocity Simulator.exe`). Final `.zip`, `.dmg`, `.deb`, and `.AppImage` artifacts are not directly signed by this Windows signing script.
+The unpacked phase runs from the `afterSign` hook, after electron-builder has edited Windows executable resources. The path-aware signing hook skips electron-builder/signtool signing for direct top-level signable files in `dist/win-unpacked` (normally `VelocitySimulator.exe`) because this phase signs those files externally. During later package creation, the same hook skips electron-builder signing for direct signable files in `dist/`, leaving nested helper files eligible for normal signtool signing. Final `.zip`, `.dmg`, `.deb`, and `.AppImage` artifacts are not directly signed by this Windows signing script.
+
+External signing invocations are serialized by a cross-process lock at `${TMPDIR}/arcgis-velocity-external-sign.lock` (or the platform temp equivalent). This preserves the required order for each Windows build — sign the unpacked app, package it, then sign the final package artifacts — while still allowing the macOS and Linux platform builds to continue in parallel. The same lock name is used by the companion Logger repository, so two local builds cannot submit external signing jobs at the same time.
 
 ---
 

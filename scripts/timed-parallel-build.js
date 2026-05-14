@@ -18,7 +18,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const { ensureGnuArPath } = require('./binutils-path');
-const { buildSignEnv, describeSignOptions, parseSignOptions } = require('./sign-options');
+const { buildSignEnv, describeSignOptions, parseSignOptions, withExternalWindowsSigningConfigArgs } = require('./sign-options');
 
 const bin = path.join(__dirname, '..', 'node_modules', '.bin', 'electron-builder');
 const distDir = path.join(__dirname, '..', 'dist');
@@ -32,7 +32,11 @@ try {
   console.error(`\n❌ ${error.message}`);
   process.exit(1);
 }
-const childEnv = buildSignEnv({ ...process.env, PATH: ensureGnuArPath(process.env.PATH) }, parsedSignOptions);
+const baseChildEnv = { ...process.env, PATH: ensureGnuArPath(process.env.PATH) };
+
+function isWindowsBuildStep(stepArgs) {
+  return stepArgs.some((arg) => arg === '--win' || arg.startsWith('--win=') || arg.startsWith('--config.win'));
+}
 
 // ── Parse args ────────────────────────────────────────────────────────────────
 const rawArgs = parsedSignOptions.passthroughArgs;
@@ -86,7 +90,7 @@ const totalStartTime = new Date().toLocaleTimeString();
 console.log(`\n${'═'.repeat(60)}`);
 console.log(`⏱  Parallel build started at ${totalStartTime}  (${stepDefs.length} steps)`);
 console.log(`${'═'.repeat(60)}\n`);
-console.log(`   ${describeSignOptions(parsedSignOptions)}\n`);
+console.log(`   ${describeSignOptions(parsedSignOptions, baseChildEnv)}\n`);
 
 const promises = stepDefs.map(def => {
   const colonIdx = def.indexOf(':');
@@ -99,16 +103,20 @@ const promises = stepDefs.map(def => {
     stepArgs.push(`--config.compression=${compressionOverride}`);
   }
 
+  const windowsBuildStep = isWindowsBuildStep(stepArgs);
+  stepArgs = withExternalWindowsSigningConfigArgs(stepArgs, baseChildEnv, parsedSignOptions, { disableBuiltInWindowsSigning: windowsBuildStep });
+
   const stepStart = Date.now();
   const stepStartTime = new Date().toLocaleTimeString();
   const pfx = prefix(label);
 
   console.log(`${pfx}▶  electron-builder ${stepArgs.join(' ')}  (started ${stepStartTime})`);
+  const stepEnv = buildSignEnv(baseChildEnv, parsedSignOptions, { disableBuiltInWindowsSigning: windowsBuildStep });
 
   return new Promise(resolve => {
     const child = spawn(bin, stepArgs, {
       shell: process.platform === 'win32',
-      env: childEnv,
+      env: stepEnv,
     });
 
     // Stream stdout/stderr with label prefix
