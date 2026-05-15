@@ -100,6 +100,21 @@ ${BOLD}${WHITE}OPTIONS${RESET}
         External signing script timeout passed to ${BOLD}sign.sh${RESET} as ${BOLD}--timeout-minutes${RESET}.
         Default: ${BOLD}20${RESET}. Must be a positive whole number of minutes.
 
+  ${BOLD}--sign-progress-interval-ms <ms>${RESET}
+        How long the external signing process must be silent before a "Still waiting"
+        heartbeat line is printed (in milliseconds). Also sets the minimum interval
+        between consecutive heartbeat lines, so you see at most one line per interval
+        even if the process stays quiet indefinitely.
+        Default: ${BOLD}30000${RESET} (30 s). Set to ${BOLD}0${RESET} to disable heartbeat logging entirely.
+        Only used when ${BOLD}--sign-script${RESET} is provided and the external process is running.
+
+  ${BOLD}--sign-poll-interval-ms <ms>${RESET}
+        How often (in milliseconds) the wrapper checks whether the silence threshold
+        has been reached. This controls the ${DIM}maximum latency${RESET} before a heartbeat line
+        appears once 30 s of silence has elapsed — it does ${DIM}NOT${RESET} affect how often
+        lines are printed (that is controlled by ${BOLD}--sign-progress-interval-ms${RESET}).
+        Default: ${BOLD}5000${RESET} (5 s). Clamped to ≤ ${BOLD}--sign-progress-interval-ms${RESET} automatically.
+        Only used when ${BOLD}--sign-script${RESET} is provided and the external process is running.
 
   ${BOLD}--help${RESET}
         Show this help message and exit.
@@ -319,6 +334,8 @@ SIGN_SCRIPT=""
 SIGN_SHARE_DIR=""
 SIGN_PRODUCT_NAMES=""
 SIGN_TIMEOUT_MINUTES=""
+SIGN_PROGRESS_INTERVAL_MS=""
+SIGN_POLL_INTERVAL_MS=""
 
 # levenshtein_distance <left> <right> — minimum insert/delete/substitute edits.
 levenshtein_distance() {
@@ -367,6 +384,7 @@ closest_flag() {
     "--prepare-only" "--upload-only" "--install-prereqs" "--install-deps"
     "--debug-skip-clean-tree-check"
     "--sign-script" "--sign-share-dir" "--sign-product-names" "--sign-timeout-minutes"
+    "--sign-progress-interval-ms" "--sign-poll-interval-ms"
     "--list" "--limit" "--help"
   )
   for flag in "${known[@]}"; do
@@ -403,6 +421,10 @@ while [[ $# -gt 0 ]]; do
     --sign-product-names)                [[ $# -ge 2 ]] || fail "${arg} requires a value"; SIGN_PRODUCT_NAMES="$2"; shift 2 ;;
     --sign-timeout-minutes=*)            SIGN_TIMEOUT_MINUTES="${arg#--sign-timeout-minutes=}"; shift ;;
     --sign-timeout-minutes)              [[ $# -ge 2 ]] || fail "${arg} requires a value"; SIGN_TIMEOUT_MINUTES="$2"; shift 2 ;;
+    --sign-progress-interval-ms=*)       SIGN_PROGRESS_INTERVAL_MS="${arg#--sign-progress-interval-ms=}"; shift ;;
+    --sign-progress-interval-ms)         [[ $# -ge 2 ]] || fail "${arg} requires a value"; SIGN_PROGRESS_INTERVAL_MS="$2"; shift 2 ;;
+    --sign-poll-interval-ms=*)           SIGN_POLL_INTERVAL_MS="${arg#--sign-poll-interval-ms=}"; shift ;;
+    --sign-poll-interval-ms)             [[ $# -ge 2 ]] || fail "${arg} requires a value"; SIGN_POLL_INTERVAL_MS="$2"; shift 2 ;;
     --*)
       # Unknown long flag — suggest the closest known one when edit distance is small
       suggestion=$(closest_flag "$arg")
@@ -675,14 +697,18 @@ else
     export VELOCITY_SIGN_TIMEOUT_MINUTES="${SIGN_TIMEOUT_MINUTES:-20}"
     [[ -n "$SIGN_SHARE_DIR" ]] && export VELOCITY_SIGN_SHARE_DIR="$SIGN_SHARE_DIR" || unset VELOCITY_SIGN_SHARE_DIR
     [[ -n "$SIGN_PRODUCT_NAMES" ]] && export VELOCITY_SIGN_PRODUCT_NAMES="$SIGN_PRODUCT_NAMES" || unset VELOCITY_SIGN_PRODUCT_NAMES
+    [[ -n "$SIGN_PROGRESS_INTERVAL_MS" ]] && export VELOCITY_SIGN_PROGRESS_INTERVAL_MS="$SIGN_PROGRESS_INTERVAL_MS" || unset VELOCITY_SIGN_PROGRESS_INTERVAL_MS
+    [[ -n "$SIGN_POLL_INTERVAL_MS" ]] && export VELOCITY_SIGN_POLL_INTERVAL_MS="$SIGN_POLL_INTERVAL_MS" || unset VELOCITY_SIGN_POLL_INTERVAL_MS
     info "External Windows signing: ${SIGN_SCRIPT}"
     SIGN_LOCK_DIR=$(node -e 'const { getLockDir } = require("./scripts/sign-lock"); process.stdout.write(getLockDir());')
     info "External signing lock: ${SIGN_LOCK_DIR}"
     info "External sign.sh timeout: ${VELOCITY_SIGN_TIMEOUT_MINUTES} minute(s)"
     [[ -n "$SIGN_SHARE_DIR" ]] && info "Signing share directory: ${SIGN_SHARE_DIR}"
     [[ -n "$SIGN_PRODUCT_NAMES" ]] && info "Signing product names: ${SIGN_PRODUCT_NAMES}"
+    [[ -n "$SIGN_PROGRESS_INTERVAL_MS" ]] && info "Heartbeat log interval: ${SIGN_PROGRESS_INTERVAL_MS} ms"
+    [[ -n "$SIGN_POLL_INTERVAL_MS" ]] && info "Heartbeat poll interval: ${SIGN_POLL_INTERVAL_MS} ms"
   else
-    unset VELOCITY_SIGN_SCRIPT VELOCITY_SIGN_SHARE_DIR VELOCITY_SIGN_PRODUCT_NAMES VELOCITY_SIGN_TIMEOUT_MINUTES
+    unset VELOCITY_SIGN_SCRIPT VELOCITY_SIGN_SHARE_DIR VELOCITY_SIGN_PRODUCT_NAMES VELOCITY_SIGN_TIMEOUT_MINUTES VELOCITY_SIGN_PROGRESS_INTERVAL_MS VELOCITY_SIGN_POLL_INTERVAL_MS
   fi
   echo ""
 

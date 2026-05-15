@@ -322,30 +322,12 @@ The external signing hook uses a shared cross-process lock at `${TMPDIR}/arcgis-
 
 External signing output is streamed live inside the nested signing log box, including lock acquisition, process start, stdout/stderr, and lock release. The hook runs the external script with stdin closed so interactive prompts fail visibly instead of hanging the build. A signing process has a 45-minute timeout by default; set `VELOCITY_SIGN_TIMEOUT_MS=0` to disable the timeout, or set it to a millisecond value such as `VELOCITY_SIGN_TIMEOUT_MS=900000` for 15 minutes.
 
-The hook calls the external script with `--run` by default:
+While the signing script is running, a progress heartbeat is printed whenever the process has been silent for 30 seconds, and once every 30 seconds thereafter. The internal silence-detection timer is reset each time any output is received, so the heartbeat never fires spuriously immediately after an active output burst. Two environment variables control the heartbeat behaviour:
 
-```bash
-bash /absolute/path/to/sign.sh --run \
-  --timeout-minutes 20 \
-  --source-dirs /Users/hano4470/github/Esri/arcgis-velocity-simulator/dist/win-unpacked \
-  --product-names "ArcGIS Velocity Simulator"
-```
-
-If `--sign-share-dir` is supplied, the hook adds `--share-dir <UNC>`. Use `--sign-timeout-minutes` to change the external script timeout passed as `--timeout-minutes`, and `--sign-product-names` to override the value passed as `--product-names`. Examples use full option names for readability:
-
-```bash
-npm run package:win -- \
-  --sign-script /absolute/path/to/sign.sh \
-  --sign-share-dir '\\storm\upload\DigitalSign\Velocity' \
-  --sign-timeout-minutes 30 \
-  --sign-product-names "ArcGIS Velocity Simulator"
-```
-
-```bash
-npm run package:win -- \
-  --sign-script ../../../signing/sign.sh \
-  --sign-share-dir '\\storm\upload\DigitalSign\Velocity'
-```
+| Variable | Default | Description |
+|---|---|---|
+| `VELOCITY_SIGN_PROGRESS_INTERVAL_MS` | `30000` | Minimum silence (ms) before a "Still waiting" line is printed, and the minimum interval between consecutive heartbeat lines. Set to `0` to disable heartbeat logging entirely. |
+| `VELOCITY_SIGN_POLL_INTERVAL_MS` | `5000` | How often (ms) the silence clock is checked internally. This does not affect how often heartbeat lines appear; it only controls the maximum latency before the first heartbeat is printed once 30 s of silence has elapsed. Must be ≤ `VELOCITY_SIGN_PROGRESS_INTERVAL_MS` (clamped automatically). |
 
 ---
 

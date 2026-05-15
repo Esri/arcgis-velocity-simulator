@@ -25,6 +25,7 @@ const WHITE = '\x1b[0;97m';
 const RESET = '\x1b[0m';
 const SIGN_WATCHDOG_BUFFER_MS = 5 * 60 * 1000;
 const DEFAULT_SIGN_PROGRESS_INTERVAL_MS = 30 * 1000;
+const DEFAULT_SIGN_POLL_INTERVAL_MS = 5 * 1000;
 
 // Flags whose immediately following value must be redacted when logging the
 // effective sign.sh command. Keep this conservative: anything that may be a
@@ -108,6 +109,14 @@ function getSignProgressIntervalMs() {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_SIGN_PROGRESS_INTERVAL_MS;
 }
 
+function getSignPollIntervalMs(progressIntervalMs) {
+  const raw = process.env.VELOCITY_SIGN_POLL_INTERVAL_MS || '';
+  const parsed = raw ? Number(raw) : DEFAULT_SIGN_POLL_INTERVAL_MS;
+  const value = Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_SIGN_POLL_INTERVAL_MS;
+  // Poll interval must not exceed the log (progress) interval — clamp if needed.
+  return Math.min(value, progressIntervalMs);
+}
+
 function formatDuration(ms) {
   const totalSeconds = Math.max(0, Math.round(ms / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -156,15 +165,22 @@ function runSignProcess({ command, args, timeoutMs = getSignTimeoutMs() }) {
     let killTimer = null;
     let forceKillTimer = null;
     let progressTimer = null;
+    let scheduleProgressTick = null;
 
     const clearTimers = () => {
       if (killTimer) clearTimeout(killTimer);
       if (forceKillTimer) clearTimeout(forceKillTimer);
-      if (progressTimer) clearInterval(progressTimer);
+      if (progressTimer) clearTimeout(progressTimer);
     };
-
     const noteOutput = () => {
       lastOutputAt = Date.now();
+      // Reset the silence-detection timer so it always measures from the last
+      // output, preventing spurious "no output for Xs" ticks immediately after
+      // the child produces output.
+      if (progressTimer && scheduleProgressTick) {
+        clearTimeout(progressTimer);
+        scheduleProgressTick();
+      }
     };
 
     signBoxLine(`${DIM}[external-sign]${RESET} Started external signing process (pid ${child.pid || 'unknown'}).`);
@@ -200,15 +216,38 @@ function runSignProcess({ command, args, timeoutMs = getSignTimeoutMs() }) {
 
     const progressIntervalMs = getSignProgressIntervalMs();
     if (progressIntervalMs > 0) {
-      signBoxLine(`${DIM}[external-sign]${RESET} Progress heartbeat: every ${formatDuration(progressIntervalMs)} while the signing process is quiet.`);
-      progressTimer = setInterval(() => {
-        const now = Date.now();
-        const elapsed = now - startTime;
-        const idle = now - lastOutputAt;
-        const remaining = timeoutMs > 0 ? `; watchdog timeout in ${formatDuration(timeoutMs - elapsed)}` : '';
-        signBoxLine(`${DIM}[external-sign]${RESET} Still waiting for signing process (elapsed ${formatDuration(elapsed)}; no output for ${formatDuration(idle)}${remaining}).`);
-      }, progressIntervalMs);
-      if (typeof progressTimer.unref === 'function') progressTimer.unref();
+      const pollIntervalMs = getSignPollIntervalMs(progressIntervalMs);
+      signBoxLine(`${DIM}[external-sign]${RESET} Progress heartbeat: every ${formatDuration(progressIntervalMs)} of silence (checked every ${formatDuration(pollIntervalMs)}).`);
+
+      // Use a self-rescheduling setTimeout chain (not setInterval) so that the
+      // silence window is always measured from the *last output*, not from the
+      // previous tick.  noteOutput() cancels and restarts this timer whenever
+      // the child produces output, preventing spurious "no output for Xs" lines
+      // immediately after an active output burst.
+      //
+      // lastLogAt tracks when we last printed a heartbeat line.  A line is only
+      // emitted when BOTH conditions hold:
+      //   1. The child has been silent for >= progressIntervalMs (30 s), AND
+      //   2. We have not logged a heartbeat in the last progressIntervalMs (30 s).
+      // This prevents every-5-s spam once the 30 s silence threshold is crossed.
+      let lastLogAt = startTime;
+      scheduleProgressTick = function scheduleProgressTick() {
+        progressTimer = setTimeout(function tick() {
+          const now = Date.now();
+          const elapsed = now - startTime;
+          const idle = now - lastOutputAt;
+          const remaining = timeoutMs > 0 ? `; watchdog timeout in ${formatDuration(timeoutMs - elapsed)}` : '';
+          if (idle >= progressIntervalMs && now - lastLogAt >= progressIntervalMs) {
+            lastLogAt = now;
+            signBoxLine(`${DIM}[external-sign]${RESET} Still waiting for signing process (elapsed ${formatDuration(elapsed)}; no output for ${formatDuration(idle)}${remaining}).`);
+          }
+          // Reschedule so the next check is pollIntervalMs from now.
+          progressTimer = setTimeout(tick, pollIntervalMs);
+          if (typeof progressTimer.unref === 'function') progressTimer.unref();
+        }, pollIntervalMs);
+        if (typeof progressTimer.unref === 'function') progressTimer.unref();
+      };
+      scheduleProgressTick();
     }
 
     child.stdout.on('data', (chunk) => {
