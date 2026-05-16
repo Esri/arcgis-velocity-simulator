@@ -338,8 +338,8 @@ function getExternalSignProductNames(defaultProductName) {
   return process.env[SIGN_PRODUCT_NAMES_ENV] || defaultProductName;
 }
 
-function buildSignCommand({ scriptPath, sourceDirs, productName, shareDir, fileMask, mode = '--run', timeoutMinutes = DEFAULT_EXTERNAL_SIGN_TIMEOUT_MINUTES }) {
-  const args = [scriptPath, mode, '--timeout-minutes', String(timeoutMinutes), '--source-dirs', sourceDirs.join(':'), '--product-names', productName];
+function buildSignCommand({ scriptPath, sourceDirs, productNames, shareDir, fileMask, mode = '--run', timeoutMinutes = DEFAULT_EXTERNAL_SIGN_TIMEOUT_MINUTES }) {
+  const args = [scriptPath, mode, '--timeout-minutes', String(timeoutMinutes), '--source-dirs', sourceDirs.join(','), '--product-names', productNames.join(',')];
   if (shareDir) args.push('--share-dir', shareDir);
   if (fileMask) args.push('--file-mask', fileMask);
   return { command: 'bash', args };
@@ -358,11 +358,11 @@ async function runExternalSign({ scriptPath, sourceDirs, productName, shareDir, 
   }
 
   const signTimeoutMinutes = getExternalSignTimeoutMinutes();
-  const signProductNames = getExternalSignProductNames(productName);
-  const signCommand = buildSignCommand({ scriptPath, sourceDirs, productName: signProductNames, shareDir, fileMask, mode, timeoutMinutes: signTimeoutMinutes });
+  const signProductNames = getExternalSignProductNames(productName).split(',').map((s) => s.trim()).filter(Boolean);
+  const signCommand = buildSignCommand({ scriptPath, sourceDirs, productNames: signProductNames, shareDir, fileMask, mode, timeoutMinutes: signTimeoutMinutes });
   signBoxStart(phase, mode);
-  signBoxLine(`${DIM}[external-sign]${RESET} Product: ${signProductNames}`);
-  signBoxLine(`${DIM}[external-sign]${RESET} Source: ${sourceDirs.join(':')}`);
+  signBoxLine(`${DIM}[external-sign]${RESET} Product: ${signProductNames.join(',')}`);
+  signBoxLine(`${DIM}[external-sign]${RESET} Source: ${sourceDirs.join(',')}`);
   if (shareDir) signBoxLine(`${DIM}[external-sign]${RESET} Share: ${shareDir}`);
   if (fileMask) signBoxLine(`${DIM}[external-sign]${RESET} Mask: ${fileMask}`);
   signBoxLine(`${DIM}[external-sign]${RESET} Mode: ${mode}`);

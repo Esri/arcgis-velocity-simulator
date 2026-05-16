@@ -309,7 +309,7 @@ Supported options:
 | `--sign-script <path>` | Optional | External script to run. Supports absolute, relative (`../../../sign.sh`), and `~` paths, resolved to an absolute path before use. If omitted or not found/readable, the build logs a warning and falls back to the current electron-builder signing/unsigned behavior. When found, the Windows build wrapper uses a path-aware signing hook so direct signable files in external signing source folders (`dist/win-unpacked` and direct final artifacts in `dist/`) are left for the external signer while nested helper files can still be signed by electron-builder. |
 | `--sign-share-dir <UNC>` | Optional | `--share-dir <UNC>` |
 | `--sign-timeout-minutes <minutes>` | Optional | Passed to `sign.sh` as `--timeout-minutes <minutes>`. Default: `20`. Must be a positive whole number. |
-| `--sign-product-names <names>` | Optional | Passed to `sign.sh` as `--product-names <names>`. Defaults to `ArcGIS Velocity Simulator`. Use colon-separated names for multiple source directories. |
+| `--sign-product-names <names>` | Optional | Passed to `sign.sh` as `--product-names <names>`. Defaults to `ArcGIS Velocity Simulator`. Use comma-separated names for multiple source directories. |
 
 The external signing hook auto-populates these values for this repo:
 

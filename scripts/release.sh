@@ -94,7 +94,7 @@ ${BOLD}${WHITE}OPTIONS${RESET}
   ${BOLD}--sign-product-names <names>${RESET}
         Optional value passed to the external signing script as ${BOLD}--product-names${RESET}.
         Defaults to the official app product name (${BOLD}ArcGIS Velocity Simulator${RESET}).
-        Use colon-separated names when signing multiple source directories.
+        Use comma-separated names when signing multiple source directories.
 
   ${BOLD}--sign-timeout-minutes <minutes>${RESET}
         External signing script timeout passed to ${BOLD}sign.sh${RESET} as ${BOLD}--timeout-minutes${RESET}.

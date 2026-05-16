@@ -36,7 +36,7 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
     '--sign-script', '/opt/sign/sign.sh',
     '-d', '\\\\storm\\upload\\DigitalSign\\Velocity',
     '--sign-timeout-minutes', '30',
-    '--sign-product-names', 'ArcGIS Velocity Simulator:ArcGIS Velocity Logger',
+    '--sign-product-names', 'ArcGIS Velocity Simulator,ArcGIS Velocity Logger',
     '--config.compression=maximum',
   ]);
 
@@ -44,7 +44,7 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
   assert.strictEqual(parsed.signScript, '/opt/sign/sign.sh');
   assert.strictEqual(parsed.signShareDir, '\\\\storm\\upload\\DigitalSign\\Velocity');
   assert.strictEqual(parsed.signTimeoutMinutes, '30');
-  assert.strictEqual(parsed.signProductNames, 'ArcGIS Velocity Simulator:ArcGIS Velocity Logger');
+  assert.strictEqual(parsed.signProductNames, 'ArcGIS Velocity Simulator,ArcGIS Velocity Logger');
 })();
 
 (function testParseSignOptionsRejectsInvalidTimeout() {
@@ -200,7 +200,7 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
   const command = buildSignCommand({
     scriptPath: '/opt/sign/sign.sh',
     sourceDirs: ['/repo/dist/win-unpacked'],
-    productName: 'ArcGIS Velocity Simulator',
+    productNames: ['ArcGIS Velocity Simulator'],
     shareDir: '\\\\storm\\upload\\DigitalSign\\Velocity',
     fileMask: '*.exe;*.msi;*.msp',
   });
@@ -221,7 +221,7 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
   const command = buildSignCommand({
     scriptPath: '/opt/sign/sign.sh',
     sourceDirs: ['/repo/dist/win-unpacked'],
-    productName: 'ArcGIS Velocity Simulator',
+    productNames: ['ArcGIS Velocity Simulator'],
     shareDir: '',
     fileMask: '*.exe;*.msi;*.msp',
     mode: '--dry-run',
@@ -242,7 +242,7 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
   const command = buildSignCommand({
     scriptPath: '/opt/sign/sign.sh',
     sourceDirs: ['/repo/dist/win-unpacked'],
-    productName: 'ArcGIS Velocity Simulator',
+    productNames: ['ArcGIS Velocity Simulator'],
     shareDir: '',
     fileMask: '*.exe;*.msi;*.msp',
     timeoutMinutes: '30',
