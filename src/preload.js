@@ -37,9 +37,10 @@ contextBridge.exposeInMainWorld('api', {
   readCsvFile: (filePath) => ipcRenderer.invoke('read-csv-file', filePath), // Reads CSV file content
   
   // --- Network Operations (Renderer to Main) ---
-  connect: (options) => ipcRenderer.invoke('connect', options), // Establishes TCP/UDP connection
+  connect: (options) => ipcRenderer.invoke('connect', options), // Establishes TCP/UDP/gRPC/HTTP/WebSocket/XMPP connection
   disconnect: () => ipcRenderer.invoke('disconnect'), // Closes active connection
   sendData: (data) => ipcRenderer.send('send-data', data), // Sends data over active connection
+  getXmppClientSettings: (options) => ipcRenderer.invoke('xmpp:get-client-settings', options), // Builds the settings a receiver needs to sign in to the built-in XMPP server
   
   // --- UI and System Operations (Renderer to Main) ---
   showContextMenu: () => ipcRenderer.send('show-context-menu'), // Shows application context menu

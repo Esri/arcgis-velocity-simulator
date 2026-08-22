@@ -10,6 +10,10 @@ This file provides rules and guidance for AI coding agents (e.g. GitHub Copilot,
 - In help text and documentation examples, always use full long option names rather than short aliases. This includes wrapper options (for example `--sign-script`, not `-x`) and pass-through external signing options (for example `--jenkins-email-to`, not `-je`).
 - Run `npm test` after making code changes and ensure all tests pass.
 - **Always prefer a DRY (Don't Repeat Yourself) implementation approach.** When logic is shared across modules (e.g. TLS utilities used by both gRPC, HTTP, and WebSocket transports), extract it into a dedicated shared module rather than duplicating it. Reference `src/tls-utils.js` and `src/format-utils.js` as examples of this pattern.
+- Work in the repository's existing main checkout by default. Do not create a
+  worktree unless the user explicitly requests isolation or concurrent work in
+  this same repository cannot be performed safely in one checkout. Parallel
+  work in separate repositories should use each repository's existing checkout.
 
 ## Copyright Headers
 
@@ -33,23 +37,100 @@ This file provides rules and guidance for AI coding agents (e.g. GitHub Copilot,
  */
 ```
 
-This applies to all `.js` files under `src/` only.  
-Do **not** add this header to files under `scripts/` or `test/` — script files often begin with a `#!/usr/bin/env node` shebang that must stay on line 1, and the copyright block would break them.  
+This applies to all `.js` files under `src/` only.
+
+Do **not** add this header to files under `scripts/` or `test/` — script files often begin with a `#!/usr/bin/env node` shebang that must stay on line 1, and the copyright block would break them.
+
 Do not skip this header in `src/`, even for small utility files.
 
 ## Documentation Updates
 
-Whenever a new Markdown (`.md`) file is added to the repository:
+These rules are durable: they apply to every documentation change, not just the one that introduced them. Reconcile any conflicting guidance elsewhere in this file in favour of this section.
 
-1. **Root `README.md`** — add a reference to the new file in the relevant section (e.g. the Documentation table).
-2. **`docs/README.md`** — add an entry for the new file in the documentation index, including a short description and the intended audience.
+### Scope and ownership
 
-Do not add a new `.md` file without updating both README files.
+- Documentation describes current behavior and actionable tasks only. Do not add historical narratives, changelogs, release chronologies, migration stories, "changes made" or "achievements" lists, benchmark timings, file-size comparisons, or future-enhancement wish lists. Git history is the record of what changed.
+- Every topic has exactly one owner. Link to the owning guide instead of restating it, and delete a duplicate summary rather than keeping it in sync.
+
+| Guide | Owns |
+|-------|------|
+| `docs/grpc.md`, `docs/http.md`, `docs/websocket.md`, `docs/xmpp.md` | Their protocol's behavior, user interface controls, tooltip reference, and troubleshooting. |
+| `docs/tls.md` | Shared certificate concepts: certificate types, trust stores, mutual TLS, automatic self-signed certificates, and the TLS Trust Badge. |
+| `docs/command-line.md` | The command-line option reference: every parameter, its values, default, headless requirement, and example. |
+| `docs/headless.md` | Headless workflows: no-UI replay sessions, the launch configuration workflow, and completion artifacts. |
+| `docs/configuration.md` | Persisted App Config, Launch Config keys and storage locations, and the `docs/examples/` samples. |
+| `docs/developer-guide.md` | Repository structure, local development, testing, documentation checks, debugging, logging, and extension points. |
+| `docs/build-and-release.md` | Prerequisites, packaging, code signing, release commands, and the release checklist. |
+| `docs/keyboard-shortcuts.md`, `docs/offline-speech.md`, `docs/velocity-login.md` | Their feature surface end to end. |
+
+### Placement
+
+- All maintained documentation lives under `docs/`. The only Markdown files allowed outside `docs/` are the root `README.md`, this `AGENTS.md`, license and legal files (for example `LICENSE`), and GitHub-required metadata under `.github/` such as issue templates, pull request templates, contributing policies, and security policies.
+- Tooling metadata that happens to be Markdown (for example a linter fixture) is not documentation and stays with its tool.
+- Ready-to-copy sample files that a guide references — such as launch configuration JSON — live in `docs/examples/`. They are documentation examples, never runtime configuration, and the application must not read them at run time. That folder holds only `.sample.json` files; link each sample directly from `docs/configuration.md` and `docs/README.md` rather than adding an index there.
+- Do not create a second documentation index. `docs/README.md` is the single index; the root `README.md` carries a short catalog that links to it.
+
+### File naming
+
+- Every Markdown file under `docs/` uses a lowercase kebab-case name with a lowercase `.md` extension — `command-line.md`, `build-and-release.md`, `xmpp.md`. The only exception is `docs/README.md`, the single documentation index.
+- Do not add uppercase or `SCREAMING-CASE` documentation names. Prefer a descriptive noun phrase over an abbreviation when the abbreviation is not the product term.
+- Sample files use a descriptive lowercase name and keep their `.sample.json` suffix, for example `launch-config.client.sample.json`.
+
+### Required indexes
+
+Whenever a Markdown file is added, renamed, or removed under `docs/`:
+
+1. **`docs/README.md`** — add, rename, or remove the row in the guide table, including its leading icon, title, one-sentence purpose, and audience. Audience values are exactly `Users`, `Developers`, or `Users and developers`.
+2. **Root `README.md`** — keep the documentation catalog concise, pointing at `docs/README.md`, and listing exactly the guides that exist.
+3. **Sibling guides** — update the `## Related documentation` table of any guide that should link to the new or renamed file.
+
+### Guide skeleton
+
+Every guide under `docs/` (except the index files) has this shape:
+
+1. Line 1 is a single sentence-case H1 — `# Command-line reference`, not `# Command-Line Reference`. Never use more than one H1.
+2. Line 2 is blank; line 3 is the top navigation line, and nothing else appears above the intro:
+   ```text
+   [← Documentation index](README.md) · [Repository overview](../README.md#documentation)
+   ```
+   Nested guides adjust the relative paths, for example `[← Documentation index](../README.md) · [Repository overview](../../README.md#documentation)`.
+3. A one- or two-paragraph intro that states the scope, the intended audience, and any prerequisites.
+4. A `## Table of contents` section listing **H2 anchors only** whenever the guide exceeds roughly 80 lines or has four or more H2 sections.
+5. The body, with heading levels used in order — no H2 → H4 jumps — and no repeated prev/next navigation bars between sections.
+6. A closing `## Related documentation` section (or a clearly equivalent closing section) with a compact table of useful sibling guides.
+
+### Headings, links, and formatting
+
+- No emoji in headings, ever. A single leading icon per row or list entry is allowed in the `docs/README.md` guide table, in a `## Related documentation` table, and in short navigation lists.
+- Use relative links only, and never prefix them with `./` — write `](configuration.md)`, not `](./configuration.md)`. No reference-style links.
+- Link text is descriptive: `[Headless mode](headless.md)`, not `[headless.md](headless.md)`. Wrap literal file and folder names in backticks when they are named as files rather than linked as guides.
+- Anchors are lowercase GitHub-style slugs. Avoid `&`, `/`, and other punctuation in headings that are link targets, because the slug is ambiguous; write "TLS and certificate stores", not "TLS & Certificate Stores".
+- Every code fence declares a language — `bash`, `json`, `javascript`, `css`, `html`, `powershell`, `protobuf`, or `text` for output, trees, and diagrams.
+- Use GitHub alerts (`> [!NOTE]`, `> [!WARNING]`) sparingly, for genuine warnings and caveats. Use a Mermaid diagram only when it explains something prose cannot, and always introduce it and fence it with the `mermaid` language.
+- Wrap prose at roughly 80 columns where practical. Tables, code fences, and link-heavy list rows may exceed it. Keep tables compact, end descriptive table cells with a period, and leave no trailing whitespace on any line.
+- Write formal enumerations in Esri style: introduce the list with a colon, separate the items with semicolons, and end the last item with a period.
+
+### Tooltip and content fidelity
+
+- Tooltip strings in a guide must match `src/index.html` and `src/renderer.js` character for character, including punctuation and capitalization. Never reword a tooltip only to make a sentence read better in documentation.
+- Keep technical claims exact: defaults, ports, timeouts, limits, protocol behavior, and stated limitations must match the code. If behavior is deliberately limited, say so plainly rather than softening it.
+
+### Terminology in documentation
+
+- Write **ArcGIS Velocity** on first mention in a document, then **Velocity**. Use **Velocity Online** and **Velocity Enterprise** for the deployment variants.
+- Say **documentation** (not "docs" in prose), **repository** (not "repo"), and **pull request** (not "PR").
+- Describe the XMPP transport in user-facing terms and reference the ArcGIS Velocity and ArcGIS GeoEvent Server products it talks to, not internal codebases or spike history.
+
+### Renames and validation
+
+- When a documentation file is renamed or moved, update every reference in the same change: Markdown links and anchors, `src/help.html` and other HTML, JavaScript strings, `package.json` scripts, tests, build and release scripts, and repository metadata.
+- After any documentation change, run `npm run docs:check-links` (relative links and anchors) and `npm test`, and confirm `git diff --check` reports no whitespace errors.
+- Search the whole repository, excluding `node_modules`, for the old path before considering a rename complete.
 
 When adding a new protocol, transport, or major feature:
 
 1. **`src/help.html`** — update the **Overview/Getting Started** description, add the new protocol to the **Connection Modes** list, and add a dedicated **Options** section describing every control and its tooltip content.
-2. **`docs/*.md`** — the corresponding transport doc (e.g. `docs/HTTP.md`, `docs/GRPC.md`, `docs/WEBSOCKET.md`) must include a **UI Controls** section listing every control with its tooltip text, and a **Tooltip Reference** section with the exact tooltip strings used in `renderer.js`.
+2. **`docs/*.md`** — the corresponding transport guide (for example `docs/http.md`, `docs/grpc.md`, `docs/websocket.md`, `docs/xmpp.md`) must include a **UI controls** section listing every control with its tooltip text, and a **Tooltip reference** section with the exact tooltip strings used in `renderer.js`.
 
 ## Terminology
 
@@ -61,7 +142,7 @@ When adding a new protocol, transport, or major feature:
 - `src/` — application source (main process, renderer, preload, helpers, gesture/voice/speech modules)
 - `scripts/` — build and developer utility scripts
 - `test/` — unit and integration tests
-- `docs/` — all documentation
+- `docs/` — all documentation (lowercase kebab-case filenames; samples in `docs/examples/`)
 
 ## UI / CSS Conventions
 
@@ -164,7 +245,7 @@ node -e 'require("fs").writeFileSync("/tmp/cm.txt", `subject\n\nbody line 1\nbod
 - **Always leave a blank line** between the subject and the body.
 - **Move all detail into the body.** The body should be well-formatted prose or a bullet list explaining what changed and why. Never run detail on into the subject line.
 - **Good example:**
-  ```
+  ```text
   feat: add cross-platform prereq installer and --install-prereqs switch
 
   Adds an opt-in workflow for installing missing build/release
@@ -232,3 +313,43 @@ Key mapping between the two apps:
 | `velocity:feed-applied`    | `velocity:output-applied`   |
 | Feed Picker dropdown       | Output Picker dropdown      |
 | "not yet supported by the Simulator" | "not yet supported by the Logger" |
+
+### Transport parity
+
+The two apps also share every network transport — TCP, UDP, HTTP, WebSocket, gRPC, and XMPP — with the roles inverted: the Simulator **publishes** the data that the Logger **consumes**. Whenever a transport changes here, plan the mirrored change in the Logger, and vice versa.
+
+Treat the following as one shared surface that must not drift between the repositories:
+
+- **Protocol modules.** The `src/<protocol>-transport.js` facades and any protocol-specific helper modules (for example the `src/xmpp-*.js` family) should keep the same module names, option names, and public function shapes in both repositories, so a fix applied to one can be read straight across.
+- **Option vocabulary.** CLI keys, launch-config keys, and UI element ids should be identical. A parameter named `xmppRoomPassword` here must not become `xmppMucPassword` there.
+- **Defaults and bounds.** Ports, timeouts, size caps, destination caps, TLS/STARTTLS policies, and validation rules must match, so the same configuration behaves the same on both sides of a test.
+- **Wire-level guarantees.** Framing, delimiters, content types, self-echo handling, and error conditions must stay compatible; one app's send path is the other app's receive path, so a change to either is a protocol change.
+- **XMPP safeguards.** Keep account/JID canonicalization, password-whitespace handling, loopback-only TLS bypass, Direct/MUC self-echo semantics, waiter cancellation, reconnect cleanup, and acknowledgement-only XEP-0198 claims identical. Never copy credentials between repositories or weaken a safeguard to simplify pairing.
+
+#### XMPP role defaults and the deliberate destination asymmetry
+
+XMPP is the one transport where the two apps pick **different role defaults**, and that difference is intentional:
+
+| | Simulator (this repo) | Logger (sister repo) |
+|---|---|---|
+| Default role when `protocol=xmpp` is selected | **Client** — it signs in to the receiving server and publishes | **Server** — it hosts the endpoint a publisher signs in to |
+| Direction-specific option | `xmppDestination` — the bare JIDs each replayed line is **sent to** | `xmppLocalJid` — the local identity the Logger **receives on** |
+| Application-wide default (unchanged by XMPP) | TCP Server on 5565 | the Logger's own app-wide default |
+
+`xmppDestination` and `xmppLocalJid` are the only XMPP options that differ, and they differ because one app addresses a recipient and the other names itself. Do not add `xmppLocalJid` here, and do not add Simulator-style send behavior — or any receive-only behavior — to this repository to "even out" the pair.
+
+Everything else in the public option vocabulary is identical and must stay identical, with the same defaults and the same validation:
+
+- `xmppDomain`, `xmppTlsPolicy`, `xmppTlsCaPath`, `xmppTlsCertPath`, `xmppTlsKeyPath`, `xmppAllowUnverifiedTls`, `xmppAllowRemote`;
+- `xmppUsername`, `xmppPassword`, `xmppResource`, `xmppExternalUsername`, `xmppExternalPassword`;
+- `xmppConversation` (`direct` | `muc`), `xmppRoom`, `xmppNickname`, `xmppRoomPassword`;
+- `xmppConnectTimeoutMs` (30000), `xmppReplyTimeoutMs` (15000), `xmppPingIntervalMs` (60000), `xmppReconnectDelayMs` (60000) — all positive integers, with no zero-disable or zero-wait-forever behavior;
+- the shared top-level `ip` as the network host override, separate from `xmppDomain`. Neither repository may introduce an `xmppHost` key;
+- port 5222 whenever XMPP is selected without an explicit port.
+
+Internal differences are allowed where they do not surface to a user: the two apps may name their internal callbacks differently (a send path versus a receive path), and their transports may expose different internal hooks. Public option names, defaults, validation messages, tooltips, and documented behavior may not diverge.
+- **Documentation.** The matching `docs/<protocol>.md`, `src/help.html` sections, and tooltip reference tables should describe the same behavior in both repositories, adjusted only for the direction of data flow.
+
+Invert only what genuinely differs by role. Where the Simulator sends, the Logger receives; where the Simulator names a destination, the Logger names a source; and where a control here reads "publish to", the Logger's equivalent reads "listen on". Everything else — naming, structure, limits, terminology, and honesty about limitations — should be the same in both places.
+
+When a transport-level change cannot be mirrored immediately, say so explicitly in the pull request description and in the relevant `docs/<protocol>.md` limitations section, rather than leaving the two apps quietly incompatible.

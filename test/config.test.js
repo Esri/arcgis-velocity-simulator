@@ -119,6 +119,89 @@ async function runConfigTests() {
     // Clean up export test file
     fs.unlinkSync(testExportPath);
   }
+
+  console.log('\n--- Test 5: XMPP Launch Configuration Mappings ---');
+  const sampleNames = [
+    'launch-config.sample.json',
+    'launch-config.client.sample.json',
+    'launch-config.server.sample.json',
+    'launch-config.xmpp.sample.json',
+  ];
+  const xmppKeys = [
+    'xmppAllowRemote', 'xmppAllowUnverifiedTls', 'xmppConnectTimeoutMs',
+    'xmppConversation', 'xmppDestination', 'xmppDomain',
+    'xmppExternalPassword', 'xmppExternalUsername', 'xmppNickname',
+    'xmppPassword', 'xmppPingIntervalMs', 'xmppReconnectDelayMs', 'xmppReplyTimeoutMs',
+    'xmppResource', 'xmppRoom', 'xmppRoomPassword', 'xmppTlsCaPath',
+    'xmppTlsCertPath', 'xmppTlsKeyPath', 'xmppTlsPolicy', 'xmppUsername',
+  ];
+  const xmppSecretKeys = [
+    'xmppExternalPassword', 'xmppPassword', 'xmppRoomPassword',
+  ];
+  runTest('Every launch-config sample includes the complete XMPP mapping', () =>
+    sampleNames.every((name) => {
+      const sample = JSON.parse(fs.readFileSync(path.join(__dirname, '../docs/examples', name), 'utf8'));
+      return xmppKeys.every((key) => Object.hasOwn(sample.connection, key));
+    }));
+  const mainSource = fs.readFileSync(path.join(__dirname, '../src/main.js'), 'utf8');
+  const getCurrentLaunchConfigSource = mainSource.slice(
+    mainSource.indexOf('async function getCurrentLaunchConfig()'),
+    mainSource.indexOf('let launchConfigWindow'),
+  );
+  runTest('Saved launch configurations map every non-secret XMPP setting', () =>
+    xmppKeys.filter((key) => !xmppSecretKeys.includes(key)).every((key) =>
+      mainSource.includes(`${key}: s.${key}`) ||
+      mainSource.includes(`${key}: getVal(`) ||
+      mainSource.includes(`${key}: getChecked(`)));
+  runTest('Saved launch configurations omit every XMPP password', () =>
+    xmppSecretKeys.every((key) => !getCurrentLaunchConfigSource.includes(`${key}:`)));
+  const clientSample = JSON.parse(fs.readFileSync(
+    path.join(__dirname, '../docs/examples/launch-config.client.sample.json'),
+    'utf8',
+  ));
+  clientSample.connection.xmppPassword = '  preserved whitespace  ';
+  runTest('JSON launch configuration preserves XMPP password whitespace', () =>
+    JSON.parse(JSON.stringify(clientSample)).connection.xmppPassword === '  preserved whitespace  ');
+
+  const { parseCommandLineArgs } = require('../src/cli-options.js');
+  const roundTripPath = path.join(os.tmpdir(), `avs-xmpp-launch-config-${process.pid}.json`);
+  runTest('A launch-config file round-trips XMPP passwords without trimming them', () => {
+    const configured = JSON.parse(JSON.stringify(clientSample));
+    configured.connection.protocol = 'xmpp';
+    configured.connection.mode = 'client';
+    configured.connection.ip = '127.0.0.1';
+    delete configured.connection.port;
+    configured.connection.xmppUsername = 'receiver';
+    configured.connection.xmppPassword = '  padded secret  ';
+    configured.connection.xmppRoomPassword = '  padded room  ';
+    configured.connection.xmppDestination = 'feed@example.test';
+    configured.headless = { ...(configured.headless || {}), filename: __filename, runMode: 'headless' };
+    fs.writeFileSync(roundTripPath, JSON.stringify(configured, null, 2), 'utf8');
+    try {
+      const parsed = parseCommandLineArgs(['node', 'main.js', 'runMode=headless', `config=${roundTripPath}`]);
+      return parsed.mode === 'headless' &&
+        parsed.headless.xmppPassword === '  padded secret  ' &&
+        parsed.headless.xmppRoomPassword === '  padded room  ' &&
+        parsed.headless.port === 5222 &&
+        parsed.headless.xmppReconnectDelayMs === 60000;
+    } finally {
+      fs.rmSync(roundTripPath, { force: true });
+    }
+  });
+
+  runTest('Launch-config samples use canonical XMPP keys and the shared ip host override', () =>
+    sampleNames.every((name) => {
+      const raw = fs.readFileSync(path.join(__dirname, '../docs/examples', name), 'utf8');
+      const sample = JSON.parse(raw);
+      return !raw.includes('xmppHost') &&
+        Object.hasOwn(sample.connection, 'ip') &&
+        sample.connection.xmppConversation === 'direct' &&
+        sample.connection.xmppAllowUnverifiedTls === false &&
+        sample.connection.xmppConnectTimeoutMs === 30000 &&
+        sample.connection.xmppReplyTimeoutMs === 15000 &&
+        sample.connection.xmppPingIntervalMs === 60000 &&
+        sample.connection.xmppReconnectDelayMs === 60000;
+    }));
   
   // Test Summary
   console.log('\n=== Test Results ===');

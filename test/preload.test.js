@@ -285,7 +285,20 @@ async function runPreloadTests() {
   runTest('onLogStatus registers listener', () => {
     return mockIpcRenderer._listeners && mockIpcRenderer._listeners['log-status'];
   });
-  
+
+  // Test 8: Real preload source surface
+  // The mock above mirrors the bridge, so the real file is checked directly to
+  // catch a method that was added to the renderer but never exposed.
+  console.log('\n--- Test 8: Real preload source surface ---');
+  const preloadSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
+  runTest('preload exposes getXmppClientSettings', () => preloadSource.includes('getXmppClientSettings:'));
+  runTest('getXmppClientSettings invokes the xmpp:get-client-settings channel', () => {
+    return /getXmppClientSettings:\s*\([^)]*\)\s*=>\s*ipcRenderer\.invoke\('xmpp:get-client-settings'/.test(preloadSource);
+  });
+  runTest('connect still forwards a single options object', () => {
+    return /connect:\s*\(options\)\s*=>\s*ipcRenderer\.invoke\('connect',\s*options\)/.test(preloadSource);
+  });
+
   // Test Summary
   console.log('\n=== Test Results ===');
   console.log(`✅ Passed: ${passed}`);

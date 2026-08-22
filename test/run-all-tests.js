@@ -20,6 +20,10 @@ const testSuites = [
   { file: 'sign-lock.test.js', description: '🔒 External Signing Lock Tests' },
   { file: 'format-utils.test.js', description: '📦 Format Utils Tests' },
   { file: 'ws-transport.test.js', description: '🌐 WebSocket Transport Tests' },
+  { file: 'xmpp-core.test.js', description: '💬 XMPP Core Tests' },
+  { file: 'xmpp-transport.test.js', description: '📨 XMPP Transport Integration Tests' },
+  { file: 'xmpp-secrets.test.js', description: '🕵️  XMPP Secret-Disclosure Tests' },
+  { file: 'xmpp-parity.test.js', description: '🔀 XMPP Simulator/Logger Parity Tests' },
   { file: 'velocity-auth-utils.test.js', description: '🔑 Velocity Auth Utility Tests' },
   { file: 'tooltip-utils.test.js', description: '💬 Tooltip Utility Tests' },
 ];
@@ -86,4 +90,3 @@ async function runAllTests() {
 if (require.main === module) {
   runAllTests();
 }
-

@@ -145,10 +145,12 @@ let inspectModeActive = false; // Tracks whether Inspect Element pick mode is ac
 let devToolsOpen = false; // Tracks whether DevTools is currently open (synced via devtools-opened/closed events).
 let httpTransport = null; // Holds active HTTP transport (HttpClientTransport or HttpServerTransport).
 let wsTransport = null; // Holds active WebSocket transport (WsClientTransport or WsServerTransport).
+let xmppTransport = null; // Holds active XMPP transport (client or server role).
 let velocityLoginWindow = null; // Holds the Velocity Login dialog window.
 const { createGrpcClientTransport, createGrpcServerTransport } = require(path.join(basePath, 'grpc-transport.js'));
 const { createHttpClientTransport, createHttpServerTransport, FORMAT_CONTENT_TYPES } = require(path.join(basePath, 'http-transport.js'));
 const { createWsClientTransport, createWsServerTransport } = require(path.join(basePath, 'ws-transport.js'));
+const { createXmppClientTransport, createXmppServerTransport, formatClientSettings } = require(path.join(basePath, 'xmpp-transport.js'));
 const { generateToken, generateOAuthToken, getVelocityApiUrl, listFeeds, getFeedDetails, TokenManager } = require(path.join(basePath, 'velocity-api.js'));
 const { shouldSendVelocityTokenByDefault } = require(path.join(basePath, 'velocity-auth-utils.js'));
 const velocityTokenManager = new TokenManager();
@@ -1427,8 +1429,17 @@ const emitConnectionStatus = (status, message) => {
  * This is called before the application quits to ensure graceful shutdown.
  */
 const cleanupConnections = () => {
+  if (xmppTransport) {
+    const active = xmppTransport;
+    xmppTransport = null;
+    connection = null;
+    active.disconnect().catch((err) => {
+      console.error('Error during XMPP cleanup:', err.message);
+    });
+    return;
+  }
   if (!connection) return;
-  
+
   try {
     if (connection instanceof net.Server) { // TCP Server
       tcpClientSockets.forEach((socket) => {
@@ -1503,6 +1514,10 @@ async function getCurrentLaunchConfig() {
     (function() {
       const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : null; };
       const getChecked = (id) => { const el = document.getElementById(id); return el ? el.checked : false; };
+      const getInteger = (id, fallback) => {
+        const value = Number.parseInt(getVal(id), 10);
+        return Number.isInteger(value) ? value : fallback;
+      };
       const connType = getVal('connection-type') || 'tcp-server';
       const parts = connType.split('-');
       const loopBtn = document.getElementById('toggle-loop-button');
@@ -1540,6 +1555,24 @@ async function getCurrentLaunchConfig() {
         wsTlsCaPath: getVal('ws-tls-ca-path') || null,
         wsTlsCertPath: getVal('ws-tls-cert-path') || null,
         wsTlsKeyPath: getVal('ws-tls-key-path') || null,
+        xmppConversation: getVal('xmpp-conversation') || 'direct',
+        xmppDomain: getVal('xmpp-domain') || 'localhost',
+        xmppTlsPolicy: getVal('xmpp-tls-policy') || 'required',
+        xmppTlsCaPath: getVal('xmpp-tls-ca-path') || null,
+        xmppTlsCertPath: getVal('xmpp-tls-cert-path') || null,
+        xmppTlsKeyPath: getVal('xmpp-tls-key-path') || null,
+        xmppAllowUnverifiedTls: getChecked('xmpp-allow-unverified'),
+        xmppAllowRemote: getChecked('xmpp-allow-remote'),
+        xmppUsername: getVal('xmpp-username') || null,
+        xmppResource: getVal('xmpp-resource') || 'velocity-simulator',
+        xmppExternalUsername: getVal('xmpp-external-username') || null,
+        xmppDestination: getVal('xmpp-destination') || null,
+        xmppRoom: getVal('xmpp-room') || null,
+        xmppNickname: getVal('xmpp-nickname') || 'velocity-simulator',
+        xmppConnectTimeoutMs: getInteger('xmpp-connect-timeout', 30000),
+        xmppReplyTimeoutMs: getInteger('xmpp-reply-timeout', 15000),
+        xmppPingIntervalMs: getInteger('xmpp-ping-interval', 60000),
+        xmppReconnectDelayMs: getInteger('xmpp-reconnect-delay', 60000),
       });
     })()
   `);
@@ -1580,6 +1613,24 @@ async function getCurrentLaunchConfig() {
       wsTlsCaPath: s.wsTlsCaPath,
       wsTlsCertPath: s.wsTlsCertPath,
       wsTlsKeyPath: s.wsTlsKeyPath,
+      xmppAllowRemote: s.xmppAllowRemote,
+      xmppAllowUnverifiedTls: s.xmppAllowUnverifiedTls,
+      xmppConnectTimeoutMs: s.xmppConnectTimeoutMs,
+      xmppConversation: s.xmppConversation,
+      xmppDestination: s.xmppDestination,
+      xmppDomain: s.xmppDomain,
+      xmppExternalUsername: s.xmppExternalUsername,
+      xmppNickname: s.xmppNickname,
+      xmppPingIntervalMs: s.xmppPingIntervalMs,
+      xmppReconnectDelayMs: s.xmppReconnectDelayMs,
+      xmppReplyTimeoutMs: s.xmppReplyTimeoutMs,
+      xmppResource: s.xmppResource,
+      xmppRoom: s.xmppRoom,
+      xmppTlsCaPath: s.xmppTlsCaPath,
+      xmppTlsCertPath: s.xmppTlsCertPath,
+      xmppTlsKeyPath: s.xmppTlsKeyPath,
+      xmppTlsPolicy: s.xmppTlsPolicy,
+      xmppUsername: s.xmppUsername,
     },
     output: {
       doneFile: null,
@@ -2194,7 +2245,14 @@ ipcMain.handle('get-microphone-support-state', () => {
 });
 
 // Establishes a TCP or UDP connection based on the provided parameters.
-ipcMain.handle('connect', (event, { protocol, mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, wsFormat, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsPath, wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders }) => {
+ipcMain.handle('connect', (event, options) => {
+  const {
+    protocol, mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath,
+    useTls, tlsCaPath, tlsCertPath, tlsKeyPath,
+    httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath,
+    wsFormat, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsPath,
+    wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders,
+  } = options;
   if (connection) {
     logStatus('Error: A connection is already active.');
     return { success: false, error: 'Connection already active' };
@@ -2356,21 +2414,98 @@ ipcMain.handle('connect', (event, { protocol, mode, ip, port, grpcSerialization,
           emitConnectionStatus('disconnected', `WebSocket Server error: ${err.message}`);
         });
       }
+    } else if (protocol === 'xmpp') {
+      if (xmppTransport) {
+        throw new Error('An XMPP connection is already active or connecting. Disconnect it before starting another.');
+      }
+      const factory = mode === 'client' ? createXmppClientTransport : createXmppServerTransport;
+      const roleLabel = mode === 'client' ? 'Client' : 'Server';
+      // Validation errors are thrown synchronously by the factory so the user
+      // gets an actionable message before any socket is opened.
+      xmppTransport = factory({
+        ...options,
+        onLog: (level, message) => velocityLog(level, message),
+        onData: (data, metadata) => {
+          const source = metadata.conversation === 'muc'
+            ? `${metadata.room}/${metadata.from}${metadata.selfEcho ? ' (self echo)' : ''}`
+            : metadata.from;
+          logStatus(`Received from ${source}: ${data}`);
+        },
+        onStateChange: (state, detail = {}) => {
+          if (state === 'authenticated') {
+            emitConnectionStatus('authenticated', detail.peer
+              ? `Receiver ${detail.jid} signed in to the built-in XMPP server.`
+              : `XMPP signed in as ${detail.jid}.`);
+          } else if (state === 'room') {
+            emitConnectionStatus('room', `XMPP entered ${detail.room} as '${detail.nickname}'.`);
+          } else if (state === 'offline') {
+            emitConnectionStatus('connecting', detail.xmppReconnectDelayMs
+              ? `XMPP stream is offline; reconnecting automatically in ${detail.xmppReconnectDelayMs}ms.`
+              : 'XMPP stream is offline; reconnecting automatically.');
+          } else if (state === 'ready' && detail.reconnected) {
+            emitConnectionStatus('connected',
+              `XMPP ${roleLabel.toLowerCase()} reconnected as ${detail.jid || 'the configured account'}.\n  ${detail.tlsInfo || 'tls=off'}`);
+          }
+        },
+      });
+      // The transport is registered before connect() is awaited so a partial or
+      // failed connect is still torn down instead of leaking a socket.
+      const pendingXmppTransport = xmppTransport;
+      pendingXmppTransport.connect().then(async (result) => {
+        if (xmppTransport !== pendingXmppTransport) {
+          await pendingXmppTransport.disconnect().catch((err) => {
+            velocityLog('warn', `[XMPP] Cleanup after a cancelled connect reported: ${err.message}`);
+          });
+          return;
+        }
+        connection = pendingXmppTransport;
+        const target = result.conversation === 'muc'
+          ? `room ${result.room} as '${result.nickname}'`
+          : (mode === 'client'
+            ? `${result.destinations.length} destination(s)`
+            : `every account signed in to ${result.domain}`);
+        const where = mode === 'client'
+          ? `connected to ${result.address} as ${result.jid}`
+          : `listening on ${result.address.address}:${result.address.port} as ${result.serviceJid}`;
+        emitConnectionStatus('connected', `XMPP ${roleLabel.toLowerCase()} ${where} → ${target}\n  ${result.tlsInfo || 'tls=off'}`);
+      }).catch(async (err) => {
+        if (xmppTransport === pendingXmppTransport) xmppTransport = null;
+        try {
+          await pendingXmppTransport.disconnect();
+        } catch (cleanupError) {
+          velocityLog('warn', `[XMPP] Cleanup after a failed connect reported: ${cleanupError.message}`);
+        }
+        emitConnectionStatus('disconnected', `XMPP ${roleLabel} error: ${err.message}`);
+      });
     }
     return { success: true };
   } catch (err) {
-    logStatus(`Connection error: ${err.message}`);
+    if (xmppTransport) {
+      const active = xmppTransport;
+      xmppTransport = null;
+      active.disconnect().catch(() => {});
+    }
     connection = null;
+    emitConnectionStatus('disconnected', `Connection error: ${err.message}`);
     return { success: false, error: err.message };
   }
 });
 
 // Disconnects any active TCP or UDP connection.
 ipcMain.handle('disconnect', () => {
-  if (!connection) return { success: false, error: 'No active connection' };
+  if (!connection && !xmppTransport) return { success: false, error: 'No active connection' };
   
   try {
-    if (connection instanceof net.Server) { // TCP Server
+    if (xmppTransport) { // XMPP, including a connection attempt still in progress
+      const active = xmppTransport;
+      xmppTransport = null;
+      connection = null;
+      active.disconnect().then(() => {
+        emitConnectionStatus('disconnected', 'XMPP connection has been closed.');
+      }).catch((err) => {
+        emitConnectionStatus('disconnected', `XMPP disconnect error: ${err.message}`);
+      });
+    } else if (connection instanceof net.Server) { // TCP Server
       tcpClientSockets.forEach((socket) => {
         if (!socket.destroyed) socket.destroy();
       });
@@ -2385,7 +2520,7 @@ ipcMain.handle('disconnect', () => {
       if (!connection.destroyed) connection.destroy();
       emitConnectionStatus('disconnected', 'TCP Client disconnected.');
       connection = null;
-    } else if (connection.socket) { // UDP
+    } else if (connection && connection.socket) { // UDP
       connection.socket.close(() => {
         emitConnectionStatus('disconnected', 'UDP connection has been closed.');
         connection = null;
@@ -2483,9 +2618,41 @@ ipcMain.on('send-data', (event, data) => {
       } catch (err) {
         logStatus(`WebSocket send error: ${err.message}`);
       }
+    } else if (xmppTransport) { // XMPP
+      xmppTransport.send(data).then((result) => {
+        if (result && !result.delivered && result.reason === 'no-clients') {
+          // Log once per state change so a long wait does not flood the log.
+          if (!hasLoggedNoClients) {
+            logStatus('No XMPP recipients are available yet. Data is not being delivered.');
+            hasLoggedNoClients = true;
+          }
+          return;
+        }
+        hasLoggedNoClients = false;
+      }).catch((err) => {
+        logStatus(`XMPP send error: ${err.message}`);
+      });
     }
   } catch (err) {
     logStatus(`Send data error: ${err.message}`);
+  }
+});
+
+// Builds the settings a receiver needs to sign in to the built-in XMPP server.
+// The external account password is withheld unless the caller explicitly asks
+// for it, so the Copy Client Settings action never puts a credential on the
+// clipboard by accident.
+ipcMain.handle('xmpp:get-client-settings', (event, { includePassword = false } = {}) => {
+  if (!xmppTransport || typeof xmppTransport.getClientSettings !== 'function') {
+    return { success: false, error: 'Connect the XMPP server first so its address and identity are known.' };
+  }
+  try {
+    const settings = xmppTransport.getClientSettings({ includePassword });
+    velocityLog('info', `[XMPP] Built client settings (password ${settings.passwordIncluded ? 'included' : 'withheld'}).`);
+    return { success: true, settings, text: formatClientSettings(settings) };
+  } catch (error) {
+    velocityLog('warn', `[XMPP] Could not build client settings: ${error.message}`);
+    return { success: false, error: error.message };
   }
 });
 
@@ -2684,4 +2851,3 @@ velocityTokenManager.on('error', (err) => {
     mainWindow.webContents.send('velocity:token-error', err.message);
   }
 });
-

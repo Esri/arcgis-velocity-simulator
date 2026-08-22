@@ -39,6 +39,7 @@ const rendererPath = path.resolve(__dirname, '../src/renderer.js');
 
 const html = fs.readFileSync(htmlPath, 'utf-8');
 const rendererScript = fs.readFileSync(rendererPath, 'utf-8');
+const style = fs.readFileSync(path.resolve(__dirname, '../src/style.css'), 'utf-8');
 
 const dom = new JSDOM(mockHtml, {
   runScripts: 'outside-only',
@@ -317,6 +318,83 @@ async function runRendererTests() {
            micButton.style.display !== 'none' && 
            offlineMicButton.style.display !== 'none';
   });
+
+  console.log('\n--- Test 6: XMPP UI surface ---');
+  const fullDom = new JSDOM(html);
+  const fullDocument = fullDom.window.document;
+  runTest('XMPP client and server roles are available while TCP Server stays selected', () => {
+    const mode = fullDocument.getElementById('connection-type');
+    return mode.value === 'tcp-server' &&
+      Boolean(mode.querySelector('option[value="xmpp-client"]')) &&
+      Boolean(mode.querySelector('option[value="xmpp-server"]'));
+  });
+  runTest('XMPP frozen defaults are represented in the UI', () =>
+    fullDocument.getElementById('xmpp-conversation').value === 'direct' &&
+    fullDocument.getElementById('xmpp-tls-policy').value === 'required' &&
+    fullDocument.getElementById('xmpp-connect-timeout').value === '30000' &&
+    fullDocument.getElementById('xmpp-reply-timeout').value === '15000' &&
+    fullDocument.getElementById('xmpp-ping-interval').value === '60000' &&
+    fullDocument.getElementById('xmpp-reconnect-delay').value === '60000');
+  runTest('Every XMPP timing input accepts positive whole milliseconds only', () => {
+    const timingIds = [
+      'xmpp-connect-timeout', 'xmpp-reply-timeout', 'xmpp-ping-interval', 'xmpp-reconnect-delay',
+    ];
+    return timingIds.every((id) => {
+      const input = fullDocument.getElementById(id);
+      const tooltip = input.dataset.tooltip || '';
+      return input.getAttribute('min') === '1' &&
+        /positive whole number/i.test(tooltip) &&
+        !/Enter 0 to/i.test(tooltip);
+    }) && rendererScript.includes('function readPositiveNumber(') &&
+      !rendererScript.includes('readNonNegativeNumber');
+  });
+  runTest('The reconnect delay is a client-only control wired to the canonical option', () =>
+    rendererScript.includes('show(xmppReconnectDelayGroup, isXmpp && isClient)') &&
+    rendererScript.includes('options.xmppReconnectDelayMs = readPositiveNumber(xmppReconnectDelayInput, 60000)') &&
+    rendererScript.includes("applyXmppText('xmppReconnectDelayMs', 'xmpp-reconnect-delay')"));
+  runTest('XMPP selects a port of 5222 without touching the app-wide default', () =>
+    /DEFAULT_PORTS = \{[^}]*xmpp: 5222/.test(rendererScript) &&
+    /DEFAULT_PORTS = \{[^}]*tcp: 5565/.test(rendererScript));
+  runTest('The XMPP UI carries no non-canonical option aliases', () => {
+    const surfaces = [html, rendererScript];
+    return surfaces.every((source) =>
+      !source.includes('xmppHost') &&
+      !source.includes('xmppMucPassword') &&
+      !source.includes('xmppChat'));
+  });
+  runTest('Every XMPP interactive control and option has descriptive tooltip and accessibility text', () => {
+    const controls = [...fullDocument.querySelectorAll(
+      'button[id^="xmpp-"], input[id^="xmpp-"], select[id^="xmpp-"]',
+    )];
+    const options = [...fullDocument.querySelectorAll('select[id^="xmpp-"] option')];
+    return controls.length > 0 &&
+      controls.every((control) =>
+        Boolean(control.getAttribute('data-tooltip') || control.getAttribute('title')) &&
+        Boolean(control.getAttribute('aria-label'))) &&
+      options.every((option) => Boolean(option.getAttribute('title')));
+  });
+  runTest('Copy Client Settings withholds passwords by default and names the canonical keys', () => {
+    const tooltip = fullDocument.getElementById('xmpp-copy-settings').dataset.tooltip || '';
+    return fullDocument.getElementById('xmpp-copy-password').checked === false &&
+      /left out unless/i.test(tooltip) &&
+      /\bip\b/.test(tooltip) &&
+      tooltip.includes('xmppDomain') &&
+      tooltip.includes('xmppTlsPolicy') &&
+      tooltip.includes('xmppAllowUnverifiedTls') &&
+      /reconnect/i.test(tooltip) &&
+      !tooltip.includes('xmppHost');
+  });
+  runTest('XMPP renderer uses progressive disclosure and dynamic select tooltips', () =>
+    rendererScript.includes('function updateXmppOptionsVisibility()') &&
+    rendererScript.includes('XMPP_CONVERSATION_TOOLTIPS') &&
+    rendererScript.includes('XMPP_TLS_POLICY_TOOLTIPS') &&
+    rendererScript.includes("show(xmppRoomGroup, isXmpp && isMuc)") &&
+    rendererScript.includes("show(xmppTlsCaGroup, isXmpp && isClient && tlsEnabled)"));
+  runTest('XMPP text inputs and selects are explicitly left aligned', () =>
+    /#xmpp-conversation,[\s\S]*text-align:\s*left;[\s\S]*#xmpp-domain,[\s\S]*text-align:\s*left;/.test(style));
+  runTest('The reconnect delay input reuses the numeric XMPP timing styling', () =>
+    /#xmpp-reconnect-delay \{[\s\S]*?flex-grow: 1;/.test(style) &&
+    style.includes('#xmpp-reconnect-delay-group > label'));
   
   // Test Summary
   console.log('\n=== Test Results ===');
@@ -337,4 +415,3 @@ if (require.main === module) {
 }
 
 module.exports = { runRendererTests };
-

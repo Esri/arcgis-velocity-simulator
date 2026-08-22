@@ -20,7 +20,7 @@
  * Backend transport abstraction used by the headless simulation engine.
  *
  * Purpose:
- * - provide a single API for TCP/UDP + server/client combinations
+ * - provide a single API for TCP/UDP/gRPC/XMPP + server/client combinations
  * - hide socket/server implementation details from the simulation engine
  * - track recipient availability for server-side replay scenarios
  * - emit lifecycle/status events that can be consumed by logging, tests, or orchestration
@@ -44,7 +44,15 @@ const net = require('net');
 const dgram = require('dgram');
 
 /**
- * Manages TCP/UDP connections for both client and server execution paths.
+ * Protocols whose connection handle is a transport object exposing
+ * `connect`/`send`/`disconnect`/`isConnected`/`hasRecipients` rather than a raw
+ * Node socket or server. Keeping the set in one place avoids per-protocol
+ * branches spreading through the lifecycle methods.
+ */
+const OBJECT_TRANSPORT_PROTOCOLS = new Set(['grpc', 'xmpp']);
+
+/**
+ * Manages TCP/UDP/gRPC/XMPP connections for both client and server execution paths.
  *
  * This class is intentionally renderer-independent so it can be used from:
  * - true headless runs
@@ -97,7 +105,7 @@ class TransportManager extends EventEmitter {
       return false;
     }
 
-    if (this.protocol === 'grpc') {
+    if (OBJECT_TRANSPORT_PROTOCOLS.has(this.protocol)) {
       return this.connection.isConnected();
     }
 
@@ -133,8 +141,12 @@ class TransportManager extends EventEmitter {
       return false;
     }
 
-    if (this.protocol === 'grpc') {
-      return this.mode === 'client' ? this.connection.isConnected() : this.connection.hasRecipients();
+    if (OBJECT_TRANSPORT_PROTOCOLS.has(this.protocol)) {
+      // Client-style transports have an implicit destination once connected;
+      // server-style transports track their own recipients.
+      return typeof this.connection.hasRecipients === 'function'
+        ? this.connection.hasRecipients()
+        : this.connection.isConnected();
     }
 
     if (this.connection instanceof net.Server) {
@@ -183,7 +195,13 @@ class TransportManager extends EventEmitter {
    * Entry point for transport creation.
    * Dispatches to the correct TCP/UDP + client/server implementation.
    */
-  async connect({ protocol, mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, connectTimeoutMs = 0, connectWaitForServer = false, connectRetryIntervalMs = 1000 }) {
+  async connect(options) {
+    const {
+      protocol, mode, ip, port,
+      grpcSerialization, grpcSendMethod, headerPathKey, headerPath,
+      useTls, tlsCaPath, tlsCertPath, tlsKeyPath,
+      connectTimeoutMs = 0, connectWaitForServer = false, connectRetryIntervalMs = 1000,
+    } = options;
     if (this.connection) {
       throw new Error('A connection is already active.');
     }
@@ -197,6 +215,10 @@ class TransportManager extends EventEmitter {
       return this.connectGrpc({ mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath });
     }
 
+    if (protocol === 'xmpp') {
+      return this.connectXmpp(options);
+    }
+
     if (protocol === 'tcp') {
       return mode === 'server'
         ? this.connectTcpServer({ ip, port, connectTimeoutMs })
@@ -206,6 +228,82 @@ class TransportManager extends EventEmitter {
     return mode === 'server'
       ? this.connectUdpServer({ ip, port, connectTimeoutMs })
       : this.connectUdpClient({ ip, port, connectTimeoutMs, connectWaitForServer, connectRetryIntervalMs });
+  }
+
+  /**
+   * Connects via XMPP in either the client or the server role.
+   *
+   * Both roles publish the same replayed lines; the difference is who holds
+   * the socket. Server-mode recipient tracking is fed by the transport's
+   * `onClientConnected` callback so `waitForClient=true` runs pause until a
+   * receiver has actually signed in (Direct) or entered the room (Room/MUC).
+   */
+  async connectXmpp(options) {
+    const { createXmppClientTransport, createXmppServerTransport } = require('./xmpp-transport.js');
+    const { mode, ip, port } = options;
+    const shared = {
+      ...options,
+      onLog: (level, message) => this.log(level, message),
+      onData: (data, metadata) => {
+        this.emit('data-received', { protocol: 'xmpp', mode, data, clientKey: metadata.from || null, metadata });
+        this.log('debug', `[XMPP] Received from ${metadata.from || 'peer'}: ${data}`);
+      },
+      onStateChange: (state, detail = {}) => {
+        this.emit('transport-state', { protocol: 'xmpp', mode, state, detail });
+        if (state === 'offline') {
+          this.emitStatus('connecting', detail.xmppReconnectDelayMs
+            ? `XMPP stream is offline; an automatic reconnect is pending in ${detail.xmppReconnectDelayMs}ms.`
+            : 'XMPP stream is offline; automatic reconnect is pending.');
+        }
+      },
+    };
+
+    if (mode === 'client') {
+      const transport = createXmppClientTransport(shared);
+      // Registered before connect() is awaited so a partial or failed connect
+      // is still torn down by the headless runner's disconnect path.
+      this.connection = transport;
+      let result;
+      try {
+        result = await transport.connect();
+      } catch (error) {
+        await transport.disconnect().catch(() => {});
+        if (this.connection === transport) this.connection = null;
+        throw error;
+      }
+      const target = result.conversation === 'muc'
+        ? `room ${result.room} as '${result.nickname}'`
+        : `${result.destinations.length} destination(s)`;
+      this.emitStatus('connected', `XMPP client connected to ${result.address} as ${result.jid} → ${target}\n  ${result.tlsInfo || 'tls=off'}`);
+      return result;
+    }
+
+    const transport = createXmppServerTransport({
+      ...shared,
+      onClientConnected: () => {
+        this.emit('client-connected', { protocol: 'xmpp', mode: 'server' });
+        this.resolveRecipientWaiters();
+      },
+      onClientDisconnected: (jid) => {
+        this.emit('client-disconnected', { protocol: 'xmpp', mode: 'server', clientKey: jid });
+      },
+    });
+    // Registered before connect() is awaited for the same reason as the client
+    // role: a listen that fails halfway must still be cleaned up.
+    this.connection = transport;
+    let result;
+    try {
+      result = await transport.connect();
+    } catch (error) {
+      await transport.disconnect().catch(() => {});
+      if (this.connection === transport) this.connection = null;
+      throw error;
+    }
+    const target = result.conversation === 'muc'
+      ? `room ${result.room} as '${result.nickname}'`
+      : `domain ${result.domain} as ${result.serviceJid}`;
+    this.emitStatus('connected', `XMPP server listening on ${result.address.address}:${result.address.port} → ${target}\n  ${result.tlsInfo || 'tls=off'}`);
+    return result;
   }
 
   /**
@@ -555,7 +653,7 @@ class TransportManager extends EventEmitter {
       throw new Error('Data must be a non-empty string.');
     }
 
-    if (this.protocol === 'grpc') {
+    if (OBJECT_TRANSPORT_PROTOCOLS.has(this.protocol)) {
       return this.connection.send(data);
     }
 
@@ -640,6 +738,7 @@ class TransportManager extends EventEmitter {
    * Safe to call during normal shutdown and after failures.
    */
   async disconnect() {
+    this.rejectRecipientWaiters(new Error('Transport disconnected while waiting for a recipient.'));
     if (!this.connection) {
       return;
     }
@@ -647,7 +746,7 @@ class TransportManager extends EventEmitter {
     const activeConnection = this.connection;
     this.connection = null;
 
-    if (this.protocol === 'grpc') {
+    if (OBJECT_TRANSPORT_PROTOCOLS.has(this.protocol)) {
       await activeConnection.disconnect();
       return;
     }
@@ -689,4 +788,3 @@ class TransportManager extends EventEmitter {
 module.exports = {
   TransportManager,
 };
-

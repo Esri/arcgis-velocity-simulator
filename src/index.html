@@ -79,6 +79,8 @@
               <option value="ws-server" title="WebSocket Server - starts a local WebSocket server that accepts incoming ws:// or wss:// connections from clients. Broadcasts data to all connected clients as text frames.">WebSocket Server</option>
               <option value="grpc-client" title="gRPC Client - connects to a remote gRPC server using HTTP/2. Supports Protobuf, Kryo, and Text serialization with client-streaming or unary RPCs.">gRPC Client</option>
               <option value="grpc-server" title="gRPC Server - starts a local gRPC server that accepts incoming RPC calls from clients. Use for testing or when Velocity connects as a gRPC client.">gRPC Server</option>
+              <option value="xmpp-client" title="XMPP Client - signs in to an XMPP server (RFC 6120) and publishes each line as a one-to-one chat message or into a Multi-User Chat room. Use when the receiver is an ArcGIS Velocity XMPP feed, an ArcGIS GeoEvent Server XMPP connector, or any standards-compliant XMPP server.">XMPP Client</option>
+              <option value="xmpp-server" title="XMPP Server - starts a local XMPP client-to-server endpoint that a receiver signs in to. The simulator then publishes each line from its own application identity to every signed-in account, or into a room it occupies.">XMPP Server</option>
             </select>
           </div>
           <!-- Extra Options disclosure row - shown only for HTTP/WS/gRPC modes -->
@@ -202,8 +204,105 @@
             <input type="text" id="grpc-header-path-key" value="grpc-path" title="gRPC endpoint header path key">
           </div>
           <div class="control-group aligned-group" id="grpc-header-path-group" style="display: none;">
-            <label for="grpc-header-path">Header path:</label>
+            <label for="grpc-header-path" data-tooltip="gRPC endpoint header path sent as metadata on every outgoing call." aria-label="gRPC endpoint header path">Header path:</label>
             <input type="text" id="grpc-header-path" value="replace.with.dedicated.uid" title="gRPC endpoint header path">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-conversation-group" style="display: none;">
+            <label for="xmpp-conversation" data-tooltip="Choose whether each replayed line is delivered as a one-to-one chat message or broadcast into a Multi-User Chat room." data-tooltip-icon="💬" data-tooltip-kind="info" aria-label="XMPP conversation type">Conversation:</label>
+            <select id="xmpp-conversation" data-tooltip="XMPP Conversation: Direct. Each replayed line is delivered as a one-to-one chat message to every destination JID." data-tooltip-icon="💬" data-tooltip-kind="info" aria-label="XMPP conversation type">
+              <option value="direct" selected title="Direct - each replayed line is delivered as a one-to-one chat message to every destination JID (up to 20). This is the default and the simplest way to feed a single receiver.">Direct</option>
+              <option value="muc" title="Room (MUC) - each replayed line is broadcast as a groupchat message into an XEP-0045 Multi-User Chat room. Every occupant receives it, and the room echoes the message back to the sender.">Room (MUC)</option>
+            </select>
+          </div>
+          <div class="control-group aligned-group" id="xmpp-domain-group" style="display: none;">
+            <label for="xmpp-domain" data-tooltip="XMPP domain served or authenticated against. Independent of the host in the Connection row." data-tooltip-icon="🌐" data-tooltip-kind="info" aria-label="XMPP domain">Domain:</label>
+            <input type="text" id="xmpp-domain" value="localhost" placeholder="localhost" data-tooltip="XMPP domain.&#10;---&#10;Client: the domain your account belongs to, for example example.com. It can differ from the host in the Connection row, so you can connect to an IP address while authenticating against the real domain.&#10;Server: the domain served to clients. Rooms live under conference.&lt;domain&gt;." data-tooltip-icon="🌐" data-tooltip-kind="info" aria-label="XMPP domain">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-tls-policy-group" style="display: none;">
+            <label for="xmpp-tls-policy" data-tooltip="STARTTLS negotiation policy for the XMPP stream." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP STARTTLS policy">STARTTLS:</label>
+            <select id="xmpp-tls-policy" data-tooltip="XMPP STARTTLS: Required. The stream must be encrypted before credentials are sent." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP STARTTLS policy">
+              <option value="required" selected title="Required (default) - the stream must be upgraded to TLS before any credential is sent. The server advertises STARTTLS as mandatory and refuses plaintext authentication.">Required</option>
+              <option value="preferred" title="Preferred - the stream is upgraded to TLS when the peer offers it, but authentication still proceeds on a plaintext stream when it does not.">Preferred</option>
+              <option value="disabled" title="Disabled - encryption is not required. The server stops advertising STARTTLS. As a client the Simulator still accepts an upgrade that a third-party server insists on, so Disabled means 'do not require TLS', not 'refuse TLS'.">Disabled</option>
+            </select>
+          </div>
+          <div class="control-group aligned-group" id="xmpp-tls-ca-group" style="display: none;">
+            <label for="xmpp-tls-ca-path" data-tooltip="Custom CA certificate used to verify the XMPP server certificate." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP CA certificate path">CA cert:</label>
+            <input type="text" id="xmpp-tls-ca-path" placeholder="(system default)" data-tooltip="Path to a custom CA certificate file (PEM) used to verify the XMPP server certificate. Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs that are not in the system trust store." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP CA certificate path">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-tls-cert-group" style="display: none;">
+            <label for="xmpp-tls-cert-path" data-tooltip="Server certificate presented during STARTTLS." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP server certificate path">TLS cert:</label>
+            <input type="text" id="xmpp-tls-cert-path" placeholder="(automatic self-signed)" data-tooltip="Path to the server certificate file (PEM) presented during STARTTLS. Leave empty to let the app generate an automatic self-signed certificate for local testing. Requires a matching private key." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP server certificate path">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-tls-key-group" style="display: none;">
+            <label for="xmpp-tls-key-path" data-tooltip="Private key matching the XMPP server certificate." data-tooltip-icon="🔑" data-tooltip-kind="secure" aria-label="XMPP server private key path">TLS key:</label>
+            <input type="text" id="xmpp-tls-key-path" placeholder="(automatic self-signed)" data-tooltip="Path to the private key file (PEM) that matches the XMPP server certificate. Required whenever a certificate path is set. Leave empty to use the automatic self-signed certificate." data-tooltip-icon="🔑" data-tooltip-kind="secure" aria-label="XMPP server private key path">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-allow-unverified-group" style="display: none;">
+            <label for="xmpp-allow-unverified" data-tooltip="Skip certificate verification. Loopback hosts only." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Skip XMPP certificate verification">
+              <input type="checkbox" id="xmpp-allow-unverified" data-tooltip="Skip certificate verification for this XMPP client stream.&#10;---&#10;Only allowed when the host is a loopback address, so it can be used against a locally hosted server with an automatic self-signed certificate.&#10;The stream is still encrypted; only the certificate chain check is skipped." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Skip XMPP certificate verification for loopback hosts"> Skip cert check
+            </label>
+          </div>
+          <div class="control-group aligned-group" id="xmpp-allow-remote-group" style="display: none;">
+            <label for="xmpp-allow-remote" data-tooltip="Allow the built-in XMPP server to bind a non-loopback address." data-tooltip-icon="🌐" data-tooltip-kind="warning" aria-label="Allow remote XMPP clients">
+              <input type="checkbox" id="xmpp-allow-remote" data-tooltip="Allow remote clients to reach the built-in XMPP server.&#10;---&#10;Left off, the server binds a loopback address only, so nothing outside this machine can sign in.&#10;Turn it on to bind an address such as 0.0.0.0 and accept connections from the network." data-tooltip-icon="🌐" data-tooltip-kind="warning" aria-label="Allow remote XMPP clients to sign in"> Allow remote
+            </label>
+          </div>
+          <div class="control-group aligned-group" id="xmpp-username-group" style="display: none;">
+            <label for="xmpp-username" data-tooltip="Account used to sign in to the XMPP server." data-tooltip-icon="👤" data-tooltip-kind="auth" aria-label="XMPP username">Username:</label>
+            <input type="text" id="xmpp-username" placeholder="simulator" autocomplete="off" data-tooltip="Account used to sign in.&#10;---&#10;Enter either a local part such as simulator, or a full bare JID such as simulator@example.com.&#10;A bare JID overrides the Domain field, so a copied JID can be pasted straight in." data-tooltip-icon="👤" data-tooltip-kind="auth" aria-label="XMPP username or bare JID">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-password-group" style="display: none;">
+            <label for="xmpp-password" data-tooltip="Password for the XMPP account. Never logged or exported." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP password">Password:</label>
+            <input type="password" id="xmpp-password" placeholder="(required)" autocomplete="off" data-tooltip="Password for the XMPP account.&#10;---&#10;Held in memory for the lifetime of the connection and never written to status, logs, or saved launch configurations.&#10;Add it manually only to a protected launch configuration used for automation." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP password">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-resource-group" style="display: none;">
+            <label for="xmpp-resource" data-tooltip="Resource part requested at bind time." data-tooltip-icon="🏷" data-tooltip-kind="info" aria-label="XMPP resource">Resource:</label>
+            <input type="text" id="xmpp-resource" value="velocity-simulator" data-tooltip="Resource part requested at bind time, which distinguishes this stream from other sessions of the same account. The server assigns a random resource when this is left empty." data-tooltip-icon="🏷" data-tooltip-kind="info" aria-label="XMPP resource part">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-external-username-group" style="display: none;">
+            <label for="xmpp-external-username" data-tooltip="Username of the single external account the built-in server accepts." data-tooltip-icon="👤" data-tooltip-kind="auth" aria-label="XMPP external account username">Account:</label>
+            <input type="text" id="xmpp-external-username" placeholder="receiver (required)" autocomplete="off" data-tooltip="Username of the required external account the built-in XMPP server accepts.&#10;---&#10;The simulator's own application identity is created automatically and is always available.&#10;Give this account to the receiver you want to sign in, for example an ArcGIS Velocity XMPP feed." data-tooltip-icon="👤" data-tooltip-kind="auth" aria-label="XMPP external account username">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-external-password-group" style="display: none;">
+            <label for="xmpp-external-password" data-tooltip="Password for the single external account. Never logged." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP external account password">Acct pwd:</label>
+            <input type="password" id="xmpp-external-password" placeholder="(required)" autocomplete="off" data-tooltip="Password for the required external account the built-in XMPP server accepts.&#10;---&#10;Held in memory for the lifetime of the server and never written to status, logs, or saved launch configurations.&#10;Add it manually only to a protected launch configuration used for automation." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP external account password">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-destination-group" style="display: none;">
+            <label for="xmpp-destination" data-tooltip="Bare destination JIDs that receive each replayed line." data-tooltip-icon="📨" data-tooltip-kind="info" aria-label="XMPP destination JIDs">Destination:</label>
+            <input type="text" id="xmpp-destination" placeholder="feed@example.com, geoevent@example.com" data-tooltip="Bare destination JIDs that receive each replayed line.&#10;---&#10;Use user@domain form with no resource part.&#10;Separate up to 20 destinations with commas.&#10;In server mode, leave this empty to publish to every signed-in account." data-tooltip-icon="📨" data-tooltip-kind="info" aria-label="XMPP destination JIDs, comma separated, maximum 20">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-room-group" style="display: none;">
+            <label for="xmpp-room" data-tooltip="Multi-User Chat room to publish into." data-tooltip-icon="🏛" data-tooltip-kind="info" aria-label="XMPP room">Room:</label>
+            <input type="text" id="xmpp-room" placeholder="traffic" data-tooltip="Multi-User Chat room to publish into.&#10;---&#10;Enter a bare room name such as traffic, which is qualified with the conversation sub-domain of the Domain field.&#10;A full room JID such as traffic@conference.example.com is also accepted." data-tooltip-icon="🏛" data-tooltip-kind="info" aria-label="XMPP Multi-User Chat room name or room JID">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-nickname-group" style="display: none;">
+            <label for="xmpp-nickname" data-tooltip="Nickname used inside the room." data-tooltip-icon="🏷" data-tooltip-kind="info" aria-label="XMPP room nickname">Nickname:</label>
+            <input type="text" id="xmpp-nickname" value="velocity-simulator" data-tooltip="Nickname used inside the Multi-User Chat room.&#10;---&#10;Occupants see messages as room@conference.domain/nickname.&#10;It must not contain '/' or '@'.&#10;The room refuses entry when the nickname is already taken." data-tooltip-icon="🏷" data-tooltip-kind="info" aria-label="XMPP room nickname">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-room-password-group" style="display: none;">
+            <label for="xmpp-room-password" data-tooltip="Password required to enter the room. Never logged." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP room password">Room pwd:</label>
+            <input type="password" id="xmpp-room-password" placeholder="(optional)" autocomplete="off" data-tooltip="Password required to enter the Multi-User Chat room.&#10;---&#10;In server mode this also protects the room against every other occupant.&#10;Leave empty for an open room. It is never logged or written to saved launch configurations." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP room password">
+          </div>
+          <div class="control-group combined-input-group aligned-group" id="xmpp-timeouts-group" style="display: none;">
+            <label for="xmpp-connect-timeout" data-tooltip="Connect and reply timeouts, in milliseconds." data-tooltip-icon="⏱" data-tooltip-kind="info" aria-label="XMPP timeouts">Timeouts ms:</label>
+            <input type="number" id="xmpp-connect-timeout" value="30000" min="1" step="1000" data-tooltip="Connect timeout, in milliseconds.&#10;---&#10;How long to wait for the stream to negotiate, authenticate and bind a resource before the attempt fails.&#10;Default is 30000.&#10;Must be a positive whole number; there is no wait-forever value." data-tooltip-icon="⏱" data-tooltip-kind="info" aria-label="XMPP connect timeout in milliseconds">
+            <input type="number" id="xmpp-reply-timeout" value="15000" min="1" step="1000" data-tooltip="Reply timeout, in milliseconds.&#10;---&#10;How long to wait for a reply to a request that expects one, such as a room entry confirmation or a ping result.&#10;Default is 15000.&#10;Must be a positive whole number; there is no wait-forever value." data-tooltip-icon="⏱" data-tooltip-kind="info" aria-label="XMPP reply timeout in milliseconds">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-ping-interval-group" style="display: none;">
+            <label for="xmpp-ping-interval" data-tooltip="Keepalive ping interval, in milliseconds." data-tooltip-icon="📶" data-tooltip-kind="info" aria-label="XMPP keepalive ping interval">Ping ms:</label>
+            <input type="number" id="xmpp-ping-interval" value="60000" min="1" step="1000" data-tooltip="Keepalive ping interval, in milliseconds.&#10;---&#10;Sends an XEP-0199 ping on an otherwise idle stream so an intermediate firewall does not drop it.&#10;Default is 60000.&#10;Must be a positive whole number; the keepalive cannot be switched off." data-tooltip-icon="📶" data-tooltip-kind="info" aria-label="XMPP keepalive ping interval in milliseconds">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-reconnect-delay-group" style="display: none;">
+            <label for="xmpp-reconnect-delay" data-tooltip="Delay before an automatic reconnect, in milliseconds." data-tooltip-icon="🔄" data-tooltip-kind="info" aria-label="XMPP reconnect delay">Reconnect ms:</label>
+            <input type="number" id="xmpp-reconnect-delay" value="60000" min="1" step="1000" data-tooltip="Automatic reconnect delay, in milliseconds.&#10;---&#10;How long to wait after a dropped stream before signing in again.&#10;A reconnect re-binds the resource and re-joins the room; stream resumption is not implemented, so nothing sent while offline is replayed.&#10;Default is 60000.&#10;Must be a positive whole number; automatic reconnect cannot be switched off." data-tooltip-icon="🔄" data-tooltip-kind="info" aria-label="XMPP automatic reconnect delay in milliseconds">
+          </div>
+          <div class="control-group aligned-group" id="xmpp-copy-settings-group" style="display: none;">
+            <label for="xmpp-copy-settings" data-tooltip="Copy the settings a receiver needs to sign in to this server." data-tooltip-icon="📋" data-tooltip-kind="info" aria-label="Copy XMPP client settings">Client cfg:</label>
+            <button type="button" id="xmpp-copy-settings" class="xmpp-copy-settings-btn" disabled data-tooltip="Copy the settings a receiver needs to sign in to this server.&#10;---&#10;Connect the XMPP server first so its bound address and generated identity are known.&#10;Copies canonical option=value lines: ip, port, xmppDomain, xmppTlsPolicy, xmppAllowUnverifiedTls, the account, destination or room, and reconnect timing.&#10;The account password is left out unless 'Include password' is checked." data-tooltip-icon="📋" data-tooltip-kind="info" aria-label="Copy XMPP client settings to the clipboard">Copy Client Settings</button>
+            <label for="xmpp-copy-password" class="xmpp-inline-check" data-tooltip="Include the external account password in the copied settings." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Include password when copying client settings">
+              <input type="checkbox" id="xmpp-copy-password" disabled data-tooltip="Include the external account password in the copied settings.&#10;---&#10;Available while the XMPP server is connected. It resets after every successful copy so later copies cannot include a credential accidentally." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Include the external account password when copying client settings"> Include password
+            </label>
           </div>
           </div><!-- /#extra-options-body -->
           <div class="control-group combined-input-group aligned-group">
@@ -289,7 +388,7 @@
         <div id="offline-confidence-display" class="offline-confidence">70%</div>
         <div id="offline-visualizer" class="offline-visualizer"></div>
       </div>
-      <div id="status-messages"></div>
+      <div id="status-messages" role="log" aria-live="polite"></div>
       <div class="status-footer">
       </div>
     </div>
@@ -307,7 +406,7 @@
     </div>
     <div class="status-bar-center">
       <span id="app-state-emoji"></span>
-      <div id="app-state">-</div>
+      <div id="app-state" aria-live="polite">-</div>
       <div id="tls-badge" class="tls-badge" role="button" tabindex="0" style="display:none;" aria-label="TLS status" aria-pressed="false" data-tooltip="TLS status" data-tooltip-icon="🔒" data-tooltip-kind="secure">
         <span id="tls-badge-icon" class="tls-badge-icon" aria-hidden="true">🔒</span>
         <div id="tls-badge-popover" class="tls-badge-popover" role="tooltip">

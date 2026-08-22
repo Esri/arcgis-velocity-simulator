@@ -164,6 +164,7 @@ class SimulationEngine extends EventEmitter {
 	}
 
 	await this.transport.connect({
+	  ...this.options,
 	  protocol: this.options.protocol,
 	  mode: this.options.mode,
 	  ip: this.options.ip,
@@ -538,4 +539,3 @@ class SimulationEngine extends EventEmitter {
 module.exports = {
   SimulationEngine,
 };
-

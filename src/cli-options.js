@@ -35,6 +35,22 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { formatDidYouMean } = require('./cli-suggestions');
+const {
+  XMPP_DEFAULT_C2S_PORT,
+  XMPP_DEFAULT_CONNECT_TIMEOUT_MS,
+  XMPP_DEFAULT_CONVERSATION,
+  XMPP_DEFAULT_DOMAIN,
+  XMPP_DEFAULT_NICKNAME,
+  XMPP_DEFAULT_PING_INTERVAL_MS,
+  XMPP_DEFAULT_RECONNECT_DELAY_MS,
+  XMPP_DEFAULT_REPLY_TIMEOUT_MS,
+  XMPP_DEFAULT_RESOURCE,
+  XMPP_DEFAULT_ROLE,
+  XMPP_DEFAULT_TLS_POLICY,
+  XMPP_MAX_DESTINATIONS,
+  XMPP_MIN_TIMING_MS,
+} = require('./xmpp-constants');
+const { INTERNAL_APP_USERNAME } = require('./xmpp-accounts');
 
 const IS_WINDOWS_CONSOLE = os.platform() === 'win32';
 const CLI_SYMBOLS = {
@@ -51,7 +67,7 @@ function cliDivider(width) {
 const BOOLEAN_TRUE = new Set(['true', '1', 'yes', 'y', 'on']);
 const BOOLEAN_FALSE = new Set(['false', '0', 'no', 'n', 'off']);
 const VALID_RUN_MODES = new Set(['ui', 'silent', 'headless']);
-const VALID_PROTOCOLS = new Set(['tcp', 'udp', 'grpc', 'http', 'ws']);
+const VALID_PROTOCOLS = new Set(['tcp', 'udp', 'grpc', 'http', 'ws', 'xmpp']);
 const VALID_MODES = new Set(['server', 'client']);
 const VALID_SERIALIZATIONS = new Set(['protobuf', 'kryo', 'text']);
 const VALID_GRPC_SEND_METHODS = new Set(['stream', 'unary']);
@@ -59,6 +75,8 @@ const VALID_LOG_LEVELS = new Set(['error', 'warn', 'info', 'debug']);
 const DEFAULT_LOG_LEVEL = 'debug';
 const VALID_ON_ERROR = new Set(['exit', 'continue', 'pause']);
 const VALID_DATA_FORMATS = new Set(['json', 'delimited', 'esriJson', 'geojson', 'xml']);
+const VALID_XMPP_TLS_POLICIES = new Set(['required', 'preferred', 'disabled']);
+const VALID_XMPP_CONVERSATIONS = new Set(['direct', 'muc']);
 const CLI_OPTION_KEYS = new Set([
   'runMode',
   'filename',
@@ -109,6 +127,27 @@ const CLI_OPTION_KEYS = new Set([
   'wsSubscriptionMsg',
   'wsIgnoreFirstMsg',
   'wsHeaders',
+  'xmppDomain',
+  'xmppTlsPolicy',
+  'xmppTlsCaPath',
+  'xmppTlsCertPath',
+  'xmppTlsKeyPath',
+  'xmppAllowUnverifiedTls',
+  'xmppAllowRemote',
+  'xmppUsername',
+  'xmppPassword',
+  'xmppResource',
+  'xmppExternalUsername',
+  'xmppExternalPassword',
+  'xmppConversation',
+  'xmppDestination',
+  'xmppRoom',
+  'xmppNickname',
+  'xmppRoomPassword',
+  'xmppConnectTimeoutMs',
+  'xmppReplyTimeoutMs',
+  'xmppPingIntervalMs',
+  'xmppReconnectDelayMs',
   'stdout',
   'help',
   'help-detailed',
@@ -118,6 +157,11 @@ const CLI_OPTION_KEYS = new Set([
 ]);
 
 const CLI_OPTION_ALIASES = new Set(['h', 'rateMs', 'silent']);
+const SECRET_OPTION_KEYS = new Set([
+  'xmppPassword',
+  'xmppExternalPassword',
+  'xmppRoomPassword',
+]);
 const CLI_PARAMETER_CANDIDATES = [...CLI_OPTION_KEYS, ...CLI_OPTION_ALIASES];
 const CLI_HELP_FLAG_CANDIDATES = [
   '--help',
@@ -159,6 +203,27 @@ const APP_DEFAULTS = {
   wsSubscriptionMsg: null,
   wsIgnoreFirstMsg: false,
   wsHeaders: null,
+  xmppDomain: XMPP_DEFAULT_DOMAIN,
+  xmppTlsPolicy: XMPP_DEFAULT_TLS_POLICY,
+  xmppTlsCaPath: null,
+  xmppTlsCertPath: null,
+  xmppTlsKeyPath: null,
+  xmppAllowUnverifiedTls: false,
+  xmppAllowRemote: false,
+  xmppUsername: null,
+  xmppPassword: null,
+  xmppResource: XMPP_DEFAULT_RESOURCE,
+  xmppExternalUsername: null,
+  xmppExternalPassword: null,
+  xmppConversation: XMPP_DEFAULT_CONVERSATION,
+  xmppDestination: null,
+  xmppRoom: null,
+  xmppNickname: XMPP_DEFAULT_NICKNAME,
+  xmppRoomPassword: null,
+  xmppConnectTimeoutMs: XMPP_DEFAULT_CONNECT_TIMEOUT_MS,
+  xmppReplyTimeoutMs: XMPP_DEFAULT_REPLY_TIMEOUT_MS,
+  xmppPingIntervalMs: XMPP_DEFAULT_PING_INTERVAL_MS,
+  xmppReconnectDelayMs: XMPP_DEFAULT_RECONNECT_DELAY_MS,
 };
 
 const DEFAULT_HEADLESS_OPTIONS = {
@@ -243,6 +308,27 @@ const UI_PARAMETER_IGNORE_REASONS = {
   wsSubscriptionMsg: 'only used by the headless WebSocket transport; in UI mode configure through the WebSocket interface',
   wsIgnoreFirstMsg: 'only used by the headless WebSocket transport; in UI mode configure through the WebSocket interface',
   wsHeaders: 'only used by the headless WebSocket transport; in UI mode configure through the WebSocket interface',
+  xmppDomain: 'only used by the headless XMPP transport; in UI mode configure the domain through the XMPP interface',
+  xmppTlsPolicy: 'only used by the headless XMPP transport; in UI mode select the STARTTLS policy through the XMPP interface',
+  xmppTlsCaPath: 'only used by the headless XMPP client transport; in UI mode configure TLS through the XMPP interface',
+  xmppTlsCertPath: 'only used by the headless XMPP server transport; in UI mode configure TLS through the XMPP interface',
+  xmppTlsKeyPath: 'only used by the headless XMPP server transport; in UI mode configure TLS through the XMPP interface',
+  xmppAllowUnverifiedTls: 'only used by the headless XMPP client transport; in UI mode toggle the loopback verification bypass through the XMPP interface',
+  xmppAllowRemote: 'only used by the headless XMPP server transport; in UI mode toggle remote client access through the XMPP interface',
+  xmppUsername: 'only used by the headless XMPP client transport; in UI mode enter the account through the XMPP interface',
+  xmppPassword: 'only used by the headless XMPP client transport; in UI mode enter the password through the XMPP interface',
+  xmppResource: 'only used by the headless XMPP client transport; in UI mode configure the resource through the XMPP interface',
+  xmppExternalUsername: 'only used by the headless XMPP server transport; in UI mode configure the external account through the XMPP interface',
+  xmppExternalPassword: 'only used by the headless XMPP server transport; in UI mode configure the external account through the XMPP interface',
+  xmppConversation: 'only used by the headless XMPP transport; in UI mode select Direct or Room through the XMPP interface',
+  xmppDestination: 'only used by the headless XMPP transport; in UI mode enter destination JIDs through the XMPP interface',
+  xmppRoom: 'only used by the headless XMPP transport; in UI mode enter the room through the XMPP interface',
+  xmppNickname: 'only used by the headless XMPP transport; in UI mode enter the room nickname through the XMPP interface',
+  xmppRoomPassword: 'only used by the headless XMPP transport; in UI mode enter the room password through the XMPP interface',
+  xmppConnectTimeoutMs: 'only used by the headless XMPP transport; in UI mode configure timeouts through the XMPP interface',
+  xmppReplyTimeoutMs: 'only used by the headless XMPP transport; in UI mode configure timeouts through the XMPP interface',
+  xmppPingIntervalMs: 'only used by the headless XMPP client transport; in UI mode configure the keepalive interval through the XMPP interface',
+  xmppReconnectDelayMs: 'only used by the headless XMPP client transport; in UI mode configure the reconnect delay through the XMPP interface',
   waitForClient: 'only used by the headless server-mode transport; in UI mode client connections are managed through the interface',
 };
 
@@ -250,7 +336,9 @@ const CLI_EXAMPLE_USAGES = Object.freeze([
   { label: 'UI default', command: 'electron .' },
   { label: 'UI + file', command: 'electron . filename=/absolute/path/to/data.csv' },
   { label: 'Headless server', command: 'electron . runMode=headless filename=./data.csv protocol=tcp mode=server ip=0.0.0.0 port=5565 waitForClient=true doneFile=./run.done.json' },
-  { label: 'Config override', command: 'electron . runMode=headless config=./docs/launch-config.client.sample.json ip=192.168.1.25 port=6000 runId=manual-override' },
+  { label: 'Config override', command: 'electron . runMode=headless config=./docs/examples/launch-config.client.sample.json ip=192.168.1.25 port=6000 runId=manual-override' },
+  { label: 'XMPP client', command: 'electron . runMode=headless filename=./data.csv protocol=xmpp ip=xmpp.example.com port=5222 xmppDomain=example.com xmppUsername=simulator xmppPassword=change-me xmppDestination=feed@example.com' },
+  { label: 'XMPP room', command: 'electron . runMode=headless filename=./data.csv protocol=xmpp mode=server port=5222 xmppConversation=muc xmppRoom=traffic xmppExternalUsername=receiver xmppExternalPassword=change-me waitForClient=true' },
   { label: 'Help', command: 'electron . help=true' },
   { label: 'Help wide', command: 'electron . help-wide=true' },
   { label: 'Help detailed', command: 'electron . help-detailed=true' },
@@ -288,7 +376,7 @@ const CLI_PARAMETER_DEFINITIONS = [
     key: 'config',
     defaultValue: DEFAULT_HEADLESS_OPTIONS.config,
     options: ['path', 'omitted'],
-    example: 'config=./docs/launch-config.server.sample.json',
+    example: 'config=./docs/examples/launch-config.server.sample.json',
     requiredInHeadless: 'No',
     purpose: 'Optional JSON launch-config file. CLI values override config-file values.',
   },
@@ -503,10 +591,10 @@ const CLI_PARAMETER_DEFINITIONS = [
   {
     key: 'protocol',
     defaultValue: DEFAULT_HEADLESS_OPTIONS.protocol,
-    options: ['tcp', 'udp', 'grpc', 'http', 'ws'],
+    options: ['tcp', 'udp', 'grpc', 'http', 'ws', 'xmpp'],
     example: 'protocol=tcp',
     requiredInHeadless: 'No',
-    purpose: 'Choose the network transport for headless replay.',
+    purpose: 'Choose the network transport for headless replay. When protocol=xmpp the role defaults to client unless mode is given explicitly.',
   },
   {
     key: 'runId',
@@ -701,6 +789,174 @@ const CLI_PARAMETER_DEFINITIONS = [
     purpose: 'Private key file (PEM) for WebSocket TLS. Required for server-mode TLS and client-side mTLS. Only applies when protocol=ws and wsTls=true.',
   },
   {
+    key: 'xmppAllowRemote',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppAllowRemote,
+    options: ['true', 'false'],
+    example: 'xmppAllowRemote=true',
+    requiredInHeadless: 'No',
+    purpose: 'Allow the built-in XMPP server to bind a non-loopback address so remote clients can sign in. Left false the server binds loopback only. Only applies when protocol=xmpp and mode=server.',
+  },
+  {
+    key: 'xmppAllowUnverifiedTls',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppAllowUnverifiedTls,
+    options: ['true', 'false'],
+    example: 'xmppAllowUnverifiedTls=true',
+    requiredInHeadless: 'No',
+    purpose: 'Skip certificate verification for the XMPP client stream. Restricted to loopback hosts so it can only be used against a locally hosted server with an automatic self-signed certificate. Only applies when protocol=xmpp and mode=client.',
+  },
+  {
+    key: 'xmppConnectTimeoutMs',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppConnectTimeoutMs,
+    options: ['integer >= 1'],
+    example: 'xmppConnectTimeoutMs=30000',
+    requiredInHeadless: 'No',
+    purpose: 'Milliseconds to wait for the XMPP stream to negotiate, authenticate and bind before the attempt fails. Must be a positive integer; there is no wait-forever value. Only applies when protocol=xmpp.',
+  },
+  {
+    key: 'xmppConversation',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppConversation,
+    options: ['direct', 'muc'],
+    example: 'xmppConversation=muc',
+    requiredInHeadless: 'No',
+    purpose: 'Publish each line as one-to-one "direct" chat messages, or as "muc" groupchat messages in a Multi-User Chat room. Only applies when protocol=xmpp.',
+  },
+  {
+    key: 'xmppDestination',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppDestination,
+    options: ['comma-separated bare JIDs', 'omitted'],
+    example: 'xmppDestination=feed@velocity.example.com,geoevent@example.com',
+    requiredInHeadless: 'Only when protocol=xmpp, mode=client and xmppConversation=direct',
+    purpose: `Bare destination JIDs (user@domain, no resource) that receive each replayed line. At most ${XMPP_MAX_DESTINATIONS} comma-separated entries. In server mode this optionally restricts delivery to specific signed-in accounts instead of every stream. Only applies when protocol=xmpp and xmppConversation=direct.`,
+  },
+  {
+    key: 'xmppDomain',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppDomain,
+    options: ['string'],
+    example: 'xmppDomain=velocity.example.com',
+    requiredInHeadless: 'No',
+    purpose: 'XMPP domain served (server mode) or authenticated against (client mode). This is independent of the host in "ip", so a client can connect to an IP address while authenticating against the real domain. Only applies when protocol=xmpp.',
+  },
+  {
+    key: 'xmppExternalPassword',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppExternalPassword,
+    options: ['string', 'omitted'],
+    example: 'xmppExternalPassword=change-me',
+    requiredInHeadless: 'Only when protocol=xmpp and mode=server',
+    purpose: 'Password for the single external account the built-in XMPP server accepts. Held in memory only and never written to a log or a done file. Only applies when protocol=xmpp and mode=server.',
+  },
+  {
+    key: 'xmppExternalUsername',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppExternalUsername,
+    options: ['string', 'omitted'],
+    example: 'xmppExternalUsername=receiver',
+    requiredInHeadless: 'Only when protocol=xmpp and mode=server',
+    purpose: 'Username of the single external account the built-in XMPP server accepts, alongside the automatic simulator application identity. Only applies when protocol=xmpp and mode=server.',
+  },
+  {
+    key: 'xmppNickname',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppNickname,
+    options: ['string'],
+    example: 'xmppNickname=simulator',
+    requiredInHeadless: 'No',
+    purpose: 'Room nickname used when entering a Multi-User Chat room. Must not contain "/" or "@". Only applies when protocol=xmpp and xmppConversation=muc.',
+  },
+  {
+    key: 'xmppPassword',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppPassword,
+    options: ['string', 'omitted'],
+    example: 'xmppPassword=change-me',
+    requiredInHeadless: 'Only when protocol=xmpp and mode=client',
+    purpose: 'Password for the XMPP account used in client mode. Held in memory only and never written to a log or a done file. Only applies when protocol=xmpp and mode=client.',
+  },
+  {
+    key: 'xmppPingIntervalMs',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppPingIntervalMs,
+    options: ['integer >= 1'],
+    example: 'xmppPingIntervalMs=60000',
+    requiredInHeadless: 'No',
+    purpose: 'Interval between XEP-0199 keepalive pings on an idle client stream. Must be a positive integer; the keepalive cannot be switched off. Only applies when protocol=xmpp and mode=client.',
+  },
+  {
+    key: 'xmppReconnectDelayMs',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppReconnectDelayMs,
+    options: ['integer >= 1'],
+    example: 'xmppReconnectDelayMs=60000',
+    requiredInHeadless: 'No',
+    purpose: 'Milliseconds to wait after a dropped client stream before the automatic reconnect is attempted. Must be a positive integer; automatic reconnect cannot be switched off. Only applies when protocol=xmpp and mode=client.',
+  },
+  {
+    key: 'xmppReplyTimeoutMs',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppReplyTimeoutMs,
+    options: ['integer >= 1'],
+    example: 'xmppReplyTimeoutMs=15000',
+    requiredInHeadless: 'No',
+    purpose: 'Milliseconds to wait for a reply to a request that expects one, such as a room entry confirmation or a ping result. Must be a positive integer; there is no wait-forever value. Only applies when protocol=xmpp.',
+  },
+  {
+    key: 'xmppResource',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppResource,
+    options: ['string'],
+    example: 'xmppResource=velocity-simulator',
+    requiredInHeadless: 'No',
+    purpose: 'Resource part requested at bind time, which distinguishes this stream from other sessions of the same account. Only applies when protocol=xmpp and mode=client.',
+  },
+  {
+    key: 'xmppRoom',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppRoom,
+    options: ['room name', 'room@conference.domain', 'omitted'],
+    example: 'xmppRoom=traffic',
+    requiredInHeadless: 'Only when xmppConversation=muc',
+    purpose: 'Multi-User Chat room to publish into. A bare name is qualified with the conversation sub-domain of the XMPP domain. Only applies when protocol=xmpp and xmppConversation=muc.',
+  },
+  {
+    key: 'xmppRoomPassword',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppRoomPassword,
+    options: ['string', 'omitted'],
+    example: 'xmppRoomPassword=change-me',
+    requiredInHeadless: 'No',
+    purpose: 'Password required to enter the room. In server mode this also protects the room against every other occupant. Held in memory only and never written to a log or a done file. Only applies when protocol=xmpp and xmppConversation=muc.',
+  },
+  {
+    key: 'xmppTlsCaPath',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppTlsCaPath,
+    options: ['path', 'omitted'],
+    example: 'xmppTlsCaPath=./certs/ca.pem',
+    requiredInHeadless: 'No',
+    purpose: 'Custom CA certificate file (PEM) used to verify the XMPP server certificate. Leave empty to use the OS certificate store. Only applies when protocol=xmpp and mode=client.',
+  },
+  {
+    key: 'xmppTlsCertPath',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppTlsCertPath,
+    options: ['path', 'omitted'],
+    example: 'xmppTlsCertPath=./certs/server.pem',
+    requiredInHeadless: 'No',
+    purpose: 'Server certificate file (PEM) presented during STARTTLS. When omitted the app generates an automatic self-signed certificate. Only applies when protocol=xmpp and mode=server.',
+  },
+  {
+    key: 'xmppTlsKeyPath',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppTlsKeyPath,
+    options: ['path', 'omitted'],
+    example: 'xmppTlsKeyPath=./certs/server-key.pem',
+    requiredInHeadless: 'No',
+    purpose: 'Private key file (PEM) matching the XMPP server certificate. Required whenever xmppTlsCertPath is set. Only applies when protocol=xmpp and mode=server.',
+  },
+  {
+    key: 'xmppTlsPolicy',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppTlsPolicy,
+    options: ['required', 'preferred', 'disabled'],
+    example: 'xmppTlsPolicy=required',
+    requiredInHeadless: 'No',
+    purpose: 'STARTTLS policy. "required" refuses to authenticate over a plaintext stream, "preferred" upgrades when the peer offers it, and "disabled" does not require encryption (the server stops advertising STARTTLS; a client still accepts an upgrade a third-party server insists on). Only applies when protocol=xmpp.',
+  },
+  {
+    key: 'xmppUsername',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.xmppUsername,
+    options: ['username', 'user@domain', 'omitted'],
+    example: 'xmppUsername=simulator@velocity.example.com',
+    requiredInHeadless: 'Only when protocol=xmpp and mode=client',
+    purpose: 'Account used to sign in. A bare "user@domain" value overrides xmppDomain so a copied JID can be pasted directly. Only applies when protocol=xmpp and mode=client.',
+  },
+  {
     key: 'waitForClient',
     defaultValue: DEFAULT_HEADLESS_OPTIONS.waitForClient,
     options: ['true', 'false'],
@@ -841,7 +1097,7 @@ function getHelpRows() {
     ['example', 'UI default', '-', '-', 'electron .', 'Launch the app in normal UI mode.'],
     ['example', 'UI + file', '-', '-', 'electron . filename=/absolute/path/to/data.csv', 'Launch UI mode with a startup file.'],
     ['example', 'headless server', '-', '-', 'electron . runMode=headless filename=./data.csv protocol=tcp mode=server ip=0.0.0.0 port=5565 waitForClient=true doneFile=./run.done.json', 'Headless TCP server listening beyond localhost.'],
-    ['example', 'config override', '-', '-', 'electron . runMode=headless config=./docs/launch-config.client.sample.json ip=192.168.1.25 port=6000 runId=manual-override', 'Headless run using a config file plus CLI overrides.'],
+    ['example', 'config override', '-', '-', 'electron . runMode=headless config=./docs/examples/launch-config.client.sample.json ip=192.168.1.25 port=6000 runId=manual-override', 'Headless run using a config file plus CLI overrides.'],
     ['example', 'help only', '-', '-', 'electron . help=true', 'Print help and exit without running the app.'],
     ['example', 'help wide', '-', '-', 'electron . help-wide=true', 'Print help-wide and exit without running the app.'],
     ['example', 'help detailed', '-', '-', 'electron . help-detailed=true', 'Print detailed help and exit without running the app.'],
@@ -1415,7 +1671,8 @@ function parseRawArgs(rawArgs) {
     }
 
     const key = normalizedArg.slice(0, separatorIndex).trim();
-    const value = normalizedArg.slice(separatorIndex + 1).trim();
+    const rawValue = normalizedArg.slice(separatorIndex + 1);
+    const value = SECRET_OPTION_KEYS.has(key) ? rawValue : rawValue.trim();
 
     if (!key) {
       positional.push(arg);
@@ -1472,7 +1729,7 @@ function validateHeadlessOptions(values, errors, warnings) {
   if (normalized.protocol !== undefined) {
     const protocol = String(normalized.protocol).trim().toLowerCase();
     if (!VALID_PROTOCOLS.has(protocol)) {
-      errors.push(`Invalid protocol '${normalized.protocol}'. Use tcp, udp, grpc, http, or ws.`);
+      errors.push(`Invalid protocol '${normalized.protocol}'. Use tcp, udp, grpc, http, ws, or xmpp.`);
     } else {
       options.protocol = protocol;
     }
@@ -1671,6 +1928,75 @@ function validateHeadlessOptions(values, errors, warnings) {
     options.wsHeaders = String(normalized.wsHeaders);
   }
 
+  // --- XMPP params ---
+  if (normalized.xmppDomain !== undefined && normalized.xmppDomain !== '') {
+    options.xmppDomain = String(normalized.xmppDomain).trim();
+  }
+  if (normalized.xmppTlsPolicy !== undefined) {
+    const policy = String(normalized.xmppTlsPolicy).trim().toLowerCase();
+    if (!VALID_XMPP_TLS_POLICIES.has(policy)) {
+      errors.push(`Invalid xmppTlsPolicy '${normalized.xmppTlsPolicy}'. Use required, preferred, or disabled.`);
+    } else { options.xmppTlsPolicy = policy; }
+  }
+  if (normalized.xmppTlsCaPath !== undefined && normalized.xmppTlsCaPath !== '') {
+    options.xmppTlsCaPath = resolvePathValue(normalized.xmppTlsCaPath);
+  }
+  if (normalized.xmppTlsCertPath !== undefined && normalized.xmppTlsCertPath !== '') {
+    options.xmppTlsCertPath = resolvePathValue(normalized.xmppTlsCertPath);
+  }
+  if (normalized.xmppTlsKeyPath !== undefined && normalized.xmppTlsKeyPath !== '') {
+    options.xmppTlsKeyPath = resolvePathValue(normalized.xmppTlsKeyPath);
+  }
+  if (normalized.xmppAllowUnverifiedTls !== undefined) {
+    options.xmppAllowUnverifiedTls = parseBoolean(normalized.xmppAllowUnverifiedTls, 'xmppAllowUnverifiedTls', errors);
+  }
+  if (normalized.xmppAllowRemote !== undefined) {
+    options.xmppAllowRemote = parseBoolean(normalized.xmppAllowRemote, 'xmppAllowRemote', errors);
+  }
+  if (normalized.xmppUsername !== undefined && normalized.xmppUsername !== '') {
+    options.xmppUsername = String(normalized.xmppUsername).trim();
+  }
+  if (normalized.xmppPassword !== undefined && normalized.xmppPassword !== '') {
+    options.xmppPassword = String(normalized.xmppPassword);
+  }
+  if (normalized.xmppResource !== undefined && normalized.xmppResource !== '') {
+    options.xmppResource = String(normalized.xmppResource).trim();
+  }
+  if (normalized.xmppExternalUsername !== undefined && normalized.xmppExternalUsername !== '') {
+    options.xmppExternalUsername = String(normalized.xmppExternalUsername).trim();
+  }
+  if (normalized.xmppExternalPassword !== undefined && normalized.xmppExternalPassword !== '') {
+    options.xmppExternalPassword = String(normalized.xmppExternalPassword);
+  }
+  if (normalized.xmppConversation !== undefined) {
+    const conversation = String(normalized.xmppConversation).trim().toLowerCase();
+    if (!VALID_XMPP_CONVERSATIONS.has(conversation)) {
+      errors.push(`Invalid xmppConversation '${normalized.xmppConversation}'. Use direct or muc.`);
+    } else { options.xmppConversation = conversation; }
+  }
+  if (normalized.xmppDestination !== undefined && normalized.xmppDestination !== '') {
+    options.xmppDestination = String(normalized.xmppDestination).trim();
+  }
+  if (normalized.xmppRoom !== undefined && normalized.xmppRoom !== '') {
+    options.xmppRoom = String(normalized.xmppRoom).trim();
+  }
+  if (normalized.xmppNickname !== undefined && normalized.xmppNickname !== '') {
+    options.xmppNickname = String(normalized.xmppNickname).trim();
+  }
+  if (normalized.xmppRoomPassword !== undefined && normalized.xmppRoomPassword !== '') {
+    options.xmppRoomPassword = String(normalized.xmppRoomPassword);
+  }
+  // Every XMPP timing is a positive integer count of milliseconds. Zero is not
+  // a disable switch and not a wait-forever switch.
+  for (const key of ['xmppConnectTimeoutMs', 'xmppReplyTimeoutMs', 'xmppPingIntervalMs', 'xmppReconnectDelayMs']) {
+    if (normalized[key] === undefined) continue;
+    options[key] = parseInteger(normalized[key], key, errors, { min: XMPP_MIN_TIMING_MS });
+  }
+
+  if (options.protocol === 'xmpp') {
+    validateXmppOptions(options, normalized, errors, warnings);
+  }
+
   if (!options.filename) {
     errors.push("Headless mode requires 'filename=/path/to/file.csv'.");
   }
@@ -1711,6 +2037,142 @@ function validateHeadlessOptions(values, errors, warnings) {
   }
 
   return options;
+}
+
+/**
+ * Applies the XMPP-specific defaults and cross-field rules.
+ *
+ * Two defaults are resolved here rather than in `DEFAULT_HEADLESS_OPTIONS`
+ * because they only apply once `protocol=xmpp` has been selected, and the
+ * app-wide defaults (TCP Server on port 5565) must not change:
+ *   - the role defaults to client, matching the XMPP options in the UI
+ *   - the port defaults to the RFC 6120 client-to-server port
+ */
+function validateXmppOptions(options, normalized, errors, warnings) {
+  if (normalized.mode === undefined) {
+    options.mode = XMPP_DEFAULT_ROLE;
+  }
+  if (normalized.port === undefined) {
+    options.port = XMPP_DEFAULT_C2S_PORT;
+  }
+
+  const isClient = options.mode === 'client';
+  const isMuc = options.xmppConversation === 'muc';
+
+  if (isClient) {
+    if (!options.xmppUsername) {
+      errors.push("XMPP client mode requires 'xmppUsername=<user or user@domain>'.");
+    }
+    if (!options.xmppPassword) {
+      errors.push("XMPP client mode requires 'xmppPassword=<password>'.");
+    }
+    if (options.xmppAllowUnverifiedTls && !isLoopbackHostValue(options.ip)) {
+      errors.push(`'xmppAllowUnverifiedTls=true' is restricted to loopback hosts; '${options.ip}' is not a loopback address.`);
+    }
+    for (const key of ['xmppTlsCertPath', 'xmppTlsKeyPath', 'xmppExternalUsername', 'xmppExternalPassword']) {
+      if (normalized[key] !== undefined && normalized[key] !== '') {
+        warnings.push(`'${key}' is only used by the XMPP server role and is ignored when mode=client.`);
+      }
+    }
+    if (normalized.xmppAllowRemote !== undefined) {
+      warnings.push("'xmppAllowRemote' is only used by the XMPP server role and is ignored when mode=client.");
+    }
+  } else {
+    for (const key of ['xmppUsername', 'xmppPassword', 'xmppTlsCaPath', 'xmppResource']) {
+      if (normalized[key] !== undefined && normalized[key] !== '') {
+        warnings.push(`'${key}' is only used by the XMPP client role and is ignored when mode=server.`);
+      }
+    }
+    if (normalized.xmppAllowUnverifiedTls !== undefined) {
+      warnings.push("'xmppAllowUnverifiedTls' is only used by the XMPP client role and is ignored when mode=server.");
+    }
+    for (const key of ['xmppPingIntervalMs', 'xmppReconnectDelayMs']) {
+      if (normalized[key] !== undefined) {
+        warnings.push(`'${key}' is only used by the XMPP client role and is ignored when mode=server.`);
+      }
+    }
+    if (Boolean(options.xmppTlsCertPath) !== Boolean(options.xmppTlsKeyPath)) {
+      errors.push("XMPP server TLS requires both 'xmppTlsCertPath' and 'xmppTlsKeyPath'.");
+    }
+    if (Boolean(options.xmppExternalUsername) !== Boolean(options.xmppExternalPassword)) {
+      errors.push("The external XMPP account requires both 'xmppExternalUsername' and 'xmppExternalPassword'.");
+    } else if (!options.xmppExternalUsername) {
+      errors.push("XMPP server mode requires 'xmppExternalUsername' and 'xmppExternalPassword'.");
+    }
+    if (options.xmppExternalUsername &&
+        canonicalizeXmppAccountName(options.xmppExternalUsername) ===
+          canonicalizeXmppAccountName(INTERNAL_APP_USERNAME)) {
+      errors.push(
+        `'xmppExternalUsername' must not collide with the reserved ${INTERNAL_APP_USERNAME} identity; ` +
+        'the comparison is canonical, so case and domain variations collide too.',
+      );
+    }
+    if (!options.xmppAllowRemote && options.ip && !isLoopbackHostValue(options.ip)) {
+      errors.push(`The XMPP server binds a loopback address unless 'xmppAllowRemote=true'; '${options.ip}' is not a loopback address.`);
+    }
+  }
+
+  if (isMuc) {
+    if (!options.xmppRoom) {
+      errors.push("'xmppConversation=muc' requires 'xmppRoom=<room or room@conference.domain>'.");
+    }
+    if (options.xmppNickname && /[/@]/.test(options.xmppNickname)) {
+      errors.push(`'xmppNickname' must not contain '/' or '@', got '${options.xmppNickname}'.`);
+    }
+    if (normalized.xmppDestination !== undefined && normalized.xmppDestination !== '') {
+      warnings.push("'xmppDestination' is ignored when 'xmppConversation=muc'.");
+    }
+  } else {
+    if (isClient && !options.xmppDestination) {
+      errors.push("'xmppConversation=direct' requires 'xmppDestination=<user@domain[,user@domain]>' in client mode.");
+    }
+    for (const key of ['xmppRoom', 'xmppRoomPassword']) {
+      if (normalized[key] !== undefined && normalized[key] !== '') {
+        warnings.push(`'${key}' is ignored when 'xmppConversation=direct'.`);
+      }
+    }
+    if (normalized.xmppNickname !== undefined && normalized.xmppNickname !== '') {
+      warnings.push("'xmppNickname' is ignored when 'xmppConversation=direct'.");
+    }
+  }
+
+  if (options.xmppDestination) {
+    try {
+      options.xmppDestination = require('./xmpp-utils')
+        .parseDestinationList(options.xmppDestination)
+        .join(',');
+    } catch (error) {
+      errors.push(`Invalid 'xmppDestination': ${error.message}`);
+    }
+  }
+
+  if (options.xmppTlsPolicy === 'disabled') {
+    warnings.push("'xmppTlsPolicy=disabled' publishes credentials and data over an unsecure plaintext stream.");
+  }
+}
+
+/**
+ * Canonicalizes an XMPP account name exactly the way the account store does:
+ * local part only, trimmed, lowercased. Used so a reserved-identity collision
+ * cannot be slipped past validation with different case or a domain suffix.
+ */
+function canonicalizeXmppAccountName(value) {
+  return String(value ?? '').split('@')[0].trim().toLowerCase();
+}
+
+/** Loopback check used by CLI validation, mirroring `xmpp-utils.isLoopbackHost`. */
+function isLoopbackHostValue(host) {
+  const { isLoopbackHost } = require('./xmpp-utils');
+  return isLoopbackHost(host);
+}
+
+/**
+ * Renders a secret as a non-reversible marker so `explain` output and startup
+ * logs can be shared without disclosing a credential.
+ */
+function redactCliSecret(value) {
+  const { redactSecret } = require('./xmpp-utils');
+  return value ? redactSecret(value) : '(none)';
 }
 
 /**
@@ -1853,6 +2315,11 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
       'httpFormat', 'httpTls', 'httpPath', 'httpTlsCaPath', 'httpTlsCertPath', 'httpTlsKeyPath',
       'wsFormat', 'wsTls', 'wsPath', 'wsTlsCaPath', 'wsTlsCertPath', 'wsTlsKeyPath',
       'wsSubscriptionMsg', 'wsIgnoreFirstMsg', 'wsHeaders',
+      'xmppDomain', 'xmppTlsPolicy', 'xmppTlsCaPath', 'xmppTlsCertPath', 'xmppTlsKeyPath',
+      'xmppAllowUnverifiedTls', 'xmppAllowRemote', 'xmppUsername', 'xmppPassword', 'xmppResource',
+      'xmppExternalUsername', 'xmppExternalPassword', 'xmppConversation', 'xmppDestination',
+      'xmppRoom', 'xmppNickname', 'xmppRoomPassword',
+      'xmppConnectTimeoutMs', 'xmppReplyTimeoutMs', 'xmppPingIntervalMs', 'xmppReconnectDelayMs',
       'intervalMs', 'linesPerInterval', 'loop',
     ]);
     const uiRecognizedKeys = new Set(['filename', 'runMode', 'config', 'explain', 'logLevel', 'logFile', 'help', 'help-detailed', 'help-table-narrow', 'help-table-wide', 'help-wide', ...uiPresetKeys]);
@@ -1868,6 +2335,9 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
       if (mergedValues[key] !== undefined) {
         presets[key] = mergedValues[key];
       }
+    }
+    if (String(presets.protocol || '').toLowerCase() === 'xmpp' && presets.mode === undefined) {
+      presets.mode = XMPP_DEFAULT_ROLE;
     }
     // Normalize rateMs alias
     if (mergedValues.rateMs !== undefined && presets.intervalMs === undefined) {
@@ -1971,6 +2441,9 @@ function formatExplainOutput(cliOptions) {
       ['wsFormat', (presets && presets.wsFormat) || `(default: ${d.wsFormat})`],
       ['wsTls', presets && presets.wsTls !== undefined ? presets.wsTls : `(default: ${d.wsTls})`],
       ['wsPath', (presets && presets.wsPath) || `(default: ${d.wsPath})`],
+      ['xmppDomain', (presets && presets.xmppDomain) || `(default: ${d.xmppDomain})`],
+      ['xmppTlsPolicy', (presets && presets.xmppTlsPolicy) || `(default: ${d.xmppTlsPolicy})`],
+      ['xmppConversation', (presets && presets.xmppConversation) || `(default: ${d.xmppConversation})`],
       ['linesPerInterval', (presets && presets.linesPerInterval) || `(default: ${d.linesPerInterval})`],
       ['intervalMs', presets && presets.intervalMs ? `${presets.intervalMs}ms` : `(default: ${d.intervalMs}ms)`],
       ['loop', presets && presets.loop !== undefined ? presets.loop : `(default: ${d.loop})`],
@@ -2057,6 +2530,48 @@ function formatExplainOutput(cliOptions) {
       ['runId', h.runId || '(none)'],
     ];
 
+    // XMPP settings are only meaningful once the XMPP transport is selected,
+    // and secrets are shown as a redaction marker so `explain` output can be
+    // pasted into a ticket without leaking a credential.
+    if (h.protocol === 'xmpp') {
+      paramLines.push(
+        ['xmppDomain', h.xmppDomain],
+        ['xmppTlsPolicy', h.xmppTlsPolicy],
+        ['xmppConversation', h.xmppConversation],
+      );
+      if (h.mode === 'client') {
+        paramLines.push(
+          ['xmppUsername', h.xmppUsername || '(none)'],
+          ['xmppPassword', redactCliSecret(h.xmppPassword)],
+          ['xmppResource', h.xmppResource],
+          ['xmppTlsCaPath', h.xmppTlsCaPath || '(OS certificate store)'],
+          ['xmppAllowUnverifiedTls', h.xmppAllowUnverifiedTls],
+          ['xmppPingIntervalMs', `${h.xmppPingIntervalMs}ms`],
+        );
+      } else {
+        paramLines.push(
+          ['xmppAllowRemote', h.xmppAllowRemote],
+          ['xmppTlsCertPath', h.xmppTlsCertPath || '(automatic self-signed)'],
+          ['xmppTlsKeyPath', h.xmppTlsKeyPath || '(automatic self-signed)'],
+          ['xmppExternalUsername', h.xmppExternalUsername || '(none)'],
+          ['xmppExternalPassword', redactCliSecret(h.xmppExternalPassword)],
+        );
+      }
+      if (h.xmppConversation === 'muc') {
+        paramLines.push(
+          ['xmppRoom', h.xmppRoom || '(none)'],
+          ['xmppNickname', h.xmppNickname],
+          ['xmppRoomPassword', redactCliSecret(h.xmppRoomPassword)],
+        );
+      } else {
+        paramLines.push(['xmppDestination', h.xmppDestination || '(every signed-in stream)']);
+      }
+      paramLines.push(
+        ['xmppConnectTimeoutMs', `${h.xmppConnectTimeoutMs}ms`],
+        ['xmppReplyTimeoutMs', `${h.xmppReplyTimeoutMs}ms`],
+      );
+    }
+
     const maxKeyLen = Math.max(...paramLines.map(([key]) => key.length));
     paramLines.forEach(([key, value]) => {
       lines.push(`    ${key.padEnd(maxKeyLen)}  ${value}`);
@@ -2142,4 +2657,3 @@ module.exports.getCommandLineReferenceData = getCommandLineReferenceData;
 module.exports.getCommandHelpText = getCommandHelpText;
 module.exports.parseCommandLineArgs = parseCommandLineArgs;
 module.exports.resolvePathValue = resolvePathValue;
-

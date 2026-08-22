@@ -107,6 +107,48 @@ document.addEventListener('DOMContentLoaded', () => {
   const wsIgnoreFirstMsgCheckbox = document.getElementById('ws-ignore-first-msg');
   const wsHeadersGroup = document.getElementById('ws-headers-group');
   const wsHeadersInput = document.getElementById('ws-headers');
+  // --- XMPP controls ---
+  const xmppConversationSelect = document.getElementById('xmpp-conversation');
+  const xmppConversationGroup = document.getElementById('xmpp-conversation-group');
+  const xmppDomainGroup = document.getElementById('xmpp-domain-group');
+  const xmppDomainInput = document.getElementById('xmpp-domain');
+  const xmppTlsPolicySelect = document.getElementById('xmpp-tls-policy');
+  const xmppTlsPolicyGroup = document.getElementById('xmpp-tls-policy-group');
+  const xmppTlsCaGroup = document.getElementById('xmpp-tls-ca-group');
+  const xmppTlsCertGroup = document.getElementById('xmpp-tls-cert-group');
+  const xmppTlsKeyGroup = document.getElementById('xmpp-tls-key-group');
+  const xmppAllowUnverifiedGroup = document.getElementById('xmpp-allow-unverified-group');
+  const xmppAllowUnverifiedCheckbox = document.getElementById('xmpp-allow-unverified');
+  const xmppAllowRemoteGroup = document.getElementById('xmpp-allow-remote-group');
+  const xmppAllowRemoteCheckbox = document.getElementById('xmpp-allow-remote');
+  const xmppUsernameGroup = document.getElementById('xmpp-username-group');
+  const xmppUsernameInput = document.getElementById('xmpp-username');
+  const xmppPasswordGroup = document.getElementById('xmpp-password-group');
+  const xmppPasswordInput = document.getElementById('xmpp-password');
+  const xmppResourceGroup = document.getElementById('xmpp-resource-group');
+  const xmppResourceInput = document.getElementById('xmpp-resource');
+  const xmppExternalUsernameGroup = document.getElementById('xmpp-external-username-group');
+  const xmppExternalUsernameInput = document.getElementById('xmpp-external-username');
+  const xmppExternalPasswordGroup = document.getElementById('xmpp-external-password-group');
+  const xmppExternalPasswordInput = document.getElementById('xmpp-external-password');
+  const xmppDestinationGroup = document.getElementById('xmpp-destination-group');
+  const xmppDestinationInput = document.getElementById('xmpp-destination');
+  const xmppRoomGroup = document.getElementById('xmpp-room-group');
+  const xmppRoomInput = document.getElementById('xmpp-room');
+  const xmppNicknameGroup = document.getElementById('xmpp-nickname-group');
+  const xmppNicknameInput = document.getElementById('xmpp-nickname');
+  const xmppRoomPasswordGroup = document.getElementById('xmpp-room-password-group');
+  const xmppRoomPasswordInput = document.getElementById('xmpp-room-password');
+  const xmppTimeoutsGroup = document.getElementById('xmpp-timeouts-group');
+  const xmppConnectTimeoutInput = document.getElementById('xmpp-connect-timeout');
+  const xmppReplyTimeoutInput = document.getElementById('xmpp-reply-timeout');
+  const xmppPingIntervalGroup = document.getElementById('xmpp-ping-interval-group');
+  const xmppPingIntervalInput = document.getElementById('xmpp-ping-interval');
+  const xmppReconnectDelayGroup = document.getElementById('xmpp-reconnect-delay-group');
+  const xmppReconnectDelayInput = document.getElementById('xmpp-reconnect-delay');
+  const xmppCopySettingsGroup = document.getElementById('xmpp-copy-settings-group');
+  const xmppCopySettingsButton = document.getElementById('xmpp-copy-settings');
+  const xmppCopyPasswordCheckbox = document.getElementById('xmpp-copy-password');
   const toggleVoiceButton = document.getElementById('toggle-voice-button');
   const toggleLoopButton = document.getElementById('toggle-loop-button');
   const toggleStatusLog = document.getElementById('toggle-status-log');
@@ -140,7 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let sendInterval; // Holds the interval ID for the automated data sending.
   let isSending = false; // Is data currently being sent automatically?
   let isPaused = false; // Is the sending process paused?
-  let isConnected = false; // Is there an active TCP/UDP connection?
+  let isConnected = false; // Is there an active network connection?
+  let isConnecting = false;
   let currentTlsTooltip = '';
   let linesSentCount = 0; // Total lines sent since the app started or since the log was cleared.
   let linesSentThisSession = 0; // Lines sent in the current play session (from play to pause).
@@ -197,7 +240,39 @@ document.addEventListener('DOMContentLoaded', () => {
     'ws-server': 'WebSocket Server - starts a local WebSocket server that accepts incoming ws:// or wss:// connections.',
     'grpc-client': 'gRPC Client - connects to a remote gRPC server using HTTP/2.',
     'grpc-server': 'gRPC Server - starts a local gRPC server that accepts incoming RPC calls.',
+    'xmpp-client': 'XMPP Client - signs in to an XMPP server and publishes each line as a direct chat message or into a Multi-User Chat room.',
+    'xmpp-server': 'XMPP Server - hosts a local XMPP client-to-server endpoint that a receiver signs in to, then publishes each line to it.',
   };
+
+  const XMPP_CONVERSATION_TOOLTIPS = {
+    direct: 'XMPP Conversation: Direct. Each replayed line is delivered as a one-to-one chat message to every destination JID, up to 20 of them.',
+    muc: 'XMPP Conversation: Room (MUC). Each replayed line is broadcast as an XEP-0045 groupchat message into the room. Every occupant receives it, and the room echoes the message back to the sender.',
+  };
+
+  const XMPP_TLS_POLICY_TOOLTIPS = {
+    required: 'XMPP STARTTLS: Required. The stream must be upgraded to TLS before any credential is sent. The built-in server advertises STARTTLS as mandatory and refuses plaintext authentication.',
+    preferred: 'XMPP STARTTLS: Preferred. The stream is upgraded to TLS when the peer offers it, but authentication still proceeds on a plaintext stream when it does not.',
+    disabled: "XMPP STARTTLS: Disabled. Encryption is not required and the built-in server stops advertising STARTTLS. As a client the Simulator still accepts an upgrade a third-party server insists on, so Disabled means 'do not require TLS', not 'refuse TLS'.",
+  };
+
+  function updateXmppConversationTooltip() {
+    if (!xmppConversationSelect) return;
+    const tooltip = XMPP_CONVERSATION_TOOLTIPS[xmppConversationSelect.value] || XMPP_CONVERSATION_TOOLTIPS.direct;
+    xmppConversationSelect.dataset.tooltip = tooltip;
+    xmppConversationSelect.setAttribute('aria-label', tooltip);
+    if (xmppConversationGroup) xmppConversationGroup.dataset.tooltip = tooltip;
+  }
+
+  function updateXmppTlsPolicyTooltip() {
+    if (!xmppTlsPolicySelect) return;
+    const value = xmppTlsPolicySelect.value;
+    const tooltip = XMPP_TLS_POLICY_TOOLTIPS[value] || XMPP_TLS_POLICY_TOOLTIPS.required;
+    xmppTlsPolicySelect.dataset.tooltip = tooltip;
+    xmppTlsPolicySelect.dataset.tooltipIcon = value === 'disabled' ? '🔓' : '🔒';
+    xmppTlsPolicySelect.dataset.tooltipKind = value === 'disabled' ? 'warning' : 'secure';
+    xmppTlsPolicySelect.setAttribute('aria-label', tooltip);
+    if (xmppTlsPolicyGroup) xmppTlsPolicyGroup.dataset.tooltip = tooltip;
+  }
 
   function updateHttpFormatTooltip() {
     if (!httpFormatSelect) return;
@@ -230,10 +305,54 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Default ports per protocol
-  const DEFAULT_PORTS = { tcp: 5565, udp: 5565, grpc: 5565, http: 8443, ws: 8443 };
+  const DEFAULT_PORTS = { tcp: 5565, udp: 5565, grpc: 5565, http: 8443, ws: 8443, xmpp: 5222 };
   const HTTP_PORT_TLS_ON = 8443;
   const HTTP_PORT_TLS_OFF = 8080;
   let lastProtocolDefault = 5565;
+
+  /**
+   * Shows exactly the XMPP controls that apply to the selected role and
+   * conversation. Everything else stays hidden so the options panel only ever
+   * asks for settings that are actually used.
+   */
+  function updateXmppOptionsVisibility() {
+    const value = connectionTypeSelect.value || '';
+    const isXmpp = value.startsWith('xmpp');
+    const isClient = value === 'xmpp-client';
+    const isMuc = isXmpp && xmppConversationSelect && xmppConversationSelect.value === 'muc';
+    const tlsEnabled = isXmpp && xmppTlsPolicySelect && xmppTlsPolicySelect.value !== 'disabled';
+    const show = (group, visible) => {
+      if (group) group.style.display = visible ? '' : 'none';
+    };
+
+    show(xmppConversationGroup, isXmpp);
+    show(xmppDomainGroup, isXmpp);
+    show(xmppTlsPolicyGroup, isXmpp);
+    show(xmppTlsCaGroup, isXmpp && isClient && tlsEnabled);
+    show(xmppAllowUnverifiedGroup, isXmpp && isClient && tlsEnabled);
+    show(xmppTlsCertGroup, isXmpp && !isClient && tlsEnabled);
+    show(xmppTlsKeyGroup, isXmpp && !isClient && tlsEnabled);
+    show(xmppAllowRemoteGroup, isXmpp && !isClient);
+    show(xmppUsernameGroup, isXmpp && isClient);
+    show(xmppPasswordGroup, isXmpp && isClient);
+    show(xmppResourceGroup, isXmpp && isClient);
+    show(xmppExternalUsernameGroup, isXmpp && !isClient);
+    show(xmppExternalPasswordGroup, isXmpp && !isClient);
+    show(xmppDestinationGroup, isXmpp && !isMuc);
+    show(xmppRoomGroup, isXmpp && isMuc);
+    show(xmppNicknameGroup, isXmpp && isMuc);
+    show(xmppRoomPasswordGroup, isXmpp && isMuc);
+    show(xmppTimeoutsGroup, isXmpp);
+    show(xmppPingIntervalGroup, isXmpp && isClient);
+    show(xmppReconnectDelayGroup, isXmpp && isClient);
+    show(xmppCopySettingsGroup, isXmpp && !isClient);
+
+    if (xmppDestinationInput) {
+      xmppDestinationInput.placeholder = isClient
+        ? 'feed@example.com, geoevent@example.com'
+        : '(optional — every signed-in account)';
+    }
+  }
 
   // Show/hide gRPC, HTTP, and WebSocket controls based on connection type
   connectionTypeSelect.addEventListener('change', () => {
@@ -275,6 +394,9 @@ document.addEventListener('DOMContentLoaded', () => {
     wsIgnoreFirstMsgGroup.style.display = isWs ? '' : 'none';
     wsHeadersGroup.style.display = isWs ? '' : 'none';
 
+    // XMPP controls
+    updateXmppOptionsVisibility();
+
     // Smart port switching
     const currentPort = parseInt(portInput.value, 10);
     const protocol = val.split('-')[0];
@@ -306,6 +428,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   wsFormatSelect.addEventListener('change', updateWsFormatTooltip);
   updateWsFormatTooltip();
+
+  if (xmppConversationSelect) {
+    xmppConversationSelect.addEventListener('change', () => {
+      updateXmppConversationTooltip();
+      updateXmppOptionsVisibility();
+    });
+    updateXmppConversationTooltip();
+  }
+
+  if (xmppTlsPolicySelect) {
+    xmppTlsPolicySelect.addEventListener('change', () => {
+      updateXmppTlsPolicyTooltip();
+      updateXmppOptionsVisibility();
+      refreshTlsBadge();
+    });
+    updateXmppTlsPolicyTooltip();
+  }
+
+  updateXmppOptionsVisibility();
 
   connectionTypeSelect.addEventListener('change', updateConnectionModeTooltip);
   updateConnectionModeTooltip();
@@ -368,6 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (val.startsWith('http')) return 'HTTP Options';
     if (val.startsWith('ws')) return 'WebSocket Options';
     if (val.startsWith('grpc')) return 'gRPC Options';
+    if (val.startsWith('xmpp')) return 'XMPP Options';
     return 'Protocol Options';
   }
 
@@ -375,7 +517,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!extraOptionsToggleBtn) return;
     const label = getExtraOptionsProtocolLabel();
     const action = extraOptionsExpanded ? 'Collapse' : 'Expand';
-    const tooltip = `${action} ${label.toLowerCase()} such as format, TLS, paths, and headers.`;
+    const detail = connectionTypeSelect.value.startsWith('xmpp')
+      ? 'such as conversation type, domain, STARTTLS policy, account, and destinations'
+      : 'such as format, TLS, paths, and headers';
+    const tooltip = `${action} ${label.toLowerCase()} ${detail}.`;
     if (extraOptionsLabel) extraOptionsLabel.textContent = label;
     extraOptionsToggleBtn.setAttribute('aria-expanded', extraOptionsExpanded ? 'true' : 'false');
     extraOptionsToggleBtn.title = tooltip;
@@ -384,7 +529,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateExtraOptionsToggleRow() {
     const val = connectionTypeSelect.value;
-    const hasExtras = val.startsWith('http') || val.startsWith('ws') || val.startsWith('grpc');
+    const hasExtras = val.startsWith('http') || val.startsWith('ws') || val.startsWith('grpc') || val.startsWith('xmpp');
+    if (val.startsWith('xmpp') && !extraOptionsExpanded && extraOptionsBody) {
+      extraOptionsExpanded = true;
+      extraOptionsBody.style.display = '';
+    }
     if (extraOptionsToggleRow) extraOptionsToggleRow.style.display = hasExtras ? '' : 'none';
     if (!hasExtras && extraOptionsBody) {
       extraOptionsExpanded = false;
@@ -463,6 +612,9 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function tlsInfoToTooltip(raw) {
     if (!raw) return '';
+    if (/STARTTLS preferred but unavailable/i.test(raw)) {
+      return 'STARTTLS Preferred — the peer did not offer STARTTLS, so this connection is plaintext and unsecure.\nEncryption: No.\nCertificate trust: Not applicable.\nUse Required when plaintext fallback is not acceptable.';
+    }
     if (/tls=off/i.test(raw)) {
       return 'TLS Off — this connection is plaintext and unsecure.\nEncryption: No.\nCertificate trust: Not applicable.\nAuthentication is shown separately by the key badge.';
     }
@@ -484,17 +636,67 @@ document.addEventListener('DOMContentLoaded', () => {
     return raw;
   }
 
+  /**
+   * Wraps a simple on/off TLS checkbox in the uniform descriptor the TLS badge
+   * uses, so protocols that model TLS differently can plug into the same code.
+   */
+  function createCheckboxTlsControl(checkbox, protocol, mode, secureName, unsecureName) {
+    return {
+      checkbox,
+      protocol,
+      mode,
+      secureName,
+      unsecureName,
+      isEnabled: () => Boolean(checkbox && checkbox.checked),
+      toggleLabel: () => (checkbox && checkbox.checked ? 'off' : 'on'),
+      detail: () => '',
+      toggle() {
+        if (!checkbox) return;
+        checkbox.checked = !checkbox.checked;
+        checkbox.dispatchEvent(new Event('change'));
+      },
+    };
+  }
+
+  /**
+   * XMPP models TLS as a three-value STARTTLS policy rather than a checkbox.
+   * Clicking the badge flips between the encrypted default and Disabled;
+   * Preferred stays available through the XMPP options select.
+   */
+  function createXmppTlsControl(mode) {
+    const policy = xmppTlsPolicySelect ? xmppTlsPolicySelect.value : 'required';
+    return {
+      checkbox: xmppTlsPolicySelect,
+      protocol: 'XMPP',
+      mode,
+      secureName: policy === 'preferred' ? 'STARTTLS when offered' : 'STARTTLS',
+      unsecureName: 'an unsecure plaintext stream',
+      isEnabled: () => policy !== 'disabled',
+      toggleLabel: () => (policy === 'disabled' ? 'on' : 'off'),
+      detail: () => `STARTTLS policy: ${policy}.`,
+      isOpportunistic: () => policy === 'preferred',
+      toggle() {
+        if (!xmppTlsPolicySelect) return;
+        xmppTlsPolicySelect.value = policy === 'disabled' ? 'required' : 'disabled';
+        xmppTlsPolicySelect.dispatchEvent(new Event('change'));
+      },
+    };
+  }
+
   function getSelectedTlsControl() {
     const value = connectionTypeSelect.value || '';
     const mode = value.endsWith('-server') ? 'Server' : 'Client';
     if (value.startsWith('grpc')) {
-      return { checkbox: grpcTlsCheckbox, protocol: 'gRPC', mode, secureName: 'TLS', unsecureName: 'unsecure gRPC' };
+      return createCheckboxTlsControl(grpcTlsCheckbox, 'gRPC', mode, 'TLS', 'unsecure gRPC');
     }
     if (value.startsWith('http')) {
-      return { checkbox: httpTlsCheckbox, protocol: 'HTTP', mode, secureName: 'HTTPS', unsecureName: 'HTTP' };
+      return createCheckboxTlsControl(httpTlsCheckbox, 'HTTP', mode, 'HTTPS', 'HTTP');
     }
     if (value.startsWith('ws')) {
-      return { checkbox: wsTlsCheckbox, protocol: 'WebSocket', mode, secureName: 'WSS', unsecureName: 'WS' };
+      return createCheckboxTlsControl(wsTlsCheckbox, 'WebSocket', mode, 'WSS', 'WS');
+    }
+    if (value.startsWith('xmpp')) {
+      return createXmppTlsControl(mode);
     }
     return null;
   }
@@ -507,17 +709,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const selected = getSelectedTlsControl();
     if (!selected || !selected.checkbox) return '';
 
-    const enabled = selected.checkbox.checked;
+    const enabled = selected.isEnabled();
     const endpoint = `${ipAddressInput.value || 'host'}:${portInput.value || 'port'}`;
     const action = canToggleTlsFromFooter()
-      ? `Click to turn TLS ${enabled ? 'off' : 'on'} for ${selected.protocol} ${selected.mode}.`
+      ? `Click to turn TLS ${selected.toggleLabel()} for ${selected.protocol} ${selected.mode}.`
       : `Disconnect before changing TLS for this ${selected.protocol} ${selected.mode} connection.`;
+    const detail = selected.detail();
+    const detailLine = detail ? `\n${detail}` : '';
 
+    if (selected.isOpportunistic && selected.isOpportunistic()) {
+      return `STARTTLS Preferred — ${selected.protocol} ${selected.mode} will request encryption but may fall back to plaintext when the peer does not offer it.${detailLine}\nScope: New ${selected.protocol} connections only.\nEncryption: Opportunistic, not guaranteed.\nCertificate trust: Checked only when STARTTLS is negotiated.\nEndpoint: ${endpoint}.\nAction: ${action}`;
+    }
     if (enabled) {
-      return `TLS Configured — ${selected.protocol} ${selected.mode} will use ${selected.secureName} on the next connection.\nScope: New ${selected.protocol} connections only.\nEncryption: Enabled in the UI.\nCertificate trust: Checked after connection.\nEndpoint: ${endpoint}.\nAction: ${action}\nAuth: Token status is shown separately by the key badge.`;
+      return `TLS Configured — ${selected.protocol} ${selected.mode} will use ${selected.secureName} on the next connection.${detailLine}\nScope: New ${selected.protocol} connections only.\nEncryption: Enabled in the UI.\nCertificate trust: Checked after connection.\nEndpoint: ${endpoint}.\nAction: ${action}\nAuth: Token status is shown separately by the key badge.`;
     }
 
-    return `TLS Off — ${selected.protocol} ${selected.mode} will use ${selected.unsecureName} / plaintext on the next connection.\nScope: New ${selected.protocol} connections only.\nEncryption: No.\nCertificate trust: Not applicable.\nEndpoint: ${endpoint}.\nAction: ${action}\nAuth: Token status is shown separately by the key badge.`;
+    return `TLS Off — ${selected.protocol} ${selected.mode} will use ${selected.unsecureName} on the next connection.${detailLine}\nScope: New ${selected.protocol} connections only.\nEncryption: No.\nCertificate trust: Not applicable.\nEndpoint: ${endpoint}.\nAction: ${action}\nAuth: Token status is shown separately by the key badge.`;
   }
 
   function getTlsBadgeTooltipForStatus() {
@@ -635,7 +842,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 🔐            = mTLS - key icon signals mutual authentication
     // 🔒✓           = TLS on, CA-verified certificate chain
     let trust, iconChar;
-    if (/tls configured|enabled in the ui|checked after connection/i.test(tooltip)) {
+    if (/STARTTLS Preferred|opportunistic/i.test(tooltip)) {
+      trust = 'opportunistic'; iconChar = '🔒?';
+    } else if (/tls configured|enabled in the ui|checked after connection/i.test(tooltip)) {
       trust = 'configured';  iconChar = '🔒…';
     } else if (/tls.*off|unsecure|plaintext/i.test(tooltip)) {
       trust = 'off';         iconChar = '🔓';
@@ -653,10 +862,12 @@ document.addEventListener('DOMContentLoaded', () => {
     badge.dataset.tlsToggleable = canToggleTlsFromFooter() && getSelectedTlsControl() ? 'true' : 'false';
     badge.dataset.tooltip = tooltip;
     badge.dataset.tooltipIcon = iconChar;
-    badge.dataset.tooltipKind = trust === 'off' || trust === 'self-signed' ? 'warning' : 'secure';
+    badge.dataset.tooltipKind = trust === 'off' || trust === 'self-signed' || trust === 'opportunistic'
+      ? 'warning'
+      : 'secure';
     badge.setAttribute('aria-label', tooltip.replace(/\n+/g, ' '));
     const selected = getSelectedTlsControl();
-    badge.setAttribute('aria-pressed', selected && selected.checkbox && selected.checkbox.checked ? 'true' : 'false');
+    badge.setAttribute('aria-pressed', selected && selected.isEnabled() ? 'true' : 'false');
     badge.style.display = 'flex';
     if (icon)    icon.textContent    = iconChar;
     if (content) content.textContent = tooltip;
@@ -738,7 +949,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // App state to emoji mapping
   const stateEmojis = {
     'disconnected': '🔴',
+    'connecting': '🟡',
     'connected': '🟢',
+    'signed in': '🔐',
+    'in room': '🏛',
+    'copied': '📋',
     'playing': '▶️',
     'paused': '⏸️',
     'stepped': '👣'
@@ -901,8 +1116,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Connection Management ---
   // Handles the logic for connecting to and disconnecting from a TCP/UDP endpoint.
   // Establishes connection to the specified endpoint.
-  connectButton.addEventListener('click', () => {
-    if (isConnected) return;
+  connectButton.addEventListener('click', async () => {
+    if (isConnected || isConnecting) return;
     const connectionType = connectionTypeSelect.value;
     const [protocol, mode] = connectionType.split('-');
     const ip = document.getElementById('ip-address').value;
@@ -932,6 +1147,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const wsSubscriptionMsg = wsSubscriptionMsgInput.value || undefined;
     const wsIgnoreFirstMsg = wsIgnoreFirstMsgCheckbox.checked;
     const wsHeaders = wsHeadersInput.value || undefined;
+    // XMPP-specific params
+    const xmppOptions = collectXmppConnectOptions(protocol, mode);
+    if (xmppOptions === null) return;
     // Reset session counter on new connection.
     linesSentThisSession = 0;
     const tlsLabel = protocol === 'grpc' ? (useTls ? ' tls=on' : ' tls=off') : '';
@@ -940,21 +1158,197 @@ document.addEventListener('DOMContentLoaded', () => {
     const headerLabel = protocol === 'grpc' && mode === 'client' ? ` ${headerPathKey}=${headerPath}` : '';
     const httpLabel = protocol === 'http' ? ` [${httpFormat}] ${httpTls ? 'tls=on' : 'tls=off'} path=${httpPath}` : '';
     const wsLabel = protocol === 'ws' ? ` [${wsFormat}] ${wsTls ? 'wss' : 'ws'} path=${wsPath}` : '';
-    logStatus(`Connecting via ${protocol.toUpperCase()} ${mode} to ${ip}:${port}${serLabel}${methodLabel}${tlsLabel}${headerLabel}${httpLabel}${wsLabel}...`);
+    const xmppLabel = protocol === 'xmpp' ? describeXmppConnectIntent(xmppOptions) : '';
+    logStatus(`Connecting via ${protocol.toUpperCase()} ${mode} to ${ip}:${port}${serLabel}${methodLabel}${tlsLabel}${headerLabel}${httpLabel}${wsLabel}${xmppLabel}...`);
     handleConnectionStatusChange('connecting');
-    window.api.connect({ protocol, mode, ip, port, grpcSerialization: serialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, wsFormat, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsPath, wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders });
+    const result = await window.api.connect({ protocol, mode, ip, port, grpcSerialization: serialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, wsFormat, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsPath, wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders, ...xmppOptions });
+    if (result && result.success === false) {
+      logStatus(`❌ ${result.error || 'The connection could not be started.'}`);
+      handleConnectionStatusChange('disconnected');
+    }
   });
 
+  /**
+   * Reads the XMPP options panel and validates the combinations that would
+   * otherwise fail deep inside the transport. Returns `null` when a required
+   * value is missing, after logging an actionable message and leaving the
+   * connection state untouched.
+   *
+   * @param {string} protocol
+   * @param {string} mode
+   * @returns {object|null}
+   */
+  function collectXmppConnectOptions(protocol, mode) {
+    if (protocol !== 'xmpp') return {};
+    const conversation = xmppConversationSelect ? xmppConversationSelect.value : 'direct';
+    const isMuc = conversation === 'muc';
+    const tlsPolicy = xmppTlsPolicySelect ? xmppTlsPolicySelect.value : 'required';
+    const tlsEnabled = tlsPolicy !== 'disabled';
+    const options = {
+      xmppConversation: conversation,
+      xmppDomain: (xmppDomainInput && xmppDomainInput.value.trim()) || 'localhost',
+      xmppTlsPolicy: tlsPolicy,
+      xmppConnectTimeoutMs: readPositiveNumber(xmppConnectTimeoutInput, 30000),
+      xmppReplyTimeoutMs: readPositiveNumber(xmppReplyTimeoutInput, 15000),
+    };
+
+    if (mode === 'client') {
+      options.xmppUsername = xmppUsernameInput ? xmppUsernameInput.value.trim() : '';
+      options.xmppPassword = xmppPasswordInput ? xmppPasswordInput.value : '';
+      options.xmppResource = (xmppResourceInput && xmppResourceInput.value.trim()) || 'velocity-simulator';
+      options.xmppTlsCaPath = tlsEnabled
+        ? (xmppTlsCaGroup && document.getElementById('xmpp-tls-ca-path').value) || undefined
+        : undefined;
+      options.xmppAllowUnverifiedTls = tlsEnabled &&
+        Boolean(xmppAllowUnverifiedCheckbox && xmppAllowUnverifiedCheckbox.checked);
+      options.xmppPingIntervalMs = readPositiveNumber(xmppPingIntervalInput, 60000);
+      options.xmppReconnectDelayMs = readPositiveNumber(xmppReconnectDelayInput, 60000);
+      if (!options.xmppUsername) {
+        return showXmppValidationError(xmppUsernameInput,
+          'XMPP Client requires a username. Enter the account to sign in with.');
+      }
+      if (!options.xmppPassword) {
+        return showXmppValidationError(xmppPasswordInput,
+          'XMPP Client requires a password. Enter the account password.');
+      }
+      const host = ipAddressInput.value.trim();
+      if (options.xmppAllowUnverifiedTls && !['localhost', '127.0.0.1', '::1'].includes(host)) {
+        return showXmppValidationError(xmppAllowUnverifiedCheckbox,
+          'Skip cert check is available only for localhost or another loopback address.');
+      }
+    } else {
+      options.xmppTlsCertPath = tlsEnabled
+        ? document.getElementById('xmpp-tls-cert-path').value || undefined
+        : undefined;
+      options.xmppTlsKeyPath = tlsEnabled
+        ? document.getElementById('xmpp-tls-key-path').value || undefined
+        : undefined;
+      options.xmppAllowRemote = Boolean(xmppAllowRemoteCheckbox && xmppAllowRemoteCheckbox.checked);
+      options.xmppExternalUsername = xmppExternalUsernameInput ? xmppExternalUsernameInput.value.trim() : '';
+      options.xmppExternalPassword = xmppExternalPasswordInput ? xmppExternalPasswordInput.value : '';
+      if (Boolean(options.xmppExternalUsername) !== Boolean(options.xmppExternalPassword)) {
+        return showXmppValidationError(
+          options.xmppExternalUsername ? xmppExternalPasswordInput : xmppExternalUsernameInput,
+          'The external XMPP account needs both a username and a password.');
+      }
+      if (!options.xmppExternalUsername) {
+        return showXmppValidationError(xmppExternalUsernameInput,
+          'XMPP Server requires one external account. Enter its username and password.');
+      }
+      if (Boolean(options.xmppTlsCertPath) !== Boolean(options.xmppTlsKeyPath)) {
+        return showXmppValidationError(
+          options.xmppTlsCertPath ? document.getElementById('xmpp-tls-key-path') : document.getElementById('xmpp-tls-cert-path'),
+          'XMPP Server TLS needs both a certificate and its private key. Leave both empty to use an automatic self-signed certificate.');
+      }
+      const host = ipAddressInput.value.trim();
+      if (!options.xmppAllowRemote && !['localhost', '127.0.0.1', '::1'].includes(host)) {
+        return showXmppValidationError(xmppAllowRemoteCheckbox,
+          'Enable Allow remote before binding the XMPP server to a non-loopback address.');
+      }
+    }
+
+    if (isMuc) {
+      options.xmppRoom = xmppRoomInput ? xmppRoomInput.value.trim() : '';
+      options.xmppNickname = (xmppNicknameInput && xmppNicknameInput.value.trim()) || 'velocity-simulator';
+      options.xmppRoomPassword = xmppRoomPasswordInput ? xmppRoomPasswordInput.value : '';
+      if (!options.xmppRoom) {
+        return showXmppValidationError(xmppRoomInput,
+          'Room (MUC) conversations require a room name or room JID.');
+      }
+      if (/[/@]/.test(options.xmppNickname)) {
+        return showXmppValidationError(xmppNicknameInput,
+          `The room nickname '${options.xmppNickname}' must not contain '/' or '@'.`);
+      }
+    } else {
+      const destination = xmppDestinationInput ? xmppDestinationInput.value.trim() : '';
+      options.xmppDestination = destination || undefined;
+      const entries = destination.split(',').map((entry) => entry.trim()).filter(Boolean);
+      if (mode === 'client' && entries.length === 0) {
+        return showXmppValidationError(xmppDestinationInput,
+          'Direct conversations require at least one destination JID, for example feed@example.com.');
+      }
+      if (entries.length > 20) {
+        return showXmppValidationError(xmppDestinationInput,
+          `At most 20 comma-separated destination JIDs are allowed; ${entries.length} were entered.`);
+      }
+      const invalid = entries.find((entry) => entry.includes('/') || !/^[^@\s]+@[^@\s/]+$/.test(entry));
+      if (invalid) {
+        return showXmppValidationError(xmppDestinationInput,
+          `'${invalid}' is not a bare destination JID. Use user@domain with no resource part.`);
+      }
+    }
+
+    return options;
+  }
+
+  function showXmppValidationError(control, message) {
+    extraOptionsExpanded = true;
+    if (extraOptionsBody) extraOptionsBody.style.display = '';
+    syncExtraOptionsToggleState();
+    if (control) {
+      control.setAttribute('aria-invalid', 'true');
+      control.focus();
+      control.addEventListener('input', () => control.removeAttribute('aria-invalid'), { once: true });
+      control.addEventListener('change', () => control.removeAttribute('aria-invalid'), { once: true });
+    }
+    logStatus(`❌ ${message}`);
+    return null;
+  }
+
+  /**
+   * Reads a positive integer from a numeric input, falling back to a default.
+   * Every XMPP timing is positive: zero neither disables a keepalive nor waits
+   * forever, so a blank, zero, or negative field falls back to the default.
+   */
+  function readPositiveNumber(input, fallback) {
+    if (!input) return fallback;
+    const parsed = parseInt(input.value, 10);
+    return Number.isInteger(parsed) && parsed >= 1 ? parsed : fallback;
+  }
+
+  /** Builds the status-log suffix describing what the XMPP connection will do. */
+  function describeXmppConnectIntent(options) {
+    const target = options.xmppConversation === 'muc'
+      ? `room ${options.xmppRoom} as '${options.xmppNickname}'`
+      : `→ ${options.xmppDestination || 'every signed-in account'}`;
+    return ` [${options.xmppConversation}] starttls=${options.xmppTlsPolicy} domain=${options.xmppDomain} ${target}`;
+  }
+
+  // XMPP: copy the settings a receiver needs to sign in to the built-in server.
+  if (xmppCopySettingsButton) {
+    xmppCopySettingsButton.addEventListener('click', async () => {
+      const includePassword = Boolean(xmppCopyPasswordCheckbox && xmppCopyPasswordCheckbox.checked);
+      try {
+        const result = await window.api.getXmppClientSettings({ includePassword });
+        if (!result || !result.success) {
+          logStatus(`❌ Could not build XMPP client settings: ${(result && result.error) || 'the XMPP server is not running.'}`);
+          return;
+        }
+        await navigator.clipboard.writeText(result.text);
+        logStatus(includePassword
+          ? '📋 XMPP client settings copied, including the external account password.'
+          : '📋 XMPP client settings copied. The account password was not copied.');
+        updateAppStateDisplay('Copied', 1500);
+        if (xmppCopyPasswordCheckbox) xmppCopyPasswordCheckbox.checked = false;
+      } catch (error) {
+        logStatus(`❌ Could not copy XMPP client settings: ${error.message}`);
+      }
+    });
+  }
+
   // Terminates the active connection.
-  disconnectButton.addEventListener('click', () => {
-    if (!isConnected) return;
+  disconnectButton.addEventListener('click', async () => {
+    if (!isConnected && !isConnecting) return;
     linesSentThisSession = 0;
     // If data is being sent, pause it before disconnecting.
     if (isSending) {
       playPauseButton.click();
     }
     logStatus('Disconnecting...');
-    window.api.disconnect();
+    const result = await window.api.disconnect();
+    if (result && result.success === false) {
+      logStatus(`❌ ${result.error || 'The connection could not be closed.'}`);
+    }
   });
 
   /**
@@ -1304,6 +1698,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.api.onConnectionStatusChanged((status, message) => {
     logStatus(message);
+    if (status === 'authenticated') {
+      updateAppStateDisplay('Signed in', 1500);
+      return;
+    }
+    if (status === 'room') {
+      updateAppStateDisplay('In room', 1500);
+      return;
+    }
     // Extract the tlsInfo detail (embedded after '\n  ' by main.js) and build a tooltip.
     // Clear it when disconnecting so a stale tooltip is never shown.
     if (status === 'connected') {
@@ -1393,6 +1795,46 @@ document.addEventListener('DOMContentLoaded', () => {
       if (presets.wsIgnoreFirstMsg !== undefined) { const el = document.getElementById('ws-ignore-first-msg'); if (el) el.checked = presets.wsIgnoreFirstMsg === true || presets.wsIgnoreFirstMsg === 'true'; }
       if (presets.wsHeaders !== undefined) { const el = document.getElementById('ws-headers'); if (el) el.value = presets.wsHeaders; }
 
+      // XMPP presets
+      const applyXmppText = (key, id) => {
+        if (presets[key] === undefined) return;
+        const el = document.getElementById(id);
+        if (el) el.value = presets[key] === null ? '' : presets[key];
+      };
+      const applyXmppCheck = (key, id) => {
+        if (presets[key] === undefined) return;
+        const el = document.getElementById(id);
+        if (el) el.checked = presets[key] === true || presets[key] === 'true';
+      };
+      if (presets.xmppConversation !== undefined && xmppConversationSelect) {
+        xmppConversationSelect.value = presets.xmppConversation;
+        xmppConversationSelect.dispatchEvent(new Event('change'));
+      }
+      if (presets.xmppTlsPolicy !== undefined && xmppTlsPolicySelect) {
+        xmppTlsPolicySelect.value = presets.xmppTlsPolicy;
+        xmppTlsPolicySelect.dispatchEvent(new Event('change'));
+      }
+      applyXmppText('xmppDomain', 'xmpp-domain');
+      applyXmppText('xmppTlsCaPath', 'xmpp-tls-ca-path');
+      applyXmppText('xmppTlsCertPath', 'xmpp-tls-cert-path');
+      applyXmppText('xmppTlsKeyPath', 'xmpp-tls-key-path');
+      applyXmppText('xmppUsername', 'xmpp-username');
+      applyXmppText('xmppPassword', 'xmpp-password');
+      applyXmppText('xmppResource', 'xmpp-resource');
+      applyXmppText('xmppExternalUsername', 'xmpp-external-username');
+      applyXmppText('xmppExternalPassword', 'xmpp-external-password');
+      applyXmppText('xmppDestination', 'xmpp-destination');
+      applyXmppText('xmppRoom', 'xmpp-room');
+      applyXmppText('xmppNickname', 'xmpp-nickname');
+      applyXmppText('xmppRoomPassword', 'xmpp-room-password');
+      applyXmppText('xmppConnectTimeoutMs', 'xmpp-connect-timeout');
+      applyXmppText('xmppReplyTimeoutMs', 'xmpp-reply-timeout');
+      applyXmppText('xmppPingIntervalMs', 'xmpp-ping-interval');
+      applyXmppText('xmppReconnectDelayMs', 'xmpp-reconnect-delay');
+      applyXmppCheck('xmppAllowUnverifiedTls', 'xmpp-allow-unverified');
+      applyXmppCheck('xmppAllowRemote', 'xmpp-allow-remote');
+      updateXmppOptionsVisibility();
+
       if (presets.intervalMs !== undefined) document.getElementById('rate-ms').value = presets.intervalMs;
       if (presets.linesPerInterval !== undefined) document.getElementById('lines-per-interval').value = presets.linesPerInterval;
       if (presets.loop !== undefined) {
@@ -1460,11 +1902,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function handleConnectionStatusChange(status) {
     switch (status) {
       case 'connected':
+        isConnecting = false;
         isConnected = true;
         toggleConnectionInputs(true);
         updateAppStateDisplay();
         break;
       case 'disconnected':
+        isConnecting = false;
         isConnected = false;
         isSending = false;
         isPaused = false;
@@ -1474,10 +1918,12 @@ document.addEventListener('DOMContentLoaded', () => {
         updateAppStateDisplay();
         break;
       case 'connecting':
+        isConnecting = true;
         isConnected = false;
         connectButton.disabled = true;
-        disconnectButton.disabled = true;
-        updateAppStateDisplay();
+        disconnectButton.disabled = false;
+        setXmppControlsLocked(true);
+        updateAppStateDisplay('Connecting');
         break;
     }
   }
@@ -1580,10 +2026,25 @@ document.addEventListener('DOMContentLoaded', () => {
     httpPathInput.disabled = connected;
     document.getElementById('ip-address').disabled = connected;
     document.getElementById('port').disabled = connected;
+    setXmppControlsLocked(connected);
     
     // Enable sending controls only if connected and file is loaded
     playPauseButton.disabled = !connected || csvLines.length === 0;
     sendManualButton.disabled = !connected || csvLines.length === 0;
+  }
+
+  function setXmppControlsLocked(locked) {
+    document.querySelectorAll('#extra-options-body input[id^="xmpp-"], #extra-options-body select[id^="xmpp-"]')
+      .forEach((control) => {
+        if (control === xmppCopyPasswordCheckbox) return;
+        control.disabled = locked;
+      });
+    const canCopy = isConnected && connectionTypeSelect.value === 'xmpp-server';
+    if (xmppCopySettingsButton) xmppCopySettingsButton.disabled = !canCopy;
+    if (xmppCopyPasswordCheckbox) {
+      xmppCopyPasswordCheckbox.disabled = !canCopy;
+      if (!canCopy) xmppCopyPasswordCheckbox.checked = false;
+    }
   }
   
   function toggleSendingControls(sending) {
@@ -2078,9 +2539,11 @@ document.addEventListener('DOMContentLoaded', () => {
         tlsBadgeEl.classList.toggle('pinned');
         return;
       }
-      selected.checkbox.checked = !selected.checkbox.checked;
-      selected.checkbox.dispatchEvent(new Event('change'));
-      logStatus(selected.checkbox.checked
+      selected.toggle();
+      // Re-read the control so the log reflects the new state rather than the
+      // value captured when the descriptor was created.
+      const nowEnabled = Boolean(getSelectedTlsControl()?.isEnabled());
+      logStatus(nowEnabled
         ? `🔒 TLS enabled for ${selected.protocol} ${selected.mode}`
         : `🔓 TLS disabled for ${selected.protocol} ${selected.mode}`);
       refreshTlsBadge();
@@ -2264,4 +2727,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 });
-

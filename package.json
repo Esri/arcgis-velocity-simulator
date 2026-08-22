@@ -29,7 +29,11 @@
     "test:preload": "node test/preload.test.js",
     "test:about": "node test/about.test.js",
     "test:grpc": "node test/grpc-transport.test.js",
-    "test:docs": "open docs/TESTING.md",
+    "test:xmpp": "node test/xmpp-core.test.js",
+    "test:xmpp-transport": "node test/xmpp-transport.test.js",
+    "test:xmpp-secrets": "node test/xmpp-secrets.test.js",
+    "test:xmpp-parity": "node test/xmpp-parity.test.js",
+    "test:docs": "open docs/developer-guide.md",
     "docs:check-links": "node scripts/check-doc-links.js",
     "check:build-prereqs": "node scripts/check-build-prereqs.js",
     "prereqs:check": "node scripts/check-build-prereqs.js",
@@ -148,6 +152,10 @@
   "dependencies": {
     "@grpc/grpc-js": "^1.14.3",
     "@grpc/proto-loader": "^0.8.0",
+    "@xmpp/client": "^0.14.0",
+    "@xmpp/jid": "^0.14.0",
+    "@xmpp/tls": "^0.14.0",
+    "@xmpp/xml": "^0.14.0",
     "protobufjs": "^8.0.1",
     "selfsigned": "^2.4.1",
     "ws": "^8.20.0"

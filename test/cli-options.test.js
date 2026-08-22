@@ -269,6 +269,132 @@ async function runCliOptionsTests() {
 
   runTest('Headless gRPC explain output shows grpcSendMethod', () => headlessGrpcExplainOutput.includes('grpcSendMethod'));
 
+  console.log('\n--- Test 8: XMPP CLI options ---');
+  const xmppClient = parseCommandLineArgs(createArgv([
+    'runMode=headless',
+    'filename=./data.csv',
+    'protocol=xmpp',
+    'ip=127.0.0.1',
+    'xmppUsername=Receiver@Example.TEST',
+    'xmppPassword=  whitespace secret  ',
+    'xmppDestination=Feed@Example.TEST, feed@example.test',
+  ]));
+  runTest('XMPP defaults to client without changing app-wide defaults', () =>
+    xmppClient.mode === 'headless' &&
+    xmppClient.headless.mode === 'client' &&
+    xmppClient.headless.port === 5222 &&
+    xmppClient.headless.xmppTlsPolicy === 'required' &&
+    defaultUiResult.ui.presets === null);
+  runTest('XMPP CLI preserves password whitespace', () =>
+    xmppClient.headless.xmppPassword === '  whitespace secret  ');
+  runTest('XMPP destinations are trimmed, canonicalized, and deduplicated', () =>
+    xmppClient.headless.xmppDestination === 'feed@example.test');
+
+  const xmppUiPreset = parseCommandLineArgs(createArgv(['protocol=xmpp']));
+  runTest('XMPP UI preset defaults to the client role', () =>
+    xmppUiPreset.ui.presets.protocol === 'xmpp' && xmppUiPreset.ui.presets.mode === 'client');
+
+  const xmppServerPairError = parseCommandLineArgs(createArgv([
+    'runMode=headless', 'filename=./data.csv', 'protocol=xmpp', 'mode=server',
+    'ip=127.0.0.1', 'xmppTlsCertPath=./cert.pem',
+  ]));
+  runTest('XMPP server cert and key paths are validated as a pair', () =>
+    xmppServerPairError.errors.some((error) => /requires both.*xmppTlsCertPath.*xmppTlsKeyPath/i.test(error)));
+
+  const xmppReservedIdentity = parseCommandLineArgs(createArgv([
+    'runMode=headless', 'filename=./data.csv', 'protocol=xmpp', 'mode=server',
+    'ip=127.0.0.1', 'xmppExternalUsername=Velocity-Simulator',
+    'xmppExternalPassword=secret',
+  ]));
+  runTest('XMPP server rejects mixed-case reserved identity collisions', () =>
+    xmppReservedIdentity.errors.some((error) => /reserved velocity-simulator identity/i.test(error)));
+
+  const xmppMissingExternal = parseCommandLineArgs(createArgv([
+    'runMode=headless', 'filename=./data.csv', 'protocol=xmpp', 'mode=server',
+    'ip=127.0.0.1',
+  ]));
+  runTest('XMPP server requires exactly one configurable external account', () =>
+    xmppMissingExternal.errors.some((error) =>
+      /requires 'xmppExternalUsername' and 'xmppExternalPassword'/i.test(error)));
+
+  const xmppExplain = formatExplainOutput(xmppClient);
+  runTest('XMPP explain output includes active settings but redacts secrets', () =>
+    xmppExplain.includes('xmppTlsPolicy') &&
+    xmppExplain.includes('xmppDestination') &&
+    !xmppExplain.includes('whitespace secret'));
+
+  const xmppHelp = getCommandHelpText({ layout: 'detailed' });
+  runTest('Detailed CLI help documents XMPP policy, roles, and conversation settings', () =>
+    xmppHelp.includes('xmppTlsPolicy') &&
+    xmppHelp.includes('xmppConversation') &&
+    xmppHelp.includes('protocol=xmpp'));
+
+  runTest('XMPP server key path without a certificate is rejected as an unpaired source', () =>
+    parseCommandLineArgs(createArgv([
+      'runMode=headless', 'filename=./data.csv', 'protocol=xmpp', 'mode=server',
+      'ip=127.0.0.1', 'xmppTlsKeyPath=./server-key.pem',
+      'xmppExternalUsername=receiver', 'xmppExternalPassword=secret',
+    ])).errors.some((error) => /requires both.*xmppTlsCertPath.*xmppTlsKeyPath/i.test(error)));
+
+  runTest('XMPP reserved identity collisions are detected canonically, including a domain suffix', () =>
+    parseCommandLineArgs(createArgv([
+      'runMode=headless', 'filename=./data.csv', 'protocol=xmpp', 'mode=server',
+      'ip=127.0.0.1', 'xmppExternalUsername=VELOCITY-SIMULATOR@Example.TEST',
+      'xmppExternalPassword=secret',
+    ])).errors.some((error) => /reserved velocity-simulator identity/i.test(error)));
+
+  const xmppTimingDefaults = xmppClient.headless;
+  runTest('XMPP timings default to 30000/15000/60000/60000 ms', () =>
+    xmppTimingDefaults.xmppConnectTimeoutMs === 30000 &&
+    xmppTimingDefaults.xmppReplyTimeoutMs === 15000 &&
+    xmppTimingDefaults.xmppPingIntervalMs === 60000 &&
+    xmppTimingDefaults.xmppReconnectDelayMs === 60000);
+
+  runTest('Every XMPP timing rejects zero and negative values', () =>
+    ['xmppConnectTimeoutMs', 'xmppReplyTimeoutMs', 'xmppPingIntervalMs', 'xmppReconnectDelayMs']
+      .every((key) => [0, -1].every((value) => parseCommandLineArgs(createArgv([
+        'runMode=headless', 'filename=./data.csv', 'protocol=xmpp', 'ip=127.0.0.1',
+        'xmppUsername=receiver', 'xmppPassword=secret', 'xmppDestination=feed@example.test',
+        `${key}=${value}`,
+      ])).errors.some((error) => new RegExp(`'${key}' must be >= 1`).test(error)))));
+
+  runTest('xmppReconnectDelayMs is accepted in client mode and warned about in server mode', () => {
+    const client = parseCommandLineArgs(createArgv([
+      'runMode=headless', 'filename=./data.csv', 'protocol=xmpp', 'ip=127.0.0.1',
+      'xmppUsername=receiver', 'xmppPassword=secret', 'xmppDestination=feed@example.test',
+      'xmppReconnectDelayMs=90000',
+    ]));
+    const server = parseCommandLineArgs(createArgv([
+      'runMode=headless', 'filename=./data.csv', 'protocol=xmpp', 'mode=server', 'ip=127.0.0.1',
+      'xmppExternalUsername=receiver', 'xmppExternalPassword=secret',
+      'xmppReconnectDelayMs=90000',
+    ]));
+    return client.headless.xmppReconnectDelayMs === 90000 &&
+      client.errors.length === 0 &&
+      server.warnings.some((warning) =>
+        /'xmppReconnectDelayMs' is only used by the XMPP client role/.test(warning));
+  });
+
+  runTest('CLI help and parameter reference document xmppReconnectDelayMs without zero-disable claims', () => {
+    const detailed = getCommandHelpText({ layout: 'detailed' });
+    const wide = getCommandHelpText({ layout: 'table-wide' });
+    const xmppTimingHelp = [detailed, wide].join('\n');
+    return xmppTimingHelp.includes('xmppReconnectDelayMs') &&
+      !/xmppPingIntervalMs[\s\S]{0,400}?0 disables/i.test(xmppTimingHelp) &&
+      !/xmppConnectTimeoutMs[\s\S]{0,400}?0 waits indefinitely/i.test(xmppTimingHelp);
+  });
+
+  runTest('The XMPP CLI parameter reference stays sorted and complete', () => {
+    const reference = getCommandLineReferenceData().parameters.map((entry) => entry.name);
+    const xmppKeys = reference.filter((key) => key.startsWith('xmpp'));
+    const sorted = [...xmppKeys].sort((a, b) => a.localeCompare(b));
+    return xmppKeys.join(',') === sorted.join(',') &&
+      xmppKeys.includes('xmppReconnectDelayMs') &&
+      xmppKeys.includes('xmppConversation') &&
+      xmppKeys.includes('xmppAllowUnverifiedTls') &&
+      !reference.some((key) => key === 'xmppHost');
+  });
+
   console.log('\n=== Test Results ===');
   console.log(`✅ Passed: ${passed}`);
   console.log(`❌ Failed: ${failed}`);
@@ -285,5 +411,3 @@ if (require.main === module) {
     process.exit(1);
   });
 }
-
-

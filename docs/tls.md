@@ -1,28 +1,86 @@
-# TLS / SSL Security
+# TLS and SSL security
 
-This document covers all aspects of TLS (Transport Layer Security) support in the ArcGIS Velocity Simulator: certificate type taxonomy, platform-specific behaviour (macOS / Linux / Windows), certificate file formats, OS trust store integration, working with a custom CA, mutual TLS (mTLS), the TLS Trust Badge, and per-protocol notes.
+[← Documentation index](README.md) · [Repository overview](../README.md#documentation)
 
-> **Terminology:** This documentation uses **"unsecure"** (not "insecure") for connections that lack TLS/encryption. Third-party API identifiers such as `createInsecure()` are left unchanged.
+This guide covers every aspect of TLS (Transport Layer Security) support in the
+ArcGIS Velocity Simulator: the certificate type taxonomy, platform-specific
+behavior on macOS, Linux, and Windows, certificate file formats, operating
+system trust store integration, working with a custom certificate authority,
+mutual TLS, the TLS Trust Badge, and per-protocol notes.
 
----
+It is written for users securing a session and for developers extending a
+transport. OpenSSL is used for the certificate examples; the per-transport
+guides listed under [Related documentation](#related-documentation) describe how
+each protocol exposes these settings.
 
-## Supported Protocols
+> [!NOTE]
+> This documentation uses "unsecure" (not "insecure") for connections that lack
+> TLS or encryption. Third-party API identifiers such as `createInsecure()` are
+> left unchanged.
 
-TLS is supported on three transports:
+## Table of contents
+
+- [Supported protocols](#supported-protocols)
+- [CLI parameters](#cli-parameters)
+- [Certificate types](#certificate-types)
+- [Platform-specific notes](#platform-specific-notes)
+- [Certificate file formats](#certificate-file-formats)
+- [Working with a custom certificate authority](#working-with-a-custom-certificate-authority)
+- [OS certificate stores (client mode)](#os-certificate-stores-client-mode)
+- [Server-mode TLS: automatic self-signed certificate](#server-mode-tls-automatic-self-signed-certificate)
+- [Mutual TLS (mTLS)](#mutual-tls-mtls)
+- [TLS Trust Badge](#tls-trust-badge)
+- [Per-protocol notes](#per-protocol-notes)
+- [Quick-start examples](#quick-start-examples)
+- [Related documentation](#related-documentation)
+
+## Supported protocols
+
+TLS is supported on four transports:
 
 | Protocol | Client mode | Server mode | Notes |
 |----------|-------------|-------------|-------|
-| **HTTP** | ✅ HTTPS | ✅ HTTPS | Default port 8443 when `useTls=true` |
-| **WebSocket** | ✅ WSS | ✅ WSS | Default port 8443 when `useTls=true` |
-| **gRPC** | ✅ SSL credentials | ✅ SSL credentials | Mandatory HTTP/2; TLS controlled via `useTls` flag |
+| **HTTP** | ✅ HTTPS | ✅ HTTPS | Default port 8443 when `useTls=true`. |
+| **WebSocket** | ✅ WSS | ✅ WSS | Default port 8443 when `useTls=true`. |
+| **gRPC** | ✅ SSL credentials | ✅ SSL credentials | Mandatory HTTP/2; TLS controlled via `useTls` flag. |
+| **XMPP** | ✅ STARTTLS | ✅ STARTTLS | Default port 5222; controlled by a three-value `xmppTlsPolicy` rather than an on/off flag. No mTLS. |
 
-**TCP and UDP** do not support TLS. TCP uses a plain line-delimited protocol matching ArcGIS Velocity's native TCP feed format. UDP is connectionless and DTLS is not supported by Node.js's built-in `dgram` module.
+**TCP and UDP** do not support TLS. TCP uses a plain line-delimited protocol
+matching ArcGIS Velocity's native TCP feed format. UDP is connectionless and
+DTLS is not supported by Node.js's built-in `dgram` module.
 
----
+### XMPP is different: STARTTLS, not an on/off flag
 
-## CLI Parameters
+XMPP upgrades an already-open plaintext stream in-band (RFC 6120 §5), so it uses
+its own parameters instead of the shared `useTls` / `tlsCaPath` / `tlsCertPath`
+/ `tlsKeyPath` set:
 
-These parameters apply to all TLS-capable protocols (HTTP, WebSocket, gRPC):
+| XMPP parameter | Equivalent shared parameter | Notes |
+|----------------|-----------------------------|-------|
+| `xmppTlsPolicy` | `useTls` | `required` (default), `preferred`, or `disabled` |
+| `xmppTlsCaPath` | `tlsCaPath` | Client only |
+| `xmppTlsCertPath` / `xmppTlsKeyPath` | `tlsCertPath` / `tlsKeyPath` | Server only; auto self-signed when omitted |
+| `xmppAllowUnverifiedTls` | *(none)* | Explicit loopback-only verification bypass |
+
+The XMPP host is the shared top-level `ip` parameter; there is no `xmppHost`
+key. `xmppDomain` is the served or authenticated XMPP domain and may
+legitimately differ from `ip`, which is what makes `xmppTlsCaPath` necessary
+when connecting to an address whose certificate names the domain.
+
+`required` refuses to send a credential over a plaintext stream: the client
+aborts **before SASL** when the peer's stream features never offer STARTTLS, so
+no `<auth/>` element and therefore no credential ever reaches the wire.
+`preferred` upgrades when the peer offers it. `disabled` means "do not require
+TLS", not "refuse TLS": the built-in server stops advertising STARTTLS, but as a
+client the underlying xmpp.js stack still performs an upgrade a third-party
+server advertises. The TLS Trust Badge names the active policy, and clicking it
+while disconnected flips between the encrypted default and `disabled`. See [XMPP
+transport](xmpp.md) for the full behavior table.
+
+## CLI parameters
+
+These parameters apply to the HTTP, WebSocket, and gRPC transports. XMPP uses
+the `xmpp*` equivalents listed above:
 
 | Parameter | Description |
 |-----------|-------------|
@@ -31,15 +89,15 @@ These parameters apply to all TLS-capable protocols (HTTP, WebSocket, gRPC):
 | `tlsCertPath` | Path to a client/server certificate PEM file. Required for server-mode TLS; required in client mode only for mTLS. |
 | `tlsKeyPath` | Path to a private key PEM file. Required for server-mode TLS and client-side mTLS. |
 
----
+## Certificate types
 
-## Certificate Types
+Understanding the different certificate types is key to knowing which parameter
+to use and what level of trust each provides.
 
-Understanding the different certificate types is key to knowing which parameter to use and what level of trust each provides.
+### 1. Self-signed certificate
 
-### 1. Self-Signed Certificate
-
-A certificate that is signed by its own private key rather than by a CA. It contains both the subject and the issuer fields pointing to the same entity.
+A certificate that is signed by its own private key rather than by a CA. It
+contains both the subject and the issuer fields pointing to the same entity.
 
 **Characteristics:**
 - Zero-cost — no CA needed
@@ -64,11 +122,11 @@ openssl req -x509 -newkey rsa:4096 \
 ```
 `-nodes` omits the passphrase so the app can load the key without a prompt.
 
----
+### 2. CA certificate (root CA)
 
-### 2. CA Certificate (Root CA)
-
-A CA (Certificate Authority) certificate is a self-signed certificate whose purpose is to **sign other certificates**. The `CA:TRUE` Basic Constraints extension marks it as a trust anchor.
+A CA (Certificate Authority) certificate is a self-signed certificate whose
+purpose is to **sign other certificates**. The `CA:TRUE` Basic Constraints
+extension marks it as a trust anchor.
 
 **Characteristics:**
 - Trusted by adding it to a client's trust store (via `tlsCaPath`, or the OS certificate store)
@@ -76,17 +134,19 @@ A CA (Certificate Authority) certificate is a self-signed certificate whose purp
 - The CA private key (`ca-key.pem`) must be kept secure — anyone with it can issue trusted certs
 - Typically long-lived (5–10 years)
 
-**When to use:** When you want several servers/clients to trust each other without touching the OS store on every machine. Create one CA, distribute `ca.pem` via `tlsCaPath`, and issue as many server/client certs as you need.
+**When to use:** When you want several servers/clients to trust each other
+without touching the OS store on every machine. Create one CA, distribute
+`ca.pem` via `tlsCaPath`, and issue as many server/client certs as you need.
 
 **How it maps to the app:**
 - Set `tlsCaPath=./certs/ca.pem` on any client to trust servers whose certs were signed by this CA
 - The TLS Trust Badge shows 🔒✓ (green) when the chain verifies successfully
 
----
+### 3. CA-signed server certificate
 
-### 3. CA-Signed Server Certificate
-
-A certificate issued and signed by a CA (your own private CA, or a public one like Let's Encrypt / DigiCert). The client verifies the chain: `server cert → intermediate CA (if any) → root CA`.
+A certificate issued and signed by a CA (your own private CA, or a public one
+like Let's Encrypt / DigiCert). The client verifies the chain: `server cert →
+intermediate CA (if any) → root CA`.
 
 **Characteristics:**
 - Trusted by any client that trusts the CA
@@ -99,11 +159,10 @@ A certificate issued and signed by a CA (your own private CA, or a public one li
 - Clients using the same CA set `tlsCaPath=./certs/ca.pem`; clients using a public CA need no `tlsCaPath` at all (the OS store covers it)
 - The TLS Trust Badge shows 🔒✓ (green)
 
----
+### 4. Client certificate (for mTLS)
 
-### 4. Client Certificate (for mTLS)
-
-A certificate presented by the **client** to the server during the TLS handshake. It proves the client's identity, not just the server's.
+A certificate presented by the **client** to the server during the TLS
+handshake. It proves the client's identity, not just the server's.
 
 **Characteristics:**
 - Signed by the same CA the server trusts
@@ -115,11 +174,11 @@ A certificate presented by the **client** to the server during the TLS handshake
 - The TLS Trust Badge shows 🔐 (blue/cyan) when the app detects mutual auth
 - See [Mutual TLS (mTLS)](#mutual-tls-mtls) for the full workflow
 
----
+### 5. Intermediate CA certificate
 
-### 5. Intermediate CA Certificate
-
-An optional layer between the root CA and end-entity certs. The root CA signs the intermediate; the intermediate signs server/client certs. This keeps the root CA key offline.
+An optional layer between the root CA and end-entity certs. The root CA signs
+the intermediate; the intermediate signs server/client certs. This keeps the
+root CA key offline.
 
 **Characteristics:**
 - Has `CA:TRUE` + `pathLenConstraint` in Basic Constraints
@@ -140,25 +199,26 @@ cat intermediate.pem ca.pem > ca-chain.pem
 Get-Content intermediate.pem, ca.pem | Set-Content ca-chain.pem
 ```
 
----
+### 6. OS and system certificate store (public root CAs)
 
-### 6. OS / System Certificate Store (Public Root CAs)
-
-Public root CAs (DigiCert, Let's Encrypt ISRG Root, etc.) are pre-installed in the operating system certificate store. No `tlsCaPath` is needed when connecting to servers with publicly issued certificates — the app reads the OS store automatically.
+Public root CAs (DigiCert, Let's Encrypt ISRG Root, etc.) are pre-installed in
+the operating system certificate store. No `tlsCaPath` is needed when connecting
+to servers with publicly issued certificates — the app reads the OS store
+automatically.
 
 **How it maps to the app:**
 - Omit `tlsCaPath` entirely; the app merges Node.js bundled CAs with the OS store
 - The TLS Trust Badge shows 🔒 (amber) — TLS on, but the exact trust level is not determinable from the cert info string alone
 
----
-
-## Platform-Specific Notes
+## Platform-specific notes
 
 ### macOS
 
 #### OpenSSL availability
 
-macOS ships with **LibreSSL** on the `openssl` command, not the OpenSSL project's binary. The `-addext` flag (used for SANs) requires OpenSSL ≥ 1.1.1 and is **not supported** by LibreSSL. Options:
+macOS ships with **LibreSSL** on the `openssl` command, not the OpenSSL
+project's binary. The `-addext` flag (used for SANs) requires OpenSSL ≥ 1.1.1
+and is **not supported** by LibreSSL. Options:
 
 ```bash
 # Install OpenSSL via Homebrew (recommended)
@@ -170,11 +230,13 @@ brew install openssl
 export PATH="/opt/homebrew/opt/openssl@3/bin:$PATH"
 ```
 
-Alternatively use an `openssl.cnf` extension file (see [Subject Alternative Names without -addext](#subject-alternative-names-san-without--addext) below).
+Alternatively use an `openssl.cnf` extension file (see [Subject Alternative
+Names without -addext](#subject-alternative-names-san-without--addext) below).
 
 #### OS certificate store
 
-The app reads the **System** and **SystemRoot** keychains using `security find-certificate -a -p`. This includes:
+The app reads the **System** and **SystemRoot** keychains using `security
+find-certificate -a -p`. This includes:
 - All certs in `/System/Library/Keychains/SystemRootCertificates.keychain`
 - All certs in `/Library/Keychains/System.keychain`
 - **Not** the user's login keychain by default
@@ -188,20 +250,20 @@ sudo security add-trusted-cert \
   ca.pem
 ```
 
-After this, clients on the same Mac that read the system keychain — including the app — will trust certs signed by your CA **without** needing `tlsCaPath`.
+After this, clients on the same Mac that read the system keychain — including
+the app — will trust certs signed by your CA **without** needing `tlsCaPath`.
 
 **Removing it:**
 ```bash
 sudo security remove-trusted-cert -d ca.pem
 ```
 
----
-
 ### Linux
 
 #### OpenSSL availability
 
-OpenSSL is typically pre-installed (`openssl version`). On minimal images you may need:
+OpenSSL is typically pre-installed (`openssl version`). On minimal images you
+may need:
 ```bash
 # Debian / Ubuntu
 sudo apt-get install openssl
@@ -220,7 +282,8 @@ All bash examples in this document work unchanged on Linux.
 | RHEL / CentOS / Fedora | `/etc/pki/tls/certs/ca-bundle.crt` | `sudo update-ca-trust` |
 | Alpine | `/etc/ssl/cert.pem` | `sudo update-ca-certificates` |
 
-The app tries all three bundle paths in order. If none exists, it falls back to the Node.js bundled CAs.
+The app tries all three bundle paths in order. If none exists, it falls back to
+the Node.js bundled CAs.
 
 **Adding a private CA to the Linux trust store:**
 
@@ -236,9 +299,8 @@ sudo cp ca.pem /etc/pki/ca-trust/source/anchors/my-ca.pem
 sudo update-ca-trust extract
 ```
 
-After this, the app picks up the new CA from the system bundle automatically — no `tlsCaPath` needed.
-
----
+After this, the app picks up the new CA from the system bundle automatically —
+no `tlsCaPath` needed.
 
 ### Windows
 
@@ -269,7 +331,8 @@ openssl req -x509 -newkey rsa:4096 `
   -subj "/CN=localhost"
 ```
 
-The `<(printf ...)` process substitution used for SANs in the bash `openssl x509 -extfile` step is **not available** in cmd or PowerShell. Use a file instead:
+The `<(printf ...)` process substitution used for SANs in the bash `openssl x509
+-extfile` step is **not available** in cmd or PowerShell. Use a file instead:
 
 ```powershell
 # Write SAN extension to a temp file
@@ -287,7 +350,10 @@ Remove-Item san.cnf
 
 #### OS certificate store
 
-The app reads the Windows **LocalMachine\Root** and **CurrentUser\Root** certificate stores via PowerShell and exports the raw DER bytes as PEM. This is the same set of trusted CAs that Internet Explorer / Edge / Chrome use on Windows.
+The app reads the Windows **LocalMachine\Root** and **CurrentUser\Root**
+certificate stores via PowerShell and exports the raw DER bytes as PEM. This is
+the same set of trusted CAs that Internet Explorer / Edge / Chrome use on
+Windows.
 
 **Adding a private CA to the Windows trust store:**
 
@@ -297,7 +363,8 @@ Import-Certificate -FilePath "ca.pem" `
   -CertStoreLocation Cert:\LocalMachine\Root
 ```
 
-Or via the MMC snap-in: `certmgr.msc` → Trusted Root Certification Authorities → Import.
+Or via the MMC snap-in: `certmgr.msc` → Trusted Root Certification Authorities →
+Import.
 
 After this, the app trusts your CA from the OS store — no `tlsCaPath` needed.
 
@@ -312,11 +379,10 @@ Remove-Item Cert:\LocalMachine\Root\<THUMBPRINT>
 
 > `Import-Certificate` requires `.cer`/`.crt` (DER or PEM). PEM files work as-is on modern Windows; if you get an error, rename `ca.pem` to `ca.crt`.
 
----
+### Subject alternative names (SAN) without `-addext`
 
-### Subject Alternative Names (SAN) without `-addext`
-
-If your OpenSSL does not support `-addext` (LibreSSL on macOS, older OpenSSL builds), write an extensions config file instead:
+If your OpenSSL does not support `-addext` (LibreSSL on macOS, older OpenSSL
+builds), write an extensions config file instead:
 
 ```bash
 # san.cnf
@@ -349,27 +415,28 @@ openssl x509 -req -days 365 \
   -extensions v3_req
 ```
 
----
+## Certificate file formats
 
-## Certificate File Formats
-
-All certificate and key files must be in **PEM** format (Base64-encoded DER with `-----BEGIN CERTIFICATE-----` / `-----BEGIN PRIVATE KEY-----` ASCII-armour headers). Both RSA (2048-bit minimum; 4096-bit recommended) and ECDSA (`prime256v1` / `secp384r1`) keys are accepted.
+All certificate and key files must be in **PEM** format (Base64-encoded DER with
+`-----BEGIN CERTIFICATE-----` / `-----BEGIN PRIVATE KEY-----` ASCII-armour
+headers). Both RSA (2048-bit minimum; 4096-bit recommended) and ECDSA
+(`prime256v1` / `secp384r1`) keys are accepted.
 
 ### Certificate parameter roles
 
 | Parameter | Holds | When required |
 |-----------|-------|---------------|
-| `tlsCertPath` | Server certificate **or** client certificate (mTLS) | Server mode always; client mode only for mTLS |
-| `tlsKeyPath` | Private key matching `tlsCertPath` | Server mode always; client mode only for mTLS |
-| `tlsCaPath` | CA certificate (or chain) that issued `tlsCertPath` | Client mode when the server cert was signed by a private CA not in the OS store; server mode when verifying client certs |
+| `tlsCertPath` | Server certificate **or** client certificate (mTLS). | Server mode always; client mode only for mTLS. |
+| `tlsKeyPath` | Private key matching `tlsCertPath`. | Server mode always; client mode only for mTLS. |
+| `tlsCaPath` | CA certificate (or chain) that issued `tlsCertPath`. | Client mode when the server cert was signed by a private CA not in the OS store; server mode when verifying client certs. |
 
----
+## Working with a custom certificate authority
 
-## Working with a Custom Certificate Authority
+Using your own CA gives you full control over which certificates are trusted —
+useful for private infrastructure, enterprise environments, or testing without
+buying a public certificate.
 
-Using your own CA gives you full control over which certificates are trusted — useful for private infrastructure, enterprise environments, or testing without buying a public certificate.
-
-### Step 1 — Create the CA
+### Step 1 — create the CA
 
 ```bash
 # Generate CA private key (keep this secret)
@@ -384,7 +451,7 @@ openssl req -new -x509 -days 3650 \
 
 `ca.pem` is the trust anchor you will distribute to clients via `tlsCaPath`.
 
-### Step 2 — Issue a server certificate signed by the CA
+### Step 2 — issue a server certificate signed by the CA
 
 ```bash
 # Generate server private key
@@ -409,7 +476,7 @@ You now have:
 - `server.pem` — Server certificate (set as `tlsCertPath` on the server)
 - `server-key.pem` — Server private key (set as `tlsKeyPath` on the server)
 
-### Step 3 — Issue a client certificate for mTLS (optional)
+### Step 3 — issue a client certificate for mTLS (optional)
 
 ```bash
 openssl genrsa -out client-key.pem 4096
@@ -425,18 +492,18 @@ openssl x509 -req -days 365 \
   -out client.pem
 ```
 
-### Step 4 — Configure each protocol
+### Step 4 — configure each protocol
 
-#### gRPC (server → client)
+#### gRPC (server to client)
 
-**Server (Simulator or Logger in server mode):**
+**Server (Simulator server mode):**
 ```bash
 electron . protocol=grpc mode=server port=50051 useTls=true \
   tlsCertPath=./certs/server.pem \
   tlsKeyPath=./certs/server-key.pem
 ```
 
-**Client (Simulator or Logger in client mode) — custom CA:**
+**Client (Simulator client mode) — custom CA:**
 ```bash
 electron . protocol=grpc mode=client ip=myserver.example.com port=50051 useTls=true \
   tlsCaPath=./certs/ca.pem
@@ -450,7 +517,7 @@ electron . protocol=grpc mode=client ip=myserver.example.com port=50051 useTls=t
   tlsKeyPath=./certs/client-key.pem
 ```
 
-#### HTTP / HTTPS (server → client)
+#### HTTP and HTTPS (server to client)
 
 **Server:**
 ```bash
@@ -473,7 +540,7 @@ electron . protocol=http mode=client ip=myserver.example.com port=8443 useTls=tr
   tlsKeyPath=./certs/client-key.pem
 ```
 
-#### WebSocket / WSS (server → client)
+#### WebSocket and WSS (server to client)
 
 **Server:**
 ```bash
@@ -496,6 +563,54 @@ electron . protocol=ws mode=client ip=myserver.example.com port=8443 useTls=true
   tlsKeyPath=./certs/client-key.pem
 ```
 
+#### XMPP and STARTTLS (server to client)
+
+**Server — automatic self-signed certificate:**
+```bash
+electron . protocol=xmpp mode=server port=5222 xmppTlsPolicy=required \
+  xmppExternalUsername=receiver xmppExternalPassword=change-me
+```
+
+**Server — custom certificate:**
+```bash
+electron . protocol=xmpp mode=server port=5222 xmppTlsPolicy=required \
+  xmppTlsCertPath=./certs/server.pem \
+  xmppTlsKeyPath=./certs/server-key.pem
+```
+
+**Client — custom CA:**
+```bash
+electron . protocol=xmpp mode=client ip=myserver.example.com port=5222 \
+  xmppDomain=example.com xmppUsername=simulator xmppPassword=change-me \
+  xmppDestination=feed@example.com \
+  xmppTlsCaPath=./certs/ca.pem
+```
+
+**Client — loopback test against an automatic self-signed certificate:**
+```bash
+electron . protocol=xmpp mode=client ip=127.0.0.1 port=5222 \
+  xmppUsername=receiver xmppPassword=change-me \
+  xmppDestination=velocity-simulator@localhost \
+  xmppAllowUnverifiedTls=true
+```
+
+`xmppAllowUnverifiedTls` is rejected for any non-loopback host, so verification
+can never be silently disabled against a remote server. XMPP does not support
+mutual TLS.
+
+`xmppTlsCertPath` and `xmppTlsKeyPath` are validated as a pair before the server
+binds: supplying one without the other — including a blank or whitespace-only
+path — fails with an actionable error instead of silently falling back to the
+automatic self-signed certificate. Leave both empty to use that certificate
+deliberately.
+
+Under `preferred` the server advertises STARTTLS, so its listen-time summary
+reports `tls=on`. That is the server's *capability*, not any individual stream's
+security: every per-connection report — inbound data metadata, the authenticated
+and room lifecycle details, and the status bar — carries the state actually
+negotiated on that stream, so a client that never upgraded is reported as
+unencrypted.
+
 ### Quick reference — parameter mapping
 
 | Scenario | `useTls` | `tlsCaPath` | `tlsCertPath` | `tlsKeyPath` |
@@ -509,73 +624,90 @@ electron . protocol=ws mode=client ip=myserver.example.com port=8443 useTls=true
 
 > **Note on mTLS server-side verification:** Currently the apps pass `tlsCaPath` to trust chain validation on the client side. Server-side client-certificate verification (requiring clients to present certs) is enforced at the TLS handshake level by the server's CA configuration. Both sides must supply `tlsCertPath`/`tlsKeyPath` and trust each other's CA via `tlsCaPath` for full mutual authentication.
 
----
+## OS certificate stores (client mode)
 
-## OS Certificate Stores (Client Mode)
-
-When `useTls=true` is set **without** a custom `tlsCaPath`, the app automatically merges the Node.js bundled root CAs with certificates from the operating system certificate store. This ensures enterprise and internal CAs (e.g. Esri Root CA) are trusted without requiring a manual PEM file.
+When `useTls=true` is set **without** a custom `tlsCaPath`, the app
+automatically merges the Node.js bundled root CAs with certificates from the
+operating system certificate store. This ensures enterprise and internal CAs
+(e.g. Esri Root CA) are trusted without requiring a manual PEM file.
 
 | Platform | Source | Method used by the app |
 |----------|--------|------------------------|
 | **macOS** | System and SystemRoot keychains | `security find-certificate -a -p` |
-| **Linux** | System PEM bundle | Reads `/etc/ssl/certs/ca-certificates.crt`, `/etc/pki/tls/certs/ca-bundle.crt`, or `/etc/ssl/ca-bundle.pem` (first found) |
-| **Windows** | `LocalMachine\Root` and `CurrentUser\Root` stores | PowerShell `Get-ChildItem Cert:\` exported as PEM |
+| **Linux** | System PEM bundle | Reads `/etc/ssl/certs/ca-certificates.crt`, `/etc/pki/tls/certs/ca-bundle.crt`, or `/etc/ssl/ca-bundle.pem` (first found). |
+| **Windows** | `LocalMachine\Root` and `CurrentUser\Root` stores | PowerShell `Get-ChildItem Cert:\` exported as PEM. |
 
-The merged set is deduplicated before use. The connection log shows the cert breakdown on connect:
+The merged set is deduplicated before use. The connection log shows the cert
+breakdown on connect:
 
-```
+```text
 tls=on, 429 trusted CAs loaded, node-bundled=144, os=Windows certificate store (285)
 ```
 
-To override the automatic OS CA lookup, set `tlsCaPath` to a PEM file path. Only that CA (and any intermediates in the file) will be trusted — the OS store is **not** consulted when `tlsCaPath` is set.
+To override the automatic OS CA lookup, set `tlsCaPath` to a PEM file path. Only
+that CA (and any intermediates in the file) will be trusted — the OS store is
+**not** consulted when `tlsCaPath` is set.
 
-For platform-specific instructions on **adding a private CA to the OS store** so the app trusts it without a `tlsCaPath` file, see the [Platform-Specific Notes](#platform-specific-notes) section above.
+For platform-specific instructions on **adding a private CA to the OS store** so
+the app trusts it without a `tlsCaPath` file, see the [Platform-Specific
+Notes](#platform-specific-notes) section above.
 
----
+## Server-mode TLS: automatic self-signed certificate
 
-## Server-Mode TLS — Automatic Self-Signed Certificate
-
-When `useTls=true` is set on a server transport **without** providing `tlsCertPath` and `tlsKeyPath`, the app automatically generates an **in-memory self-signed certificate** at startup. This lets you run a TLS-secured server immediately with no certificate files required.
+When `useTls=true` is set on a server transport **without** providing
+`tlsCertPath` and `tlsKeyPath`, the app automatically generates an **in-memory
+self-signed certificate** at startup. This lets you run a TLS-secured server
+immediately with no certificate files required.
 
 - The cert is valid for `localhost` and `127.0.0.1` (Subject Alternative Names).
 - It is regenerated each time the app starts (ephemeral; never written to disk).
 - The connection log shows:
 
-  ```
-  tls=on, cert=self-signed (auto-generated), key=self-signed (auto-generated)
-  ```
+```text
+tls=on, cert=self-signed (auto-generated), key=self-signed (auto-generated)
+```
 
 ### Connecting a client to a self-signed server
 
-Because the certificate is not signed by a trusted CA, connecting clients will reject it by default.
+Because the certificate is not signed by a trusted CA, connecting clients will
+reject it by default.
 
-- **Logger / Simulator pairing (same machine):** Both apps automatically set `rejectUnauthorized: false` when the server advertises a self-signed certificate — no configuration needed for local testing.
+- **ArcGIS product receiver:** Configure ArcGIS Velocity or ArcGIS GeoEvent Server to trust the generated certificate, or provide a certificate signed by a trusted CA.
 - **Custom cert files:** Provide your own cert/key via `tlsCertPath` and `tlsKeyPath`. If clients have the corresponding CA in their trust store they will connect without warnings.
-
----
 
 ## Mutual TLS (mTLS)
 
-Mutual TLS requires **both** the server and the client to present a certificate. This provides two-way authentication.
+Mutual TLS requires **both** the server and the client to present a certificate.
+This provides two-way authentication.
 
-To enable mTLS on the **client** side, supply both `tlsCertPath` and `tlsKeyPath` in addition to `useTls=true`. The server must be configured to request (and verify) client certificates.
-
----
+To enable mTLS on the **client** side, supply both `tlsCertPath` and
+`tlsKeyPath` in addition to `useTls=true`. The server must be configured to
+request (and verify) client certificates.
 
 ## TLS Trust Badge
 
-When HTTP, WebSocket, or gRPC is selected, a small lock icon appears in the **status bar centre**. The footer badge mirrors the active protocol's `useTls` checkbox: click it while disconnected to enable or disable TLS for the next connection, and the checkbox, certificate fields, default port logic, and connection behavior stay synchronized. While connected, click the badge to pin the detail popover; disconnect before changing TLS for an active connection.
+When HTTP, WebSocket, gRPC, or XMPP is selected, a small lock icon appears in
+the **status bar centre**. The footer badge mirrors the active protocol's TLS
+control: `useTls` for HTTP/WebSocket/gRPC and the three-value STARTTLS policy
+for XMPP. Click it while disconnected to toggle the next connection between the
+secure default and Disabled. While connected, the badge reports actual
+encryption/trust, including Preferred XMPP plaintext fallback; click to pin the
+detail popover.
 
-The icon **shape** and **colour** both encode the configured state or connected trust level so it is unambiguous even for colour-blind users. No text label is shown beside the icon — hover the badge for full TLS details, including encryption state, certificate trust, endpoint, and a reminder that token authentication is shown separately by the key badge.
+The icon **shape** and **colour** both encode the configured state or connected
+trust level so it is unambiguous even for colour-blind users. No text label is
+shown beside the icon — hover the badge for full TLS details, including
+encryption state, certificate trust, endpoint, and a reminder that token
+authentication is shown separately by the key badge.
 
 | Icon | Colour | Trust Level | Meaning |
 |------|--------|-------------|---------|
-| 🔓 | Grey / dimmed | off | No TLS — plaintext, unsecure connection |
-| 🔒… | Blue | configured | TLS enabled in the UI; certificate trust will be checked after connection |
-| 🔒 | Amber | on | TLS on — OS certificate store, trust level not fully determined |
-| 🔒⚠ | Amber | self-signed | TLS on, self-signed or cert-chain not verified |
-| 🔒✓ | Green | ca-verified | TLS on, CA-verified certificate chain |
-| 🔐 | Blue / cyan | mtls | Mutual TLS — both client and server present certificates |
+| 🔓 | Grey / dimmed | off | No TLS — plaintext, unsecure connection. |
+| 🔒… | Blue | configured | TLS enabled in the UI; certificate trust will be checked after connection. |
+| 🔒 | Amber | on | TLS on — OS certificate store, trust level not fully determined. |
+| 🔒⚠ | Amber | self-signed | TLS on, self-signed or cert-chain not verified. |
+| 🔒✓ | Green | ca-verified | TLS on, CA-verified certificate chain. |
+| 🔐 | Blue / cyan | mtls | Mutual TLS — both client and server present certificates. |
 
 The badge is hidden for TCP and UDP because those transports do not support TLS.
 
@@ -585,33 +717,30 @@ The badge is hidden for TCP and UDP because those transports do not support TLS.
 - CSS `filter` rules in `style.css` apply the colour tint to the emoji icon via the `data-trust` attribute.
 - `tlsInfoToTooltip(raw)` converts raw transport `tlsInfo` strings (e.g. `"tls=on, custom certs: ca=./certs/ca.pem"`) into human-readable popover content.
 
----
-
-## Per-Protocol Notes
+## Per-protocol notes
 
 ### gRPC
 
-- Uses `@grpc/grpc-js` `credentials.createSsl()` with `rejectUnauthorized: false` so self-signed certs work automatically between the Simulator and Logger on the same machine.
+- Uses `@grpc/grpc-js` `credentials.createSsl()`; product receivers must trust automatic self-signed certificates explicitly or use a shared CA.
 - Server mode auto-generates a self-signed cert when no cert/key are provided (see above).
-- See [GRPC.md – TLS & Certificate Stores](./GRPC.md#tls--certificate-stores) for log output examples.
+- See [TLS and certificate stores](grpc.md#tls-and-certificate-stores) for log output examples.
 
 ### HTTP
 
 - Client mode uses Node.js `https.Agent` with the merged OS CA bundle.
 - Server mode uses `https.createServer()` with the provided cert/key (or auto-generated self-signed).
-- See [HTTP.md](./HTTP.md) for UI controls and CLI examples.
+- See [HTTP and HTTPS transport](http.md) for UI controls and CLI examples.
 
 ### WebSocket
 
 - Client mode passes TLS agent options to the `ws` library's `WebSocket` constructor.
 - Server mode wraps an `https.Server` before upgrading connections to WebSocket.
-- See [WEBSOCKET.md](./WEBSOCKET.md) for UI controls and CLI examples.
+- See [WebSocket transport](websocket.md) for UI controls and CLI examples.
 
----
+## Quick-start examples
 
-## Quick-Start Examples
-
-For custom CA / mTLS setup, see [Working with a Custom Certificate Authority](#working-with-a-custom-certificate-authority) above.
+For custom CA / mTLS setup, see [Working with a Custom Certificate
+Authority](#working-with-a-custom-certificate-authority) above.
 
 ```bash
 # gRPC client — TLS using OS certificate store (no cert files needed)
@@ -644,7 +773,12 @@ electron . protocol=ws mode=server port=8443 useTls=true \
   tlsCertPath=./certs/server.pem tlsKeyPath=./certs/server-key.pem
 ```
 
----
+## Related documentation
 
-Back to documentation index: [README.md](./README.md)
-
+| Document | Purpose |
+|----------|---------|
+| [gRPC transport](grpc.md) | gRPC modes, serialization formats, and metadata. |
+| [HTTP and HTTPS transport](http.md) | HTTP and HTTPS modes, data formats, and request paths. |
+| [WebSocket transport](websocket.md) | WebSocket modes, formats, subscription messages, and custom headers. |
+| [XMPP transport](xmpp.md) | XMPP roles, conversations, STARTTLS policies, accounts, and limitations. |
+| [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |

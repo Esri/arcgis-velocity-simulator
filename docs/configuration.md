@@ -1,30 +1,53 @@
-# Configuration Guide
+# Configuration
 
-The ArcGIS Velocity Simulator uses two separate configuration systems:
+[← Documentation index](README.md) · [Repository overview](../README.md#documentation)
+
+This guide describes both configuration systems used by the ArcGIS Velocity
+Simulator, the settings each one holds, where the files live on every supported
+platform, and how to reset, back up, import, and export them. It is written for
+users who customize the application and for developers who add new settings.
+
+The Simulator uses two separate configuration systems:
 
 - **App Config** (`config.json`) — Persisted UI preferences: theme, font, window geometry, opacity, dialog sizes, and feature toggles. Saved automatically and restored on every launch.
 - **Launch Config** (`launch-config*.json`) — Runtime behavior parameters: connection protocol, address, streaming rate, and output settings. Passed via `config=<path>` on the CLI for headless runs, or applied interactively through the **Apply Launch Config From…** menu action.
 
-App Config controls how the application _looks_. Launch Config controls what the application _does_.
+App Config controls how the application _looks_. Launch Config controls what the
+application _does_.
 
 | Aspect | App Config | Launch Config |
 |--------|-----------|---------------|
-| **File** | `config.json` (platform data dir) | `launch-config*.json` (any path) |
-| **Loaded** | Automatically on every startup | Explicitly via CLI `config=<path>` or menu action |
-| **Saved** | Automatically on every UI change | Manually via **Save Launch Config To…** menu action |
-| **Scope** | Persistent across sessions | Single run or on-demand application |
-| **Contents** | Theme, font, window size/position, opacity, dialog sizes, feature toggles | Protocol, mode, IP, port, streaming rate, loop, output settings |
-| **Menu actions** | Show / Apply / Save App Config | Show / Apply / Save Launch Config |
+| **File** | `config.json` (platform data dir) | `launch-config*.json` (any path). |
+| **Loaded** | Automatically on every startup | Explicitly via CLI `config=<path>` or menu action. |
+| **Saved** | Automatically on every UI change | Manually via **Save Launch Config To…** menu action. |
+| **Scope** | Persistent across sessions | Single run or on-demand application. |
+| **Contents** | Theme, font, window size/position, opacity, dialog sizes, feature toggles | Protocol, mode, IP, port, streaming rate, loop, output settings. |
+| **Menu actions** | Show / Apply / Save App Config | Show / Apply / Save Launch Config. |
 
-> See [HEADLESS.md](./HEADLESS.md) for headless launch-config examples and [COMMAND-LINE.md](./COMMAND-LINE.md) for the full CLI reference.
+> See [Headless mode](headless.md) for headless launch-config examples and [Command-line reference](command-line.md) for the full CLI reference.
 
-## File Location
+## Table of contents
+
+- [File location](#file-location)
+- [Configuration structure](#configuration-structure)
+- [Configuration options](#configuration-options)
+- [Available fonts](#available-fonts)
+- [Available themes](#available-themes)
+- [Automatic saving](#automatic-saving)
+- [Manual editing](#manual-editing)
+- [Import and export](#import-and-export)
+- [Headless run configuration](#headless-run-configuration)
+- [Troubleshooting](#troubleshooting)
+- [Technical details](#technical-details)
+- [Related documentation](#related-documentation)
+
+## File location
 
 - **macOS**: `~/Library/Application Support/arcgis-velocity-simulator/config.json`
 - **Windows**: `%APPDATA%\arcgis-velocity-simulator\config.json`
 - **Linux**: `~/.config/arcgis-velocity-simulator/config.json`
 
-## Configuration Structure
+## Configuration structure
 
 ```json
 {
@@ -48,13 +71,15 @@ App Config controls how the application _looks_. Launch Config controls what the
 }
 ```
 
-## Configuration Options
+## Configuration options
 
-### Window State
+### Window state
 - **fullView/compactView**: Window dimensions, position, and splitter position for each view mode
 - **currentView**: Current view mode (`"full"` or `"compact"`)
 
-When the application is started with no command-line parameters, it launches in normal UI mode and restores saved UI behavior from configuration, including `windowState.currentView`.
+When the application is started with no command-line parameters, it launches in
+normal UI mode and restores saved UI behavior from configuration, including
+`windowState.currentView`.
 
 ### Appearance
 - **theme**: Selected theme name (see available themes below)
@@ -63,7 +88,7 @@ When the application is started with no command-line parameters, it launches in 
 - **statusAreaVisible**: Show/hide status area
 - **menuBarVisible**: Show/hide menu bar (Windows/Linux)
 
-### Feature Support
+### Feature support
 - **cameraSupport**: Enable/disable camera-related features (default: false)
   - Controls visibility of camera buttons - Toggle Camera, Report Camera Gestures, Log Camera Gestures
   - When disabled, automatically turns off camera if active
@@ -74,14 +99,16 @@ When the application is started with no command-line parameters, it launches in 
   - In compact mode, microphone buttons are hidden regardless of support state
   - Network errors are logged only once per session to reduce spam
 
-### Dialog Sizes
+### Dialog sizes
 - **dialogSizes.appConfig**: Remembered width, height, and position (x, y) of the App Config dialog
 - **dialogSizes.launchConfig**: Remembered width, height, and position (x, y) of the Launch Config dialog
 - **dialogSizes.velocityLogin**: Remembered width, height, and position (x, y) of the Velocity Login & Feed Picker dialog (default: 590 x 840)
 
-Size and position are saved automatically when the user resizes or moves either dialog, and restored on next open. When `x` and `y` are `null` (the default), the dialog is centered by the OS.
+Size and position are saved automatically when the user resizes or moves either
+dialog, and restored on next open. When `x` and `y` are `null` (the default),
+the dialog is centered by the OS.
 
-## Available Fonts
+## Available fonts
 
 The application supports 17 different font families for the status log:
 
@@ -105,13 +132,13 @@ The application supports 17 different font families for the status log:
 | **Trebuchet MS** | Modern sans-serif | Sans-serif |
 | **Verdana** | Readable sans-serif | Sans-serif |
 
-### Font Categories
+### Font categories
 - **Sans-serif**: Clean, modern fonts (Arial, Helvetica, Segoe UI, etc.)
 - **Serif**: Traditional fonts with decorative strokes (Times New Roman, Georgia, etc.)
 - **Monospace**: Fixed-width fonts for code and data (Courier New, Lucida Console, etc.)
 - **Script/Cursive**: Decorative fonts (Brush Script MT, cursive)
 
-## Available Themes
+## Available themes
 
 | Theme | ID | Description |
 |-------|----|-----------|
@@ -131,7 +158,7 @@ The application supports 17 different font families for the status log:
 | 🌅 Sunset | `"sunset"` | Warm orange and yellow theme |
 | 💻 System | `"system"` | Matches OS light/dark mode |
 
-## Automatic Saving
+## Automatic saving
 
 Configuration is automatically saved when:
 - Window is resized or moved
@@ -146,7 +173,7 @@ Configuration is automatically saved when:
 - App Config or Launch Config dialog is resized or moved
 - Application exits
 
-## Manual Editing
+## Manual editing
 
 To manually edit the configuration:
 1. Close the application
@@ -154,18 +181,18 @@ To manually edit the configuration:
 3. Ensure valid JSON format
 4. Restart the application
 
-## Import/Export
+## Import and export
 
 The application provides methods for configuration backup and restore:
 
-### Available Methods
+### Available methods
 - `exportConfig(filePath, config)` - Export current configuration
 - `importConfig(filePath)` - Import and apply configuration
 - `readConfigFile(filePath)` - Read configuration without importing
 - `writeConfigFile(filePath, config)` - Write configuration data
 - `getConfigPath()` - Get current configuration file path
 
-### Usage Examples
+### Usage examples
 ```javascript
 // Export current configuration
 const result = await window.api.exportConfig('/path/to/backup.json');
@@ -177,18 +204,40 @@ const result = await window.api.importConfig('/path/to/backup.json');
 const configPath = await window.api.getConfigPath();
 ```
 
-## Headless Run Configuration
+## Headless run configuration
 
-Headless mode also accepts an optional `config=/path/to/launch-config.json` command-line parameter. This file is separate from the UI settings file and is intended for automation or scheduled runs.
+Headless mode also accepts an optional `config=/path/to/launch-config.json`
+command-line parameter. This file is separate from the UI settings file and is
+intended for automation or scheduled runs.
 
 CLI values always override values loaded from the headless launch-config file.
 
-A ready-to-copy template is available at [`docs/launch-config.sample.json`](./launch-config.sample.json).
-Mode-specific examples are also available at [`docs/launch-config.server.sample.json`](./launch-config.server.sample.json) and [`docs/launch-config.client.sample.json`](./launch-config.client.sample.json).
+Ready-to-copy templates live in `docs/examples/`. They are documentation
+samples: copy one, adjust the values, and pass it with `config=<path>`. The
+application never reads them at run time.
 
-For the full consolidated parameter table, help-layout options, and mirrored headless examples, see [`COMMAND-LINE.md`](./COMMAND-LINE.md) and [`HEADLESS.md`](./HEADLESS.md).
+| Sample | Purpose |
+|--------|---------|
+| [Generic sample](examples/launch-config.sample.json) | Every supported section and key. |
+| [Server-mode sample](examples/launch-config.server.sample.json) | Binds locally and replays immediately. |
+| [Client-mode sample](examples/launch-config.client.sample.json) | Connects to an existing endpoint. |
+| [XMPP sample](examples/launch-config.xmpp.sample.json) | Signs in as an XMPP client on port 5222 and publishes to a recipient. |
 
-### Supported Headless Keys
+```bash
+npm run start:headless -- config=./docs/examples/launch-config.sample.json
+npm run start:headless -- config=./docs/examples/launch-config.client.sample.json ip=192.168.1.25 port=6000 runId=manual-override
+```
+
+> [!WARNING]
+> The samples leave the XMPP password keys empty or placeholder-valued. See
+> [Credentials in launch-config files](#credentials-in-launch-config-files)
+> before adding a real one.
+
+For the full consolidated parameter table, help-layout options, and mirrored
+headless examples, see [Command-line reference](command-line.md) and [Headless
+mode](headless.md).
+
+### Supported headless keys
 
 - `autoConnect`
 - `autoStart`
@@ -220,8 +269,39 @@ For the full consolidated parameter table, help-layout options, and mirrored hea
 - `startLine`
 - `stdout`
 - `waitForClient`
+- `wsFormat`, `wsTls`, `wsPath`, `wsTlsCaPath`, `wsTlsCertPath`, `wsTlsKeyPath`, `wsSubscriptionMsg`, `wsIgnoreFirstMsg`, `wsHeaders`
+- `httpFormat`, `httpTls`, `httpPath`, `httpTlsCaPath`, `httpTlsCertPath`, `httpTlsKeyPath`
+- `useTls`, `tlsCaPath`, `tlsCertPath`, `tlsKeyPath`
+- `xmppConversation`, `xmppDomain`, `xmppTlsPolicy`
+- `xmppUsername`, `xmppPassword`, `xmppResource`, `xmppTlsCaPath`, `xmppAllowUnverifiedTls`, `xmppPingIntervalMs`, `xmppReconnectDelayMs`
+- `xmppExternalUsername`, `xmppExternalPassword`, `xmppTlsCertPath`, `xmppTlsKeyPath`, `xmppAllowRemote`
+- `xmppDestination`, `xmppRoom`, `xmppNickname`, `xmppRoomPassword`
+- `xmppConnectTimeoutMs`, `xmppReplyTimeoutMs`
 
-### IP Default and Binding Behavior
+The XMPP network host is the shared top-level `ip` key; there is no `xmppHost`
+key. `xmppDomain` is the served or authenticated XMPP domain and is independent
+of `ip`. When `protocol` is `xmpp` and neither `mode` nor `port` is given, the
+role resolves to `client` and the port to `5222` without changing the
+application-wide TCP Server / 5565 defaults.
+
+All four XMPP timings — `xmppConnectTimeoutMs` (30000), `xmppReplyTimeoutMs`
+(15000), `xmppPingIntervalMs` (60000) and `xmppReconnectDelayMs` (60000) — must
+be positive integers. Zero is rejected: it neither disables the keepalive or the
+automatic reconnect nor waits forever.
+
+#### Credentials in launch-config files
+
+`xmppPassword`, `xmppExternalPassword` and `xmppRoomPassword` are accepted when
+loading a launch configuration, but **Save Launch Configuration** omits them.
+Add a password manually only when automation requires it, protect that JSON file
+as a secret, and keep it out of version control.
+
+Password whitespace is significant and is preserved exactly — a value of
+`" secret "` authenticates as `" secret "`, never as `"secret"`, whether it
+arrives from the UI, the command line, or a launch configuration. Passwords are
+never copied to logs, done files, or CLI `explain` output.
+
+### IP default and binding behavior
 
 The default headless `ip` value is **`127.0.0.1`**.
 
@@ -233,9 +313,10 @@ In other words:
 - use `127.0.0.1` for same-machine testing
 - use `0.0.0.0` for server-mode listening beyond localhost
 
-### Supported Shapes
+### Supported shapes
 
-The launch-config file can use either top-level keys or grouped sections such as `connection`, `headless`, `output`, and `streaming`.
+The launch-config file can use either top-level keys or grouped sections such as
+`connection`, `headless`, `output`, and `streaming`.
 
 ```json
 {
@@ -247,7 +328,14 @@ The launch-config file can use either top-level keys or grouped sections such as
     "mode": "server",
     "port": 5565,
     "protocol": "tcp",
-    "waitForClient": false
+    "waitForClient": false,
+    "xmppConnectTimeoutMs": 30000,
+    "xmppConversation": "direct",
+    "xmppDomain": "localhost",
+    "xmppPingIntervalMs": 60000,
+    "xmppReconnectDelayMs": 60000,
+    "xmppReplyTimeoutMs": 15000,
+    "xmppTlsPolicy": "required"
   },
   "headless": {
     "filename": "./data.csv",
@@ -268,24 +356,25 @@ The launch-config file can use either top-level keys or grouped sections such as
 }
 ```
 
-See [HEADLESS.md](./HEADLESS.md) for full command examples.
+See [Headless mode](headless.md) for full command examples.
 
 ## Troubleshooting
 
+### Resetting the configuration
 
-### Resetting Configuration
-
-You can reset all configuration settings to their default values using the application's main menu (Configuration → Reset Configuration) or the context menu (**Reset Config**). When you reset the configuration:
+You can reset all configuration settings to their default values using the
+application's main menu (Configuration → Reset Configuration) or the context
+menu (**Reset Config**). When you reset the configuration:
 
 - **All settings are restored to their default values** (window size, position, theme, font, etc.)
 - **The current view mode (full or compact) is preserved**. This means if you are in compact view, you will remain in compact view after the reset, and vice versa.
 
-#### Manual Reset (Legacy)
+#### Manual reset (Legacy)
 1. Close the application
 2. Delete the configuration file
 3. Restart the application (creates new config with defaults)
 
-### Backup Configuration
+### Backing up the configuration
 ```bash
 # macOS
 cp ~/Library/Application\ Support/arcgis-velocity-simulator/config.json ~/Desktop/backup.json
@@ -297,15 +386,24 @@ copy "%APPDATA%\arcgis-velocity-simulator\config.json" "%USERPROFILE%\Desktop\ba
 cp ~/.config/arcgis-velocity-simulator/config.json ~/Desktop/backup.json
 ```
 
-### Common Issues
+### Common issues
 - **Settings not loading**: Check file exists, valid JSON format, file permissions
 - **Invalid JSON**: Use JSON validator to check syntax
 - **Permission errors**: Ensure app has read/write access to config directory
 
-## Technical Details
+## Technical details
 
 - **ConfigManager class**: `src/config.js` - Handles all file operations and validation
 - **IPC communication**: Secure context bridge for main/renderer communication
 - **Automatic saving**: Debounced saves prevent excessive file writes
 - **Theme system**: 15 themes with CSS variables in `src/themes.css`
 - **Testing**: Comprehensive unit tests in `test/config.test.js`
+
+## Related documentation
+
+| Document | Purpose |
+|----------|---------|
+| [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
+| [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
+| [Developer guide](developer-guide.md) | Repository structure, local development, tests, debugging, and how to add a theme or a control. |
+| [Keyboard shortcuts](keyboard-shortcuts.md) | Every shortcut, including the in-app dialog shortcuts. |

@@ -17,16 +17,16 @@
         <div class="help-content">
             <div class="help-section">
                 <h3>Overview</h3>
-                <p>Cross-platform desktop application for simulating data streams from CSV files over TCP, UDP, HTTP/HTTPS, WebSocket, and gRPC protocols. Features gesture and voice controls for hands-free operation.</p>
+                <p>Cross-platform desktop application for simulating data streams from CSV files over TCP, UDP, HTTP/HTTPS, WebSocket, gRPC, and XMPP protocols. Every protocol can run as a client or as a server, so the Simulator can either push data to a receiver such as an ArcGIS Velocity feed or an ArcGIS GeoEvent Server connector, or host an endpoint the receiver connects to. Features gesture and voice controls for hands-free operation.</p>
             </div>
 
             <div class="help-section">
                 <h3>Quick Start</h3>
                 <ol>
                     <li>Select CSV file</li>
-                    <li>Choose protocol mode (TCP/UDP/HTTP/WebSocket/gRPC Server/Client)</li>
+                    <li>Choose protocol mode (TCP/UDP/HTTP/WebSocket/gRPC/XMPP Server/Client). Selecting XMPP uses port 5222 and the Client role unless you change them.</li>
                     <li>Set IP address and port</li>
-                    <li>For HTTP, WebSocket, or gRPC: click the <strong>▸ Options</strong> section header to expand protocol-specific settings (format, TLS, paths, headers)</li>
+                    <li>For HTTP, WebSocket, gRPC, or XMPP: click the <strong>▸ Options</strong> section header to expand protocol-specific settings (format, TLS, paths, headers, or XMPP account and conversation settings)</li>
                     <li>Configure streaming rate</li>
                     <li>Connect and Play</li>
                 </ol>
@@ -45,6 +45,8 @@
                     <li><strong>WebSocket Server:</strong> Start a local WebSocket server (ws:// or wss://) that accepts incoming connections and broadcasts data to all connected clients. Supports the same 5 formats as the WebSocket client.</li>
                     <li><strong>gRPC Client:</strong> Connect to a remote gRPC server using HTTP/2. Supports Protobuf, Kryo, and Text serialization with client-streaming or unary RPCs.</li>
                     <li><strong>gRPC Server:</strong> Start a local gRPC server that accepts incoming RPC calls from clients.</li>
+                    <li><strong>XMPP Client:</strong> Sign in to an XMPP server (RFC 6120) and publish each line as a one-to-one chat message to up to 20 destination JIDs, or as a groupchat message in a Multi-User Chat room. Use when the receiver is an ArcGIS Velocity XMPP feed, an ArcGIS GeoEvent Server XMPP connector, or any standards-compliant XMPP server. This is the default role when XMPP is selected.</li>
+                    <li><strong>XMPP Server:</strong> Host a local XMPP client-to-server endpoint that a receiver signs in to. The Simulator publishes each line from its own automatic application identity to every signed-in account, or into a room it occupies. The server binds a loopback address unless <strong>Allow remote</strong> is enabled.</li>
                 </ul>
             </div>
 
@@ -86,6 +88,31 @@
                     <li><strong>Use TLS:</strong> Enable TLS for the gRPC connection. Uses the OS certificate store automatically.</li>
                     <li><strong>Header Path Key / Path:</strong> Custom gRPC metadata header for endpoint routing (client mode only).</li>
                 </ul>
+            </div>
+
+            <div class="help-section">
+                <h3>XMPP Options</h3>
+                <p>When XMPP is selected, click the <strong>▸ XMPP Options</strong> section header to reveal these controls. Only the controls that apply to the selected role and conversation type are shown.</p>
+                <ul>
+                    <li><strong>Conversation:</strong> <em>Direct</em> (default) delivers each line as a one-to-one chat message to every destination JID. <em>Room (MUC)</em> broadcasts each line as an XEP-0045 groupchat message; every occupant receives it and the room echoes the message back to the sender.</li>
+                    <li><strong>Domain:</strong> The XMPP domain served (server role) or authenticated against (client role). It is independent of the host in the Connection row, so a client can connect to an IP address while authenticating against the real domain. Rooms live under <code>conference.&lt;domain&gt;</code>.</li>
+                    <li><strong>STARTTLS:</strong> <em>Required</em> (default) refuses to send a credential until the stream is encrypted. <em>Preferred</em> upgrades when the peer offers it. <em>Disabled</em> does not require encryption — the built-in server stops advertising STARTTLS, and as a client the Simulator still accepts an upgrade a third-party server insists on, so Disabled means "do not require TLS", not "refuse TLS".</li>
+                    <li><strong>CA cert</strong> (client): Custom CA certificate file (PEM) used to verify the server certificate. Leave empty to use the OS certificate store.</li>
+                    <li><strong>Skip cert check</strong> (client): Skips certificate verification. Only allowed when the host is a loopback address, so it can only be used against a locally hosted server with an automatic self-signed certificate. The stream is still encrypted; only the chain check is skipped.</li>
+                    <li><strong>TLS cert / TLS key</strong> (server): Server certificate and matching private key (PEM) presented during STARTTLS. Leave both empty to use an automatic self-signed certificate.</li>
+                    <li><strong>Allow remote</strong> (server): Allows the server to bind a non-loopback address such as <code>0.0.0.0</code>. Left off, nothing outside this machine can sign in.</li>
+                    <li><strong>Username / Password</strong> (client): The account to sign in with. Enter a local part such as <code>simulator</code>, or a full bare JID such as <code>simulator@example.com</code>, which overrides the Domain field.</li>
+                    <li><strong>Resource</strong> (client): Resource part requested at bind time, which distinguishes this stream from other sessions of the same account.</li>
+                    <li><strong>Account / Acct pwd</strong> (server): The required external account the built-in server accepts, alongside the automatic simulator application identity. Give it to the receiver you want to sign in.</li>
+                    <li><strong>Destination</strong> (Direct): Bare destination JIDs in <code>user@domain</code> form with no resource part, up to 20 separated by commas. In server mode, leave empty to publish to every signed-in account.</li>
+                    <li><strong>Room / Nickname / Room pwd</strong> (Room): The room to publish into, the nickname to use inside it, and an optional room password. A bare room name is qualified with the conversation sub-domain of the Domain field. In server mode the room password also protects the room against every other occupant.</li>
+                    <li><strong>Timeouts ms:</strong> Connect timeout (default 30000) for stream negotiation, authentication and resource binding, and reply timeout (default 15000) for requests that expect an answer such as a room entry confirmation or a ping result. Both must be positive whole numbers of milliseconds; there is no wait-forever value.</li>
+                    <li><strong>Ping ms</strong> (client): XEP-0199 keepalive interval on an otherwise idle stream (default 60000). Must be a positive whole number; the keepalive cannot be switched off.</li>
+                    <li><strong>Reconnect ms</strong> (client): Delay before the automatic reconnect after a dropped stream (default 60000). A reconnect re-binds the resource and re-joins the room; stream resumption is not implemented, so nothing sent while the stream was down is replayed. Must be a positive whole number; automatic reconnect cannot be switched off.</li>
+                    <li><strong>Copy Client Settings</strong> (server): Copies the settings a receiver needs as canonical <code>option=value</code> lines — <code>ip</code>, <code>port</code>, <code>xmppDomain</code>, <code>xmppTlsPolicy</code>, <code>xmppAllowUnverifiedTls</code>, <code>xmppUsername</code>, the destination or room, and the <code>xmppConnectTimeoutMs</code>, <code>xmppReplyTimeoutMs</code>, <code>xmppPingIntervalMs</code> and <code>xmppReconnectDelayMs</code> timings — so the block can be pasted straight into a command line. The network host is the shared <code>ip</code> option, which is separate from <code>xmppDomain</code>. The account password is left out unless <strong>Include password</strong> is checked.</li>
+                </ul>
+                <p><strong>Limits and behavior.</strong> Message bodies are capped at 65,536 UTF-8 bytes and are rejected rather than truncated, so a replay never silently loses data. Destination and account JIDs must be bare. Only <code>type=chat</code> is treated as inbound direct data; anything else is refused rather than replayed. Rooms keep no history, so a receiver only sees what is published after it enters. Stream management (XEP-0198) is negotiated and acknowledged, but resumption is not implemented: a dropped stream reconnects as a brand new session that re-binds its resource and re-joins its room.</p>
+                <p><strong>Security.</strong> With STARTTLS set to <em>Required</em> the client aborts before SASL when the peer does not offer an encrypted stream, so no credential is ever sent in the clear. With <em>Preferred</em> the status bar and TLS badge report the actual state of this connection, never the peer's advertised capability. The external account cannot canonically collide with the automatic <code>velocity-simulator</code> identity, the server certificate and private key must be supplied as a pair, and password whitespace is significant everywhere — the UI, the command line, and launch configuration files all keep it exactly as typed.</p>
             </div>
 
             <div class="help-section">
@@ -189,7 +216,7 @@
             <div class="help-section">
                 <h3>Status & Logging</h3>
                 <ul>
-                    <li><strong>TLS Trust Badge:</strong> For HTTP, WebSocket, and gRPC, the footer lock mirrors the selected protocol's TLS setting while disconnected. Connected tooltips describe encryption and certificate trust.
+                    <li><strong>TLS Trust Badge:</strong> For HTTP, WebSocket, gRPC, and XMPP, the footer lock mirrors the selected protocol's TLS setting while disconnected. Connected tooltips describe the actual encryption and certificate trust state, including Preferred XMPP connections that fall back to plaintext.
                         <table style="margin-top:6px;border-collapse:collapse;font-size:0.9em;">
                             <thead><tr><th style="padding:2px 8px;text-align:left;">Icon</th><th style="padding:2px 8px;text-align:left;">Colour</th><th style="padding:2px 8px;text-align:left;">Meaning</th></tr></thead>
                             <tbody>

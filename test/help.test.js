@@ -502,6 +502,55 @@ async function runHelpTests() {
       && document.getElementById('cli-copy-status').textContent.includes('as JSON');
   });
 
+  console.log('\n--- XMPP help coverage ---');
+  const helpText = helpDom.window.document.body.textContent;
+  runTest('Product Help documents both XMPP roles and XMPP Options', () =>
+    helpText.includes('XMPP Client:') &&
+    helpText.includes('XMPP Server:') &&
+    helpText.includes('XMPP Options'));
+  runTest('Product Help documents frozen XMPP defaults and limits', () =>
+    helpText.includes('Required (default)') &&
+    helpText.includes('Direct (default)') &&
+    helpText.includes('65,536 UTF-8 bytes') &&
+    helpText.includes('default 30000') &&
+    helpText.includes('default 15000') &&
+    helpText.includes('default 60000'));
+  runTest('Product Help accurately limits XEP-0198 support', () =>
+    helpText.includes('negotiated and acknowledged') &&
+    helpText.includes('resumption is not implemented'));
+  runTest('Product Help documents safe client settings copying and actual TLS state', () =>
+    helpText.includes('left out unless Include password is checked') &&
+    helpText.includes('Preferred XMPP connections that fall back to plaintext'));
+  runTest('Product Help lists every XMPP Options control', () =>
+    ['Conversation:', 'Domain:', 'STARTTLS:', 'CA cert', 'Skip cert check', 'TLS cert / TLS key',
+      'Allow remote', 'Username / Password', 'Resource', 'Account / Acct pwd', 'Destination',
+      'Room / Nickname / Room pwd', 'Timeouts ms:', 'Ping ms', 'Reconnect ms',
+      'Copy Client Settings'].every((control) => helpText.includes(control)));
+  runTest('Product Help documents the reconnect delay and drops every zero-disable claim', () =>
+    /Reconnect ms[\s\S]{0,240}?default 60000/.test(helpText) &&
+    /automatic reconnect cannot be switched off/i.test(helpText) &&
+    /the keepalive cannot be switched off/i.test(helpText) &&
+    /there is no wait-forever value/i.test(helpText) &&
+    !/Enter 0 to wait indefinitely/i.test(helpText) &&
+    !/Enter 0 to disable/i.test(helpText));
+  runTest('Product Help names the canonical copied client-settings keys and the shared ip host', () =>
+    helpText.includes('xmppDomain') &&
+    helpText.includes('xmppTlsPolicy') &&
+    helpText.includes('xmppAllowUnverifiedTls') &&
+    helpText.includes('xmppReconnectDelayMs') &&
+    /The network host is the shared ip option/i.test(helpText) &&
+    !helpText.includes('xmppHost'));
+  runTest('Product Help records the XMPP security guarantees', () =>
+    /aborts before SASL/i.test(helpText) &&
+    /no credential is ever sent in the clear/i.test(helpText) &&
+    /actual state of this connection/i.test(helpText) &&
+    /canonically collide/i.test(helpText) &&
+    /certificate and private key must be supplied as a pair/i.test(helpText) &&
+    /password whitespace is significant/i.test(helpText) &&
+    /type=chat/.test(helpText));
+  runTest('Product Help notes that XMPP defaults to port 5222 and the client role', () =>
+    /XMPP uses port 5222 and the Client role/i.test(helpText));
+
   console.log('\n--- Test 4: Command Line Interface dialog close and theme handling ---');
   runTest('CLI close button exists', () => document.getElementById('close-button') !== null);
   runTest('CLI close button closes the dialog', () => {
@@ -546,4 +595,3 @@ if (require.main === module) {
 }
 
 module.exports = { runHelpTests };
-
