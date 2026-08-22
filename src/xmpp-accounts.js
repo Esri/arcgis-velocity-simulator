@@ -61,8 +61,10 @@ const EXTERNAL_ACCOUNT_ENV = Object.freeze({
 function readExternalAccountFromEnv(env = process.env) {
   const username = env[EXTERNAL_ACCOUNT_ENV.USERNAME];
   const password = env[EXTERNAL_ACCOUNT_ENV.PASSWORD];
-  if (!username || !password) return null;
-  return { username: String(username), password: String(password) };
+  // An empty password is a deliberate relaxed-testing value; only a missing
+  // (unset or non-string) password disables the environment account.
+  if (!username || typeof password !== 'string') return null;
+  return { username: String(username), password };
 }
 
 /**
@@ -74,7 +76,8 @@ function readExternalAccountFromEnv(env = process.env) {
  * @param {string} [opts.internalAppPassword] - Generated when omitted.
  * @param {{username: string, password: string}|null} [opts.externalAccount]
  *        The single configurable external account. Falls back to the
- *        environment variables when omitted.
+ *        environment variables when omitted. The password may be an empty
+ *        string for relaxed local testing, but it must be present.
  * @param {object} [opts.env=process.env]
  */
 function createAccountStore({
@@ -104,8 +107,8 @@ function createAccountStore({
     externalAccount === null ? null : externalAccount || readExternalAccountFromEnv(env);
 
   if (resolvedExternal) {
-    if (!resolvedExternal.username || !resolvedExternal.password) {
-      throw new Error('External XMPP account requires both a username and a password');
+    if (!resolvedExternal.username || typeof resolvedExternal.password !== 'string') {
+      throw new Error('External XMPP account requires a username and a password; the password may be empty');
     }
     const externalUsername = normalizeAccountUsername(
       String(resolvedExternal.username).split('@')[0],

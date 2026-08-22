@@ -196,19 +196,26 @@ async function run() {
       rejected = error.message.includes('allowRemote');
     }
     assert(rejected, 'remote server binding should require explicit opt-in');
-    rejected = false;
-    try {
-      new XmppClientCore({
-        service: 'xmpp://192.0.2.10:5222',
-        domain: 'example.test',
-        username: 'u',
-        password: 'p',
-        rejectUnauthorized: false,
-      });
-    } catch (error) {
-      rejected = error.message.includes('loopback');
-    }
-    assert(rejected, 'verification bypass should be limited to loopback');
+    // The certificate-verification bypass is an explicit warning-styled opt-in
+    // and is no longer restricted to loopback, so a remote service is accepted
+    // when the caller asked for it. Nothing enables it implicitly.
+    const remoteClient = new XmppClientCore({
+      service: 'xmpp://192.0.2.10:5222',
+      domain: 'example.test',
+      username: 'u',
+      password: 'p',
+      rejectUnauthorized: false,
+    });
+    assert(remoteClient.tlsOptions.rejectUnauthorized === false,
+      'an explicit bypass should reach the TLS options for a remote service');
+    const defaultClient = new XmppClientCore({
+      service: 'xmpp://192.0.2.10:5222',
+      domain: 'example.test',
+      username: 'u',
+      password: 'p',
+    });
+    assert(defaultClient.tlsOptions.rejectUnauthorized === undefined,
+      'verification stays on unless it is explicitly bypassed');
     rejected = false;
     try {
       new XmppServerCore({ resourceConflict: 'conflict' });
@@ -366,6 +373,48 @@ async function run() {
       await closeClient(client);
       await server.close();
     }
+  });
+
+  await test('the account store accepts a present-but-empty password everywhere', async () => {
+    const { readExternalAccountFromEnv } = require('../src/xmpp-accounts');
+
+    const store = createAccountStore({
+      domain: 'localhost',
+      externalAccount: { username: 'velocity-logger', password: '' },
+    });
+    assert(store.verifyPassword('velocity-logger', '') === true,
+      'an empty password must verify against an empty-password account');
+    assert(store.verifyPassword('velocity-logger', 'wrong') === false,
+      'a non-empty password must not verify against an empty-password account');
+    assert(store.getPassword('velocity-logger') === '',
+      'the SASL layer must read the empty password back');
+    assert(store.describe().external.password === '<empty>',
+      'describe() must report an empty password without disclosing anything');
+
+    // A missing password is still rejected; an empty one is not.
+    let missingRejected = false;
+    try {
+      createAccountStore({ domain: 'localhost', externalAccount: { username: 'velocity-logger' } });
+    } catch (error) {
+      missingRejected = /password may be empty/.test(error.message);
+    }
+    assert(missingRejected, 'a missing external password must still be rejected');
+
+    // Environment account path: empty password accepted, missing values rejected.
+    assert(JSON.stringify(readExternalAccountFromEnv({
+      XMPP_EXTERNAL_USERNAME: 'velocity-logger', XMPP_EXTERNAL_PASSWORD: '',
+    })) === JSON.stringify({ username: 'velocity-logger', password: '' }),
+    'the environment account must accept an empty password');
+    assert(readExternalAccountFromEnv({ XMPP_EXTERNAL_USERNAME: 'velocity-logger' }) === null,
+      'a missing environment password must disable the environment account');
+    assert(readExternalAccountFromEnv({ XMPP_EXTERNAL_PASSWORD: '' }) === null,
+      'a missing environment username must disable the environment account');
+    const envStore = createAccountStore({
+      domain: 'localhost',
+      env: { XMPP_EXTERNAL_USERNAME: 'velocity-logger', XMPP_EXTERNAL_PASSWORD: '' },
+    });
+    assert(envStore.verifyPassword('velocity-logger', '') === true,
+      'the environment account must sign in with an empty password');
   });
 
   await test('account, domain, and JID matching are canonicalized', async () => {

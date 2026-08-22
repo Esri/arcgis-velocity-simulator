@@ -23,8 +23,12 @@ remains TCP Server.
 - [Conversations](#conversations)
 - [STARTTLS and certificates](#starttls-and-certificates)
 - [Authentication and normalization](#authentication-and-normalization)
+- [Connection presets](#connection-presets)
+- [Empty passwords](#empty-passwords)
+- [SASL mechanisms](#sasl-mechanisms)
 - [UI controls](#ui-controls)
 - [Tooltip reference](#tooltip-reference)
+- [Minimal local UX test with Logger](#minimal-local-ux-test-with-logger)
 - [CLI and headless mode](#cli-and-headless-mode)
 - [Status and logging](#status-and-logging)
 - [XEP support and focused-server limitations](#xep-support-and-focused-server-limitations)
@@ -132,7 +136,14 @@ unambiguous.
 
 Client trust uses the OS certificate store by default. `xmppTlsCaPath` adds a
 custom PEM CA. `xmppAllowUnverifiedTls=true` explicitly bypasses certificate
-verification only for loopback hosts; it is rejected for remote hosts.
+verification. **The bypass applies to any host, not only localhost.** STARTTLS
+still encrypts the stream, but the server identity is not checked, so the
+control is styled as a warning and is off by default. Nothing enables it
+silently: the only automatic use is the **Local XMPP — Logger Server / Simulator
+Client** connection preset, where the checkbox is visibly turned on after the
+preset is applied. See
+[TLS and SSL security](tls.md#explicit-certificate-verification-bypass) and
+[Connection presets](connection-presets.md).
 
 Server role accepts a matching PEM certificate/key path pair. When both are
 omitted and TLS is enabled, the Simulator generates an in-memory self-signed
@@ -175,6 +186,68 @@ a padded name, or a name carrying a domain suffix cannot shadow the identity the
 Simulator publishes as. The collision is reported by the command line, by the
 transport factory, and by the account store.
 
+## Connection presets
+
+Two of the twelve shared connection presets configure XMPP for a paired local
+test with the ArcGIS Velocity Logger:
+
+| Preset | Simulator role | Values |
+|--------|----------------|--------|
+| Local XMPP — Logger Server / Simulator Client | XMPP Client | `127.0.0.1:5222`, domain `localhost`, Direct, Required STARTTLS, username `simulator`, empty password, resource `velocity-simulator`, destination `velocity-logger@localhost`, Allow unverified on. |
+| Local XMPP — Simulator Server / Logger Client | XMPP Server | `127.0.0.1:5222`, domain `localhost`, Direct, Required STARTTLS, external account `velocity-logger`, empty external password, empty destination so every signed-in stream receives each line, Allow remote off. |
+
+A preset only pre-fills editable fields: it never connects, starts playback,
+selects a file, saves a secret, or changes startup defaults. The XMPP client
+preset is the only place where **Allow unverified** is turned on automatically,
+because the paired Logger presents an ephemeral self-signed certificate. See
+[Connection presets](connection-presets.md).
+
+The XMPP options are grouped by progressive disclosure. Conversation, domain,
+STARTTLS, and the account, destination, and room fields are shown directly;
+certificate paths, **Allow unverified**, **Allow remote**, and the timing values
+are one click away under **Advanced**. Validation opens **Protocol Options**,
+opens **Advanced**, and focuses the offending control when a required field is
+missing.
+
+## Empty passwords
+
+An XMPP password may be **present but empty** in every path: the UI, the
+command line, launch configuration, the transports, the client core, the account
+store, and the `XMPP_EXTERNAL_USERNAME` / `XMPP_EXTERNAL_PASSWORD` environment
+account. This keeps a local Simulator/Logger pairing free of a shared secret.
+
+- Both SASL mechanisms accept an empty password: **PLAIN** (RFC 4616) and
+  **SCRAM-SHA-1** (RFC 5802).
+- A **missing** password is still an error. `xmppPassword=` supplies an empty
+  string; omitting the parameter in a mode that needs it does not.
+- Usernames, JIDs, domain, destination, room, and nickname remain required.
+- Password whitespace is preserved exactly. A password of `" exact "` keeps both
+  spaces; only usernames and other identifiers are trimmed.
+
+```bash
+npm start -- protocol=xmpp mode=server xmppExternalUsername=velocity-logger xmppExternalPassword=
+npm start -- protocol=xmpp mode=client xmppUsername=simulator xmppPassword= xmppDestination=velocity-logger@localhost
+```
+
+## SASL mechanisms
+
+The Simulator negotiates SASL as follows:
+
+| Stream | Mechanism |
+|--------|-----------|
+| Secure (STARTTLS established) | The server's preferred mechanism, normally SCRAM-SHA-1. PLAIN is available. |
+| Unsecure, TLS policy `required` or `preferred` | A non-PLAIN mechanism only. The connection fails rather than sending a password in the clear. |
+| Unsecure, TLS policy `disabled` | A non-PLAIN mechanism when one is offered; otherwise PLAIN, because the unsecure stream was chosen deliberately. |
+
+Server mode mirrors this: it offers PLAIN on a secure stream, or on an unsecure
+stream only when its TLS policy is `disabled`, and it rejects PLAIN in every
+other unsecure case.
+
+The client SCRAM-SHA-1 mechanism lives in `src/xmpp-scram.js` and shares its key
+derivation with the in-process server mechanism, so both sides of a local
+pairing always agree. It replaces the bundled WebCrypto implementation, which
+rejects the zero-length HMAC key produced by an empty password.
+
 ## UI controls
 
 XMPP Options use progressive disclosure: role-, conversation-, and TLS-specific
@@ -186,14 +259,16 @@ aligned.
 | Conversation | Both | Select Direct or Room (MUC). |
 | Domain | Both | XMPP domain, independent of host override. |
 | STARTTLS | Both | Required, Preferred, or Disabled. |
-| CA cert | Client with TLS | Custom PEM trust anchor. |
-| Skip cert check | Client with TLS | Explicit loopback-only verification bypass. |
-| TLS cert / TLS key | Server with TLS | Matching server certificate and private key; omit both for automatic self-signed. |
-| Allow remote | Server | Permit non-loopback binding. |
-| Username / Password / Resource | Client | Sign-in identity, secret, and bind resource. |
-| Account / Acct pwd | Server | Single external account. |
+| Advanced | Both | Collapsed disclosure holding the certificate paths, Allow unverified, Allow remote, and the timing values. |
+| CA cert | Client with TLS | Custom PEM trust anchor. Inside **Advanced**. |
+| Allow unverified | Client with TLS | Explicit certificate-verification bypass for any host. Warning-styled and off by default. Inside **Advanced**. |
+| TLS cert / TLS key | Server with TLS | Matching server certificate and private key; omit both for automatic self-signed. Inside **Advanced**. |
+| Allow remote | Server | Permit non-loopback binding. Inside **Advanced**. |
+| Username / Password / Resource | Client | Sign-in identity, secret, and bind resource. The password may be present but empty. |
+| Account / Acct pwd | Server | Single external account. The account password may be present but empty. |
 | Destination | Direct | Up to 20 bare destination JIDs; optional in server role. |
 | Room / Nickname / Room pwd | MUC | Room identity, occupant nickname, and optional room password. |
+| Preset | Both | Pre-fills a paired local Simulator and Logger test. Defaults to Custom. Shown above Mode, outside the XMPP panel. |
 | Timeouts ms | Both | Connect (30000) and reply (15000) deadlines. Positive whole milliseconds only; there is no wait-forever value. |
 | Ping ms | Client | XEP-0199 keepalive interval (60000). Positive whole milliseconds only; the keepalive cannot be switched off. |
 | Reconnect ms | Client | Delay before the automatic reconnect after a dropped stream (60000). Positive whole milliseconds only; automatic reconnect cannot be switched off. |
@@ -250,7 +325,9 @@ shown as spaces):
 - **CA cert:** `Path to a custom CA certificate file (PEM) used to verify the XMPP server certificate. Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs that are not in the system trust store.`
 - **TLS cert:** `Path to the server certificate file (PEM) presented during STARTTLS. Leave empty to let the app generate an automatic self-signed certificate for local testing. Requires a matching private key.`
 - **TLS key:** `Path to the private key file (PEM) that matches the XMPP server certificate. Required whenever a certificate path is set. Leave empty to use the automatic self-signed certificate.`
-- **Skip cert check:** `Skip certificate verification for this XMPP client stream. Only allowed when the host is a loopback address, so it can be used against a locally hosted server with an automatic self-signed certificate. The stream is still encrypted; only the certificate chain check is skipped.`
+- **Allow unverified:** `Warning: accept any XMPP server certificate --- Certificate verification is disabled for every host, not only localhost. STARTTLS still encrypts the stream, but the server identity is not checked. Use only for local self-signed testing.`
+- **Advanced:** `Show or hide the advanced XMPP certificate, verification, remote-bind, and timing options. Conversation, domain, STARTTLS, and the account fields stay visible above.`
+- **Preset:** `Pre-fills the connection fields for a paired local Simulator and Logger test.`
 - **Allow remote:** `Allow remote clients to reach the built-in XMPP server. Left off, the server binds a loopback address only, so nothing outside this machine can sign in. Turn it on to bind an address such as 0.0.0.0 and accept connections from the network.`
 - **Username:** `Account used to sign in. Enter either a local part such as simulator, or a full bare JID such as simulator@example.com. A bare JID overrides the Domain field, so a copied JID can be pasted straight in.`
 - **Password:** `Password for the XMPP account. Held in memory for the lifetime of the connection and never written to status or log files. Launch configuration export includes it so automation can round-trip; protect that JSON file as a secret.`
@@ -269,6 +346,37 @@ shown as spaces):
 - **Copy Client Settings:** `Copy the settings a receiver needs to sign in to this server. Copies canonical option=value lines: ip, port, xmppDomain, xmppTlsPolicy, xmppAllowUnverifiedTls, the account, the destination or room, and the connect, reply, ping and reconnect timings. The account password is left out unless 'Include password' is checked.`
 - **Include password:** `Include the external account password in the copied settings. Off by default so a credential is never placed on the clipboard by accident. Turn it on only when you are pasting into a trusted destination.`
 
+## Minimal local UX test with Logger
+
+This setup exercises both applications with the fewest explicit settings. It
+keeps the Logger in its default XMPP Server role and the Simulator in its
+default XMPP Client role. Port `5222`, domain `localhost`, Direct conversation,
+and Required STARTTLS use their XMPP defaults, and both passwords are left
+intentionally empty.
+
+In the user interface, select the preset **Local XMPP — Logger Server /
+Simulator Client** in the Logger and the entry with the same name in the
+Simulator, then select **Connect** in the Logger and **Connect** and **Play** in
+the Simulator.
+
+The equivalent command line starts the Logger first, in one terminal:
+
+```bash
+npm start -- protocol=xmpp mode=server ip=127.0.0.1 xmppExternalUsername=simulator xmppExternalPassword=
+```
+
+Start the Simulator in a second terminal:
+
+```bash
+npm start -- filename=/Users/hano4470/Backup/data/faa.csv protocol=xmpp mode=client ip=127.0.0.1 xmppUsername=simulator xmppPassword= xmppDestination=velocity-logger@localhost xmppAllowUnverifiedTls=true
+```
+
+In the Logger, select **Connect**. Then select **Connect** and **Play** in the
+Simulator. `xmppAllowUnverifiedTls=true` is an explicit opt-in that allows the
+Simulator to accept the Logger's automatic self-signed certificate while
+STARTTLS still encrypts the stream. The bypass applies to any host the
+Simulator connects to, so leave it off outside local testing.
+
 ## CLI and headless mode
 
 Use `name=value` syntax. XMPP-specific keys are:
@@ -283,6 +391,11 @@ Use `name=value` syntax. XMPP-specific keys are:
 The host is the shared top-level `ip` parameter, which is why no `xmppHost` key
 exists. `mode`, `port`, `filename` and every other shared parameter behave
 exactly as they do for the other transports.
+
+Client mode requires `xmppUsername`; server mode requires
+`xmppExternalUsername`. The matching password parameter must be present, but it
+may be empty (`xmppPassword=` or `xmppExternalPassword=`). See
+[Empty passwords](#empty-passwords).
 
 Client example:
 
@@ -516,6 +629,7 @@ publish into it.
 | Document | Purpose |
 |----------|---------|
 | [TLS and SSL security](tls.md) | Certificate types, trust stores, mutual TLS, and the TLS Trust Badge. |
+| [Connection presets](connection-presets.md) | Paired Simulator and Logger presets, empty XMPP passwords, and the Essentials plus Advanced layout. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
 | [Configuration](configuration.md) | App Config and Launch Config settings, storage locations, and reset steps. |

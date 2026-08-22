@@ -140,6 +140,42 @@ function formatTlsCertSummary(certInfo) {
 }
 
 /**
+ * Resolves how a client connection verifies the peer certificate.
+ *
+ * Verification is on by default: the Node.js bundled roots plus the OS
+ * certificate store are trusted and the certificate chain is validated. A
+ * connection only skips verification when the caller opts in explicitly with
+ * `allowUnverifiedTls`, which is how local self-signed testing is supported
+ * without silently accepting any certificate.
+ *
+ * Shared by the HTTP, WebSocket, and gRPC client transports so the trust
+ * decision and its log wording stay identical across protocols.
+ *
+ * @param {object} opts
+ * @param {boolean} [opts.allowUnverifiedTls=false] - Explicit opt-in to skip
+ *   certificate verification for any host.
+ * @returns {{ ca: Buffer, rejectUnauthorized: boolean, certInfo: object, tlsInfo: string }}
+ */
+function resolveClientTlsVerification({ allowUnverifiedTls = false } = {}) {
+  const certResult = getSystemRootCertificates();
+  const summary = formatTlsCertSummary(certResult);
+  if (allowUnverifiedTls === true) {
+    return {
+      ca: certResult.pemBuffer,
+      rejectUnauthorized: false,
+      certInfo: certResult,
+      tlsInfo: `tls=on (cert verification disabled by explicit allowUnverifiedTls), ${summary}`,
+    };
+  }
+  return {
+    ca: certResult.pemBuffer,
+    rejectUnauthorized: true,
+    certInfo: certResult,
+    tlsInfo: `tls=on (cert verification enabled), ${summary}`,
+  };
+}
+
+/**
  * Builds HTTPS agent options for Node's https module (client mode).
  *
  * When useTls is true with no custom certs, loads both Node.js bundled
@@ -150,21 +186,20 @@ function formatTlsCertSummary(certInfo) {
  * @param {string} [opts.tlsCaPath] - Path to CA certificate file (PEM)
  * @param {string} [opts.tlsCertPath] - Path to client certificate file (PEM)
  * @param {string} [opts.tlsKeyPath] - Path to private key file (PEM)
+ * @param {boolean} [opts.allowUnverifiedTls=false] - Explicitly skip certificate
+ *   verification (any host). Off by default.
  * @returns {{ agentOptions: object, tlsInfo: string }}
  */
-function buildHttpsAgentOptions({ useTls = true, tlsCaPath, tlsCertPath, tlsKeyPath } = {}) {
+function buildHttpsAgentOptions({ useTls = true, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls = false } = {}) {
   if (!useTls) {
     return { agentOptions: null, tlsInfo: 'tls=off (unsecure)' };
   }
   const hasCustomCerts = tlsCaPath || tlsCertPath || tlsKeyPath;
   if (!hasCustomCerts) {
-    const certResult = getSystemRootCertificates();
-    // No CA cert provided — allow self-signed server certs by disabling certificate
-    // authority verification. The connection is still TLS-encrypted; only CA chain
-    // validation is skipped. Users requiring full verification should supply tlsCaPath.
+    const verification = resolveClientTlsVerification({ allowUnverifiedTls });
     return {
-      agentOptions: { ca: certResult.pemBuffer, rejectUnauthorized: false },
-      tlsInfo: `tls=on (cert verification skipped — no CA provided), ${formatTlsCertSummary(certResult)}`,
+      agentOptions: { ca: verification.ca, rejectUnauthorized: verification.rejectUnauthorized },
+      tlsInfo: verification.tlsInfo,
     };
   }
   const agentOptions = {};
@@ -172,6 +207,10 @@ function buildHttpsAgentOptions({ useTls = true, tlsCaPath, tlsCertPath, tlsKeyP
   if (tlsCaPath) { agentOptions.ca = fs.readFileSync(tlsCaPath); customParts.push(`ca=${tlsCaPath}`); }
   if (tlsCertPath) { agentOptions.cert = fs.readFileSync(tlsCertPath); customParts.push(`cert=${tlsCertPath}`); }
   if (tlsKeyPath) { agentOptions.key = fs.readFileSync(tlsKeyPath); customParts.push(`key=${tlsKeyPath}`); }
+  if (allowUnverifiedTls === true) {
+    agentOptions.rejectUnauthorized = false;
+    customParts.push('cert verification disabled by explicit allowUnverifiedTls');
+  }
   return {
     agentOptions,
     tlsInfo: `tls=on, custom certs: ${customParts.join(', ')}`,
@@ -311,6 +350,7 @@ module.exports = {
   getSystemRootCertificates,
   getLocalIpAddresses,
   formatTlsCertSummary,
+  resolveClientTlsVerification,
   buildHttpsAgentOptions,
   buildHttpsServerOptions,
   generateSelfSignedCert,

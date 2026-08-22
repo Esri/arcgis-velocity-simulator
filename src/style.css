@@ -1520,7 +1520,101 @@ body:not(.show-gestures) #live-gesture-received {
   margin-bottom: 2px;
 }
 
+/* Preset picker: sits above Mode and keeps the connection block compact by
+   naming a paired local Simulator/Logger test instead of a stack of fields. */
+.connection-preset-select {
+  min-width: 0;
+  text-align: left;
+  text-align-last: left;
+  text-overflow: ellipsis;
+}
+
+.connection-preset-state {
+  flex: 0 0 auto !important;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  font-size: 0.75em;
+  line-height: 1.6;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+.connection-preset-state[hidden] {
+  display: none;
+}
+
+/* Progressive disclosure: advanced protocol options stay one click away
+   instead of crowding the essentials rows. */
+.advanced-options {
+  margin: 2px 0;
+  min-width: 0;
+}
+
+.advanced-options > summary {
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 0.85em;
+  list-style: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.advanced-options > summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-options > summary::before {
+  content: '⚙ ';
+  opacity: 0.8;
+}
+
+.advanced-options > summary:hover,
+.advanced-options > summary:focus-visible {
+  border-color: var(--text-color);
+  background-color: color-mix(in srgb, var(--text-color) 8%, transparent);
+}
+
+.advanced-options-body {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0 2px 6px;
+  border-left: 2px solid var(--hr-bg);
+  margin-top: 4px;
+}
+
+/* Explicit certificate-verification bypass is a warning-level control. */
+.unverified-tls-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  padding: 1px 6px;
+  border: 1px solid var(--button-danger-bg, #dc3545);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--button-danger-bg, #dc3545) 10%, transparent);
+}
+
+.unverified-tls-check::before {
+  content: '⚠';
+}
+
+/* The bypass label carries its own box, so it opts out of the fixed label
+   column used by the surrounding aligned rows. */
+.unverified-tls-group > .unverified-tls-check {
+  flex-basis: auto;
+}
+
 /* Compact mode */
+body.compact .advanced-options > summary {
+  font-size: 0.7em;
+  padding: 1px 4px;
+}
+
 body.compact .extra-options-toggle-btn {
   height: 18px;
   font-size: 0.68em;

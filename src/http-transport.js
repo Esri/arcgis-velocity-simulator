@@ -61,8 +61,10 @@ class HttpClientTransport {
    * @param {string} [opts.httpTlsCaPath] - CA cert path
    * @param {string} [opts.httpTlsCertPath] - Client cert path
    * @param {string} [opts.httpTlsKeyPath] - Client key path
+   * @param {boolean} [opts.httpAllowUnverifiedTls=false] - Explicitly skip
+   *   certificate verification (any host). Off by default.
    */
-  constructor({ ip, port, httpFormat = 'json', httpPath = '/', httpTls = true, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, onData = null, authToken, authBasic }) {
+  constructor({ ip, port, httpFormat = 'json', httpPath = '/', httpTls = true, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpAllowUnverifiedTls = false, onData = null, authToken, authBasic }) {
     this.ip = ip;
     this.port = port;
     this.httpFormat = httpFormat;
@@ -71,6 +73,7 @@ class HttpClientTransport {
     this.httpTlsCaPath = httpTlsCaPath;
     this.httpTlsCertPath = httpTlsCertPath;
     this.httpTlsKeyPath = httpTlsKeyPath;
+    this.httpAllowUnverifiedTls = httpAllowUnverifiedTls === true;
     this.onData = onData;
     this.authToken = authToken || null;
     this.authBasic = authBasic || null; // { username, password }
@@ -87,6 +90,7 @@ class HttpClientTransport {
         tlsCaPath: this.httpTlsCaPath,
         tlsCertPath: this.httpTlsCertPath,
         tlsKeyPath: this.httpTlsKeyPath,
+        allowUnverifiedTls: this.httpAllowUnverifiedTls,
       });
       this._tlsInfo = tlsInfo;
       this._agent = new https.Agent({ ...agentOptions, keepAlive: true });

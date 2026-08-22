@@ -9,6 +9,7 @@ const path = require('path');
 const testSuites = [
   { file: 'config.test.js', description: '📋 Config Manager Tests' },
   { file: 'cli-options.test.js', description: '🧾 CLI Options Tests' },
+  { file: 'connection-presets.test.js', description: '🎚  Connection Preset Tests' },
   { file: 'renderer.test.js', description: '🖥️  Renderer Tests' },
   { file: 'preload.test.js', description: '🔗 Preload API Tests' },
   { file: 'about.test.js', description: '📄 About Dialog Tests' },
@@ -16,6 +17,7 @@ const testSuites = [
   { file: 'simulation-engine.test.js', description: '🚀 Simulation Engine Tests' },
   { file: 'headless-runner.test.js', description: '🧪 Headless Runner Tests' },
   { file: 'grpc-transport.test.js', description: '🔌 gRPC Transport Tests' },
+  { file: 'tls-verification.test.js', description: '🔐 Client TLS Verification Tests' },
   { file: 'external-sign.test.js', description: '✍️  External Signing Tests' },
   { file: 'sign-lock.test.js', description: '🔒 External Signing Lock Tests' },
   { file: 'format-utils.test.js', description: '📦 Format Utils Tests' },

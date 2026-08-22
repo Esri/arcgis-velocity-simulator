@@ -17,6 +17,7 @@ Interface dialog (`F3`), so this guide and the dialog always agree.
 - [In-app Command Line Interface dialog reference](#in-app-command-line-interface-dialog-reference)
 - [Required vs optional parameters](#required-vs-optional-parameters)
 - [Parameter reference](#parameter-reference)
+- [Connection presets and the command line](#connection-presets-and-the-command-line)
 - [IP address behavior](#ip-address-behavior)
 - [Aliases and shortcuts](#aliases-and-shortcuts)
 - [Help layout parameters](#help-layout-parameters)
@@ -106,6 +107,7 @@ terminal help, the dialog, and this guide use the same terminology.
 
 | Name | Supported Values | Default | Required in Headless Mode | Example | Purpose |
 | --- | --- | --- | --- | --- | --- |
+| `allowUnverifiedTls` | `true`, `false` | `false` | No | `allowUnverifiedTls=true` | Explicitly accept an unverified gRPC server certificate in client mode. The connection stays encrypted, but the server identity is not checked and the bypass applies to any host, not only localhost. Server mode is unaffected. Only applies when `protocol=grpc`, `mode=client`, and `useTls=true`. See [TLS and SSL security](tls.md#explicit-certificate-verification-bypass). |
 | `autoConnect` | `true`, `false` | `true` | No | `autoConnect=false` | Connect automatically before streaming begins. |
 | `autoStart` | `true`, `false` | `true` | No | `autoStart=false` | Start streaming immediately after initialization. |
 | `config` | `path`, `omitted` | `(none)` | No | `config=./docs/examples/launch-config.server.sample.json` | Optional JSON launch-config file. CLI values override config-file values. |
@@ -122,6 +124,7 @@ terminal help, the dialog, and this guide use the same terminology.
 | `help-table-narrow` | `true`, `false` | `false` | No | `help-table-narrow=true` | Print CLI help in a narrower ASCII-table layout for smaller terminals, then exit. |
 | `help-table-wide` | `true`, `false` | `false` | No | `help-table-wide=true` | Print CLI help in a wide ASCII-table layout for larger terminals, then exit. |
 | `help-wide` | `true`, `false` | `false` | No | `help-wide=true` | Print a compact ASCII-table parameter summary (name, values, default, example, purpose) and exit without running the app. |
+| `httpAllowUnverifiedTls` | `true`, `false` | `false` | No | `httpAllowUnverifiedTls=true` | Explicitly accept an unverified HTTPS server certificate in client mode. The connection stays encrypted, but the server identity is not checked and the bypass applies to any host, not only localhost. Server mode is unaffected. Only applies when `protocol=http`, `mode=client`, and `httpTls=true`. See [TLS and SSL security](tls.md#explicit-certificate-verification-bypass). |
 | `intervalMs` | `integer >= 1` | `1000` | No | `intervalMs=250` | Delay in milliseconds between scheduler ticks. |
 | `ip` | `IPv4-or-host-bind-address` | `127.0.0.1` | No | `ip=192.168.1.25` | Bind address for server mode or destination address for client mode. Default `127.0.0.1` is loopback/local-only. |
 | `linesPerInterval` | `integer >= 1` | `1` | No | `linesPerInterval=5` | Number of lines processed during each scheduler tick. |
@@ -142,16 +145,17 @@ terminal help, the dialog, and this guide use the same terminology.
 | `startLine` | `integer >= 1` | `1` | No | `startLine=100` | 1-based inclusive start line for the replay window. |
 | `stdout` | `true`, `false` | `true` | No | `stdout=false` | Enable or disable console log output during headless runs. |
 | `waitForClient` | `true`, `false` | `false` | No | `waitForClient=true` | In server mode, wait for at least one recipient before advancing through the file. When false (the default), data is sent immediately and lines are advanced even if no client is connected. Ignored in client mode. |
+| `wsAllowUnverifiedTls` | `true`, `false` | `false` | No | `wsAllowUnverifiedTls=true` | Explicitly accept an unverified WSS server certificate in client mode. The connection stays encrypted, but the server identity is not checked and the bypass applies to any host, not only localhost. Server mode is unaffected. Only applies when `protocol=ws`, `mode=client`, and `wsTls=true`. See [TLS and SSL security](tls.md#explicit-certificate-verification-bypass). |
 | `xmppAllowRemote` | `true`, `false` | `false` | No | `xmppAllowRemote=true` | Allow the built-in XMPP server to bind a non-loopback address so remote clients can sign in. Left false the server binds loopback only. Only applies when `protocol=xmpp` and `mode=server`. See [XMPP transport](xmpp.md). |
-| `xmppAllowUnverifiedTls` | `true`, `false` | `false` | No | `xmppAllowUnverifiedTls=true` | Skip certificate verification for the XMPP client stream. Restricted to loopback hosts so it can only be used against a locally hosted server with an automatic self-signed certificate. Only applies when `protocol=xmpp` and `mode=client`. See [XMPP transport](xmpp.md). |
+| `xmppAllowUnverifiedTls` | `true`, `false` | `false` | No | `xmppAllowUnverifiedTls=true` | Explicitly accept an unverified XMPP server certificate. STARTTLS still encrypts the stream, but the server identity is not checked and the bypass applies to any host, not only localhost. Only applies when `protocol=xmpp` and `mode=client`. See [XMPP transport](xmpp.md) and [TLS and SSL security](tls.md#explicit-certificate-verification-bypass). |
 | `xmppConnectTimeoutMs` | `integer >= 1` | `30000` | No | `xmppConnectTimeoutMs=30000` | Milliseconds to wait for the XMPP stream to negotiate, authenticate and bind before the attempt fails. Must be a positive integer; there is no wait-forever value. Only applies when `protocol=xmpp`. |
 | `xmppConversation` | `direct`, `muc` | `direct` | No | `xmppConversation=muc` | Publish each line as one-to-one `direct` chat messages, or as `muc` groupchat messages in a Multi-User Chat room. Only applies when `protocol=xmpp`. See [XMPP transport](xmpp.md). |
 | `xmppDestination` | comma-separated bare JIDs, `omitted` | `(none)` | Only when `protocol=xmpp`, `mode=client` and `xmppConversation=direct` | `xmppDestination=feed@example.com` | Bare destination JIDs (`user@domain`, no resource) that receive each replayed line. At most 20 comma-separated entries. In server mode this optionally restricts delivery to specific signed-in accounts instead of every stream. |
 | `xmppDomain` | `string` | `localhost` | No | `xmppDomain=example.com` | XMPP domain served (server mode) or authenticated against (client mode). The network host stays the shared top-level `ip` option — there is no `xmppHost` key — so a client can connect to an IP address while authenticating against the real domain. |
-| `xmppExternalPassword` | `string`, `omitted` | `(none)` | Only when `protocol=xmpp` and `mode=server` | `xmppExternalPassword=change-me` | Password for the required external account the built-in XMPP server accepts. Never written to a log or a done file. |
+| `xmppExternalPassword` | `string`, `empty`, `omitted` | `(none)` | Only when `protocol=xmpp` and `mode=server` | `xmppExternalPassword=change-me` | Password for the required external account the built-in XMPP server accepts. May be present but empty (`xmppExternalPassword=`) for relaxed local testing. Never written to a log or a done file. |
 | `xmppExternalUsername` | `string`, `omitted` | `(none)` | Only when `protocol=xmpp` and `mode=server` | `xmppExternalUsername=receiver` | Username of the required external account the built-in XMPP server accepts, alongside the automatic simulator application identity. It must not canonically collide with the reserved `velocity-simulator` identity: the comparison uses the trimmed, lowercased local part, so case and domain variations collide too. |
 | `xmppNickname` | `string` | `velocity-simulator` | No | `xmppNickname=simulator` | Room nickname used when entering a Multi-User Chat room. Must not contain `/` or `@`. Only applies when `xmppConversation=muc`. |
-| `xmppPassword` | `string`, `omitted` | `(none)` | Only when `protocol=xmpp` and `mode=client` | `xmppPassword=change-me` | Password for the XMPP account used in client mode. Whitespace is significant and is never trimmed, on the command line, in a launch-config file, or in the UI. Held in memory only and never written to a log or a done file. |
+| `xmppPassword` | `string`, `empty`, `omitted` | `(none)` | Only when `protocol=xmpp` and `mode=client` | `xmppPassword=change-me` | Password for the XMPP account used in client mode. May be present but empty (`xmppPassword=`) for relaxed local testing. Whitespace is significant and is never trimmed, on the command line, in a launch-config file, or in the UI. Held in memory only and never written to a log or a done file. |
 | `xmppPingIntervalMs` | `integer >= 1` | `60000` | No | `xmppPingIntervalMs=60000` | Interval between XEP-0199 keepalive pings on an idle client stream. Must be a positive integer; the keepalive cannot be switched off. Only applies when `protocol=xmpp` and `mode=client`. |
 | `xmppReconnectDelayMs` | `integer >= 1` | `60000` | No | `xmppReconnectDelayMs=60000` | Milliseconds to wait after a dropped client stream before the automatic reconnect is attempted. Must be a positive integer; automatic reconnect cannot be switched off. A reconnect re-binds the resource and re-joins the room; stream resumption is not implemented, so nothing sent while the stream was down is replayed. Only applies when `protocol=xmpp` and `mode=client`. |
 | `xmppReplyTimeoutMs` | `integer >= 1` | `15000` | No | `xmppReplyTimeoutMs=15000` | Milliseconds to wait for a reply to a request that expects one, such as a room entry confirmation or a ping result. Must be a positive integer; there is no wait-forever value. |
@@ -163,6 +167,24 @@ terminal help, the dialog, and this guide use the same terminology.
 | `xmppTlsKeyPath` | `path`, `omitted` | `(none)` | No | `xmppTlsKeyPath=./certs/server-key.pem` | Private key file (PEM) matching the XMPP server certificate. Required whenever `xmppTlsCertPath` is set. Only applies when `protocol=xmpp` and `mode=server`. |
 | `xmppTlsPolicy` | `required`, `preferred`, `disabled` | `required` | No | `xmppTlsPolicy=required` | STARTTLS policy. `required` refuses to authenticate over a plaintext stream, `preferred` upgrades when the peer offers it, and `disabled` does not require encryption (the server stops advertising STARTTLS; a client still accepts an upgrade a third-party server insists on). |
 | `xmppUsername` | `username`, `user@domain`, `omitted` | `(none)` | Only when `protocol=xmpp` and `mode=client` | `xmppUsername=simulator@example.com` | Account used to sign in. A bare `user@domain` value overrides `xmppDomain` so a copied JID can be pasted directly. |
+
+XMPP client mode requires `xmppUsername` and XMPP server mode requires
+`xmppExternalUsername`. The matching password parameter must be present, but it
+may be empty: `xmppPassword=` and `xmppExternalPassword=` are accepted for both
+PLAIN and SCRAM-SHA-1 and keep a local Simulator/Logger pairing free of a
+shared secret. Password whitespace is preserved exactly.
+
+## Connection presets and the command line
+
+The UI **Preset** dropdown pre-fills the same connection fields these parameters
+set. A preset only fills editable fields: it never connects, starts playback,
+selects a file, saves a secret, or changes startup defaults, and the equivalent
+command line is always spelled out. See
+[Connection presets](connection-presets.md) for the twelve paired Simulator and
+Logger entries.
+
+Passing connection parameters in UI mode prepopulates the same controls without
+selecting a preset; the dropdown stays on **Custom**.
 
 ## IP address behavior
 

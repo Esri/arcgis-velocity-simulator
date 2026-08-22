@@ -281,6 +281,7 @@ electron . runMode=headless filename=./data.csv protocol=grpc mode=server ip=0.0
 | `tlsCaPath` | Path to a custom CA certificate file (PEM). When omitted with `useTls=true`, OS root certificates are loaded automatically (see [TLS and certificate stores](#tls-and-certificate-stores)). |
 | `tlsCertPath` | Path to a client/server certificate file (PEM) for mutual TLS. Required for TLS server mode. |
 | `tlsKeyPath` | Path to a private key file (PEM) for mutual TLS. Required for TLS server mode. |
+| `allowUnverifiedTls` | Client mode only. Explicitly accept an unverified server certificate (default: `false`). The bypass applies to any host, not only localhost. |
 
 ## UI usage
 
@@ -294,10 +295,12 @@ The following controls appear inside the expanded section:
 
 - **Serialization** - `Protobuf` (default), `Kryo`, or `Text`
 - **RPC type** - `Client Streaming` (default) or `Unary`. Selects the gRPC call pattern for sending data. Client Streaming opens a persistent stream for high-throughput ingestion. Unary sends each message as an independent request/response round-trip. See [Send Methods (RPC Types)](#send-methods-rpc-types) for details. Only applies in gRPC Client mode. **Locked while connected** (the streaming vs. unary choice is baked into the transport at connect time).
-- **Use TLS** - Checkbox to enable TLS (SSL) connections. When checked, additional certificate path fields appear.
-- **CA cert** - Path to a custom CA certificate file (PEM). Leave empty to use OS root certificates automatically.
-- **TLS cert** - Path to a client/server certificate file (PEM) for mutual TLS.
-- **TLS key** - Path to a private key file (PEM) for mutual TLS.
+- **Use TLS** - Checkbox to enable TLS (SSL) connections. When checked, additional certificate path fields appear inside **Advanced**.
+- **Advanced** - Collapsed disclosure holding the certificate paths and the verification option. Serialization, RPC type, header path, and TLS stay visible above it. See [Connection presets](connection-presets.md#progressive-disclosure).
+- **CA cert** - Path to a custom CA certificate file (PEM). Leave empty to use OS root certificates automatically. Inside **Advanced**.
+- **TLS cert** - Path to a client/server certificate file (PEM) for mutual TLS. Inside **Advanced**.
+- **TLS key** - Path to a private key file (PEM) for mutual TLS. Inside **Advanced**.
+- **Allow unverified** - Client-only warning checkbox inside **Advanced**, shown when TLS is enabled. Accepts an unverified server certificate for any host. Off by default; see [TLS and SSL security](tls.md#explicit-certificate-verification-bypass).
 - **Header path key** - gRPC endpoint header path key (default: `grpc-path`). Sent as gRPC metadata on every outgoing call. **Visible only in gRPC Client mode.**
 - **Header path** - gRPC endpoint header path value (default: `replace.with.dedicated.uid`). Sent as gRPC metadata on every outgoing call. **Visible only in gRPC Client mode.**
 
@@ -319,6 +322,13 @@ UI. These are set dynamically via `GRPC_SERIALIZATION_TOOLTIPS` and
 | Protobuf | gRPC Feature Serialization Format: Protobuf. Uses the ArcGIS Velocity external GrpcFeed protocol (velocity-grpc.proto) with typed Feature messages and google.protobuf.Any-wrapped attributes. Recommended for standard external Velocity gRPC interoperability. |
 | Kryo | gRPC Feature Serialization Format: Kryo. Uses the internal GrpcFeatureService protocol (feature-service.proto) where the bytes field carries raw binary feature payloads. Intended for internal-path compatibility and advanced testing. |
 | Text | gRPC Feature Serialization Format: Text. Uses the internal GrpcFeatureService protocol (feature-service.proto) where the bytes field carries plain UTF-8 text, typically a CSV line. Best for simple human-readable testing. |
+
+#### Control tooltips
+
+| Control | Tooltip |
+|---------|---------|
+| Advanced | Show or hide the advanced gRPC certificate and verification options. Serialization, RPC type, header path, and TLS stay visible above. |
+| Allow unverified | Warning: accept any gRPC server certificate<br>---<br>Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing. |
 
 #### RPC type tooltips
 
@@ -468,6 +478,7 @@ the product client connects.
 | Document | Purpose |
 |----------|---------|
 | [TLS and SSL security](tls.md) | Certificate types, trust stores, mutual TLS, and the TLS Trust Badge. |
+| [Connection presets](connection-presets.md) | Paired Simulator and Logger presets and the Essentials plus Advanced layout. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
 | [HTTP and HTTPS transport](http.md) | HTTP and HTTPS modes, data formats, and request paths. |

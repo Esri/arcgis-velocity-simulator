@@ -38,6 +38,15 @@ const {
   SCRAM_SHA_1_SALT_BYTES,
 } = require('./xmpp-constants');
 const { timingSafeEqualBuffer } = require('./xmpp-utils');
+const {
+  SCRAM_KEY_LENGTH,
+  hmac,
+  hash,
+  xorBuffers,
+  parseScramAttributes,
+  unescapeSaslName,
+  deriveScramKeys,
+} = require('./xmpp-scram');
 
 /** SASL failure conditions used by the server (RFC 6120 §6.5). */
 const SASL_CONDITIONS = Object.freeze({
@@ -109,66 +118,7 @@ function createPlainMechanism({ verifyPassword }) {
 // SCRAM-SHA-1 — RFC 5802
 // =============================================================================
 
-const SCRAM_DIGEST = 'sha1';
-const SCRAM_KEY_LENGTH = 20;
-
-function hmac(key, data) {
-  return crypto.createHmac(SCRAM_DIGEST, key).update(data).digest();
-}
-
-function hash(data) {
-  return crypto.createHash(SCRAM_DIGEST).update(data).digest();
-}
-
-function xorBuffers(a, b) {
-  const out = Buffer.allocUnsafe(a.length);
-  for (let i = 0; i < a.length; i += 1) out[i] = a[i] ^ b[i];
-  return out;
-}
-
-/**
- * Parses a comma-separated SCRAM attribute list (`a=1,b=2`) into a map.
- * Values may themselves contain `=` (base64 padding), so only the first `=`
- * splits the pair.
- *
- * @param {string} text
- * @returns {Map<string, string>}
- */
-function parseScramAttributes(text) {
-  const map = new Map();
-  for (const token of text.split(',')) {
-    if (!token) continue;
-    const idx = token.indexOf('=');
-    if (idx <= 0) continue;
-    map.set(token.slice(0, idx), token.slice(idx + 1));
-  }
-  return map;
-}
-
-/** Reverses the SCRAM `saslname` escaping of `,` and `=`. */
-function unescapeSaslName(name) {
-  return String(name).replace(/=2C/g, ',').replace(/=3D/g, '=');
-}
-
-/**
- * Derives the SCRAM keys for a cleartext password.
- *
- * @param {string} password
- * @param {Buffer} salt
- * @param {number} iterations
- */
-function deriveScramKeys(password, salt, iterations) {
-  const saltedPassword = crypto.pbkdf2Sync(
-    Buffer.from(password, 'utf8'),
-    salt,
-    iterations,
-    SCRAM_KEY_LENGTH,
-    SCRAM_DIGEST,
-  );
-  const clientKey = hmac(saltedPassword, 'Client Key');
-  const serverKey = hmac(saltedPassword, 'Server Key');
-  return { saltedPassword, clientKey, storedKey: hash(clientKey), serverKey };
-}
+// SCRAM primitives are shared with the client mechanism in xmpp-scram.js.
 
 /**
  * Creates a SCRAM-SHA-1 mechanism instance.

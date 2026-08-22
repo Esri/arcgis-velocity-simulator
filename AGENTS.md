@@ -324,7 +324,43 @@ Treat the following as one shared surface that must not drift between the reposi
 - **Option vocabulary.** CLI keys, launch-config keys, and UI element ids should be identical. A parameter named `xmppRoomPassword` here must not become `xmppMucPassword` there.
 - **Defaults and bounds.** Ports, timeouts, size caps, destination caps, TLS/STARTTLS policies, and validation rules must match, so the same configuration behaves the same on both sides of a test.
 - **Wire-level guarantees.** Framing, delimiters, content types, self-echo handling, and error conditions must stay compatible; one app's send path is the other app's receive path, so a change to either is a protocol change.
-- **XMPP safeguards.** Keep account/JID canonicalization, password-whitespace handling, loopback-only TLS bypass, Direct/MUC self-echo semantics, waiter cancellation, reconnect cleanup, and acknowledgement-only XEP-0198 claims identical. Never copy credentials between repositories or weaken a safeguard to simplify pairing.
+- **XMPP safeguards.** Keep account/JID canonicalization, password-whitespace handling, explicit opt-in unverified TLS, empty-password acceptance for PLAIN and SCRAM-SHA-1, Direct/MUC self-echo semantics, waiter cancellation, reconnect cleanup, and acknowledgement-only XEP-0198 claims identical. Never copy credentials between repositories or weaken a safeguard to simplify pairing.
+- **Client TLS verification.** Client-mode certificate verification is on by default and is bypassed only through the explicit `allowUnverifiedTls` (gRPC), `httpAllowUnverifiedTls`, `wsAllowUnverifiedTls`, and `xmppAllowUnverifiedTls` options. Keep the option names, defaults, warning styling, and log wording identical in both repositories, and keep the decision in one shared TLS helper (`resolveClientTlsVerification()` in `src/tls-utils.js`) rather than duplicating it per transport.
+- **Shared SCRAM primitives.** `src/xmpp-scram.js` holds the SCRAM-SHA-1 key derivation used by both the in-process server mechanism and the client mechanism, so the two sides of a local pairing always agree and an empty password authenticates. Mirror any change to it rather than duplicating the crypto inline.
+
+#### Connection preset parity
+
+`src/connection-presets.js` defines twelve paired connection presets. The preset
+**identifiers and labels are a cross-application contract** and must match the
+Logger exactly, character for character, including the em dash in each label:
+
+| Identifier | Label |
+|---|---|
+| `local-tcp-logger-server` | Local TCP — Logger Server / Simulator Client |
+| `local-tcp-simulator-server` | Local TCP — Simulator Server / Logger Client |
+| `local-udp-logger-server` | Local UDP — Logger Server / Simulator Client |
+| `local-udp-simulator-server` | Local UDP — Simulator Server / Logger Client |
+| `local-grpc-logger-server` | Local gRPC — Logger Server / Simulator Client |
+| `local-grpc-simulator-server` | Local gRPC — Simulator Server / Logger Client |
+| `local-http-logger-server` | Local HTTP — Logger Server / Simulator Client |
+| `local-http-simulator-server` | Local HTTP — Simulator Server / Logger Client |
+| `local-ws-logger-server` | Local WebSocket — Logger Server / Simulator Client |
+| `local-ws-simulator-server` | Local WebSocket — Simulator Server / Logger Client |
+| `local-xmpp-logger-server` | Local XMPP — Logger Server / Simulator Client |
+| `local-xmpp-simulator-server` | Local XMPP — Simulator Server / Logger Client |
+
+Only the **role mapping** is inverted. In the Simulator, a label naming *Logger
+Server* selects a `*-client` connection type and a label naming *Simulator
+Server* selects a `*-server` connection type; the Logger maps the same labels
+the other way. Hosts, ports, formats, serialization, paths, and TLS choices must
+stay identical.
+
+Preset semantics must also match: a preset only pre-fills editable fields, never
+connects, never starts playback or capture, never selects a file, never saves a
+secret, and never changes startup defaults. Selecting **Custom** preserves
+current values, and editing any populated field switches the display to
+**Custom (modified)**. Adding, renaming, or repurposing a preset requires the
+same change in the sister repository in the same release.
 
 #### XMPP role defaults and the deliberate destination asymmetry
 

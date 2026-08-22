@@ -169,8 +169,259 @@ async function signInWithoutTls(port, username, password, domain = 'localhost') 
   };
 }
 
+/**
+ * Signs in over a deliberately unencrypted stream using SASL PLAIN.
+ *
+ * PLAIN over an unsecure stream is only offered when the TLS policy is
+ * deliberately Disabled, and `@xmpp/client` cannot be forced to send it, so
+ * this raw client is the only way to exercise that path. The password may be
+ * empty, which is the relaxed-testing case under test.
+ */
+async function signInWithPlain(port, username, password, domain = 'localhost') {
+  const socket = net.connect(port, '127.0.0.1');
+  const decoder = new StringDecoder('utf8');
+  let received = '';
+  const waiters = new Set();
+  socket.on('error', () => {});
+  socket.on('data', (chunk) => {
+    received += decoder.write(chunk);
+    for (const waiter of [...waiters]) {
+      const match = received.slice(waiter.offset).match(waiter.pattern);
+      if (!match) continue;
+      clearTimeout(waiter.timer);
+      waiters.delete(waiter);
+      waiter.resolve(match);
+    }
+  });
+  const close = () => {
+    for (const waiter of waiters) clearTimeout(waiter.timer);
+    waiters.clear();
+    socket.destroy();
+  };
+  await new Promise((resolve, reject) => {
+    socket.once('connect', resolve);
+    socket.once('error', reject);
+  });
+
+  const waitFor = (pattern, timeout = 5000) => {
+    const offset = received.length;
+    return new Promise((resolve, reject) => {
+      const waiter = {
+        offset,
+        pattern,
+        resolve,
+        timer: setTimeout(() => {
+          waiters.delete(waiter);
+          reject(new Error(`Timed out waiting for raw XMPP pattern ${pattern}`));
+        }, timeout),
+      };
+      waiters.add(waiter);
+      const match = received.slice(offset).match(pattern);
+      if (!match) return;
+      clearTimeout(waiter.timer);
+      waiters.delete(waiter);
+      resolve(match);
+    });
+  };
+
+  const openStream = () => {
+    const features = waitFor(/<stream:features[\s\S]*?<\/stream:features>/);
+    socket.write(`<stream:stream to="${domain}" xmlns="jabber:client" ` +
+      'xmlns:stream="http://etherx.jabber.org/streams" version="1.0">');
+    return features;
+  };
+
+  try {
+    const features = (await openStream())[0];
+    if (!features.includes('>PLAIN<')) {
+      throw new Error('PLAIN was not offered on this unsecure stream');
+    }
+    const outcome = waitFor(/<(success|failure)[\s\S]*?(\/>|<\/\1>)/);
+    const initial = Buffer.from(`\u0000${username}\u0000${password}`, 'utf8').toString('base64');
+    socket.write('<auth xmlns="urn:ietf:params:xml:ns:xmpp-sasl" mechanism="PLAIN">' +
+      `${initial}</auth>`);
+    const result = await outcome;
+    if (result[1] === 'failure') throw new Error(`PLAIN authentication failed: ${result[0]}`);
+
+    await openStream();
+    const bound = waitFor(/<iq[^>]*id=["']bind-plain["'][\s\S]*?<\/iq>/);
+    socket.write('<iq type="set" id="bind-plain"><bind xmlns="urn:ietf:params:xml:ns:xmpp-bind">' +
+      '<resource>raw-plain</resource></bind></iq>');
+    await bound;
+  } catch (error) {
+    close();
+    throw error;
+  }
+
+  return {
+    socket,
+    get received() {
+      return received;
+    },
+    async sendChat(to, body) {
+      socket.write(`<message to="${to}" type="chat"><body>${body}</body></message>`);
+      await new Promise((resolve) => setImmediate(resolve));
+    },
+    close,
+  };
+}
+
 async function run() {
   console.log('\n=== XMPP Transport Tests ===');
+
+  await test('a present-but-empty XMPP password is accepted while identities stay required', async () => {
+    const { XmppClientCore } = require('../src/xmpp-client-core.js');
+    let missingUsername = false;
+    try {
+      createXmppClientTransport({ ip: '127.0.0.1', port: 5222, xmppPassword: '' });
+    } catch (error) {
+      missingUsername = /username is required/i.test(error.message);
+    }
+    assert(missingUsername, 'a missing username must still be rejected');
+
+    let missingPassword = false;
+    try {
+      createXmppClientTransport({ ip: '127.0.0.1', port: 5222, xmppUsername: 'simulator' });
+    } catch (error) {
+      missingPassword = /an empty value is allowed/i.test(error.message);
+    }
+    assert(missingPassword, 'a missing password must be rejected with an explicit hint');
+
+    const emptyPasswordClient = createXmppClientTransport({
+      ip: '127.0.0.1',
+      port: 5222,
+      xmppUsername: 'simulator',
+      xmppPassword: '',
+      xmppDestination: 'velocity-logger@localhost',
+    });
+    assert(typeof emptyPasswordClient.connect === 'function',
+      'an empty password must build a usable client transport');
+
+    let missingExternalPassword = false;
+    try {
+      createXmppServerTransport({ ip: '127.0.0.1', port: 0, xmppExternalUsername: 'velocity-logger' });
+    } catch (error) {
+      missingExternalPassword = /an empty value is allowed/i.test(error.message);
+    }
+    assert(missingExternalPassword, 'a missing external password must be rejected');
+
+    // The core keeps the same distinction: empty is a value, missing is not.
+    const core = new XmppClientCore({
+      service: 'xmpp://127.0.0.1:5222', domain: 'localhost', username: 'simulator', password: '',
+    });
+    assert(core.options.password === '', 'the core must keep a present-but-empty password');
+    let coreRejected = false;
+    try {
+      new XmppClientCore({ service: 'xmpp://127.0.0.1:5222', domain: 'localhost', username: 'simulator' });
+    } catch (error) {
+      coreRejected = /password/.test(error.message);
+    }
+    assert(coreRejected, 'the core must still reject a missing password');
+  });
+
+  await test('an explicit certificate bypass is accepted for a remote XMPP host', async () => {
+    // The bypass is a warning-styled opt-in, not a loopback-only shortcut.
+    const remote = createXmppClientTransport({
+      ip: '10.1.2.3',
+      port: 5222,
+      xmppUsername: 'simulator',
+      xmppPassword: '',
+      xmppDestination: 'feed@example.com',
+      xmppAllowUnverifiedTls: true,
+    });
+    assert(typeof remote.connect === 'function',
+      'an explicit bypass must not be blocked by a non-loopback host');
+  });
+
+  await test('an empty password authenticates over SCRAM-SHA-1 on a secure stream', async () => {
+    const received = [];
+    const server = createXmppServerTransport({
+      ip: '127.0.0.1',
+      port: 0,
+      xmppDomain: 'localhost',
+      xmppTlsPolicy: 'required',
+      xmppExternalUsername: 'velocity-logger',
+      xmppExternalPassword: '',
+      onData: (body) => received.push(body),
+    });
+    let client;
+    try {
+      const listening = await server.connect();
+      client = createXmppClientTransport({
+        ip: '127.0.0.1',
+        port: listening.address.port,
+        xmppDomain: 'localhost',
+        xmppTlsPolicy: 'required',
+        xmppUsername: 'velocity-logger',
+        xmppPassword: '',
+        xmppDestination: listening.serviceJid,
+        xmppAllowUnverifiedTls: true,
+        xmppPingIntervalMs: IDLE_TIMING_MS,
+      });
+      const connected = await client.connect();
+      assert(connected.secure === true || connected.tlsInfo.startsWith('tls=on'),
+        'the SCRAM sign-in must happen on an encrypted stream');
+      const outbound = await client.send('empty-password-scram');
+      assert(outbound.delivered, 'an empty-password account must be able to publish');
+      await waitFor(() => received.length === 1);
+      assert(received[0] === 'empty-password-scram', 'the server must receive the exact body');
+    } finally {
+      if (client) await client.disconnect();
+      await server.disconnect();
+    }
+  });
+
+  await test('an empty password authenticates over PLAIN when TLS is deliberately disabled', async () => {
+    const received = [];
+    const server = createXmppServerTransport({
+      ip: '127.0.0.1',
+      port: 0,
+      xmppDomain: 'localhost',
+      xmppTlsPolicy: 'disabled',
+      xmppExternalUsername: 'velocity-logger',
+      xmppExternalPassword: '',
+      onData: (body) => received.push(body),
+    });
+    let raw;
+    try {
+      const listening = await server.connect();
+      // PLAIN is only reachable on a raw plaintext stream: @xmpp/client always
+      // accepts a STARTTLS offer, so a real client cannot produce one here.
+      raw = await signInWithPlain(listening.address.port, 'velocity-logger', '');
+      await raw.sendChat(listening.serviceJid, 'empty-password-plain');
+      await waitFor(() => received.length === 1);
+      assert(received[0] === 'empty-password-plain', 'PLAIN with an empty password must deliver the body');
+    } finally {
+      if (raw) raw.close();
+      await server.disconnect();
+    }
+  });
+
+  await test('PLAIN stays refused on an unsecure stream unless TLS is disabled', async () => {
+    const server = createXmppServerTransport({
+      ip: '127.0.0.1',
+      port: 0,
+      xmppDomain: 'localhost',
+      xmppTlsPolicy: 'preferred',
+      xmppExternalUsername: 'velocity-logger',
+      xmppExternalPassword: '',
+      onData: () => {},
+    });
+    let raw;
+    try {
+      const listening = await server.connect();
+      let refused = false;
+      try {
+        raw = await signInWithPlain(listening.address.port, 'velocity-logger', '');
+      } catch (error) {
+        refused = /PLAIN|encryption-required|not-authorized|failure/i.test(error.message);
+      }
+      assert(refused, 'PLAIN must stay refused on an unsecure Preferred stream');
+    } finally {
+      if (raw) raw.close();
+      await server.disconnect();
+    }
+  });
 
   await test('client and server transports exchange direct chat with whitespace credentials', async () => {
     const serverInbound = [];

@@ -439,7 +439,12 @@ class XmppServerCore extends EventEmitter {
       }
       if (connection.secure || this.options.tlsPolicy !== TLS_POLICIES.REQUIRED) {
         const mechanisms = [xml('mechanism', {}, 'SCRAM-SHA-1')];
-        if (connection.secure) mechanisms.push(xml('mechanism', {}, 'PLAIN'));
+        // PLAIN sends the password in the clear, so it is offered on a secure
+        // stream, or on an unsecure stream only when TLS is deliberately
+        // Disabled for local testing.
+        if (connection.secure || this.options.tlsPolicy === TLS_POLICIES.DISABLED) {
+          mechanisms.push(xml('mechanism', {}, 'PLAIN'));
+        }
         features.push(xml('mechanisms', { xmlns: NS.SASL }, mechanisms));
       }
     } else {
@@ -528,7 +533,8 @@ class XmppServerCore extends EventEmitter {
     }
     connection.authRateCharge = charge;
     const mechanism = element.attrs.mechanism;
-    if (mechanism === SASL_MECHANISMS.PLAIN && !connection.secure) {
+    if (mechanism === SASL_MECHANISMS.PLAIN && !connection.secure &&
+        this.options.tlsPolicy !== TLS_POLICIES.DISABLED) {
       return this._recordAuthFailure(connection, 'encryption-required');
     }
     const sasl = createServerMechanism(mechanism, {

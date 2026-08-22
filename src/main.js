@@ -1533,6 +1533,7 @@ async function getCurrentLaunchConfig() {
         httpTlsCaPath: getVal('http-tls-ca-path') || null,
         httpTlsCertPath: getVal('http-tls-cert-path') || null,
         httpTlsKeyPath: getVal('http-tls-key-path') || null,
+        httpAllowUnverifiedTls: getChecked('http-allow-unverified'),
         intervalMs: parseInt(getVal('rate-ms'), 10) || 1000,
         ip: getVal('ip-address') || '127.0.0.1',
         linesPerInterval: parseInt(getVal('lines-per-interval'), 10) || 1,
@@ -1546,6 +1547,7 @@ async function getCurrentLaunchConfig() {
         tlsCertPath: getVal('grpc-tls-cert-path') || null,
         tlsKeyPath: getVal('grpc-tls-key-path') || null,
         useTls: getChecked('grpc-tls'),
+        allowUnverifiedTls: getChecked('grpc-allow-unverified'),
         wsFormat: getVal('ws-format') || 'delimited',
         wsHeaders: getVal('ws-headers') || null,
         wsIgnoreFirstMsg: getChecked('ws-ignore-first-msg'),
@@ -1555,6 +1557,7 @@ async function getCurrentLaunchConfig() {
         wsTlsCaPath: getVal('ws-tls-ca-path') || null,
         wsTlsCertPath: getVal('ws-tls-cert-path') || null,
         wsTlsKeyPath: getVal('ws-tls-key-path') || null,
+        wsAllowUnverifiedTls: getChecked('ws-allow-unverified'),
         xmppConversation: getVal('xmpp-conversation') || 'direct',
         xmppDomain: getVal('xmpp-domain') || 'localhost',
         xmppTlsPolicy: getVal('xmpp-tls-policy') || 'required',
@@ -1592,6 +1595,7 @@ async function getCurrentLaunchConfig() {
       httpTlsCaPath: s.httpTlsCaPath,
       httpTlsCertPath: s.httpTlsCertPath,
       httpTlsKeyPath: s.httpTlsKeyPath,
+      httpAllowUnverifiedTls: s.httpAllowUnverifiedTls,
       intervalMs: s.intervalMs,
       ip: s.ip,
       linesPerInterval: s.linesPerInterval,
@@ -1603,6 +1607,7 @@ async function getCurrentLaunchConfig() {
       tlsCertPath: s.tlsCertPath,
       tlsKeyPath: s.tlsKeyPath,
       useTls: s.useTls,
+      allowUnverifiedTls: s.allowUnverifiedTls,
       waitForClient: false,
       wsFormat: s.wsFormat,
       wsHeaders: s.wsHeaders,
@@ -1613,6 +1618,7 @@ async function getCurrentLaunchConfig() {
       wsTlsCaPath: s.wsTlsCaPath,
       wsTlsCertPath: s.wsTlsCertPath,
       wsTlsKeyPath: s.wsTlsKeyPath,
+      wsAllowUnverifiedTls: s.wsAllowUnverifiedTls,
       xmppAllowRemote: s.xmppAllowRemote,
       xmppAllowUnverifiedTls: s.xmppAllowUnverifiedTls,
       xmppConnectTimeoutMs: s.xmppConnectTimeoutMs,
@@ -2248,10 +2254,10 @@ ipcMain.handle('get-microphone-support-state', () => {
 ipcMain.handle('connect', (event, options) => {
   const {
     protocol, mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath,
-    useTls, tlsCaPath, tlsCertPath, tlsKeyPath,
-    httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath,
+    useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls,
+    httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, httpAllowUnverifiedTls,
     wsFormat, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsPath,
-    wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders,
+    wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders, wsAllowUnverifiedTls,
   } = options;
   if (connection) {
     logStatus('Error: A connection is already active.');
@@ -2349,7 +2355,7 @@ ipcMain.handle('connect', (event, options) => {
       const ser = grpcSerialization || 'protobuf';
       const authToken = getVelocityAuthTokenForConnection();
       if (mode === 'client') {
-        grpcTransport = createGrpcClientTransport({ ip, port, grpcSerialization, useStreaming: grpcSendMethod !== 'unary', headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, authToken });
+        grpcTransport = createGrpcClientTransport({ ip, port, grpcSerialization, useStreaming: grpcSendMethod !== 'unary', headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls, authToken });
         grpcTransport.connect().then((result) => {
           connection = grpcTransport;
           emitConnectionStatus('connected', `gRPC client connected to ${ip}:${port} [${ser}] ${headerPathKey}=${headerPath}\n  ${result.tlsInfo || 'tls=off'}`);
@@ -2370,7 +2376,7 @@ ipcMain.handle('connect', (event, options) => {
     } else if (protocol === 'http') {
       const authToken = getVelocityAuthTokenForConnection();
       if (mode === 'client') {
-        httpTransport = createHttpClientTransport({ ip, port, httpFormat, httpPath, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, authToken });
+        httpTransport = createHttpClientTransport({ ip, port, httpFormat, httpPath, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpAllowUnverifiedTls, authToken });
         httpTransport.connect().then((result) => {
           connection = httpTransport;
           const contentType = FORMAT_CONTENT_TYPES[httpFormat] || 'text/plain';
@@ -2394,7 +2400,7 @@ ipcMain.handle('connect', (event, options) => {
       const { FORMAT_CONTENT_TYPES: WS_CT } = require(path.join(basePath, 'format-utils.js'));
       const authToken = getVelocityAuthTokenForConnection();
       if (mode === 'client') {
-        wsTransport = createWsClientTransport({ ip, port, wsFormat, wsPath, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders, authToken });
+        wsTransport = createWsClientTransport({ ip, port, wsFormat, wsPath, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders, wsAllowUnverifiedTls, authToken });
         wsTransport.connect().then((result) => {
           connection = wsTransport;
           const contentType = WS_CT[wsFormat] || 'text/plain';

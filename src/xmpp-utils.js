@@ -63,8 +63,7 @@ function redactSecret(secret) {
 
 /**
  * True when the host is a loopback address or `localhost`. Used to keep the
- * built-in server loopback-only by default and to gate the local-testing TLS
- * verification bypass.
+ * built-in server loopback-only unless remote binding is explicitly allowed.
  *
  * @param {string} host
  * @returns {boolean}

@@ -17,6 +17,7 @@ documentation samples rather than runtime configuration.
 |---|-------|---------|----------|
 | 📦 | [Build and release](build-and-release.md) | Prerequisites, local and multi-platform builds, platform packaging, code signing, release commands, and troubleshooting. | Developers |
 | ⌨️ | [Command-line reference](command-line.md) | Every parameter with its supported values, default, headless requirement, and example, plus help layouts. | Users and developers |
+| 🎚 | [Connection presets](connection-presets.md) | The paired Simulator and Logger presets, what each one pre-fills, the Custom and Custom (modified) states, and the connection-row progressive disclosure. | Users and developers |
 | ⚙️ | [Configuration](configuration.md) | App Config and Launch Config settings, themes, fonts, platform storage locations, launch configuration samples, and reset steps. | Users and developers |
 | 🧑‍💻 | [Developer guide](developer-guide.md) | Repository structure, local development, tests, documentation checks, debugging, logging, and how to add controls, transports, and themes. | Developers |
 | 🔌 | [gRPC transport](grpc.md) | Client and server modes, Protobuf, Kryo, and Text serialization, remote procedure call types, TLS, and metadata. | Users and developers |

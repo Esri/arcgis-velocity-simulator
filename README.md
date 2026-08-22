@@ -26,6 +26,7 @@ lists all of them with their intended audience.
 | [Documentation index](docs/README.md) | Every guide with its purpose and audience, plus documentation maintenance rules. |
 | [Build and release](docs/build-and-release.md) | Prerequisites, local builds, platform packaging, code signing, and release commands. |
 | [Command-line reference](docs/command-line.md) | Every CLI parameter, help layout, default, and usage example. |
+| [Connection presets](docs/connection-presets.md) | The twelve paired Simulator and Logger presets, what they pre-fill, and the Essentials plus Advanced layout. |
 | [Configuration](docs/configuration.md) | Configuration file format, settings, themes, fonts, storage locations, and launch configuration samples. |
 | [Developer guide](docs/developer-guide.md) | Repository structure, local development, tests, documentation checks, debugging, logging, and extension points. |
 | [Headless mode](docs/headless.md) | No-UI replay: parameters, launch configuration workflow, output formats, and the done file. |

@@ -176,6 +176,7 @@ class SimulationEngine extends EventEmitter {
 	  tlsCaPath: this.options.tlsCaPath,
 	  tlsCertPath: this.options.tlsCertPath,
 	  tlsKeyPath: this.options.tlsKeyPath,
+	  allowUnverifiedTls: this.options.allowUnverifiedTls,
 	  connectTimeoutMs: this.options.connectTimeoutMs,
 	  connectWaitForServer: this.options.connectWaitForServer,
 	  connectRetryIntervalMs: this.options.connectRetryIntervalMs,

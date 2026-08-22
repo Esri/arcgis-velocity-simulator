@@ -48,7 +48,7 @@
     "xmppTlsKeyPath": null,
     "xmppTlsPolicy": "required",
     "xmppUsername": "simulator",
-    "_xmppPassword_comment": "Add xmppPassword (and xmppRoomPassword for a protected room) by hand or pass it on the command line. It is read from this file but is never written back by Save Launch Configuration."
+    "_xmppPassword_comment": "Add xmppPassword (and xmppRoomPassword for a protected room) by hand or pass it on the command line. It is read from this file but is never written back by Save Launch Configuration. An empty string is accepted for a local test with no shared secret."
   },
   "headless": {
     "_comment": "Headless mode runs without creating the normal Electron UI.",

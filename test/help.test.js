@@ -522,10 +522,10 @@ async function runHelpTests() {
     helpText.includes('left out unless Include password is checked') &&
     helpText.includes('Preferred XMPP connections that fall back to plaintext'));
   runTest('Product Help lists every XMPP Options control', () =>
-    ['Conversation:', 'Domain:', 'STARTTLS:', 'CA cert', 'Skip cert check', 'TLS cert / TLS key',
-      'Allow remote', 'Username / Password', 'Resource', 'Account / Acct pwd', 'Destination',
-      'Room / Nickname / Room pwd', 'Timeouts ms:', 'Ping ms', 'Reconnect ms',
-      'Copy Client Settings'].every((control) => helpText.includes(control)));
+    ['Conversation:', 'Domain:', 'STARTTLS:', 'CA cert', 'Advanced:', 'Allow unverified',
+      'TLS cert / TLS key', 'Allow remote', 'Username / Password', 'Resource',
+      'Account / Acct pwd', 'Destination', 'Room / Nickname / Room pwd', 'Timeouts ms:',
+      'Ping ms', 'Reconnect ms', 'Copy Client Settings'].every((control) => helpText.includes(control)));
   runTest('Product Help documents the reconnect delay and drops every zero-disable claim', () =>
     /Reconnect ms[\s\S]{0,240}?default 60000/.test(helpText) &&
     /automatic reconnect cannot be switched off/i.test(helpText) &&
@@ -550,6 +550,19 @@ async function runHelpTests() {
     /type=chat/.test(helpText));
   runTest('Product Help notes that XMPP defaults to port 5222 and the client role', () =>
     /XMPP uses port 5222 and the Client role/i.test(helpText));
+  runTest('Product Help includes the minimal local Logger UX test', () =>
+    helpText.includes('/Users/hano4470/Backup/data/faa.csv') &&
+    helpText.includes('xmppExternalUsername=simulator xmppExternalPassword=') &&
+    helpText.includes('xmppUsername=simulator xmppPassword=') &&
+    helpText.includes('xmppDestination=velocity-logger@localhost xmppAllowUnverifiedTls=true') &&
+    !/cd \/Users\/hano4470\/github/.test(helpText));
+  runTest('Product Help documents connection presets and the Advanced disclosure', () =>
+    helpText.includes('Connection Presets') &&
+    helpText.includes('Local XMPP — Logger Server / Simulator Client') &&
+    helpText.includes('Custom (modified)') &&
+    helpText.includes('never selects a file') &&
+    helpText.includes('password may be present but empty') &&
+    !/loopback-only certificate bypass/.test(helpText));
 
   console.log('\n--- Test 4: Command Line Interface dialog close and theme handling ---');
   runTest('CLI close button exists', () => document.getElementById('close-button') !== null);

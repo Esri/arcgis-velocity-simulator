@@ -199,7 +199,7 @@ class TransportManager extends EventEmitter {
     const {
       protocol, mode, ip, port,
       grpcSerialization, grpcSendMethod, headerPathKey, headerPath,
-      useTls, tlsCaPath, tlsCertPath, tlsKeyPath,
+      useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls,
       connectTimeoutMs = 0, connectWaitForServer = false, connectRetryIntervalMs = 1000,
     } = options;
     if (this.connection) {
@@ -212,7 +212,7 @@ class TransportManager extends EventEmitter {
     this.port = port;
 
     if (protocol === 'grpc') {
-      return this.connectGrpc({ mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath });
+      return this.connectGrpc({ mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls });
     }
 
     if (protocol === 'xmpp') {
@@ -309,12 +309,12 @@ class TransportManager extends EventEmitter {
   /**
    * Connects via gRPC using the GrpcClientTransport or GrpcServerTransport.
    */
-  async connectGrpc({ mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath }) {
+  async connectGrpc({ mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls }) {
     const { createGrpcClientTransport, createGrpcServerTransport } = require('./grpc-transport.js');
     const ser = grpcSerialization || 'protobuf';
     if (mode === 'client') {
       const useStreaming = grpcSendMethod !== 'unary';
-      const transport = createGrpcClientTransport({ ip, port, grpcSerialization, useStreaming, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath });
+      const transport = createGrpcClientTransport({ ip, port, grpcSerialization, useStreaming, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls });
       const result = await transport.connect();
       this.connection = transport;
       this.emitStatus('connected', `gRPC client connected to ${ip}:${port} [${ser}] ${headerPathKey}=${headerPath}\n  ${result.tlsInfo || 'tls=off'}`);

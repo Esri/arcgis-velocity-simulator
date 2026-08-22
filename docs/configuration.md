@@ -269,9 +269,9 @@ mode](headless.md).
 - `startLine`
 - `stdout`
 - `waitForClient`
-- `wsFormat`, `wsTls`, `wsPath`, `wsTlsCaPath`, `wsTlsCertPath`, `wsTlsKeyPath`, `wsSubscriptionMsg`, `wsIgnoreFirstMsg`, `wsHeaders`
-- `httpFormat`, `httpTls`, `httpPath`, `httpTlsCaPath`, `httpTlsCertPath`, `httpTlsKeyPath`
-- `useTls`, `tlsCaPath`, `tlsCertPath`, `tlsKeyPath`
+- `wsFormat`, `wsTls`, `wsPath`, `wsTlsCaPath`, `wsTlsCertPath`, `wsTlsKeyPath`, `wsSubscriptionMsg`, `wsIgnoreFirstMsg`, `wsHeaders`, `wsAllowUnverifiedTls`
+- `httpFormat`, `httpTls`, `httpPath`, `httpTlsCaPath`, `httpTlsCertPath`, `httpTlsKeyPath`, `httpAllowUnverifiedTls`
+- `useTls`, `tlsCaPath`, `tlsCertPath`, `tlsKeyPath`, `allowUnverifiedTls`
 - `xmppConversation`, `xmppDomain`, `xmppTlsPolicy`
 - `xmppUsername`, `xmppPassword`, `xmppResource`, `xmppTlsCaPath`, `xmppAllowUnverifiedTls`, `xmppPingIntervalMs`, `xmppReconnectDelayMs`
 - `xmppExternalUsername`, `xmppExternalPassword`, `xmppTlsCertPath`, `xmppTlsKeyPath`, `xmppAllowRemote`
@@ -289,12 +289,27 @@ All four XMPP timings — `xmppConnectTimeoutMs` (30000), `xmppReplyTimeoutMs`
 be positive integers. Zero is rejected: it neither disables the keepalive or the
 automatic reconnect nor waits forever.
 
+`allowUnverifiedTls`, `httpAllowUnverifiedTls`, and `wsAllowUnverifiedTls`
+default to `false` and apply to client mode only. Setting one to `true` accepts
+an unverified server certificate for any host, not only localhost. See
+[TLS and SSL security](tls.md#explicit-certificate-verification-bypass).
+
+Saving a launch configuration from the UI captures the current connection
+controls, including the three verification options. Connection presets change
+those controls before you save, but a preset never writes configuration by
+itself. See [Connection presets](connection-presets.md).
+
 #### Credentials in launch-config files
 
 `xmppPassword`, `xmppExternalPassword` and `xmppRoomPassword` are accepted when
 loading a launch configuration, but **Save Launch Configuration** omits them.
 Add a password manually only when automation requires it, protect that JSON file
 as a secret, and keep it out of version control.
+
+An XMPP password may be present but **empty** (`"xmppPassword": ""`). The value
+must be present in the mode that needs it, but an empty string is accepted for
+both PLAIN and SCRAM-SHA-1, which keeps a local Simulator/Logger pairing free of
+a shared secret. Usernames and JIDs remain required.
 
 Password whitespace is significant and is preserved exactly — a value of
 `" secret "` authenticates as `" secret "`, never as `"secret"`, whether it
@@ -404,6 +419,7 @@ cp ~/.config/arcgis-velocity-simulator/config.json ~/Desktop/backup.json
 | Document | Purpose |
 |----------|---------|
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
+| [Connection presets](connection-presets.md) | Paired Simulator and Logger field presets and the Essentials plus Advanced layout. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
 | [Developer guide](developer-guide.md) | Repository structure, local development, tests, debugging, and how to add a theme or a control. |
 | [Keyboard shortcuts](keyboard-shortcuts.md) | Every shortcut, including the in-app dialog shortcuts. |

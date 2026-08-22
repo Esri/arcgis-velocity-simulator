@@ -166,7 +166,7 @@ function describeClientTls({ secure, tlsPolicy, caPath, allowUnverified }) {
   }
   if (caPath) return `tls=on, custom certs: ca=${caPath}`;
   if (allowUnverified) {
-    return 'tls=on (cert verification skipped — explicit loopback-only bypass)';
+    return 'tls=on (cert verification disabled by explicit xmppAllowUnverifiedTls)';
   }
   const certResult = getSystemRootCertificates();
   return `tls=on, ${formatTlsCertSummary(certResult)}`;
@@ -235,11 +235,11 @@ async function withTimeout(promise, timeoutMs, message) {
  * @param {number} opts.port - Target port (5222 by default).
  * @param {string} [opts.xmppDomain] - Served XMPP domain, when it differs from the host.
  * @param {string} opts.xmppUsername - Account local part or bare JID.
- * @param {string} opts.xmppPassword - Account password. Never logged.
+ * @param {string} opts.xmppPassword - Account password. May be present but empty. Never logged.
  * @param {string} [opts.xmppResource] - Requested resource part.
  * @param {string} [opts.xmppTlsPolicy='required'] - required | preferred | disabled
  * @param {string} [opts.xmppTlsCaPath] - Custom CA (PEM). Omit to use the OS trust store.
- * @param {boolean} [opts.xmppAllowUnverifiedTls=false] - Loopback-only verification bypass.
+ * @param {boolean} [opts.xmppAllowUnverifiedTls=false] - Explicit certificate-verification bypass for any host.
  * @param {string} [opts.xmppConversation='direct'] - direct | muc
  * @param {string} [opts.xmppDestination] - Comma-separated bare destination JIDs (direct).
  * @param {string} [opts.xmppRoom] - Room name or room JID (muc).
@@ -270,16 +270,18 @@ function createXmppClientTransport(opts) {
   const domain = rawUsername.includes('@')
     ? requireBareJid(rawUsername, 'XMPP username').split('@')[1]
     : common.domain;
-  const password = String(opts.xmppPassword || '');
-  if (!password) throw new Error('XMPP password is required in client mode.');
+  // The password may be present but empty for relaxed local testing, so only a
+  // missing (non-string) value is rejected. The username stays required.
+  if (typeof opts.xmppPassword !== 'string') {
+    throw new Error('XMPP password is required in client mode; an empty value is allowed.');
+  }
+  const password = opts.xmppPassword;
   const resource = String(opts.xmppResource || XMPP_DEFAULT_RESOURCE).trim() || XMPP_DEFAULT_RESOURCE;
 
+  // The bypass is an explicit opt-in and is not restricted to loopback: the
+  // control is styled as a warning and off by default, so nothing is skipped
+  // silently. See docs/tls.md#explicit-certificate-verification-bypass.
   const allowUnverified = opts.xmppAllowUnverifiedTls === true;
-  if (allowUnverified && !isLoopbackHost(ip)) {
-    throw new Error(
-      `TLS verification bypass is restricted to loopback hosts; '${ip}' is not a loopback address.`,
-    );
-  }
   const caPath = String(opts.xmppTlsCaPath || '').trim() || null;
   if (caPath && !fs.existsSync(caPath)) {
     throw new Error(`XMPP CA certificate file was not found: ${caPath}`);
@@ -568,7 +570,7 @@ function createXmppClientTransport(opts) {
  * @param {string} [opts.xmppTlsKeyPath] - Server private key (PEM).
  * @param {boolean} [opts.xmppAllowRemote=false] - Required to bind a non-loopback address.
  * @param {string} [opts.xmppExternalUsername] - The single external account's username.
- * @param {string} [opts.xmppExternalPassword] - The single external account's password. Never logged.
+ * @param {string} [opts.xmppExternalPassword] - The single external account's password. May be present but empty. Never logged.
  * @param {string} [opts.xmppConversation='direct'] - direct | muc
  * @param {string} [opts.xmppDestination] - Optional bare JIDs to restrict delivery to (direct).
  * @param {string} [opts.xmppRoom] - Room name or room JID (muc).
@@ -601,15 +603,18 @@ function createXmppServerTransport(opts) {
   }
 
   const externalUsername = String(opts.xmppExternalUsername || '').trim();
-  const externalPassword = String(opts.xmppExternalPassword || '');
-  if (externalUsername && !externalPassword) {
-    throw new Error('The external XMPP account requires a password.');
+  // The external password may be present but empty for relaxed local testing,
+  // so only a missing (non-string) value is rejected.
+  const hasExternalPassword = typeof opts.xmppExternalPassword === 'string';
+  const externalPassword = hasExternalPassword ? opts.xmppExternalPassword : '';
+  if (externalUsername && !hasExternalPassword) {
+    throw new Error('The external XMPP account requires a password; an empty value is allowed.');
   }
-  if (!externalUsername && externalPassword) {
+  if (!externalUsername && hasExternalPassword && externalPassword) {
     throw new Error('The external XMPP account requires a username.');
   }
-  if (!externalUsername && !externalPassword) {
-    throw new Error('XMPP server mode requires one external account username and password.');
+  if (!externalUsername) {
+    throw new Error('XMPP server mode requires one external account username and password; the password may be empty.');
   }
   const externalAccount = externalUsername
     ? {
@@ -656,6 +661,11 @@ function createXmppServerTransport(opts) {
   let listening = false;
   let boundAddress = null;
   let tlsInfo = 'tls=off (unsecure)';
+  // Copied client settings advertise the certificate bypass whenever this
+  // server presents an ephemeral self-signed certificate, so the paired client
+  // can trust it. The value is explicit in the copied text; nothing is enabled
+  // silently on this side.
+  let advertiseUnverifiedTls = false;
 
   const setState = (state, detail) => {
     if (typeof onStateChange === 'function') onStateChange(state, detail);
@@ -766,6 +776,7 @@ function createXmppServerTransport(opts) {
       }
       listening = true;
       boundAddress = result.address;
+      advertiseUnverifiedTls = Boolean(result.selfSignedCertificate);
       // Under Preferred the server advertises STARTTLS but cannot force it, so
       // the summary is labelled as an offer. Each stream's own security is
       // reported separately through the lifecycle details and inbound metadata.
@@ -879,7 +890,7 @@ function createXmppServerTransport(opts) {
         mode: XMPP_ROLES.CLIENT,
         xmppDomain: common.domain,
         xmppTlsPolicy: common.tlsPolicy,
-        xmppAllowUnverifiedTls: false,
+        xmppAllowUnverifiedTls: advertiseUnverifiedTls,
         xmppUsername: externalAccount ? externalAccount.username : null,
         xmppPassword: includePassword && externalAccount ? externalAccount.password : null,
         passwordIncluded: Boolean(includePassword && externalAccount),

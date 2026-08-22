@@ -314,8 +314,9 @@ async function runCliOptionsTests() {
     'ip=127.0.0.1',
   ]));
   runTest('XMPP server requires exactly one configurable external account', () =>
+    xmppMissingExternal.errors.some((error) => /requires 'xmppExternalUsername'/i.test(error)) &&
     xmppMissingExternal.errors.some((error) =>
-      /requires 'xmppExternalUsername' and 'xmppExternalPassword'/i.test(error)));
+      /requires 'xmppExternalPassword'; an empty value is allowed/i.test(error)));
 
   const xmppExplain = formatExplainOutput(xmppClient);
   runTest('XMPP explain output includes active settings but redacts secrets', () =>

@@ -63,6 +63,8 @@ const WSS_DEFAULT_PORT = 8443;
  * @param {string} [opts.wsTlsCaPath] - Custom CA cert path
  * @param {string} [opts.wsTlsCertPath] - Client cert path (mTLS)
  * @param {string} [opts.wsTlsKeyPath] - Client key path (mTLS)
+ * @param {boolean} [opts.wsAllowUnverifiedTls=false] - Explicitly skip certificate
+ *   verification (any host). Off by default.
  * @param {string} [opts.wsSubscriptionMsg] - Message sent after connecting
  * @param {boolean} [opts.wsIgnoreFirstMsg=false] - Skip first received message
  * @param {string} [opts.wsHeaders] - JSON string of custom HTTP headers
@@ -75,6 +77,7 @@ function createWsClientTransport(opts) {
     wsPath = '/',
     wsTls = true,
     wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath,
+    wsAllowUnverifiedTls = false,
     wsSubscriptionMsg,
     wsIgnoreFirstMsg = false,
     wsHeaders,
@@ -94,10 +97,17 @@ function createWsClientTransport(opts) {
       const url = `${scheme}://${ip}:${port}${pathNorm}`;
 
       const wsOpts = {};
+      let clientTlsInfo = 'tls=off (unsecure)';
 
       // TLS options
       if (wsTls) {
-        const { agentOptions } = buildHttpsAgentOptions({ tlsCaPath: wsTlsCaPath, tlsCertPath: wsTlsCertPath, tlsKeyPath: wsTlsKeyPath });
+        const { agentOptions, tlsInfo } = buildHttpsAgentOptions({
+          tlsCaPath: wsTlsCaPath,
+          tlsCertPath: wsTlsCertPath,
+          tlsKeyPath: wsTlsKeyPath,
+          allowUnverifiedTls: wsAllowUnverifiedTls === true,
+        });
+        clientTlsInfo = tlsInfo;
         // ws package accepts TLS options (ca, cert, key, rejectUnauthorized) directly
         if (agentOptions) Object.assign(wsOpts, agentOptions);
       }
@@ -156,9 +166,7 @@ function createWsClientTransport(opts) {
             });
           }
 
-          const tlsInfo = wsTls
-            ? formatTlsCertSummary({ tlsCaPath: wsTlsCaPath, tlsCertPath: wsTlsCertPath, tlsKeyPath: wsTlsKeyPath })
-            : 'tls=off (unsecure)';
+          const tlsInfo = clientTlsInfo;
 
           resolve({
             success: true,

@@ -122,7 +122,7 @@ requirements are in [Command-line reference](command-line.md):
 | Area | Parameters | Defaults / rules |
 |---|---|---|
 | Address | `xmppDomain`, `xmppResource` | `localhost`, `velocity-simulator`; the network host is the shared `ip` key (there is no `xmppHost`) and is independent of `xmppDomain`. |
-| TLS | `xmppTlsPolicy`, `xmppTlsCaPath`, `xmppTlsCertPath`, `xmppTlsKeyPath`, `xmppAllowUnverifiedTls` | Required; client OS/custom CA; server cert/key pair or automatic self-signed; bypass is loopback-only. |
+| TLS | `xmppTlsPolicy`, `xmppTlsCaPath`, `xmppTlsCertPath`, `xmppTlsKeyPath`, `xmppAllowUnverifiedTls` | Required; client OS/custom CA; server cert/key pair or automatic self-signed; the bypass is an explicit opt-in that applies to any host. |
 | Client auth | `xmppUsername`, `xmppPassword` | Both required in client role; password whitespace is significant and is never trimmed. |
 | Server auth | `xmppExternalUsername`, `xmppExternalPassword`, `xmppAllowRemote` | Account values are paired; the account may not canonically collide with the reserved `velocity-simulator` identity; remote bind is opt-in. |
 | Conversation | `xmppConversation`, `xmppDestination`, `xmppRoom`, `xmppNickname`, `xmppRoomPassword` | Direct; destinations are bare JIDs; room is required for MUC. |

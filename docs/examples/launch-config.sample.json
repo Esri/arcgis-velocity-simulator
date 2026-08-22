@@ -6,9 +6,12 @@
     "_grpcHeaderPath": "replace.with.dedicated.uid",
     "_grpcHeaderPathKey": "grpc-path",
     "_grpcHeaderPathKey_comment": "grpcHeaderPathKey and grpcHeaderPath are only used when protocol=grpc and mode=client.",
-    "_httpFormat_comment": "httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, and httpPath are only used when protocol=http.",
+    "_httpFormat_comment": "httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, and httpAllowUnverifiedTls are only used when protocol=http.",
+    "_allowUnverifiedTls_comment": "allowUnverifiedTls, httpAllowUnverifiedTls, and wsAllowUnverifiedTls are client-mode only and default to false. Setting one to true accepts an unverified server certificate for any host, not only localhost.",
+    "allowUnverifiedTls": false,
     "connectTimeoutMs": 30000,
     "grpcSerialization": "protobuf",
+    "httpAllowUnverifiedTls": false,
     "httpFormat": "delimited",
     "httpPath": "/",
     "httpTls": true,
@@ -17,7 +20,8 @@
     "port": 5565,
     "protocol": "tcp",
     "waitForClient": false,
-    "_wsFormat_comment": "wsFormat, wsTls, wsPath, wsSubscriptionMsg, wsIgnoreFirstMsg, and wsHeaders are only used when protocol=ws.",
+    "_wsFormat_comment": "wsFormat, wsTls, wsPath, wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders, and wsAllowUnverifiedTls are only used when protocol=ws.",
+    "wsAllowUnverifiedTls": false,
     "wsFormat": "delimited",
     "wsHeaders": null,
     "wsIgnoreFirstMsg": false,
@@ -46,7 +50,7 @@
     "xmppTlsKeyPath": null,
     "xmppTlsPolicy": "required",
     "xmppUsername": null,
-    "_xmpp_secrets_comment": "xmppPassword, xmppExternalPassword and xmppRoomPassword are read from this file but are never written back by Save Launch Configuration. Treat any file you add them to as a secret."
+    "_xmpp_secrets_comment": "xmppPassword, xmppExternalPassword and xmppRoomPassword are read from this file but are never written back by Save Launch Configuration. Treat any file you add them to as a secret. A password may be an empty string for relaxed local testing; only a missing value is an error."
   },
   "headless": {
     "_comment": "Set runMode to headless (or silent) to run without the UI.",
