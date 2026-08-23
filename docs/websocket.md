@@ -127,19 +127,19 @@ Useful for authentication tokens or API keys required by the WebSocket endpoint.
 ## UI controls
 
 When WebSocket is selected in the **Mode** dropdown, a **WebSocket Settings…**
-action appears in the compact **Setup** toolbar. It opens the Protocol Settings
-dialog, which holds every WebSocket-specific control, and it carries a concise
-configured state, such as `Defaults` or `2 changed`. The adjacent **Summary**
-action carries the warning count. Open Settings with the button or with
-`Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on Windows and Linux.
-The dialog layout, its sections, and the Done, Revert changes, and Reset to
+action appears in the compact **Setup** toolbar. It opens Protocol
+Settings, which holds every WebSocket-specific control, and it carries a
+concise configured state, such as `Defaults` or `2 changed`. The adjacent
+**Summary** action carries the warning count. Open Settings with the button
+or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on Windows and Linux.
+Its layout, sections, and the Done, Revert changes, and Reset to
 preset actions are described in
-[Protocol settings and presets](connection-presets.md#the-protocol-settings-dialog).
+[Protocol settings and presets](connection-presets.md#the-protocol-settings-window).
 
 Host, port, and the connection mode stay in the panel, because they apply to
 every protocol.
 
-The dialog offers three sections for WebSocket:
+Protocol Settings offers three sections for WebSocket:
 
 **Basics**
 
@@ -272,7 +272,7 @@ WebSocket parameters can be set in launch configuration JSON files:
 | Document | Purpose |
 |----------|---------|
 | [TLS and SSL security](tls.md) | Certificate types, trust stores, mutual TLS, and the TLS Trust Badge. |
-| [Protocol settings and presets](connection-presets.md) | The Protocol Settings dialog, its sections, and the paired Simulator and Logger presets. |
+| [Protocol settings and presets](connection-presets.md) | Protocol Settings, its sections, and the paired Simulator and Logger presets. |
 | [Connection summary and protocol settings](connection-summary.md) | The read-only description of the current connection, its warnings, and the effective URL. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |

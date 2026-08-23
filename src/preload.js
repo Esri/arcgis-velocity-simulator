@@ -100,6 +100,45 @@ contextBridge.exposeInMainWorld('api', {
 });
 
 /**
+ * Protocol Settings window bridge.
+ *
+ * Protocol Settings runs in its own resizable window, but the main renderer
+ * stays the sole owner of every connection field. This namespace carries only
+ * the state that window mirrors and the intent it reports back, so no form
+ * rule or transport decision is ever duplicated.
+ *
+ * This block is identical in the ArcGIS Velocity Simulator and the ArcGIS
+ * Velocity Logger.
+ */
+contextBridge.exposeInMainWorld('protocolSettingsHost', {
+  open: (options) => ipcRenderer.send('protocol-settings:open', {
+    title: options && typeof options.title === 'string' ? options.title.slice(0, 240) : '',
+  }), // Opens or focuses the Protocol Settings window
+  close: () => ipcRenderer.send('protocol-settings:close'), // Closes the Protocol Settings window
+  sync: (payload) => {
+    if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+      ipcRenderer.send('protocol-settings:sync', payload);
+    }
+  }, // Mirrors the authoritative settings state
+  command: (payload) => {
+    if (payload && payload.type === 'focus' && typeof payload.path === 'string') {
+      ipcRenderer.send('protocol-settings:command', { type: 'focus', path: payload.path.slice(0, 512) });
+    }
+  }, // Moves focus inside the mirrored window
+  onReady: (callback) => {
+    if (typeof callback === 'function') ipcRenderer.on('protocol-settings:ready', () => callback());
+  }, // The mirror is mounted
+  onClosed: (callback) => {
+    if (typeof callback === 'function') ipcRenderer.on('protocol-settings:closed', () => callback());
+  }, // The window was closed
+  onEvent: (callback) => {
+    if (typeof callback === 'function') {
+      ipcRenderer.on('protocol-settings:event', (_event, message) => callback(message));
+    }
+  }, // One user intent from the window
+});
+
+/**
  * Secondary API bridge specifically for dialog windows (config, error, about).
  * Provides a separate namespace to avoid conflicts and improve security isolation.
  */

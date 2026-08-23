@@ -66,7 +66,8 @@ application _does_.
   "dialogSizes": {
     "appConfig": { "width": 660, "height": 400, "x": null, "y": null },
     "launchConfig": { "width": 500, "height": 400, "x": null, "y": null },
-    "velocityLogin": { "width": 590, "height": 840, "x": null, "y": null }
+    "velocityLogin": { "width": 590, "height": 840, "x": null, "y": null },
+    "protocolSettings": { "width": 700, "height": 720, "x": null, "y": null }
   }
 }
 ```
@@ -103,6 +104,7 @@ normal UI mode and restores saved UI behavior from configuration, including
 - **dialogSizes.appConfig**: Remembered width, height, and position (x, y) of the App Config dialog
 - **dialogSizes.launchConfig**: Remembered width, height, and position (x, y) of the Launch Config dialog
 - **dialogSizes.velocityLogin**: Remembered width, height, and position (x, y) of the Velocity Login & Feed Picker dialog (default: 590 x 840)
+- **dialogSizes.protocolSettings**: Remembered width, height, and position (x, y) of the detached Protocol Settings window (default: 700 x 720)
 
 Size and position are saved automatically when the user resizes or moves either
 dialog, and restored on next open. When `x` and `y` are `null` (the default),

@@ -1,0 +1,62 @@
+/* ========================================
+   PROTOCOL SETTINGS WINDOW
+   — The detached window reuses every Protocol Settings rule from style.css.
+     Only the framing differs: the mirrored element fills a real window
+     instead of floating in the main document, so it can be resized and moved
+     past the height of the window that opened it.
+   ======================================== */
+
+html,
+body.protocol-settings-window {
+  height: 100%;
+}
+
+body.protocol-settings-window {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--container-bg, var(--bg-color));
+}
+
+body.protocol-settings-window .protocol-settings-dialog {
+  display: flex;
+  flex-direction: column;
+  position: static;
+  inset: auto;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  resize: none;
+  animation: none;
+}
+
+/* The window itself is the scroll and resize surface, so the panels keep the
+   only inner scrollbar. */
+body.protocol-settings-window .protocol-settings-panels {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+body.protocol-settings-window .protocol-settings-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.protocol-settings-window .protocol-settings-tablist {
+  overflow-y: auto;
+}
+
+/* Nothing has loaded yet: keep the empty window from flashing a border. */
+body.protocol-settings-window .protocol-settings-dialog:empty {
+  background: transparent;
+}

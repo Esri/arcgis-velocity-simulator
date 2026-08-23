@@ -3,16 +3,16 @@
 [← Documentation index](README.md) · [Repository overview](../README.md#documentation)
 
 ArcGIS Velocity Simulator keeps the shared connection fields inline and moves
-every protocol-specific control into a **Protocol Settings** dialog. A single
-connection summary is generated from those values and shown in the dialog's
-read-only Summary section. Any warning stays visible in the panel without
-requiring hover or an extra click. This guide is for users
+every protocol-specific control into **Protocol Settings**, a dedicated
+resizable window. A single connection summary is generated from those values
+and shown in its read-only Summary section. Any warning stays visible in the
+panel without requiring hover or an extra click. This guide is for users
 configuring a connection and for developers changing the settings surface; it
 assumes a running app.
 
 ## Table of contents
 
-- [What stays inline and what moves into the dialog](#what-stays-inline-and-what-moves-into-the-dialog)
+- [What stays inline and what moves into Protocol Settings](#what-stays-inline-and-what-moves-into-protocol-settings)
 - [Opening Protocol Settings](#opening-protocol-settings)
 - [Sections](#sections)
 - [Editing model](#editing-model)
@@ -27,7 +27,7 @@ assumes a running app.
 - [Tooltip reference](#tooltip-reference)
 - [Related documentation](#related-documentation)
 
-## What stays inline and what moves into the dialog
+## What stays inline and what moves into Protocol Settings
 
 The connection row holds only the fields that every protocol shares:
 
@@ -40,10 +40,13 @@ The connection row holds only the fields that every protocol shares:
 | File selection, the lines and interval rate fields, and the playback actions. | TLS toggles or the STARTTLS policy, certificate paths, and **Allow unverified**. |
 
 No control is duplicated: each one exists once, in exactly one place, and keeps
-the element identifier it always had. The dialog is a native in-window
-`<dialog>` nested inside the connection controls, so it renders in the browser
-top layer instead of a separate window while still taking part in the connection
-row's event handling.
+the element identifier it always had. The authoritative copy of every control
+is a native in-document `<dialog>` nested inside the connection controls; the
+running application mirrors that element into its own dedicated, resizable
+window rather than rendering it in the main document, so it can be moved and
+resized independently of the main application window — including taller than
+it — while every edit still reaches the connection row's preset and validation
+handling.
 
 ## Opening Protocol Settings
 
@@ -56,17 +59,22 @@ differ from the documented defaults:
 - `2` — two settings differ from their documented defaults.
 
 Connection warnings remain visible beneath the toolbar. The configured-state
-badge stays current while disconnected, connecting, and connected. The dialog title tracks
-the selected protocol and mode — for example
+badge stays current while disconnected, connecting, and connected. The window's
+title tracks the selected protocol and mode — for example
 `WebSocket Client settings` — and its subtitle states the composed endpoint,
 such as `Publishing to wss://example.com:9443/stream`.
 
+Selecting **Settings** or pressing the shortcut again while Protocol Settings
+is already open brings its window back into focus; neither ever closes it.
+Closing the window — from its own title bar, **Done**, the close control, or
+`Esc` — keeps every edit.
+
 ## Sections
 
-The dialog groups the selected protocol's controls into sections, presented as a
-left rail on a wide window and as a compact segmented tab strip below roughly
-760 pixels. Sections that hold nothing for the selected protocol and mode are
-not offered:
+Protocol Settings groups the selected protocol's controls into sections,
+presented as a left rail when the window is wide and as a compact segmented
+tab strip below roughly 760 pixels. Sections that hold nothing for the
+selected protocol and mode are not offered:
 
 | Section | Holds | Offered for |
 |---|---|---|
@@ -87,23 +95,24 @@ sections, and `Home` and `End` jump to the first and last section.
 ## Editing model
 
 Edits apply live to the underlying controls, so **Connect** always uses what is
-on screen. The dialog records a snapshot of every value it opened with, which
-gives the footer three explicit choices:
+on screen. Protocol Settings records a snapshot of every value it opened with,
+which gives the footer three explicit choices:
 
 | Footer action | Effect |
 |---|---|
-| **Done** | Closes the dialog and keeps every edit. Nothing connects. |
-| **Revert changes** | Restores the values the dialog opened with, including the preset state, and leaves the dialog open. Enabled only while something differs from the snapshot. |
+| **Done** | Closes Protocol Settings and keeps every edit. Nothing connects. |
+| **Revert changes** | Restores the values Protocol Settings opened with, including the preset state, and leaves it open. Enabled only while something differs from the snapshot. |
 | **Reset to preset** | Re-applies the preset the fields started from. Enabled only when the preset state is **Custom (modified)**. |
 
-`Esc` and the close control behave exactly like **Done**: the dialog closes,
-the edits are kept, and focus returns to the control that opened it.
+`Esc` and the close control behave exactly like **Done**, and so does closing
+the window from its own title bar: Protocol Settings closes, the edits are
+kept, and focus returns to the control that opened it.
 
-Editing a populated field inside the dialog switches the preset display to
-**Custom (modified)**, exactly as editing an inline field does. Applying a
-preset while the dialog is closed still fills every field, updates the title,
-subtitle, and chip, and never opens the dialog. When a preset turns on an
-explicit certificate bypass, the dialog pre-selects **Security** so the
+Editing a populated field inside Protocol Settings switches the preset display
+to **Custom (modified)**, exactly as editing an inline field does. Applying a
+preset while Protocol Settings is closed still fills every field, updates the
+title, subtitle, and chip, and never opens it. When a preset turns on an
+explicit certificate bypass, Protocol Settings pre-selects **Security** so the
 warning-valued setting is the first thing shown the next time it opens. See
 [Connection presets](connection-presets.md).
 
@@ -113,26 +122,28 @@ warning-valued setting is the first thing shown the next time it opens. See
 |---|---|
 | Disconnected or error | Everything is editable. |
 | Connecting or disconnecting | Every control is disabled and a banner explains why. The shared preset, connection type, host, and port are locked with it, so a connection cannot be re-pointed while it is being made. Sections stay navigable. |
-| Connected | The dialog opens directly in read-only summary mode with only the **Summary** section offered. |
+| Connected | Protocol Settings opens directly in read-only summary mode with only the **Summary** section offered. |
 
 The read-only banner reads `Connected. Disconnect to change these settings.`
 while connected and `Connecting. Disconnect to change these settings.` while a
 connection is being established.
 
-Locking is applied by querying the dialog rather than by listing controls, so
-every protocol control is locked — including the HTTP, WebSocket, and gRPC
-fields that were previously left editable during a live connection. The two
-XMPP server actions are the deliberate exception: **Copy Client Settings** and
-**Include password** stay available exactly while an XMPP Server is connected,
-because the settings they copy only exist once the server is listening. See
+Locking is applied by querying the authoritative controls rather than by
+listing them, so every protocol control is locked — including the HTTP,
+WebSocket, and gRPC fields that were previously left editable during a live
+connection. The two XMPP server actions are the deliberate exception: **Copy
+Client Settings** and **Include password** stay available exactly while an
+XMPP Server is connected, because the settings they copy only exist once the
+server is listening. See
 [XMPP transport](xmpp.md).
 
 ## Validation
 
-Validation failures are announced in an assertive banner at the top of the
-dialog (`role="alert"`, `aria-live="assertive"`). A failed **Connect**:
+Validation failures are announced in an assertive banner at the top of
+Protocol Settings (`role="alert"`, `aria-live="assertive"`). A failed
+**Connect**:
 
-1. opens the Protocol Settings dialog;
+1. opens Protocol Settings;
 2. selects the section that owns the offending control;
 3. moves focus to that control;
 4. sets `aria-invalid="true"` and adds the banner id to `aria-describedby`
@@ -258,9 +269,12 @@ their warning style. See
 | First or last section | `Home` / `End` | `Home` / `End` |
 | Close and keep edits | `Escape` | `Escape` |
 
-The Protocol Settings shortcut works while a connection field has focus.
-Select the Summary tab to inspect the effective connection.
-Drag the dialog's lower corner to resize it within the application window.
+The Protocol Settings shortcut works while a connection field has focus, and
+pressing it again while the window is already open focuses that window rather
+than closing it. Select the Summary tab to inspect the effective connection.
+Protocol Settings opens in its own resizable window: drag any edge or corner
+to resize it, independently of the main application window and taller than it
+if needed, and it remembers its size and position the next time it opens.
 
 ## UI controls
 
@@ -268,8 +282,8 @@ Drag the dialog's lower corner to resize it within the application window.
 |---|---|
 | Settings | Opens Protocol Settings for the selected protocol. Carries the configured-state chip; compact view hides the chip. |
 | Basics, Security, Advanced, Summary | Section tabs. Only sections with content for the selected protocol and mode are offered. |
-| Done | Closes the dialog and keeps the edits. |
-| Revert changes | Restores the values the dialog opened with. |
+| Done | Closes Protocol Settings and keeps the edits. |
+| Revert changes | Restores the values Protocol Settings opened with. |
 | Reset to preset | Re-applies the preset the fields started from. |
 | Close (✕) | Same as Done. |
 | Copy summary | Copies the summary as text, with secrets redacted. |

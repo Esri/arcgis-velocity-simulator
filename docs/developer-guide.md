@@ -29,7 +29,7 @@ are assumed. Packaging and publishing are covered in
 
 | Path | Contents |
 |------|----------|
-| `src/` | Application source: main process, renderer, preload, dialogs, transports, and helper modules. |
+| `src/` | Application source: main process, renderer, preload, dialogs, windows, transports, and helper modules. |
 | `src/themes/` | One CSS file per theme, loaded by `src/themes.css`. |
 | `src/assets/` | Icons, screenshots, and packaging resources. |
 | `src/proto/` | Protobuf definitions used by the gRPC transports. |
@@ -52,6 +52,9 @@ Key modules:
 | `src/xmpp-*.js` | XMPP protocol layers: constants, client core, server core, SASL, shared SCRAM-SHA-1 primitives, Multi-User Chat, accounts, and utilities. |
 | `src/connection-presets.js` | The twelve paired Simulator and Logger connection presets shared with the sister repository; loaded by the renderer and by the tests. See [Protocol settings and presets](connection-presets.md). |
 | `src/connection-summary.js` | The pure generator behind every read-only description of a connection: the warning-only alert, status-bar Summary button, the read-only Summary section, and the configured-state count. No DOM access, so it runs unchanged in Node. See [Connection summary](connection-summary.md). |
+| `src/protocol-settings-window-manager.js` | The secure main-process owner of the detached Protocol Settings `BrowserWindow`: window creation, focus-on-reopen, bounds resolution and persistence, and sanitized IPC for state, commands, and events. Byte-identical in the Logger. |
+| `src/protocol-settings-mirror.js` | Dependency-free DOM mirroring primitives shared by the main renderer and the detached window: serializes the authoritative Protocol Settings subtree into minimal patches and replays them exactly, so no form rule is ever duplicated. Byte-identical in the Logger. |
+| `src/protocol-settings-window.js`, `src/protocol-settings-preload.js` | The detached window's controller and its narrowly scoped preload — state in, edits out, nothing else. Byte-identical in the Logger. |
 | `src/tls-utils.js`, `src/format-utils.js`, `src/tooltip-utils.js` | Shared TLS, payload formatting, and custom tooltip helpers used by every transport or view that needs them. `tls-utils.js` owns the single client certificate-verification decision (`resolveClientTlsVerification()`). `tooltip-utils.js` owns title migration and the stationary pointer-intent behavior shared by every custom tooltip. |
 | `src/velocity-*.js` | ArcGIS Velocity sign-in, token handling, and the feed picker. |
 | `src/run-logger.js` | The `RunLogger` used for console and log-file output in both modes. |
@@ -109,7 +112,8 @@ node test/config.test.js     # a single suite directly
 | `npm run test:xmpp-secrets` | `xmpp-secrets.test.js` | Proves that no credential reaches standard output or error, the console, diagnostic descriptors, or event payloads during a full STARTTLS, SCRAM-SHA-1, PLAIN, and password-protected room session. |
 | `npm run test:presets` | `connection-presets.test.js` | The shared preset contract and its Simulator role mapping, applying every preset without connecting, Custom and Custom (modified), the Protocol Settings sections, empty XMPP passwords, and the explicit certificate-verification controls. |
 | `npm run test:summary` | `connection-summary.test.js` | The summary generator: all twelve protocol and mode combinations, secret redaction, warning ordering, effective HTTP and WebSocket URLs, preset state, and the configured-state count. |
-| `npm run test:protocol-settings` | `protocol-settings.test.js` | The Protocol Settings dialog: its DOM nesting and preserved control ids, tablist semantics and keyboard navigation, live editing with Revert and Reset, connected and connecting locking, the summary surfaces, and the shortcut wiring. |
+| `npm run test:protocol-settings` | `protocol-settings.test.js` | The authoritative Protocol Settings dialog: its DOM nesting and preserved control ids, tablist semantics and keyboard navigation, live editing with Revert and Reset, connected and connecting locking, the summary surfaces, mirroring edits to and from the detached window, and the shortcut wiring, including that reopening focuses the existing surface instead of closing it. |
+| `node test/protocol-settings-window.test.js` | `protocol-settings-window.test.js` | The detached window: secure `BrowserWindow` creation and reuse on reopen, bounds resolution and persistence, sanitized IPC payloads for state, commands, and events, the dedicated preload's narrow allowlist, the DOM mirror's property, attribute, text, and structural replay, and the detached renderer's edit, tab, button, focus, and Escape reporting. |
 | `npm run test:tls` | `tls-verification.test.js` | Client certificate verification stays on by default across gRPC, HTTP, and WebSocket, and is bypassed only through the explicit `allowUnverifiedTls`, `httpAllowUnverifiedTls`, and `wsAllowUnverifiedTls` options. |
 | `npm run test:xmpp-parity` | `xmpp-parity.test.js` | The Simulator and Logger contract in `AGENTS.md`: the client default, the deliberate `xmppDestination` and `xmppLocalJid` asymmetry, the shared option vocabulary and timing defaults, the shared `ip` host override, port 5222, and the absence of non-canonical aliases. |
 | `npm run test:prereqs-check` | `check-build-prereqs.test.js` | Prerequisite detection and the machine-readable `--json` output. |
@@ -259,7 +263,7 @@ The packaged application writes its logs to:
 ### Adding a protocol setting
 
 1. Add the control to the section it belongs to inside `#protocol-settings-dialog` in `src/index.html`: **Basics** for what is sent and where, **Security** for TLS, certificates, and who may connect, **Advanced** for what most connections leave alone. Keep the existing `.control-group aligned-group` markup so the row aligns with its neighbors.
-2. Show and hide it from the protocol's visibility function in `src/renderer.js`. A section with no visible control is dropped from the tablist automatically, so nothing else has to change.
+2. Show and hide it from the protocol's visibility function in `src/renderer.js`. A section with no visible control is dropped from the tablist automatically, so nothing else has to change. The detached window mirrors the new control automatically through `src/protocol-settings-mirror.js`; no window-side code is ever touched.
 3. Never lock the control by hand: `updateProtocolSettingsMode()` locks every control inside the dialog through one scoped query.
 4. Map the field in `CONNECTION_PRESET_CONTROLS` in `src/connection-presets.js` and add its documented default to `PROTOCOL_SETTING_FIELDS` in `src/connection-summary.js`, then emit its row from the protocol function that owns it. A secret must go through `describeSecret()`.
 5. Record the tooltip in the owning transport guide and in `src/help.html`, then extend `test/protocol-settings.test.js` and `test/connection-summary.test.js`.
@@ -306,5 +310,5 @@ Run before opening a pull request:
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
 | [Configuration](configuration.md) | App Config and Launch Config settings, themes, storage locations, and reset steps. |
-| [Protocol settings and presets](connection-presets.md) | The connection panel, the Protocol Settings dialog, and the paired presets. |
+| [Protocol settings and presets](connection-presets.md) | The connection panel, Protocol Settings, and the paired presets. |
 | [Connection summary and protocol settings](connection-summary.md) | The summary generator, its surfaces, and how to add a row. |

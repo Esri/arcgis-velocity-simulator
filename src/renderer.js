@@ -244,6 +244,24 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastConnectionSummary = null;
   let lastRenderedProtocol = '';
 
+  // Protocol Settings runs in its own resizable window whenever the
+  // application provides one, so it can be taller than the main window. This
+  // renderer stays authoritative either way: the window only mirrors the
+  // dialog element below and reports intent back, and the in-document dialog
+  // remains the fallback where no window API exists, such as under test.
+  const protocolSettingsHost = window.protocolSettingsHost || null;
+  const protocolSettingsMirrorApi = window.ProtocolSettingsMirror || null;
+  const useProtocolSettingsWindow = Boolean(protocolSettingsHost && protocolSettingsMirrorApi
+    && protocolSettingsDialog);
+  const protocolSettingsSource = useProtocolSettingsWindow
+    ? protocolSettingsMirrorApi.createProtocolSettingsSource(protocolSettingsDialog)
+    : null;
+  let protocolSettingsWindowOpen = false;
+  let protocolSettingsWindowReady = false;
+  let protocolSettingsSyncQueued = false;
+  let pendingProtocolSettingsFocus = null;
+  let protocolSettingsAcknowledgedRevision = 0;
+
   // Ensure offline speech status UI is hidden by default (shown only when mic logging is enabled)
   const initialOfflineSpeechStatus = document.querySelector('.offline-speech-status');
   if (initialOfflineSpeechStatus) {
@@ -615,7 +633,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /** @returns {boolean} true while the dialog is showing */
   function isProtocolSettingsOpen() {
+    if (useProtocolSettingsWindow) return protocolSettingsWindowOpen;
     return Boolean(protocolSettingsDialog && protocolSettingsDialog.open);
+  }
+
+  /** @returns {object} the chrome the mirrored window renders itself with */
+  function buildProtocolSettingsMeta() {
+    const themeLink = document.getElementById('current-theme-stylesheet');
+    const heading = lastConnectionSummary ? lastConnectionSummary.title : 'Protocol Settings';
+    return {
+      title: `${heading} — ${document.title}`,
+      bodyClass: document.body.className,
+      themeHref: themeLink ? themeLink.getAttribute('href') : '',
+    };
+  }
+
+  /**
+   * Pushes the authoritative state to the mirrored window, at most once a
+   * frame. The mirror sends only what changed, so a keystroke costs a handful
+   * of properties rather than the whole surface.
+   */
+  function scheduleProtocolSettingsSync() {
+    if (!useProtocolSettingsWindow) return;
+    if (!protocolSettingsWindowOpen || !protocolSettingsWindowReady) return;
+    if (protocolSettingsSyncQueued) return;
+    protocolSettingsSyncQueued = true;
+    const flush = () => {
+      protocolSettingsSyncQueued = false;
+      if (!protocolSettingsWindowOpen || !protocolSettingsWindowReady) return;
+      const captured = protocolSettingsSource.capture();
+      protocolSettingsHost.sync({
+        meta: buildProtocolSettingsMeta(),
+        patches: captured.patches,
+        entries: captured.entries,
+        ackRevision: protocolSettingsAcknowledgedRevision,
+      });
+      if (pendingProtocolSettingsFocus !== null) {
+        protocolSettingsHost.command({ type: 'focus', path: pendingProtocolSettingsFocus });
+        pendingProtocolSettingsFocus = null;
+      }
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(flush);
+    else setTimeout(flush, 0);
+  }
+
+  /**
+   * Moves focus to a Protocol Settings control wherever it is showing: in the
+   * mirrored window when one is open, in this document otherwise.
+   *
+   * @param {Element} element
+   */
+  function focusProtocolSettingsControl(element) {
+    if (!element) return;
+    if (useProtocolSettingsWindow && protocolSettingsWindowOpen
+      && protocolSettingsDialog.contains(element)) {
+      pendingProtocolSettingsFocus = protocolSettingsMirrorApi
+        .describePath(protocolSettingsDialog, element);
+      scheduleProtocolSettingsSync();
+      return;
+    }
+    if (typeof element.focus === 'function') element.focus();
   }
 
   /** @returns {Array<HTMLElement>} every editable control the dialog owns */
@@ -691,7 +768,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tab.classList.toggle('active', selected);
       const panel = document.getElementById(tab.getAttribute('aria-controls'));
       if (panel) panel.hidden = !selected;
-      if (selected && options.focus) tab.focus();
+      if (selected && options.focus) focusProtocolSettingsControl(tab);
     });
   }
 
@@ -823,6 +900,7 @@ document.addEventListener('DOMContentLoaded', () => {
     lockInlineConnectionControls(locked);
     updateProtocolSectionAvailability();
     updateProtocolSettingsFooter();
+    scheduleProtocolSettingsSync();
   }
 
   /**
@@ -852,6 +930,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ? `Restore every field of "${presetLabel}", the preset these settings started from.`
         : 'Restore every field of the preset these settings started from. Available only after a preset is applied and edited.';
     }
+    scheduleProtocolSettingsSync();
   }
 
   /** Moves focus to the first control a reader should act on. */
@@ -865,15 +944,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const target = control
       || protocolSettingsTabs.find((tab) => !tab.hidden && tab.getAttribute('aria-selected') === 'true')
       || protocolSettingsDoneBtn;
-    if (target && typeof target.focus === 'function') target.focus();
+    focusProtocolSettingsControl(target);
   }
 
   /**
-   * Opens the dialog. The first open of a session records the snapshot that
-   * Revert changes restores.
+   * Opens Protocol Settings. The first open of a session records the snapshot
+   * that Revert changes restores. Where the application provides a dedicated
+   * window, that window is opened or focused; otherwise the in-document dialog
+   * is shown.
    *
    * @param {{section?: string, focus?: boolean, returnFocus?: Element}} [options]
-   * @returns {boolean} true when the dialog is open afterwards
+   * @returns {boolean} true when Protocol Settings is open afterwards
    */
   function openProtocolSettings(options = {}) {
     if (!protocolSettingsDialog) return false;
@@ -889,9 +970,25 @@ document.addEventListener('DOMContentLoaded', () => {
       protocolSettingsOpenSnapshot = snapshotProtocolSettings();
       protocolSettingsOpenPresetState = { activePresetId, modifiedFromPresetId };
     }
+    if (useProtocolSettingsWindow && !alreadyOpen) {
+      // The mirror starts empty, so the first sync carries the whole surface.
+      protocolSettingsWindowOpen = true;
+      protocolSettingsWindowReady = false;
+      protocolSettingsSource.reset();
+    }
     updateProtocolSettingsMode();
     if (options.section) activateProtocolSection(options.section);
     renderConnectionSummary();
+    if (useProtocolSettingsWindow) {
+      protocolSettingsHost.open({ title: buildProtocolSettingsMeta().title });
+      if (protocolSettingsBtn) protocolSettingsBtn.setAttribute('aria-expanded', 'true');
+      if (!alreadyOpen ? options.focus !== false : options.focus === true) {
+        focusInitialProtocolSettingsControl();
+      }
+      updateProtocolSettingsFooter();
+      scheduleProtocolSettingsSync();
+      return true;
+    }
     if (!alreadyOpen) {
       // jsdom does not implement showModal, so the attribute fallback keeps the
       // same element usable under test.
@@ -906,11 +1003,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   }
 
-  /** Closes the dialog, keeps the edits, and returns focus to the opener. */
-  function closeProtocolSettings(options = {}) {
-    if (!protocolSettingsDialog || !isProtocolSettingsOpen()) return;
-    if (typeof protocolSettingsDialog.close === 'function') protocolSettingsDialog.close();
-    else protocolSettingsDialog.removeAttribute('open');
+  /**
+   * Settles the renderer once Protocol Settings is no longer showing, whether
+   * it was closed from a footer action, from Escape, or from the window's own
+   * title bar.
+   *
+   * @param {{restoreFocus?: boolean}} [options]
+   */
+  function finalizeProtocolSettingsClosed(options = {}) {
     if (protocolSettingsBtn) protocolSettingsBtn.setAttribute('aria-expanded', 'false');
     renderConnectionSummary();
     if (options.restoreFocus !== false) {
@@ -920,6 +1020,105 @@ document.addEventListener('DOMContentLoaded', () => {
       if (target && typeof target.focus === 'function') target.focus();
     }
     protocolSettingsReturnFocus = null;
+  }
+
+  /** Closes Protocol Settings, keeps the edits, and returns focus to the opener. */
+  function closeProtocolSettings(options = {}) {
+    if (!protocolSettingsDialog || !isProtocolSettingsOpen()) return;
+    if (useProtocolSettingsWindow) {
+      protocolSettingsWindowOpen = false;
+      protocolSettingsWindowReady = false;
+      pendingProtocolSettingsFocus = null;
+      protocolSettingsSyncQueued = false;
+      protocolSettingsSource.reset();
+      protocolSettingsHost.close();
+    } else if (typeof protocolSettingsDialog.close === 'function') {
+      protocolSettingsDialog.close();
+    } else {
+      protocolSettingsDialog.removeAttribute('open');
+    }
+    finalizeProtocolSettingsClosed(options);
+  }
+
+  /**
+   * Applies one intent reported by the mirrored window to this document. The
+   * event is replayed on the authoritative control, so every existing listener
+   * - presets, visibility, summaries, validation - runs exactly as it does for
+   * an in-document edit, and no rule is duplicated in the window.
+   *
+   * @param {object} message a validated message from the Protocol Settings window
+   */
+  function handleProtocolSettingsWindowEvent(message) {
+    if (!useProtocolSettingsWindow || !message) return;
+    if (message.type === 'close') {
+      closeProtocolSettings();
+      return;
+    }
+    const control = message.id ? document.getElementById(message.id) : null;
+    // Only the mirrored subtree may ever be driven from the window.
+    if (!control || !protocolSettingsDialog.contains(control)) return;
+    if (message.type === 'input' || message.type === 'change') {
+      if (Number.isSafeInteger(message.revision) && message.revision > 0) {
+        protocolSettingsAcknowledgedRevision = Math.max(
+          protocolSettingsAcknowledgedRevision,
+          message.revision,
+        );
+      }
+      if (control.type === 'checkbox' || control.type === 'radio') {
+        if (typeof message.checked === 'boolean') control.checked = message.checked;
+      } else if (typeof message.value === 'string') {
+        control.value = message.value;
+      }
+      control.dispatchEvent(new Event(message.type, { bubbles: true }));
+      scheduleProtocolSettingsSync();
+      return;
+    }
+    if (message.type === 'click') {
+      if (!control.disabled && typeof control.click === 'function') control.click();
+      scheduleProtocolSettingsSync();
+      return;
+    }
+    if (message.type === 'keydown' && message.key) {
+      control.dispatchEvent(new KeyboardEvent('keydown', {
+        key: message.key,
+        bubbles: true,
+        shiftKey: message.shiftKey === true,
+        altKey: message.altKey === true,
+        ctrlKey: message.ctrlKey === true,
+        metaKey: message.metaKey === true,
+      }));
+      scheduleProtocolSettingsSync();
+    }
+  }
+
+  if (useProtocolSettingsWindow) {
+    protocolSettingsHost.onReady(() => {
+      protocolSettingsWindowReady = true;
+      protocolSettingsSource.reset();
+      scheduleProtocolSettingsSync();
+    });
+    protocolSettingsHost.onClosed(() => {
+      if (!protocolSettingsWindowOpen) return;
+      protocolSettingsWindowOpen = false;
+      protocolSettingsWindowReady = false;
+      pendingProtocolSettingsFocus = null;
+      protocolSettingsSyncQueued = false;
+      protocolSettingsSource.reset();
+      finalizeProtocolSettingsClosed();
+    });
+    protocolSettingsHost.onEvent(handleProtocolSettingsWindowEvent);
+    // Every change to the mirrored subtree is pushed, so a control or state
+    // added later is mirrored without being listed anywhere.
+    new MutationObserver(() => scheduleProtocolSettingsSync())
+      .observe(protocolSettingsDialog, {
+        subtree: true, childList: true, attributes: true, characterData: true,
+      });
+    new MutationObserver(() => scheduleProtocolSettingsSync())
+      .observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(() => scheduleProtocolSettingsSync())
+      .observe(document.head, {
+        subtree: true, childList: true, attributes: true, attributeFilter: ['href'],
+      });
   }
 
   /** Shows the dialog-level validation banner and returns the element. */
@@ -965,10 +1164,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (protocolSettingsBtn) {
     protocolSettingsBtn.addEventListener('click', () => {
-      if (isProtocolSettingsOpen()) {
-        closeProtocolSettings();
-        return;
-      }
       openProtocolSettings({ returnFocus: protocolSettingsBtn });
     });
   }
@@ -1052,8 +1247,7 @@ document.addEventListener('DOMContentLoaded', () => {
   connectionTypeSelect.addEventListener('change', updateProtocolVisibility);
 
   function handleConnectionShortcut() {
-    if (isProtocolSettingsOpen()) closeProtocolSettings();
-    else openProtocolSettings({ returnFocus: protocolSettingsBtn });
+    openProtocolSettings({ returnFocus: protocolSettingsBtn });
   }
 
   // Protocol Settings stays reachable while a connection field has focus.
@@ -1344,6 +1538,7 @@ document.addEventListener('DOMContentLoaded', () => {
       protocolSettingsBtn.dataset.tooltip = tooltip;
       protocolSettingsBtn.setAttribute('aria-label', `Protocol Settings for ${summary.connectionTypeLabel}: ${summary.settings.label}`);
     }
+    scheduleProtocolSettingsSync();
     return summary;
   }
 
@@ -2121,7 +2316,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (protocolSettingsAlert && protocolSettingsAlert.id) {
         addAriaDescribedBy(control, protocolSettingsAlert.id);
       }
-      control.focus();
+      focusProtocolSettingsControl(control);
       const clear = () => {
         control.removeAttribute('aria-invalid');
         if (protocolSettingsAlert && protocolSettingsAlert.id) {

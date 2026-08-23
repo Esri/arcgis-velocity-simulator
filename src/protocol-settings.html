@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none';">
+  <title>Protocol Settings</title>
+  <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="protocol-settings-window.css">
+</head>
+<body class="protocol-settings-window">
+  <!--
+    The mirror of the main renderer's authoritative Protocol Settings element.
+    Its markup, values, and disabled state all arrive over IPC, and every edit
+    is reported straight back, so this window owns no connection state of its
+    own.
+  -->
+  <div id="protocol-settings-root" class="protocol-settings-dialog" role="group" aria-labelledby="protocol-settings-title"></div>
+  <script src="tooltip-utils.js"></script>
+  <script src="protocol-settings-mirror.js"></script>
+  <script src="protocol-settings-window.js"></script>
+</body>
+</html>

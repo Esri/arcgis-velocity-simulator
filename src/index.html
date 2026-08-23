@@ -97,7 +97,7 @@
               </optgroup>
               </select>
               <span id="connection-preset-state" class="connection-preset-state" role="status" aria-live="polite" hidden data-tooltip="These fields started from a preset and were edited. Select the preset again to restore its values." data-tooltip-icon="✎" data-tooltip-kind="info" aria-label="Preset modified">Modified</span>
-              <button id="protocol-settings-btn" class="connection-toolbar-action protocol-settings-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="protocol-settings-dialog" aria-label="Protocol Settings" data-tooltip="Protocol Settings (Cmd/Ctrl+Shift+P)&#10;---&#10;Open the settings for the selected protocol in a dialog with Basics, Security, and Advanced sections." data-tooltip-icon="⚙" data-tooltip-kind="info">
+              <button id="protocol-settings-btn" class="connection-toolbar-action protocol-settings-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="protocol-settings-dialog" aria-label="Protocol Settings" data-tooltip="Protocol Settings (Cmd/Ctrl+Shift+P)&#10;---&#10;Open the settings for the selected protocol in a resizable window with Basics, Security, and Advanced sections." data-tooltip-icon="⚙" data-tooltip-kind="info">
                 <span class="protocol-settings-btn-icon" aria-hidden="true">⚙</span>
                 <span class="protocol-settings-btn-label">Settings</span>
                 <span id="protocol-settings-count" class="protocol-settings-count" hidden></span>
@@ -130,9 +130,12 @@
             <input type="number" id="port" value="5565" title="Port">
           </div>
           <!--
-            Protocol Settings dialog. It lives inside .connection-controls-group so the
-            delegated preset-modification listeners still see every edit, and it is a
-            native <dialog>, so the browser renders it in the top layer and traps focus.
+            Protocol Settings. This element is the authoritative copy of every
+            protocol-specific control: it lives inside .connection-controls-group so the
+            delegated preset-modification listeners still see every edit. In the running
+            application it is mirrored into a dedicated resizable window, which can be
+            taller than this one; the native <dialog> is the in-document fallback used
+            where no such window exists.
           -->
           <dialog id="protocol-settings-dialog" class="protocol-settings-dialog" aria-labelledby="protocol-settings-title">
             <div class="protocol-settings-header">
@@ -550,6 +553,7 @@
   <script src="velocity-auth-utils.js"></script>
   <script src="connection-presets.js"></script>
   <script src="connection-summary.js"></script>
+  <script src="protocol-settings-mirror.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

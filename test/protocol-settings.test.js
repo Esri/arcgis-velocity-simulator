@@ -80,7 +80,7 @@ function createApiProxy(state) {
   });
 }
 
-async function withRenderer(run) {
+async function withRenderer(run, options = {}) {
   const state = {
     listeners: new Map(), connects: [], disconnects: 0, copied: [],
   };
@@ -93,6 +93,24 @@ async function withRenderer(run) {
   });
   window.localStorage.clear();
   window.api = createApiProxy(state);
+  if (options.detached) {
+    state.protocolWindow = {
+      opens: [],
+      closes: 0,
+      syncs: [],
+      commands: [],
+      listeners: new Map(),
+    };
+    window.protocolSettingsHost = {
+      open: (payload) => state.protocolWindow.opens.push(payload),
+      close: () => { state.protocolWindow.closes += 1; },
+      sync: (payload) => state.protocolWindow.syncs.push(payload),
+      command: (payload) => state.protocolWindow.commands.push(payload),
+      onReady: (callback) => state.protocolWindow.listeners.set('ready', callback),
+      onClosed: (callback) => state.protocolWindow.listeners.set('closed', callback),
+      onEvent: (callback) => state.protocolWindow.listeners.set('event', callback),
+    };
+  }
   window.VelocityAuthUtils = {
     shouldSendVelocityTokenByDefault: () => false,
     describeVelocityAuthType: (value) => value || 'not specified',
@@ -103,6 +121,9 @@ async function withRenderer(run) {
   });
   window.eval(fs.readFileSync(path.join(SRC, 'connection-presets.js'), 'utf8'));
   window.eval(fs.readFileSync(path.join(SRC, 'connection-summary.js'), 'utf8'));
+  if (options.detached) {
+    window.eval(fs.readFileSync(path.join(SRC, 'protocol-settings-mirror.js'), 'utf8'));
+  }
   window.eval(rendererSource);
   await new Promise((resolve) => window.addEventListener('DOMContentLoaded', resolve, { once: true }));
   const { document } = window;
@@ -158,9 +179,9 @@ async function withRenderer(run) {
   }
 }
 
-async function uiTest(name, fn) {
+async function uiTest(name, fn, options) {
   try {
-    await withRenderer(fn);
+    await withRenderer(fn, options);
     passed += 1;
     console.log(`  ✓ ${name}`);
   } catch (error) {
@@ -175,7 +196,7 @@ console.log('protocol-settings.test.js');
 // Source structure
 // ---------------------------------------------------------------------------
 
-test('the dialog is a native in-window dialog nested inside the connection controls', () => {
+test('the authoritative native dialog remains nested as the non-Electron fallback', () => {
   const { document } = new JSDOM(indexHtml).window;
   const dialog = document.getElementById('protocol-settings-dialog');
   assert.ok(dialog, 'protocol-settings-dialog must exist');
@@ -183,7 +204,9 @@ test('the dialog is a native in-window dialog nested inside the connection contr
   assert.ok(document.querySelector('.connection-controls-group #protocol-settings-dialog'),
     'the dialog must live inside .connection-controls-group so delegated preset events still fire');
   assert.strictEqual(dialog.getAttribute('aria-labelledby'), 'protocol-settings-title');
-  assert.doesNotMatch(rendererSource, /BrowserWindow/, 'the dialog must not be an Electron window');
+  assert.doesNotMatch(rendererSource, /new BrowserWindow/, 'the renderer must not construct Electron windows');
+  assert.match(mainSource, /createProtocolSettingsWindowManager/,
+    'production must delegate the dedicated window to the main-process manager');
 });
 
 test('every control id from the inline layout is preserved exactly once', () => {
@@ -364,6 +387,43 @@ test('Protocol Settings is the only connection-dialog shortcut in the applicatio
     assert.strictEqual(document.getElementById('http-format').value, 'json', 'Done keeps the edit');
     assert.strictEqual(document.activeElement.id, 'protocol-settings-btn', 'focus returns to the opener');
   });
+
+  await uiTest('the dedicated window mirrors authoritative state and replays immediate edits', async ({
+    document, select, state,
+  }) => {
+    select('connection-type', 'http-client');
+    document.getElementById('protocol-settings-btn').click();
+    assert.strictEqual(document.getElementById('protocol-settings-dialog').open, false,
+      'production keeps the in-document fallback closed');
+    assert.strictEqual(state.protocolWindow.opens.length, 1);
+    assert.strictEqual(document.getElementById('protocol-settings-btn').getAttribute('aria-expanded'), 'true');
+
+    state.protocolWindow.listeners.get('ready')();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.ok(state.protocolWindow.syncs.length > 0, 'the ready window receives authoritative DOM state');
+    assert.ok(state.protocolWindow.syncs[0].patches.length > 0, 'the first sync contains the full structure');
+    assert.ok(state.protocolWindow.commands.length > 0, 'initial focus is sent to the detached window');
+
+    const event = state.protocolWindow.listeners.get('event');
+    event({ type: 'input', id: 'http-path', value: '/detached' });
+    event({ type: 'change', id: 'http-path', value: '/detached' });
+    assert.strictEqual(document.getElementById('http-path').value, '/detached');
+    assert.strictEqual(document.getElementById('protocol-settings-revert').disabled, false);
+    event({ type: 'click', id: 'protocol-settings-tab-summary' });
+    assert.strictEqual(
+      document.getElementById('protocol-settings-tab-summary').getAttribute('aria-selected'),
+      'true',
+    );
+    event({ type: 'click', id: 'protocol-settings-revert' });
+    assert.strictEqual(document.getElementById('http-path').value, '/');
+
+    document.getElementById('protocol-settings-btn').click();
+    assert.strictEqual(state.protocolWindow.opens.length, 2,
+      'reopening asks main to focus the existing window');
+    event({ type: 'close' });
+    assert.strictEqual(state.protocolWindow.closes, 1);
+    assert.strictEqual(document.getElementById('protocol-settings-btn').getAttribute('aria-expanded'), 'false');
+  }, { detached: true });
 
   await uiTest('Escape closes the dialog and keeps the edits', async ({ document, select, key }) => {
     select('connection-type', 'ws-client');
@@ -600,6 +660,8 @@ test('Protocol Settings is the only connection-dialog shortcut in the applicatio
     key(document.body, 'P', { ctrlKey: true, shiftKey: true });
     assert.strictEqual(dialog.open, true);
     key(document.body, 'P', { ctrlKey: true, shiftKey: true });
+    assert.strictEqual(dialog.open, true, 'reopening focuses the existing settings surface');
+    key(document.body, 'Escape');
     assert.strictEqual(dialog.open, false);
 
     key(document.body, 'I', { ctrlKey: true, shiftKey: true });
@@ -627,7 +689,7 @@ test('Protocol Settings is the only connection-dialog shortcut in the applicatio
     shortcut('protocol-settings');
     assert.strictEqual(dialog.open, true);
     shortcut('protocol-settings');
-    assert.strictEqual(dialog.open, false);
+    assert.strictEqual(dialog.open, true, 'reopening keeps the existing settings surface open');
   });
 
   await uiTest('a hidden connection row is revealed before the dialog opens', async ({ document, key }) => {

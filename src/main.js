@@ -20,7 +20,7 @@
  * It handles window management, application lifecycle events, native OS interactions (like dialogs and menus),
  * backend logic for all network transports, file system access, and inter-process communication (IPC) with renderer processes.
  */
-const { app, BrowserWindow, ipcMain, dialog, Menu, shell, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell, globalShortcut, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
@@ -34,6 +34,7 @@ const basePath = __dirname;
 const { ConfigManager } = require(path.join(basePath, 'config.js'));
 const { APP_DEFAULTS, DEFAULT_LOG_LEVEL, formatCliStartupErrorOutput, formatExplainOutput, getCommandLineReferenceData, parseCommandLineArgs } = require(path.join(basePath, 'cli-options.js'));
 const { EXIT_CODES, runHeadlessSession } = require(path.join(basePath, 'headless-runner.js'));
+const { createProtocolSettingsWindowManager } = require(path.join(basePath, 'protocol-settings-window-manager.js'));
 
 function requestGracefulCliExit(exitCode) {
   process.exitCode = exitCode;
@@ -193,6 +194,18 @@ let hasLoggedNoClients = false;
 // --- Configuration ---
 let configManager; // Manages loading and saving of the application configuration.
 let appConfig; // The loaded application configuration object.
+const protocolSettingsWindowManager = createProtocolSettingsWindowManager({
+  BrowserWindow,
+  ipcMain,
+  screen,
+  path,
+  basePath,
+  getMainWindow: () => mainWindow,
+  getAppConfig: () => appConfig,
+  saveAppConfig: (config) => {
+    if (configManager) configManager.saveConfig(config);
+  },
+});
 
 // --- Splash Screen ---
 let splashWindow; // The splash screen window instance.
@@ -663,6 +676,8 @@ function createWindow() {
   });
 
   mainWindow.on('closed', () => {
+    // Protocol Settings only ever mirrors the main window, so it never outlives it.
+    protocolSettingsWindowManager.close({ restoreFocus: false });
     mainWindow = null;
     // Unregister global shortcuts when main window closes
     globalShortcut.unregisterAll();

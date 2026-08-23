@@ -26,8 +26,8 @@ lists all of them with their intended audience.
 | [Documentation index](docs/README.md) | Every guide with its purpose and audience, plus documentation maintenance rules. |
 | [Build and release](docs/build-and-release.md) | Prerequisites, local builds, platform packaging, code signing, and release commands. |
 | [Command-line reference](docs/command-line.md) | Every CLI parameter, help layout, default, and usage example. |
-| [Protocol settings and presets](docs/connection-presets.md) | The connection panel, the Protocol Settings dialog, and the twelve paired Simulator and Logger presets. |
-| [Connection summary and protocol settings](docs/connection-summary.md) | The Protocol Settings dialog, its sections, warning alert, and read-only summary. |
+| [Protocol settings and presets](docs/connection-presets.md) | The connection panel, Protocol Settings, and the twelve paired Simulator and Logger presets. |
+| [Connection summary and protocol settings](docs/connection-summary.md) | Protocol Settings, its sections, warning alert, and read-only summary. |
 | [Configuration](docs/configuration.md) | Configuration file format, settings, themes, fonts, storage locations, and launch configuration samples. |
 | [Developer guide](docs/developer-guide.md) | Repository structure, local development, tests, documentation checks, debugging, logging, and extension points. |
 | [Headless mode](docs/headless.md) | No-UI replay: parameters, launch configuration workflow, output formats, and the done file. |
@@ -203,7 +203,7 @@ See [Keyboard shortcuts](docs/keyboard-shortcuts.md) for complete list.
 
 ### Connection controls
 - **Panel**: File, a compact **Setup** toolbar (Preset and Settings), **Mode**, **Connection** (host and port), replay rate, and the connection actions.
-- **Settings**: Opens an in-window Protocol Settings dialog holding every setting of the selected protocol, grouped into Basics, Security, and Advanced. Edits apply to the next connection; nothing is sent until you select **Connect**.
+- **Settings**: Opens the Protocol Settings window holding every setting of the selected protocol, grouped into Basics, Security, Advanced, and a read-only Summary. The window is independently movable and resizable, including taller than the main window, and remembers its size and position. Edits apply to the next connection; nothing is sent until you select **Connect**.
 - **Connection Summary**: Open the Summary tab in Protocol Settings. The panel remains compact unless a warning such as disabled certificate verification applies. Passwords are reported only as `Set (hidden)`, `Empty`, or `Not set`.
 
 ### Status Log controls

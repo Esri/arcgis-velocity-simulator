@@ -2,19 +2,19 @@
 
 [← Documentation index](README.md) · [Repository overview](../README.md#documentation)
 
-The connection panel holds the settings every connection needs, and the
-**Protocol Settings** dialog holds everything specific to the selected
+The connection panel holds the settings every connection needs, and
+**Protocol Settings** holds everything specific to the selected
 protocol. Connection presets pre-fill both at once for a paired local test
 between the ArcGIS Velocity Simulator and the ArcGIS Velocity Logger.
 
 This guide is written for users configuring a connection and for developers
-changing the panel. It covers the panel layout, the Protocol Settings dialog,
+changing the panel. It covers the panel layout, Protocol Settings,
 the twelve paired presets, and the Custom and Custom (modified) states.
 
 ## Table of contents
 
 - [The connection panel](#the-connection-panel)
-- [The Protocol Settings dialog](#the-protocol-settings-dialog)
+- [The Protocol Settings window](#the-protocol-settings-window)
 - [What a preset is](#what-a-preset-is)
 - [The twelve paired presets](#the-twelve-paired-presets)
 - [What each preset fills](#what-each-preset-fills)
@@ -39,20 +39,24 @@ TCP and UDP have no settings of their own. **Settings** remains available for
 the read-only Summary, while its count stays hidden. A compact warning alert
 appears only when the current values need attention.
 
-## The Protocol Settings dialog
+## The Protocol Settings window
 
-**Settings** opens an in-window dialog that holds every control
-belonging to the selected protocol. The dialog title tracks the selection, for
-example `WebSocket Client settings`, and the button carries a concise configured
-state count when values differ from their defaults, such as `2`. Connection
-warnings remain visible beneath the toolbar.
+**Settings** opens a dedicated, resizable window that holds every control
+belonging to the selected protocol. It is independently movable and
+resizable — including taller than the main application window — and it
+remembers its size and position the next time it opens. The window's title
+tracks the selection, for example `WebSocket Client settings`, and the button
+carries a concise configured state count when values differ from their
+defaults, such as `2`. Connection warnings remain visible beneath the toolbar.
 
 Open it with the button or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on
-Windows and Linux.
+Windows and Linux. Selecting **Settings** or pressing the shortcut again while
+the window is already open brings it back into focus rather than opening a
+second one or closing it. Closing the main application window also closes it.
 
 ### Sections
 
-The dialog offers only the sections that hold a control for the current
+Protocol Settings offers only the sections that hold a control for the current
 protocol and role:
 
 | Protocol | Basics | Security | Advanced |
@@ -79,27 +83,28 @@ network until you select **Connect**.
 
 | Action | Result |
 |---|---|
-| **Done** | Closes the dialog and keeps the edits. |
-| **Revert changes** | Restores every field to the value it held when the dialog was opened, and keeps the dialog open. It is enabled only while something still differs from those values. |
+| **Done** | Closes Protocol Settings and keeps the edits. |
+| **Revert changes** | Restores every field to the value it held when Protocol Settings was opened, and keeps it open. It is enabled only while something still differs from those values. |
 | **Reset to preset** | Reapplies the preset the fields were modified from. It is enabled only while the fields derive from a modified preset. |
-| `Esc` | Closes the dialog and keeps the edits, exactly like **Done**. |
+| `Esc` | Closes Protocol Settings and keeps the edits, exactly like **Done**. |
 
-Focus returns to the **Settings** button when the dialog closes.
+Closing the window from its own title bar behaves exactly like **Done**, and
+focus returns to the **Settings** button when Protocol Settings closes.
 
 ### Connection state
 
-| State | Dialog |
+| State | Protocol Settings |
 |---|---|
 | Disconnected | Every control is editable. |
-| Connecting | The dialog opens, every control is read-only, and the banner reads `Connecting. Disconnect to change these settings.` The shared preset, connection type, host, and port are locked with it. |
-| Connected | The dialog opens on the read-only **Summary** section with the banner `Connected. Disconnect to change these settings.` |
+| Connecting | It opens, every control is read-only, and the banner reads `Connecting. Disconnect to change these settings.` The shared preset, connection type, host, and port are locked with it. |
+| Connected | It opens on the read-only **Summary** section with the banner `Connected. Disconnect to change these settings.` |
 
 While an XMPP server is connected, **Copy Client Settings** and **Include
 password** stay available, because that is the only state in which the bound
 address and the generated identity are known. Everything else is locked.
 
-No field required to connect is hidden. If validation fails while the dialog is
-closed, the dialog opens on the section holding the offending control, the
+No field required to connect is hidden. If validation fails while Protocol
+Settings is closed, it opens on the section holding the offending control, the
 control is revealed and focused, an assertive banner names the problem, and the
 same message is written to the status log. The banner is added to the control's
 `aria-describedby` rather than replacing existing descriptions.
@@ -189,11 +194,11 @@ fields without marking the state as modified, because it is not a manual edit.
 The same is true of a feed applied from the
 [ArcGIS Velocity sign-in and feed picker](velocity-login.md).
 
-A preset never opens the Protocol Settings dialog. It pre-fills the fields
-wherever they live, whether the dialog is open or closed, and reports what it
-did in the status log. When a preset turns a certificate-verification bypass on,
-it also says so and sends the dialog to **Security** the next time it opens, so
-a warning-level control is never enabled out of sight.
+A preset never opens Protocol Settings. It pre-fills the fields
+wherever they live, whether Protocol Settings is open or closed, and reports
+what it did in the status log. When a preset turns a certificate-verification
+bypass on, it also says so and sends Protocol Settings to **Security** the
+next time it opens, so a warning-level control is never enabled out of sight.
 
 ## Minimal local test with the Logger
 
@@ -232,8 +237,8 @@ testing.
 | Settings | Opens Protocol Settings and carries the configured state. |
 | Summary | Opens the read-only Summary section and carries the warning count. |
 | Section tabs | Basics, Security, and Advanced, offered only where the section holds a control. |
-| Done | Closes the dialog and keeps the edits. |
-| Revert changes | Restores the values the fields held when the dialog was opened. |
+| Done | Closes Protocol Settings and keeps the edits. |
+| Revert changes | Restores the values the fields held when Protocol Settings was opened. |
 | Reset to preset | Reapplies the preset the fields were modified from. Enabled only for a modified preset. |
 
 ## Tooltip reference

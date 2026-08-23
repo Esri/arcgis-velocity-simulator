@@ -202,11 +202,11 @@ preset is the only place where **Allow unverified** is turned on automatically,
 because the paired Logger presents an ephemeral self-signed certificate. See
 [Connection presets](connection-presets.md).
 
-The XMPP options live in the Protocol Settings dialog, grouped into three
+The XMPP options live in Protocol Settings, grouped into three
 sections: **Basics** holds the conversation, domain, account, destination, and
 room fields; **Security** holds the STARTTLS policy, certificate paths, **Allow
 unverified**, and **Allow remote**; **Advanced** holds the timing values.
-Validation opens the dialog on the section holding the offending control,
+Validation opens Protocol Settings on the section holding the offending control,
 reveals and focuses it, and names the problem in an assertive banner as well as
 in the status log.
 
@@ -252,20 +252,20 @@ rejects the zero-length HMAC key produced by an empty password.
 ## UI controls
 
 When XMPP is selected in the **Mode** dropdown, an **XMPP Settings…** button
-appears in the compact **Setup** toolbar. It opens the Protocol Settings dialog,
+appears in the compact **Setup** toolbar. It opens Protocol Settings,
 which holds every XMPP-specific control, and it carries a concise configured
 state, such as `Defaults` or `2 changed`. Connection warnings remain visible
 beneath the toolbar. Open Settings
 with the button or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on Windows
-and Linux. The dialog
-layout, its sections, and the Done, Revert changes, and Reset to preset actions
+and Linux. Its
+layout, sections, and the Done, Revert changes, and Reset to preset actions
 are described in
-[Protocol settings and presets](connection-presets.md#the-protocol-settings-dialog).
+[Protocol settings and presets](connection-presets.md#the-protocol-settings-window).
 
 Host, port, and the connection mode stay in the panel, because they apply to
-every protocol. Inside the dialog, role-, conversation-, and TLS-specific
-controls remain hidden until they apply. Text fields and selects are left
-aligned.
+every protocol. Inside Protocol Settings, role-, conversation-, and
+TLS-specific controls remain hidden until they apply. Text fields and selects
+are left aligned.
 
 | Control | Applies to | Purpose |
 |---|---|---|
@@ -280,7 +280,7 @@ aligned.
 | Account / Acct pwd | Server | Single external account. The account password may be present but empty. |
 | Destination | Direct | Up to 20 bare destination JIDs; optional in server role. |
 | Room / Nickname / Room pwd | MUC | Room identity, occupant nickname, and optional room password. |
-| Preset | Both | Pre-fills a paired local Simulator and Logger test. Defaults to Custom. Shown above Mode, in the panel rather than the dialog. |
+| Preset | Both | Pre-fills a paired local Simulator and Logger test. Defaults to Custom. Shown above Mode, in the panel rather than Protocol Settings. |
 | Timeouts ms | Both | Connect (30000) and reply (15000) deadlines. In **Advanced**. Positive whole milliseconds only; there is no wait-forever value. |
 | Ping ms | Client | XEP-0199 keepalive interval (60000). In **Advanced**. Positive whole milliseconds only; the keepalive cannot be switched off. |
 | Reconnect ms | Client | Delay before the automatic reconnect after a dropped stream (60000). In **Advanced**. Positive whole milliseconds only; automatic reconnect cannot be switched off. |
@@ -644,7 +644,7 @@ publish into it.
 | Document | Purpose |
 |----------|---------|
 | [TLS and SSL security](tls.md) | Certificate types, trust stores, mutual TLS, and the TLS Trust Badge. |
-| [Protocol settings and presets](connection-presets.md) | The Protocol Settings dialog, its sections, and the paired presets with empty XMPP passwords. |
+| [Protocol settings and presets](connection-presets.md) | Protocol Settings, its sections, and the paired presets with empty XMPP passwords. |
 | [Connection summary and protocol settings](connection-summary.md) | The read-only description of the current connection and its warnings. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |

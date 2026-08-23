@@ -398,16 +398,61 @@ Internal differences are allowed where they do not surface to a user: the two ap
 
 Invert only what genuinely differs by role. Where the Simulator sends, the Logger receives; where the Simulator names a destination, the Logger names a source; and where a control here reads "publish to", the Logger's equivalent reads "listen on". Everything else — naming, structure, limits, terminology, and honesty about limitations — should be the same in both places.
 
-### Protocol Settings dialog and Connection Summary parity
+### Protocol Settings window and Connection Summary parity
 
 The connection surface is shared between the ArcGIS Velocity Simulator and the
 ArcGIS Velocity Logger and must not drift. Both applications keep only the
-fields every protocol shares inline, and edit everything protocol-specific in an
-in-window native `<dialog id="protocol-settings-dialog">` nested inside the
-connection controls container. It is a `<dialog>` element, never an Electron
-`BrowserWindow`, so it renders in the top layer, traps focus natively, and still
-delivers `change` and `input` events to the delegated preset-modification
-listeners. No control is duplicated between the row and the dialog.
+fields every protocol shares inline, and edit everything protocol-specific in
+one consolidated Protocol Settings surface with Basics, Security, Advanced,
+and a read-only Summary. The authoritative copy of every protocol-specific
+control is still the in-document `<dialog id="protocol-settings-dialog">`
+nested inside the connection controls container: it owns every default,
+preset, lock, validation rule, and the Summary generator, and it is the only
+thing a jsdom or other no-window environment ever renders. In the running
+application, main opens or focuses one dedicated, non-modal, resizable
+Electron `BrowserWindow` that mirrors that `<dialog>` and reports the user's
+intent — an edit, a click, a section change — over IPC to be replayed on the
+authoritative control, so no form rule, default, or transport decision is ever
+duplicated in the window. No control is duplicated between the row and
+Protocol Settings.
+
+Keep the following shared files and IPC contract identical in both
+repositories, byte-identical where the code itself is byte-identical:
+
+- **Detached window files.** `src/protocol-settings-window-manager.js` (the
+  secure main-process owner: window creation, focus-on-reopen, bounds
+  resolution and persistence, and payload sanitization for every channel),
+  `src/protocol-settings-mirror.js` (the dependency-free serializer and
+  replayer loaded by both documents), `src/protocol-settings-window.js` (the
+  detached window's controller, which owns no rule of its own), and
+  `src/protocol-settings-preload.js` (the narrowly scoped preload exposing
+  exactly `ready`, `emit`, `requestClose`, `onState`, and `onCommand` on
+  `window.protocolSettingsClient`) are byte-identical in both repositories.
+  `src/protocol-settings.html` (a minimal shell around
+  `#protocol-settings-root` with a strict Content Security Policy) and
+  `src/protocol-settings-window.css` (window-only chrome that reuses every
+  Protocol Settings rule from `style.css`) follow the same pattern.
+- **IPC channels**, all under the `protocol-settings:` prefix and validated by
+  sender identity in the manager: `open`, `close`, `sync`, and `command` flow
+  main → window and are accepted only from the main window's sender;
+  `window-ready`, `window-event`, and `window-close` flow window → main and
+  are accepted only from the settings window's sender. The main renderer's own
+  bridge, `window.protocolSettingsHost` in `src/preload.js`, exposes `open`,
+  `close`, `sync`, `command`, `onReady`, `onClosed`, and `onEvent`.
+- **Security.** The detached window runs with `contextIsolation: true`,
+  `nodeIntegration: false`, `sandbox: true`, `webSecurity: true`, and no
+  remote module; its document carries a strict CSP with no remote origins.
+  The manager sanitizes every incoming payload — control ids, attribute
+  names, class and style values, and the theme stylesheet href — before it
+  reaches either process.
+- **Window behavior.** The window is non-modal, and independently movable and
+  resizable, including taller than the main window; its bounds are clamped to
+  the display's work area and persisted under `dialogSizes.protocolSettings`
+  in App Config, the same pattern already used for the App Config, Launch
+  Config, and ArcGIS Velocity sign-in dialogs. Reopening while the window
+  already exists focuses it rather than creating a second one. Closing it
+  from its own title bar behaves exactly like **Done**: the edits are kept
+  and focus returns to the opener. Closing the main window closes it too.
 
 Keep the following identical in both repositories.
 
@@ -455,9 +500,13 @@ Keep the following identical in both repositories.
   `aria-describedby` without discarding the tokens already there, and it still
   writes the message to the status log. Clearing the error removes only the
   banner's own token.
-- **Shortcut.** `Cmd/Ctrl+Shift+P` opens or closes Protocol Settings through
-  `handleConnectionShortcut()` in the renderer. Summary is reached through the
-  dialog's Summary tab, not a separate button or shortcut.
+- **Shortcut.** `Cmd/Ctrl+Shift+P` opens Protocol Settings through
+  `handleConnectionShortcut()` in the renderer, or focuses it — including the
+  detached window — if it is already open. The **Settings** button behaves
+  the same way. Neither the shortcut nor the button ever closes Protocol
+  Settings; only **Done**, `Esc`, the close control, or the detached window's
+  own close does that. Summary is reached through the Summary tab, not a
+  separate button or shortcut.
 - **Summary generator.** `src/connection-summary.js` is a pure module with no
   DOM access. `buildConnectionSummary(state)` drives the warning-only alert,
   warning-only alert, the read-only Summary section, and the configured-state
