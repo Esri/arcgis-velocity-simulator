@@ -3,417 +3,251 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=600, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Help - ArcGIS Velocity Simulator</title>
     <link rel="stylesheet" href="./themes.css">
     <link rel="stylesheet" href="./help.css">
 </head>
 <body>
     <div class="help-container">
-        <div class="help-header">
-            <div class="help-title">ArcGIS Velocity Simulator Help</div>
+        <header class="help-header">
+            <div class="help-heading">
+                <p class="help-eyebrow">Reference workspace</p>
+                <h1 class="help-title">ArcGIS Velocity Simulator Help</h1>
+                <p class="help-subtitle">Find connection guidance, replay workflows, and shortcuts without leaving the app.</p>
+            </div>
+            <div class="help-search-controls">
+                <label class="sr-only" for="help-search">Search Help</label>
+                <input type="search" id="help-search" class="help-search" placeholder="Search Help" autocomplete="off"
+                    aria-describedby="help-search-status" data-tooltip="Search Help topics and reference content (Cmd/Ctrl+F)" aria-label="Search Help topics and reference content">
+                <button type="button" id="help-search-clear" class="help-search-clear" disabled
+                    data-tooltip="Clear the Help search" aria-label="Clear Help search">Clear</button>
+                <p id="help-search-status" class="sr-only" aria-live="polite"></p>
+            </div>
+        </header>
+
+        <div class="help-workspace">
+            <aside class="help-sidebar" aria-label="Help navigation">
+                <nav class="help-nav" aria-label="Help sections">
+                    <p class="help-nav-title">On this page</p>
+                    <ol id="help-toc" class="help-toc"></ol>
+                </nav>
+            </aside>
+
+            <main class="help-content" id="help-content" tabindex="-1">
+                <section class="help-section">
+                    <h3>Replay a data file</h3>
+                    <p>ArcGIS Velocity Simulator publishes rows from a CSV or text file over TCP, UDP, HTTP/HTTPS, WebSocket, gRPC, or XMPP. Use it to test ArcGIS Velocity feeds, ArcGIS GeoEvent Server connectors, and compatible services.</p>
+                    <ol>
+                        <li>Select a file, then select a <strong>Preset</strong> for a paired local Simulator and Logger test or choose a connection type.</li>
+                        <li>Confirm the host, port, rate, and protocol-specific values in <strong>Settings</strong>.</li>
+                        <li>Select <strong>Connect</strong>, then <strong>Play</strong> to publish the selected file.</li>
+                    </ol>
+                    <p>A preset only fills editable fields. It never connects, never starts playback, never selects a file, never saves a password, and never changes startup defaults. Selecting <strong>Custom</strong> preserves current values; editing a populated preset changes its label to <strong>Custom (modified)</strong>.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Use Protocol Settings</h3>
+                    <p>Select <strong>Settings</strong>, or press <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd>, to open the resizable Protocol Settings window. The compact connection row holds preset, connection type, host, port, replay controls, and connection actions.</p>
+                    <ul>
+                        <li><strong>Basics</strong> contains format, path, serialization, RPC type, and XMPP conversation or account values.</li>
+                        <li><strong>Security</strong> contains TLS or STARTTLS policy, certificate paths, certificate verification, and remote binding where applicable.</li>
+                        <li><strong>Advanced</strong> contains optional headers, subscription messages, first-message handling, and XMPP timing values.</li>
+                        <li><strong>Summary</strong> provides the effective connection and warnings. Secrets are shown only as <code>Set (hidden)</code>, <code>Empty</code>, or <code>Not set</code>.</li>
+                    </ul>
+                    <p>Edits apply to the next connection. <strong>Done</strong> and <kbd>Escape</kbd> keep them; <strong>Revert changes</strong> restores the values present when the window opened; <strong>Reset to preset</strong> reapplies a modified preset. While connected, Settings opens read-only in Summary mode.</p>
+                    <p>See the <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/connection-summary.md" target="_blank" rel="noreferrer">connection summary and Protocol Settings guide</a> for the complete behavior.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Choose a transport</h3>
+                    <table class="help-table">
+                        <thead><tr><th>Transport</th><th>Use it when</th><th>Details</th></tr></thead>
+                        <tbody>
+                            <tr><td>TCP / UDP</td><td>You need a direct stream or datagrams.</td><td>Server listens; client publishes to a remote server.</td></tr>
+                            <tr><td>HTTP</td><td>You publish POST requests or host a receiving endpoint.</td><td>Configure format, path, and optional TLS in Settings.</td></tr>
+                            <tr><td>WebSocket</td><td>You publish over a persistent WS or WSS connection.</td><td>Configure path, format, optional subscription message, first-message handling, and headers.</td></tr>
+                            <tr><td>gRPC</td><td>You publish to a gRPC service or host a gRPC endpoint.</td><td>Configure serialization, RPC type, and optional endpoint metadata header.</td></tr>
+                            <tr><td>XMPP</td><td>You publish direct or Multi-User Chat messages.</td><td>Configure the account, conversation, STARTTLS, and destination or room.</td></tr>
+                        </tbody>
+                    </table>
+                    <p>For detailed setup, use the owning guides: <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/http.md" target="_blank" rel="noreferrer">HTTP</a>, <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/websocket.md" target="_blank" rel="noreferrer">WebSocket</a>, <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/grpc.md" target="_blank" rel="noreferrer">gRPC</a>, <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/xmpp.md" target="_blank" rel="noreferrer">XMPP</a>, and <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/tls.md" target="_blank" rel="noreferrer">TLS</a>.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Configure TLS safely</h3>
+                    <p>Client certificate verification is enabled by default whenever TLS or STARTTLS applies. The explicit <strong>Allow unverified</strong> option accepts an unverified server certificate for any host; traffic remains encrypted, but the server identity is not checked. Keep it off except for a deliberate test such as a local automatic self-signed certificate.</p>
+                    <p>For HTTP, WebSocket, and gRPC, client mode uses the OS certificate store unless a custom CA certificate is supplied. Server-mode TLS requires a certificate and key. An XMPP server uses an automatic self-signed pair only when both certificate and key are empty; configuring only one is an error.</p>
+                    <p>See the <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/tls.md" target="_blank" rel="noreferrer">TLS guide</a> for certificate, trust-store, and mutual TLS guidance.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Publish with XMPP</h3>
+                    <p>XMPP uses port <code>5222</code>, Direct conversation, and Required STARTTLS by default. The Simulator defaults to client role when XMPP is selected. In client mode, configure the XMPP domain, account, and up to 20 destination JIDs. In server mode, the Simulator publishes to every signed-in account or to the room it occupies.</p>
+                    <ul>
+                        <li><strong>Direct</strong> publishes one-to-one chat messages. <strong>Room (MUC)</strong> publishes groupchat messages and requires a room and nickname.</li>
+                        <li>Client passwords and server external-account passwords may be intentionally empty for a local test, but the associated username remains required.</li>
+                        <li>Connect and reply timeouts default to 30000 ms and 15000 ms. Client ping and reconnect intervals default to 60000 ms. Each must be a positive whole number.</li>
+                        <li>For a local paired test, select <strong>Local XMPP — Logger Server / Simulator Client</strong> in both applications. Connect the Logger first, then connect and start playback here.</li>
+                    </ul>
+                    <p>Use the <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/xmpp.md" target="_blank" rel="noreferrer">XMPP guide</a> for full setup, conversation semantics, and troubleshooting.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Connect to ArcGIS Velocity</h3>
+                    <p>Select the ArcGIS Velocity sign-in control to browse feeds and apply supported connection settings. Applying a feed fills the connection mode, host, port, path, TLS, and format when those values are available. Stored passwords and feed secrets are never recovered.</p>
+                    <p>After you apply a supported feed, the Simulator can attach its token to supported gRPC metadata, HTTP headers, and WebSocket upgrade headers. The token is refreshed before it expires and is never displayed in the interface.</p>
+                    <p>See the <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/velocity-login.md" target="_blank" rel="noreferrer">ArcGIS Velocity sign-in guide</a> for feed selection and authentication details.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Control playback</h3>
+                    <p>Select <strong>Play</strong> to replay the selected file at the configured lines and interval rate; use pause, stop, and loop controls to manage a running replay. File selection and playback actions remain in the main window so they stay available while protocol-specific settings are organized separately.</p>
+                    <p>Gesture and voice controls can provide hands-free connection and playback actions when their respective support is enabled. See the <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/developer-guide.md" target="_blank" rel="noreferrer">developer guide</a> for local setup and troubleshooting.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Use the command-line reference</h3>
+                    <p>Press <kbd>F3</kbd>, select <strong>Help → Command Line Interface</strong>, or use the toolbar action to open the dedicated Command Line Interface dialog. It supports text search, quick filters, sortable columns, visible-row copy/export, and example commands.</p>
+                    <p>The terminal equivalents are <code>npm run help:cli</code>, <code>npm run help:cli:wide</code>, and <code>npm run help:cli:narrow</code>. See the <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/command-line.md" target="_blank" rel="noreferrer">command-line reference</a> for every option and the <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/configuration.md" target="_blank" rel="noreferrer">configuration guide</a> for saved settings.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Keyboard shortcuts</h3>
+                    <table class="shortcuts-table">
+                        <thead><tr><th>Action</th><th>Shortcut</th></tr></thead>
+                        <tbody>
+                            <tr><td>Open Help</td><td><kbd>F1</kbd></td></tr>
+                            <tr><td>Open About</td><td><kbd>F2</kbd></td></tr>
+                            <tr><td>Open Command Line Interface</td><td><kbd>F3</kbd></td></tr>
+                            <tr><td>Open Protocol Settings</td><td><kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd></td></tr>
+                            <tr><td>Toggle developer tools</td><td><kbd>F12</kbd></td></tr>
+                            <tr><td>Search this Help workspace</td><td><kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>F</kbd> or <kbd>/</kbd></td></tr>
+                            <tr><td>Close the active secondary window</td><td><kbd>Escape</kbd></td></tr>
+                        </tbody>
+                    </table>
+                    <p>See the <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/keyboard-shortcuts.md" target="_blank" rel="noreferrer">keyboard shortcuts guide</a> for the complete list.</p>
+                </section>
+            </main>
         </div>
-        
-        <div class="help-content">
-            <div class="help-section">
-                <h3>Overview</h3>
-                <p>Cross-platform desktop application for simulating data streams from CSV files over TCP, UDP, HTTP/HTTPS, WebSocket, gRPC, and XMPP protocols. Every protocol can run as a client or as a server, so the Simulator can either push data to a receiver such as an ArcGIS Velocity feed or an ArcGIS GeoEvent Server connector, or host an endpoint the receiver connects to. Features gesture and voice controls for hands-free operation.</p>
-                <p>The connection panel holds what every connection needs, in order: <strong>File</strong>, a compact <strong>Setup</strong> toolbar (Preset and Settings), <strong>Mode</strong>, <strong>Connection</strong> (host and port), the replay rate, and the connection actions. Pick a paired Simulator and Logger preset to pre-fill every connection field for a local test, then review the values, select a file, and select <strong>Connect</strong> and <strong>Play</strong>.</p>
-                <p>Everything specific to the selected protocol is edited in the dedicated, resizable <strong>Protocol Settings</strong> window (<kbd>Cmd+Shift+P</kbd> / <kbd>Ctrl+Shift+P</kbd>), grouped into <strong>Basics</strong>, <strong>Security</strong>, <strong>Advanced</strong>, and a read-only <strong>Summary</strong>. The Settings button shows a compact count when values differ from their defaults. Edits apply to the next connection; nothing is sent until you select <strong>Connect</strong>. <strong>Done</strong> and <kbd>Esc</kbd> keep the edits, <strong>Revert changes</strong> restores the values the window opened with, and <strong>Reset to preset</strong> reapplies a modified preset.</p>
-                <p>Open the <strong>Summary</strong> tab in Protocol Settings to view the full read-only Connection Summary, including the effective URL. The panel otherwise stays compact; only a genuine warning, such as disabled certificate verification, appears beneath the Setup toolbar. A password is never shown: it is reported only as <em>Set (hidden)</em>, <em>Empty</em>, or <em>Not set</em>.</p>
-            </div>
 
-            <div class="help-section">
-                <h3>Quick Start</h3>
-                <ol>
-                    <li>Select CSV file</li>
-                    <li>Optionally choose a <strong>Preset</strong> to pre-fill a paired local Simulator and Logger test</li>
-                    <li>Choose protocol mode (TCP/UDP/HTTP/WebSocket/gRPC/XMPP Server/Client). Selecting XMPP uses port 5222 and the Client role unless you change them.</li>
-                    <li>Set IP address and port</li>
-                    <li>For HTTP, WebSocket, gRPC, or XMPP: select <strong>Settings</strong> to open Protocol Settings with the protocol-specific controls (format, TLS, paths, headers, or XMPP account and conversation settings)</li>
-                    <li>Select <strong>Summary</strong> to review every setting; any warning also remains visible beneath the Setup toolbar</li>
-                    <li>Configure streaming rate</li>
-                    <li>Connect and Play</li>
-                </ol>
-            </div>
-
-            <div class="help-section">
-                <h3>Connection Modes</h3>
-                <ul>
-                    <li><strong>TCP Server:</strong> Listen for incoming TCP connections from clients</li>
-                    <li><strong>TCP Client:</strong> Connect to a remote TCP server</li>
-                    <li><strong>UDP Server:</strong> Listen for incoming UDP datagrams</li>
-                    <li><strong>UDP Client:</strong> Send UDP datagrams to a remote server</li>
-                    <li><strong>HTTP Client:</strong> Send data via HTTP/HTTPS POST requests to a remote endpoint (e.g. an ArcGIS Velocity HTTP Receiver feed). Supports JSON, Delimited (CSV), Esri JSON, GeoJSON, and XML formats.</li>
-                    <li><strong>HTTP Server:</strong> Start a local HTTP/HTTPS server that accepts POST requests from clients. Use for testing or when the Velocity HTTP Receiver connects to this app.</li>
-                    <li><strong>WebSocket Client:</strong> Connect to a remote WebSocket server (ws:// or wss://) and send streaming data. Supports JSON, Delimited (CSV), Esri JSON, GeoJSON, and XML formats. Can send a subscription message on connect and optionally ignore the first message.</li>
-                    <li><strong>WebSocket Server:</strong> Start a local WebSocket server (ws:// or wss://) that accepts incoming connections and broadcasts data to all connected clients. Supports the same 5 formats as the WebSocket client.</li>
-                    <li><strong>gRPC Client:</strong> Connect to a remote gRPC server using HTTP/2. Supports Protobuf, Kryo, and Text serialization with client-streaming or unary RPCs.</li>
-                    <li><strong>gRPC Server:</strong> Start a local gRPC server that accepts incoming RPC calls from clients.</li>
-                    <li><strong>XMPP Client:</strong> Sign in to an XMPP server (RFC 6120) and publish each line as a one-to-one chat message to up to 20 destination JIDs, or as a groupchat message in a Multi-User Chat room. Use when the receiver is an ArcGIS Velocity XMPP feed, an ArcGIS GeoEvent Server XMPP connector, or any standards-compliant XMPP server. This is the default role when XMPP is selected.</li>
-                    <li><strong>XMPP Server:</strong> Host a local XMPP client-to-server endpoint that a receiver signs in to. The Simulator publishes each line from its own automatic application identity to every signed-in account, or into a room it occupies. The server binds a loopback address unless <strong>Allow remote</strong> is enabled.</li>
-                </ul>
-                <h4>Connection Presets</h4>
-                <p>A preset only pre-fills editable connection fields. It never connects, never starts playback, never selects a file, never saves a password, and never changes the startup defaults. Every field stays editable, and each preset resets the fields it does not use so results are repeatable.</p>
-                <p><strong>Custom</strong> is the default and keeps your current values. Editing any populated field after applying a preset shows <strong>Custom (modified)</strong> with a small <strong>Modified</strong> badge; your edit is kept and re-selecting the preset restores its values.</p>
-                <p>The same twelve identifiers and labels exist in the ArcGIS Velocity Logger with the roles inverted, so both applications are configured by picking the entry with the same name. Labels naming <em>Logger Server</em> select a Simulator client mode; labels naming <em>Simulator Server</em> select a Simulator server mode.</p>
-                <ul>
-                    <li><strong>Local TCP / Local UDP:</strong> 127.0.0.1:5565.</li>
-                    <li><strong>Local gRPC:</strong> 127.0.0.1:5565, Text serialization, Client Streaming, TLS off.</li>
-                    <li><strong>Local HTTP:</strong> 127.0.0.1:8080, Delimited (CSV), path <code>/</code>, TLS off.</li>
-                    <li><strong>Local WebSocket:</strong> 127.0.0.1:8080, Delimited (CSV), path <code>/</code>, TLS off, no subscription message, first message kept.</li>
-                    <li><strong>Local XMPP:</strong> 127.0.0.1:5222, domain <code>localhost</code>, Direct, Required STARTTLS. The client variant signs in as <code>simulator</code> with an intentionally empty password, publishes to <code>velocity-logger@localhost</code>, and turns Allow unverified on; the server variant accepts external account <code>velocity-logger</code> with an intentionally empty password, keeps Allow remote off, and sends to every signed-in stream.</li>
-                </ul>
-            </div>
-
-            <div class="help-section">
-                <h3>HTTP Settings</h3>
-                <p>When HTTP is selected, choose <strong>HTTP Settings…</strong> below the Connection row, or press <kbd>Cmd+Shift+P</kbd> / <kbd>Ctrl+Shift+P</kbd>, to open Protocol Settings. <strong>Basics</strong> holds Format and HTTP path; <strong>Security</strong> holds the TLS and certificate controls. HTTP has no Advanced section.</p>
-                <ul>
-                    <li><strong>Format:</strong> Controls the Content-Type header — JSON (<code>application/json</code>), Delimited/CSV (<code>text/plain</code>), Esri JSON (<code>application/json</code>), GeoJSON (<code>application/geo+json</code>), or XML (<code>application/xml</code>). Must match the format configured in the ArcGIS Velocity HTTP Receiver feed.</li>
-                    <li><strong>Use TLS:</strong> Enable HTTPS (port 8443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key.</li>
-                    <li><strong>CA cert:</strong> Custom CA certificate file (PEM). Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs.</li>
-                    <li><strong>TLS cert:</strong> Client or server certificate file (PEM). Required for server-mode TLS; only needed in client mode for mutual TLS (mTLS).</li>
-                    <li><strong>TLS key:</strong> Private key file (PEM). Required for server-mode TLS and client-side mTLS.</li>
-                    <li><strong>Allow unverified:</strong> Client-only warning checkbox shown when TLS is enabled. Accepts an unverified HTTPS server certificate for any host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Off by default.</li>
-                    <li><strong>HTTP path:</strong> URL path appended after host:port (default <code>/</code>). In server mode, only POST requests matching this path are accepted. In client mode, this path is used in outgoing POST URLs. Set to the Velocity feed's system-generated path (e.g. <code>/receiver/feed-id</code>) when connecting to a real endpoint.</li>
-                </ul>
-            </div>
-
-            <div class="help-section">
-                <h3>WebSocket Settings</h3>
-                <p>When WebSocket is selected, choose <strong>WebSocket Settings…</strong> below the Connection row, or press <kbd>Cmd+Shift+P</kbd> / <kbd>Ctrl+Shift+P</kbd>, to open Protocol Settings. <strong>Basics</strong> holds Format and WS path; <strong>Security</strong> holds the TLS and certificate controls; <strong>Advanced</strong> holds the subscription message, Ignore first message, and the custom headers.</p>
-                <ul>
-                    <li><strong>Format:</strong> Controls the data format — JSON (<code>application/json</code>), Delimited/CSV (<code>text/plain</code>), Esri JSON (<code>application/json</code>), GeoJSON (<code>application/geo+json</code>), or XML (<code>application/xml</code>).</li>
-                    <li><strong>Use TLS:</strong> Enable WSS (WebSocket Secure, port 8443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key.</li>
-                    <li><strong>CA cert:</strong> Custom CA certificate file (PEM). Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs.</li>
-                    <li><strong>TLS cert:</strong> Client or server certificate file (PEM). Required for server-mode TLS; only needed in client mode for mutual TLS (mTLS).</li>
-                    <li><strong>TLS key:</strong> Private key file (PEM). Required for server-mode TLS and client-side mTLS.</li>
-                    <li><strong>Allow unverified:</strong> Client-only warning checkbox shown when TLS is enabled. Accepts an unverified WSS server certificate for any host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Off by default.</li>
-                    <li><strong>WS path:</strong> URL path appended after host:port (default <code>/</code>). In server mode, only WebSocket upgrade requests matching this path are accepted. In client mode, this path is used in the outgoing connection URL.</li>
-                    <li><strong>Subscription message:</strong> Optional text message sent to the server immediately after the WebSocket connection is established. Useful for subscribing to a specific data feed or channel.</li>
-                    <li><strong>Ignore first message:</strong> When enabled, the first message received after connecting is silently discarded. Useful when the server sends an initial handshake or acknowledgement message.</li>
-                    <li><strong>Custom headers:</strong> Optional JSON object of custom HTTP headers to include in the WebSocket upgrade request (client mode only). Example: <code>{"Authorization": "Bearer token123"}</code>.</li>
-                </ul>
-            </div>
-
-            <div class="help-section">
-                <h3>gRPC Settings</h3>
-                <p>When gRPC is selected, choose <strong>gRPC Settings…</strong> below the Connection row, or press <kbd>Cmd+Shift+P</kbd> / <kbd>Ctrl+Shift+P</kbd>, to open Protocol Settings. <strong>Basics</strong> holds Serialization, RPC Type, and the header path; <strong>Security</strong> holds the TLS and certificate controls. gRPC has no Advanced section.</p>
-                <ul>
-                    <li><strong>Serialization:</strong> Protobuf (default, external GrpcFeed protocol), Kryo (internal GrpcFeatureService, binary), or Text (internal GrpcFeatureService, UTF-8 CSV).</li>
-                    <li><strong>RPC Type:</strong> Client Streaming (persistent stream, higher throughput) or Unary (individual request/response per message).</li>
-                    <li><strong>Use TLS:</strong> Enable TLS for the gRPC connection. Uses the OS certificate store automatically.</li>
-                    <li><strong>Header Path Key / Path:</strong> Custom gRPC metadata header for endpoint routing (client mode only).</li>
-                    <li><strong>Allow unverified:</strong> Client-only warning checkbox shown when TLS is enabled. Accepts an unverified gRPC server certificate for any host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Off by default.</li>
-                </ul>
-            </div>
-
-            <div class="help-section">
-                <h3>XMPP Settings</h3>
-                <p>When XMPP is selected, choose <strong>XMPP Settings…</strong> below the Connection row, or press <kbd>Cmd+Shift+P</kbd> / <kbd>Ctrl+Shift+P</kbd>, to open Protocol Settings. <strong>Basics</strong> holds Conversation, Domain, the account fields, and the destination or room; <strong>Security</strong> holds STARTTLS, the certificate paths, Allow unverified, and Allow remote; <strong>Advanced</strong> holds the timing values. Only the controls that apply to the selected role and conversation type are shown.</p>
-                <ul>
-                    <li><strong>Conversation:</strong> <em>Direct</em> (default) delivers each line as a one-to-one chat message to every destination JID. <em>Room (MUC)</em> broadcasts each line as an XEP-0045 groupchat message; every occupant receives it and the room echoes the message back to the sender.</li>
-                    <li><strong>Domain:</strong> The XMPP domain served (server role) or authenticated against (client role). It is independent of the host in the Connection row, so a client can connect to an IP address while authenticating against the real domain. Rooms live under <code>conference.&lt;domain&gt;</code>.</li>
-                    <li><strong>STARTTLS:</strong> <em>Required</em> (default) refuses to send a credential until the stream is encrypted. <em>Preferred</em> upgrades when the peer offers it. <em>Disabled</em> does not require encryption — the built-in server stops advertising STARTTLS, and as a client the Simulator still accepts an upgrade a third-party server insists on, so Disabled means "do not require TLS", not "refuse TLS".</li>
-                    <li><strong>CA cert</strong> (client): Custom CA certificate file (PEM) used to verify the server certificate. Leave empty to use the OS certificate store.</li>
-                    <li><strong>Validation:</strong> No required field is hidden. If a connection attempt fails validation while Protocol Settings is closed, it opens on the section holding the offending control, reveals and focuses it, and names the problem in a banner as well as in the status log.</li>
-                    <li><strong>Allow unverified</strong> (client): Skips certificate verification. The bypass applies to any host, not only localhost. STARTTLS still encrypts the stream, but the server identity is not checked. Off by default and styled as a warning.</li>
-                    <li><strong>TLS cert / TLS key</strong> (server): Server certificate and matching private key (PEM) presented during STARTTLS. Leave both empty to use an automatic self-signed certificate.</li>
-                    <li><strong>Allow remote</strong> (server): Allows the server to bind a non-loopback address such as <code>0.0.0.0</code>. Left off, nothing outside this machine can sign in.</li>
-                    <li><strong>Username / Password</strong> (client): The account to sign in with. Enter a local part such as <code>simulator</code>, or a full bare JID such as <code>simulator@example.com</code>, which overrides the Domain field. A password may be present but empty for a local test with no shared secret; the username remains required.</li>
-                    <li><strong>Resource</strong> (client): Resource part requested at bind time, which distinguishes this stream from other sessions of the same account.</li>
-                    <li><strong>Account / Acct pwd</strong> (server): The required external account the built-in server accepts, alongside the automatic simulator application identity. Give it to the receiver you want to sign in. The account password may be present but empty; the account name remains required.</li>
-                    <li><strong>Destination</strong> (Direct): Bare destination JIDs in <code>user@domain</code> form with no resource part, up to 20 separated by commas. In server mode, leave empty to publish to every signed-in account.</li>
-                    <li><strong>Room / Nickname / Room pwd</strong> (Room): The room to publish into, the nickname to use inside it, and an optional room password. A bare room name is qualified with the conversation sub-domain of the Domain field. In server mode the room password also protects the room against every other occupant.</li>
-                    <li><strong>Timeouts ms:</strong> Connect timeout (default 30000) for stream negotiation, authentication and resource binding, and reply timeout (default 15000) for requests that expect an answer such as a room entry confirmation or a ping result. Both must be positive whole numbers of milliseconds; there is no wait-forever value.</li>
-                    <li><strong>Ping ms</strong> (client): XEP-0199 keepalive interval on an otherwise idle stream (default 60000). Must be a positive whole number; the keepalive cannot be switched off.</li>
-                    <li><strong>Reconnect ms</strong> (client): Delay before the automatic reconnect after a dropped stream (default 60000). A reconnect re-binds the resource and re-joins the room; stream resumption is not implemented, so nothing sent while the stream was down is replayed. Must be a positive whole number; automatic reconnect cannot be switched off.</li>
-                    <li><strong>Copy Client Settings</strong> (server): Copies the settings a receiver needs as canonical <code>option=value</code> lines — <code>ip</code>, <code>port</code>, <code>xmppDomain</code>, <code>xmppTlsPolicy</code>, <code>xmppAllowUnverifiedTls</code>, <code>xmppUsername</code>, the destination or room, and the <code>xmppConnectTimeoutMs</code>, <code>xmppReplyTimeoutMs</code>, <code>xmppPingIntervalMs</code> and <code>xmppReconnectDelayMs</code> timings — so the block can be pasted straight into a command line. The network host is the shared <code>ip</code> option, which is separate from <code>xmppDomain</code>. The account password is left out unless <strong>Include password</strong> is checked.</li>
-                </ul>
-                <h4>Minimal local UX test with Logger</h4>
-                <p>Select the preset <strong>Local XMPP — Logger Server / Simulator Client</strong> in the Simulator and the entry with the same name in the Logger, then select <strong>Connect</strong> in the Logger and <strong>Connect</strong> and <strong>Play</strong> in the Simulator.</p>
-                <p>The equivalent command line keeps the XMPP defaults for port 5222, domain <code>localhost</code>, Direct conversation, and Required STARTTLS, and leaves both passwords empty. Start the Logger first.</p>
-                <p><strong>Terminal 1 — Logger:</strong></p>
-                <pre><code>npm start -- protocol=xmpp mode=server ip=127.0.0.1 xmppExternalUsername=simulator xmppExternalPassword=</code></pre>
-                <p><strong>Terminal 2 — Simulator:</strong></p>
-                <pre><code>npm start -- filename=/Users/hano4470/Backup/data/faa.csv protocol=xmpp mode=client ip=127.0.0.1 xmppUsername=simulator xmppPassword= xmppDestination=velocity-logger@localhost xmppAllowUnverifiedTls=true</code></pre>
-                <p>Select <strong>Connect</strong> in the Logger, then <strong>Connect</strong> and <strong>Play</strong> in the Simulator. <code>xmppAllowUnverifiedTls=true</code> is an explicit opt-in that accepts the Logger's automatic self-signed certificate while STARTTLS still encrypts the stream. It applies to any host, so leave it off outside local testing.</p>
-                <p><strong>SASL.</strong> A secure stream uses the server's preferred mechanism, normally SCRAM-SHA-1. An unsecure stream uses a non-PLAIN mechanism, and falls back to PLAIN only when the STARTTLS policy is deliberately set to Disabled. Both PLAIN and SCRAM-SHA-1 accept an empty password.</p>
-                <p><strong>Limits and behavior.</strong> Message bodies are capped at 65,536 UTF-8 bytes and are rejected rather than truncated, so a replay never silently loses data. Destination and account JIDs must be bare. Only <code>type=chat</code> is treated as inbound direct data; anything else is refused rather than replayed. Rooms keep no history, so a receiver only sees what is published after it enters. Stream management (XEP-0198) is negotiated and acknowledged, but resumption is not implemented: a dropped stream reconnects as a brand new session that re-binds its resource and re-joins its room.</p>
-                <p><strong>Security.</strong> With STARTTLS set to <em>Required</em> the client aborts before SASL when the peer does not offer an encrypted stream, so no credential is ever sent in the clear. With <em>Preferred</em> the status bar and TLS badge report the actual state of this connection, never the peer's advertised capability. The external account cannot canonically collide with the automatic <code>velocity-simulator</code> identity, the server certificate and private key must be supplied as a pair, and password whitespace is significant everywhere — the UI, the command line, and launch configuration files all keep it exactly as typed. The certificate verification bypass is explicit, off by default, and applies to any host, not only localhost.</p>
-            </div>
-
-            <div class="help-section">
-                <h3>Velocity Login &amp; Feed Picker (🔑)</h3>
-                <p>Click the <strong>🔑</strong> button in the toolbar to sign in to your ArcGIS Velocity organization and browse available feeds. This allows you to auto-populate connection settings without manual configuration.</p>
-                <ul>
-                    <li><strong>Portal URL:</strong> Your ArcGIS Online or Enterprise portal URL (default: <code>https://velocitydemo.maps.arcgis.com</code>).</li>
-                    <li><strong>Username / Password:</strong> ArcGIS account credentials. A token is generated and automatically refreshed before expiry.</li>
-                    <li><strong>OAuth 2.0:</strong> Alternative tab for OAuth client credentials (Client ID + Secret). Currently supported only for HTTP Poller feeds.</li>
-                    <li><strong>My Feeds / ORG Feeds:</strong> Segmented toggle to switch scope. "ORG Feeds" is the default and adds <code>view=admin</code> to fetch all org feeds (requires admin privileges). "My Feeds" returns only your feeds.</li>
-                    <li><strong>Refresh ⟳:</strong> Re-fetches the feed list for the current scope without re-authenticating.</li>
-                    <li><strong>Supported / All:</strong> Client-side filter toggle that shows only supported feed types by default, or all feed types including unsupported ones.</li>
-                    <li><strong>Feed Type dropdown:</strong> Filters feeds by type. Each type has a unique icon prefix and colour (see Feed Type Reference below).</li>
-                    <li><strong>Feed dropdown:</strong> Select a specific feed to view its details. Unsupported types shown with ⚠ prefix and muted styling.</li>
-                    <li><strong>Info panel:</strong> Displays the feed's label, ID, type (with coloured icon badge), URL, auth type, format, and schema fields.</li>
-                    <li><strong>Apply:</strong> Auto-populates the main window's connection mode, host, port, path, TLS, and format from the selected feed. Disabled for unsupported types.</li>
-                    <li><strong>Remember me:</strong> Persists portal URL and username (not password) across sessions.</li>
-                </ul>
-                <p><strong>Authentication:</strong> After applying a feed, the Simulator automatically attaches a Bearer token to gRPC metadata, HTTP headers, and WebSocket upgrade headers. Token is proactively refreshed at 80% of its lifetime.</p>
-
-                <h4>Feed Type Reference</h4>
-                <p>Each feed type is shown with a Unicode icon prefix and colour in the dropdowns and info panel:</p>
-                <table class="help-table">
-                    <thead><tr><th>Icon</th><th>Type</th><th>Colour</th><th>Supported</th></tr></thead>
-                    <tbody>
-                        <tr><td style="color:#7c4dff;font-size:1.2em">⬡</td><td><code>grpc</code> — gRPC</td><td><code>#7c4dff</code> purple</td><td>✅</td></tr>
-                        <tr><td style="color:#0097a7;font-size:1.2em">■</td><td><code>http-receiver</code> — HTTP Receiver</td><td><code>#0097a7</code> teal</td><td>✅</td></tr>
-                        <tr><td style="color:#00897b;font-size:1.2em">◆</td><td><code>websocket</code> — WebSocket</td><td><code>#00897b</code> green</td><td>✅</td></tr>
-                        <tr><td style="color:#f57c00;font-size:1.2em">◎</td><td><code>mqtt</code> — MQTT</td><td><code>#f57c00</code> orange</td><td>❌</td></tr>
-                        <tr><td style="color:#e53935;font-size:1.2em">▲</td><td><code>kafka</code> — Kafka</td><td><code>#e53935</code> red</td><td>❌</td></tr>
-                        <tr><td style="color:#546e7a;font-size:1.2em">◗</td><td><code>tcp</code> — TCP</td><td><code>#546e7a</code> slate</td><td>❌</td></tr>
-                        <tr><td style="color:#78909c;font-size:1.2em">◖</td><td><code>udp</code> — UDP</td><td><code>#78909c</code> blue-grey</td><td>❌</td></tr>
-                        <tr><td style="color:#0078d4;font-size:1.2em">❖</td><td><code>azure-event-hub</code></td><td><code>#0078d4</code> MS blue</td><td>❌</td></tr>
-                        <tr><td style="color:#0062ad;font-size:1.2em">❖</td><td><code>azure-service-bus</code></td><td><code>#0062ad</code> dark blue</td><td>❌</td></tr>
-                        <tr><td style="color:#43a047;font-size:1.2em">◉</td><td><code>kinetic</code> — Kinetic</td><td><code>#43a047</code> green</td><td>❌</td></tr>
-                        <tr><td style="color:#8d6e63;font-size:1.2em">▣</td><td><code>file</code> — File</td><td><code>#8d6e63</code> brown</td><td>❌</td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="help-section">
-                <h3>Controls</h3>
-                <ul>
-                    <li><strong>File:</strong> Select CSV file to stream</li>
-                    <li><strong>Connection:</strong> Set IP address and port</li>
-                    <li><strong>Rate:</strong> Lines per interval and timing (ms)</li>
-                    <li><strong>Connect/Disconnect:</strong> Establish/terminate connection</li>
-                    <li><strong>Play/Pause/Step:</strong> Control data streaming</li>
-                    <li><strong>Continuous Loop:</strong> ➿ button toggles file looping</li>
-                    <li><strong>Command Line Interface:</strong> <code>&gt;_</code> opens the CLI reference and option builder dialog (F3)</li>
-                </ul>
-            </div>
-
-            <div class="help-section">
-                <h3>Tooltips</h3>
-                <p>Hold the pointer nearly stationary over a control to show a custom, theme-aware tooltip. Ordinary movement, clicking, typing, scrolling, dragging, keyboard focus, and modal dialogs suppress visual tooltips so they do not interrupt the task. Focused controls still expose the same details to assistive technology.</p>
-                <ul>
-                    <li><strong>Icons/colours:</strong> Auth, TLS, warning, success, and error states use distinct theme-aware accents.</li>
-                    <li><strong>Accessibility:</strong> Controls keep ARIA labels while native title tooltips are replaced.</li>
-                </ul>
-            </div>
-
-            <div class="help-section">
-                <h3>Interface</h3>
-                <ul>
-                    <li><strong>Line Preview:</strong> Shows current line content</li>
-                    <li><strong>Navigation Slider:</strong> Scrub through data file</li>
-                    <li><strong>Status Bar:</strong> Shows position, state, and lines sent</li>
-                    <li><strong>View Toggle:</strong> ⇔ button switches full/compact view</li>
-                    <li><strong>Status Log Toggle:</strong> 📜 button shows/hides log panel</li>
-                </ul>
-            </div>
-            
-            <div class="help-section">
-                <h3>Gesture Controls</h3>
-                <ul>
-                    <li><strong>Setup:</strong> Click 📷 button, allow webcam access</li>
-                    <li><strong>Gestures:</strong></li>
-                    <li class="sub-item">👍 Thumbs Up → Connect</li>
-                    <li class="sub-item">🤙 Pinky Up → Disconnect</li>
-                    <li class="sub-item">👊 Closed Fist → Play/Resume</li>
-                    <li class="sub-item">🖐️ Open Palm → Pause</li>
-                    <li class="sub-item">✌️ Victory Sign → Step</li>
-                    <li><strong>Toggle Display:</strong> 📄 button shows/hides gesture feedback</li>
-                </ul>
-            </div>
-
-            <div class="help-section">
-                <h3>Voice Controls</h3>
-                <ul>
-                    <li><strong>Setup:</strong> Click 🎤 button, allow microphone access</li>
-                    <li><strong>Requirements:</strong> An active internet connection is required for voice commands. If the connection fails, the system will attempt to reconnect automatically.</li>
-                    <li><strong>Commands:</strong></li>
-                    <li class="sub-item">"connect" / "disconnect"</li>
-                    <li class="sub-item">"play" / "start" / "pause" / "stop"</li>
-                    <li class="sub-item">"step"</li>
-                    <li class="sub-item">"switch" / "toggle view"</li>
-                </ul>
-            </div>
-            
-            <div class="help-section">
-                <h3>Status & Logging</h3>
-                <ul>
-                    <li><strong>TLS Trust Badge:</strong> For HTTP, WebSocket, gRPC, and XMPP, the footer lock mirrors the selected protocol's TLS setting while disconnected. Connected tooltips describe the actual encryption and certificate trust state, including Preferred XMPP connections that fall back to plaintext.
-                        <table style="margin-top:6px;border-collapse:collapse;font-size:0.9em;">
-                            <thead><tr><th style="padding:2px 8px;text-align:left;">Icon</th><th style="padding:2px 8px;text-align:left;">Colour</th><th style="padding:2px 8px;text-align:left;">Meaning</th></tr></thead>
-                            <tbody>
-                                <tr><td style="padding:2px 8px;">🔓</td><td style="padding:2px 8px;">Grey / dimmed</td><td style="padding:2px 8px;">No TLS — plaintext, unsecure connection</td></tr>
-                                <tr><td style="padding:2px 8px;">🔒…</td><td style="padding:2px 8px;">Blue</td><td style="padding:2px 8px;">TLS enabled in the UI; certificate trust will be checked after connection</td></tr>
-                                <tr><td style="padding:2px 8px;">🔒⚠</td><td style="padding:2px 8px;">Amber / orange</td><td style="padding:2px 8px;">TLS on, self-signed or cert-chain not verified</td></tr>
-                                <tr><td style="padding:2px 8px;">🔒</td><td style="padding:2px 8px;">Amber / orange</td><td style="padding:2px 8px;">TLS on, OS certificate store (trust level not fully determined)</td></tr>
-                                <tr><td style="padding:2px 8px;">🔒✓</td><td style="padding:2px 8px;">Green</td><td style="padding:2px 8px;">TLS on, CA-verified certificate chain</td></tr>
-                                <tr><td style="padding:2px 8px;">🔐</td><td style="padding:2px 8px;">Blue / cyan</td><td style="padding:2px 8px;">Mutual TLS (mTLS) — both sides present certificates</td></tr>
-                            </tbody>
-                        </table>
-                    </li>
-                    <li><strong>Velocity Auth Badge:</strong> The key badge is separate from TLS. It shows token availability and whether new supported client connections send the token. Raw bearer tokens are never displayed.</li>
-                    <li class="sub-item">🔑 Token On — token will be sent with new supported client connections</li>
-                    <li class="sub-item">◇ Token Off — token is available but will not be sent</li>
-                    <li class="sub-item">⚠ Token Error — token refresh failed; sign in again if reconnecting fails</li>
-                    <li><strong>Status Bar:</strong> Bottom bar shows app state with emoji indicators</li>
-                    <li class="sub-item">🔴 Disconnected</li>
-                    <li class="sub-item">🟢 Connected - Ready</li>
-                    <li class="sub-item">▶️ Connected - Playing</li>
-                    <li class="sub-item">⏸️ Connected - Paused</li>
-                    <li class="sub-item">👣 Stepped (temporary)</li>
-                    <li><strong>Line Counter:</strong> Shows current position (e.g., "Line 10 of 100")</li>
-                    <li><strong>Lines Sent:</strong> Tracks total lines sent in session</li>
-                    <li><strong>Log Controls:</strong> 🖐️ and 🎤 buttons toggle gesture/voice logging</li>
-                    <li><strong>Clear Log:</strong> 🗑️ button clears status messages</li>
-                    <li><strong>Sort Order:</strong> Use the new sort button to toggle between <em>Ascending</em> and <em>Descending</em> order (default: Ascending). The icon updates to reflect the current order.</li>
-                </ul>
-            </div>
-            
-            <div class="help-section">
-                <h3>Customization</h3>
-                <ul>
-                    <li><strong>15 Themes:</strong> 🔵 Blue, 🟡 Color Blind, 🌙 Dark, 🌫️ Dark Gray, 🟢 Green, ⚫ High Contrast, ☀️ Light, ☁️ Light Gray, 🌌 Midnight, ☕ Mocha, 🌊 Ocean, 🌸 Rose, 🌺 Rose Dark, 🌅 Sunset, 💻 System</li>
-                    <li><strong>Window Opacity:</strong> 11 levels from 50% to 100% transparency</li>
-                    <li><strong>Font Options:</strong> Size (6px-25px) and family customization</li>
-                    <li><strong>Auto-Save:</strong> All settings persist between sessions</li>
-                    <li><strong>Context Menu:</strong> Right-click for theme, opacity, and config options</li>
-                </ul>
-            </div>
-
-            <div class="help-section">
-                <h3>Command Line Interface Dialog</h3>
-                <p>The interactive command-line reference now lives in its own <strong>Command Line Interface</strong> dialog, separate from this product Help dialog.</p>
-                <ul>
-                    <li><strong>Open it from the keyboard:</strong> Press <kbd>F3</kbd> from the main window.</li>
-                    <li><strong>Open it from the menu:</strong> Use <strong>Help → Command Line Interface</strong>.</li>
-                    <li><strong>Open it from the context menu:</strong> Right-click in the main window and choose <strong>Command Line Interface</strong>.</li>
-                    <li><strong>Use it for automation help:</strong> Browse searchable and sortable parameters, supported values, defaults, examples, and headless notes.</li>
-                    <li><strong>Filter and refine:</strong> Use quick category chips, active filter pills, and sticky sortable columns to narrow the parameter table.</li>
-                    <li><strong>Copy or export:</strong> Copy example commands or export the currently visible rows as TSV, CSV, Markdown, or JSON.</li>
-                    <li><strong>Keyboard shortcuts:</strong> In that dialog, use <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>F</kbd> or <kbd>/</kbd> to focus the filter, and <kbd>Escape</kbd> to close it.</li>
-                </ul>
-            </div>
-
-            <div class="help-section shortcuts-section">
-                <h3>Keyboard Shortcuts</h3>
-                <table class="shortcuts-table">
-                    <thead>
-                        <tr>
-                            <th>Action</th>
-                            <th>Windows/Linux</th>
-                            <th>macOS</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Toggle View (Full/Compact)</td>
-                            <td><kbd>Ctrl</kbd> + <kbd>T</kbd></td>
-                            <td><kbd>Cmd</kbd> + <kbd>T</kbd></td>
-                        </tr>
-                        <tr>
-                            <td>Connect/Disconnect</td>
-                            <td><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd></td>
-                            <td><kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd></td>
-                        </tr>
-                        <tr>
-                            <td>Disconnect</td>
-                            <td><kbd>Ctrl</kbd> + <kbd>D</kbd></td>
-                            <td><kbd>Cmd</kbd> + <kbd>D</kbd></td>
-                        </tr>
-                        <tr>
-                            <td>Preferences</td>
-                            <td><kbd>Ctrl</kbd> + <kbd>I</kbd></td>
-                            <td><kbd>Cmd</kbd> + <kbd>I</kbd></td>
-                        </tr>
-                        <tr>
-                            <td>Save Config</td>
-                            <td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>S</kbd></td>
-                            <td><kbd>Cmd</kbd> + <kbd>Alt</kbd> + <kbd>S</kbd></td>
-                        </tr>
-                        <tr>
-                            <td>Help</td>
-                            <td colspan="2"><kbd>F1</kbd></td>
-                        </tr>
-                        <tr>
-                            <td>About</td>
-                            <td colspan="2"><kbd>F2</kbd></td>
-                        </tr>
-                        <tr>
-                            <td>Command Line Interface</td>
-                            <td colspan="2"><kbd>F3</kbd></td>
-                        </tr>
-                        <tr>
-                            <td>Developer Tools (toggle, checkbox)</td>
-                            <td colspan="2"><kbd>F12</kbd></td>
-                        </tr>
-                        <tr>
-                            <td>Inspect Element Mode (toggle, checkbox)</td>
-                            <td colspan="2"><kbd>F11</kbd></td>
-                        </tr>
-                        <tr>
-                            <td>Close Dialog</td>
-                            <td colspan="2"><kbd>Escape</kbd></td>
-                        </tr>
-                        <tr>
-                            <td>Context Menu</td>
-                            <td colspan="2"><kbd>Right-click</kbd></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="help-section">
-                <h3>Technology</h3>
-                <ul>
-                    <li><strong>Electron:</strong> Cross-platform desktop framework</li>
-                    <li><strong>Node.js:</strong> Backend networking and file operations</li>
-                    <li><strong>TensorFlow.js:</strong> Hand gesture recognition</li>
-                    <li><strong>Web Speech API:</strong> Voice command recognition</li>
-                </ul>
-            </div>
-        </div>
-        
-        <div class="help-footer">
-            <button class="help-close" id="close-button">Close</button>
-        </div>
+        <footer class="help-footer">
+            <span class="help-footer-hint"><kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>F</kbd> searches · <kbd>Escape</kbd> closes</span>
+            <button class="help-close" id="close-button" data-tooltip="Close Help (Escape)" aria-label="Close Help">Close</button>
+        </footer>
     </div>
-    
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const closeButton = document.getElementById('close-button');
-            closeButton.addEventListener('click', () => {
-                window.close();
+            const params = new URLSearchParams(window.location.search);
+            document.body.className = params.get('theme') || 'dark';
+
+            const searchInput = document.getElementById('help-search');
+            const clearSearchButton = document.getElementById('help-search-clear');
+            const searchStatus = document.getElementById('help-search-status');
+            const toc = document.getElementById('help-toc');
+            const sections = Array.from(document.querySelectorAll('.help-section'));
+            const headings = sections.flatMap((section) =>
+                Array.from(section.querySelectorAll('h3')).filter((heading) => heading.parentElement === section));
+            const tocLinks = new Map();
+
+            const makeHeadingId = (heading, index) => {
+                if (heading.id) return heading.id;
+                const slug = heading.textContent.trim().toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                return `help-${slug || index + 1}`;
+            };
+            const setActiveSection = (id) => {
+                tocLinks.forEach((link, headingId) => {
+                    const isActive = headingId === id;
+                    link.classList.toggle('is-active', isActive);
+                    if (isActive) link.setAttribute('aria-current', 'location');
+                    else link.removeAttribute('aria-current');
+                });
+            };
+
+            headings.forEach((heading, index) => {
+                const id = makeHeadingId(heading, index);
+                heading.id = id;
+                const item = document.createElement('li');
+                const link = document.createElement('a');
+                link.href = `#${id}`;
+                link.textContent = heading.textContent.trim();
+                link.addEventListener('click', () => setActiveSection(id));
+                item.appendChild(link);
+                toc.appendChild(item);
+                tocLinks.set(id, link);
             });
+
+            const filterSections = () => {
+                const query = searchInput.value.trim().toLocaleLowerCase();
+                let visible = 0;
+                sections.forEach((section) => {
+                    const matches = !query || section.textContent.toLocaleLowerCase().includes(query);
+                    section.hidden = !matches;
+                    const heading = Array.from(section.querySelectorAll('h3'))
+                        .find((candidate) => candidate.parentElement === section);
+                    if (heading) tocLinks.get(heading.id).parentElement.hidden = !matches;
+                    if (matches) visible += 1;
+                });
+                clearSearchButton.disabled = !query;
+                searchStatus.textContent = query
+                    ? `${visible} of ${sections.length} Help sections match "${searchInput.value.trim()}".`
+                    : `${sections.length} Help sections available.`;
+                const firstVisibleHeading = headings.find((heading) => !heading.closest('.help-section').hidden);
+                if (firstVisibleHeading) setActiveSection(firstVisibleHeading.id);
+            };
+
+            searchInput.addEventListener('input', filterSections);
+            clearSearchButton.addEventListener('click', () => {
+                searchInput.value = '';
+                filterSections();
+                searchInput.focus();
+            });
+            filterSections();
+            if (window.location.hash) setActiveSection(window.location.hash.slice(1));
+            else if (headings[0]) setActiveSection(headings[0].id);
+
+            if ('IntersectionObserver' in window) {
+                const observer = new IntersectionObserver((entries) => {
+                    const visibleEntry = entries.filter((entry) => entry.isIntersecting)
+                        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+                    if (visibleEntry) setActiveSection(visibleEntry.target.id);
+                }, {
+                    root: document.getElementById('help-content'),
+                    rootMargin: '-12% 0px -72% 0px',
+                    threshold: [0, 0.25, 0.75],
+                });
+                headings.forEach((heading) => observer.observe(heading));
+            }
 
             document.addEventListener('keydown', (event) => {
-                if (event.key === 'Escape') {
+                const target = event.target;
+                const isEditing = target instanceof HTMLInputElement
+                    || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+                if ((event.key === 'f' && (event.metaKey || event.ctrlKey))
+                    || (event.key === '/' && !isEditing)) {
                     event.preventDefault();
-                    event.stopPropagation();
-                    window.close();
+                    searchInput.focus();
+                    searchInput.select();
                 }
             });
 
-            // Listen for the theme from the main process, apply it, and notify main
-            window.api.onSetTheme((_event, theme) => {
-                if (theme) {
-                    document.body.className = theme;
-                } else {
-                    // Default to dark theme if none is provided
-                    document.body.className = 'dark';
-                }
-                // Notify the main process that the theme has been applied
-                window.api.themeApplied();
-            });
+            window.electronAPI.send('help-dialog-ready');
+        });
 
+        document.getElementById('close-button').addEventListener('click', () => {
+            window.electronAPI.send('close-dialog');
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                window.electronAPI.send('close-dialog');
+            }
         });
     </script>
-  <script src="tooltip-utils.js"></script>
+    <script src="tooltip-utils.js"></script>
 </body>
 </html>

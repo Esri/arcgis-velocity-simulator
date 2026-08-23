@@ -106,6 +106,12 @@ function createDialogDom(html, { includeCliApi = false } = {}) {
           window.api._themeAppliedCalled = true;
         },
       };
+      window.electronAPI = {
+        send: (channel) => {
+          window._electronMessages = window._electronMessages || [];
+          window._electronMessages.push(channel);
+        },
+      };
       window.close = () => {
         window._closeCalled = true;
       };
@@ -158,28 +164,55 @@ async function runHelpTests() {
 
   console.log('\n--- Test 1: Help dialog content and shortcuts ---');
   runTest('Help dialog title is rendered', () => document.querySelector('.help-title')?.textContent.includes('ArcGIS Velocity Simulator Help'));
-  runTest('Help dialog keeps general product help sections', () => document.body.textContent.includes('Quick Start') && document.body.textContent.includes('Voice Controls'));
+  runTest('Help uses a semantic heading, sidebar navigation, and main content landmark', () =>
+    document.querySelector('h1.help-title') !== null &&
+    document.querySelector('aside.help-sidebar nav[aria-label="Help sections"]') !== null &&
+    document.querySelector('main#help-content') !== null);
+  runTest('Help navigation generates a concise table of contents', () =>
+    document.querySelectorAll('#help-toc a').length >= 8 &&
+    document.querySelector('#help-toc a[href="#help-replay-a-data-file"]') !== null);
+  runTest('Help search is labelled and has an accessible result summary', () =>
+    document.getElementById('help-search')?.getAttribute('aria-describedby') === 'help-search-status' &&
+    document.getElementById('help-search-status')?.getAttribute('aria-live') === 'polite');
+  runTest('Help dialog keeps general product help sections', () =>
+    document.body.textContent.includes('Replay a data file') &&
+    document.body.textContent.includes('Control playback'));
   runTest('Help dialog points users to the dedicated Command Line Interface dialog', () => document.body.textContent.includes('Command Line Interface dialog') && document.body.textContent.includes('F3'));
   runTest('Help dialog no longer renders the embedded CLI filter', () => document.getElementById('cli-filter-input') === null);
   runTest('Keyboard shortcuts table lists F3 for the Command Line Interface dialog', () => document.querySelector('.shortcuts-table')?.textContent.includes('Command Line Interface') && document.querySelector('.shortcuts-table')?.textContent.includes('F3'));
   runTest('Keyboard shortcuts table no longer lists the CLI filter shortcut inside Help', () => !document.querySelector('.shortcuts-table')?.textContent.includes('Focus CLI Filter'));
   runTest('Close button exists in Help dialog', () => document.getElementById('close-button') !== null);
-  runTest('Help theme callback is registered', () => typeof global.window.api._themeCallback === 'function');
-  runTest('Help theme application works and acknowledges the main process', () => {
-    global.window.api._themeAppliedCalled = false;
-    global.window.api._themeCallback(null, 'dark');
-    return document.body.className === 'dark' && global.window.api._themeAppliedCalled === true;
-  });
-  runTest('Help close button closes the dialog', () => {
-    global.window._closeCalled = false;
+  runTest('Help applies the theme query and signals readiness', () =>
+    document.body.className === 'dark' &&
+    global.window._electronMessages?.includes('help-dialog-ready'));
+  runTest('Help close button requests native dialog closure', () => {
+    global.window._electronMessages = [];
     document.getElementById('close-button').click();
-    return global.window._closeCalled === true;
+    return global.window._electronMessages.includes('close-dialog');
+  });
+  runTest('Help search filters topics and clear restores them', () => {
+    const searchInput = document.getElementById('help-search');
+    const clearButton = document.getElementById('help-search-clear');
+    const sections = Array.from(document.querySelectorAll('.help-section'));
+    searchInput.value = 'Publish with XMPP';
+    searchInput.dispatchEvent(new helpDom.window.Event('input', { bubbles: true }));
+    const visible = sections.filter((section) => !section.hidden);
+    if (visible.length !== 1 || !visible[0].textContent.includes('Publish with XMPP') || clearButton.disabled) {
+      return false;
+    }
+    clearButton.click();
+    return sections.every((section) => !section.hidden) && searchInput.value === '' && clearButton.disabled;
+  });
+  runTest('Ctrl/Cmd+F focuses the Help search', () => {
+    const searchInput = document.getElementById('help-search');
+    document.dispatchEvent(new helpDom.window.KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true }));
+    return document.activeElement === searchInput;
   });
   await runAsyncTest('Escape key closes the Help dialog', async () => {
-    global.window._closeCalled = false;
+    global.window._electronMessages = [];
     document.dispatchEvent(new helpDom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
-    return global.window._closeCalled === true;
+    return global.window._electronMessages.includes('close-dialog');
   });
 
   const cliDom = createDialogDom(cliHtml, { includeCliApi: true });
@@ -504,93 +537,55 @@ async function runHelpTests() {
 
   console.log('\n--- XMPP help coverage ---');
   const helpText = helpDom.window.document.body.textContent;
-  runTest('Product Help documents both XMPP roles and XMPP Settings', () =>
-    helpText.includes('XMPP Client:') &&
-    helpText.includes('XMPP Server:') &&
-    helpText.includes('XMPP Settings'));
-  runTest('Product Help documents frozen XMPP defaults and limits', () =>
-    helpText.includes('Required (default)') &&
-    helpText.includes('Direct (default)') &&
-    helpText.includes('65,536 UTF-8 bytes') &&
-    helpText.includes('default 30000') &&
-    helpText.includes('default 15000') &&
-    helpText.includes('default 60000'));
-  runTest('Product Help accurately limits XEP-0198 support', () =>
-    helpText.includes('negotiated and acknowledged') &&
-    helpText.includes('resumption is not implemented'));
-  runTest('Product Help documents safe client settings copying and actual TLS state', () =>
-    helpText.includes('left out unless Include password is checked') &&
-    helpText.includes('Preferred XMPP connections that fall back to plaintext'));
-  runTest('Product Help lists every XMPP Settings control', () =>
-    ['Conversation:', 'Domain:', 'STARTTLS:', 'CA cert', 'Allow unverified',
-      'TLS cert / TLS key', 'Allow remote', 'Username / Password', 'Resource',
-      'Account / Acct pwd', 'Destination', 'Room / Nickname / Room pwd', 'Timeouts ms:',
-      'Ping ms', 'Reconnect ms', 'Copy Client Settings'].every((control) => helpText.includes(control)));
   runTest('Product Help documents the Protocol Settings dialog and the connection summary', () =>
     helpText.includes('Protocol Settings') &&
     helpText.includes('Revert changes') &&
     helpText.includes('Reset to preset') &&
-    helpText.includes('Connection Summary') &&
     helpText.includes('Set (hidden)') &&
     /Basics[\s\S]{0,200}Security[\s\S]{0,200}Advanced/.test(helpText));
-  runTest('Product Help documents the reconnect delay and drops every zero-disable claim', () =>
-    /Reconnect ms[\s\S]{0,240}?default 60000/.test(helpText) &&
-    /automatic reconnect cannot be switched off/i.test(helpText) &&
-    /the keepalive cannot be switched off/i.test(helpText) &&
-    /there is no wait-forever value/i.test(helpText) &&
-    !/Enter 0 to wait indefinitely/i.test(helpText) &&
-    !/Enter 0 to disable/i.test(helpText));
-  runTest('Product Help names the canonical copied client-settings keys and the shared ip host', () =>
-    helpText.includes('xmppDomain') &&
-    helpText.includes('xmppTlsPolicy') &&
-    helpText.includes('xmppAllowUnverifiedTls') &&
-    helpText.includes('xmppReconnectDelayMs') &&
-    /The network host is the shared ip option/i.test(helpText) &&
-    !helpText.includes('xmppHost'));
-  runTest('Product Help records the XMPP security guarantees', () =>
-    /aborts before SASL/i.test(helpText) &&
-    /no credential is ever sent in the clear/i.test(helpText) &&
-    /actual state of this connection/i.test(helpText) &&
-    /canonically collide/i.test(helpText) &&
-    /certificate and private key must be supplied as a pair/i.test(helpText) &&
-    /password whitespace is significant/i.test(helpText) &&
-    /type=chat/.test(helpText));
-  runTest('Product Help notes that XMPP defaults to port 5222 and the client role', () =>
-    /XMPP uses port 5222 and the Client role/i.test(helpText));
-  runTest('Product Help includes the minimal local Logger UX test', () =>
-    helpText.includes('/Users/hano4470/Backup/data/faa.csv') &&
-    helpText.includes('xmppExternalUsername=simulator xmppExternalPassword=') &&
-    helpText.includes('xmppUsername=simulator xmppPassword=') &&
-    helpText.includes('xmppDestination=velocity-logger@localhost xmppAllowUnverifiedTls=true') &&
-    !/cd \/Users\/hano4470\/github/.test(helpText));
-  runTest('Product Help documents connection presets and the settings sections', () =>
-    helpText.includes('Connection Presets') &&
+  runTest('Product Help keeps the Simulator XMPP defaults and limits', () =>
+    helpText.includes('port 5222') &&
+    helpText.includes('client role') &&
+    helpText.includes('Required STARTTLS') &&
+    helpText.includes('30000 ms') &&
+    helpText.includes('15000 ms') &&
+    helpText.includes('60000 ms') &&
+    helpText.includes('positive whole number'));
+  runTest('Product Help distinguishes Simulator XMPP publishing behavior', () =>
+    helpText.includes('up to 20 destination JIDs') &&
+    helpText.includes('publishes to every signed-in account') &&
+    helpText.includes('Room (MUC)'));
+  runTest('Product Help includes the paired local Logger workflow without local paths', () =>
     helpText.includes('Local XMPP — Logger Server / Simulator Client') &&
+    helpText.includes('Connect the Logger first') &&
+    !helpText.includes('/Users/'));
+  runTest('Product Help documents preset and TLS safety behavior', () =>
     helpText.includes('Custom (modified)') &&
     helpText.includes('never selects a file') &&
-    helpText.includes('password may be present but empty') &&
-    !/loopback-only certificate bypass/.test(helpText));
+    helpText.includes('Allow unverified') &&
+    helpText.includes('server identity is not checked'));
+  runTest('Product Help links to focused owning documentation', () =>
+    Array.from(helpDom.window.document.querySelectorAll('a')).some((link) =>
+      link.getAttribute('href').includes('/docs/tls.md')) &&
+    Array.from(helpDom.window.document.querySelectorAll('a')).some((link) =>
+      link.getAttribute('href').includes('/docs/command-line.md')));
 
   console.log('\n--- Test 4: Command Line Interface dialog close and theme handling ---');
   runTest('CLI close button exists', () => document.getElementById('close-button') !== null);
-  runTest('CLI close button closes the dialog', () => {
-    global.window._closeCalled = false;
+  runTest('CLI close button requests native dialog closure', () => {
+    global.window._electronMessages = [];
     document.getElementById('close-button').click();
-    return global.window._closeCalled === true;
+    return global.window._electronMessages.includes('close-dialog');
   });
-  runTest('CLI theme callback is registered', () => typeof global.window.api._themeCallback === 'function');
-  runTest('CLI theme application works and acknowledges the main process', () => {
-    global.window.api._themeAppliedCalled = false;
-    global.window.api._themeCallback(null, 'dark');
-    return document.body.className === 'dark' && global.window.api._themeAppliedCalled === true;
-  });
+  runTest('CLI applies the theme query and signals readiness', () =>
+    document.body.className === 'dark' && cliHtml.includes("window.electronAPI.send('cli-dialog-ready')"));
 
   console.log('\n--- Test 5: Escape key closes the Command Line Interface dialog ---');
   await runAsyncTest('Escape key closes the CLI dialog', async () => {
-    global.window._closeCalled = false;
+    global.window._electronMessages = [];
     document.dispatchEvent(new cliDom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
-    return global.window._closeCalled === true;
+    return global.window._electronMessages.includes('close-dialog');
   });
 
   console.log('\n=== Test Results ===');

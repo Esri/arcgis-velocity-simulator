@@ -27,7 +27,7 @@ Module.prototype.require = function(id) {
   return originalRequire.apply(this, arguments);
 };
 
-const { ConfigManager } = require('../src/config.js');
+const { ConfigManager, defaultConfig } = require('../src/config.js');
 
 /**
  * Test Suite: ConfigManager
@@ -55,6 +55,21 @@ async function runConfigTests() {
   console.log('\nInitializing ConfigManager...');
   
   const configManager = new ConfigManager();
+
+  runTest('Reference-window bounds have configuration defaults', () =>
+    defaultConfig.dialogSizes.help.width === 1080 &&
+    defaultConfig.dialogSizes.help.height === 760 &&
+    defaultConfig.dialogSizes.commandLine.width === 1200 &&
+    defaultConfig.dialogSizes.commandLine.height === 760);
+  runTest('Saved reference-window bounds merge without dropping defaults', () => {
+    const merged = configManager.mergeWithDefaults({
+      dialogSizes: { help: { width: 900, x: 25 } },
+    });
+    return merged.dialogSizes.help.width === 900 &&
+      merged.dialogSizes.help.x === 25 &&
+      merged.dialogSizes.help.height === 760 &&
+      merged.dialogSizes.commandLine.width === 1200;
+  });
   
   // Test 1: Export functionality
   console.log('\n--- Test 1: Export Configuration ---');

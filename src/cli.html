@@ -672,7 +672,7 @@
             });
 
             closeButton.addEventListener('click', () => {
-                window.close();
+                window.electronAPI.send('close-dialog');
             });
 
             document.addEventListener('keydown', (event) => {
@@ -694,18 +694,12 @@
                 if (event.key === 'Escape') {
                     event.preventDefault();
                     event.stopPropagation();
-                    window.close();
+                    window.electronAPI.send('close-dialog');
                 }
             });
 
-            window.api.onSetTheme((_event, theme) => {
-                if (theme) {
-                    document.body.className = theme;
-                } else {
-                    document.body.className = 'dark';
-                }
-                window.api.themeApplied();
-            });
+            document.body.className = new URLSearchParams(window.location.search).get('theme') || 'dark';
+            window.electronAPI.send('cli-dialog-ready');
 
             function autoSizeTableWrapper() {
                 const table = cliTableWrapper?.querySelector('.cli-reference-table');
@@ -757,6 +751,5 @@
   <script src="tooltip-utils.js"></script>
 </body>
 </html>
-
 
 

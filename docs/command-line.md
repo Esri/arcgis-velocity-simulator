@@ -51,10 +51,12 @@ npm start -- runMode=headless filename=./data.csv
 ## In-app Command Line Interface dialog reference
 
 Press `F3` while the app is open to view the dedicated **Command Line
-Interface** dialog. You can also open it from **Help → Command Line Interface**
-or from the main window context menu. The dialog is generated from the same
-metadata used by terminal help output and this markdown guide, so the in-app
-table and the CLI docs stay aligned.
+Interface** window. You can also open it from **Help → Command Line Interface**
+or from the main window context menu. This non-modal reference window uses
+native close, minimize, and maximize controls, focuses its existing instance,
+and restores its last size and position within the current display. The window
+is generated from the same metadata used by terminal help output and this
+markdown guide, so the in-app table and the CLI docs stay aligned.
 
 The Command Line Interface dialog supports:
 

@@ -298,6 +298,10 @@ async function runPreloadTests() {
   runTest('connect still forwards a single options object', () => {
     return /connect:\s*\(options\)\s*=>\s*ipcRenderer\.invoke\('connect',\s*options\)/.test(preloadSource);
   });
+  runTest('reference-window bridge only exposes ready and close channels', () =>
+    preloadSource.includes("const validChannels = ['help-dialog-ready', 'cli-dialog-ready', 'close-dialog'];") &&
+    preloadSource.includes('send: (channel) =>') &&
+    !preloadSource.includes('send: (channel, data) =>'));
 
   // Test Summary
   console.log('\n=== Test Results ===');

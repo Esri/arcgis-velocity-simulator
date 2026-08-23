@@ -35,6 +35,7 @@ const { ConfigManager } = require(path.join(basePath, 'config.js'));
 const { APP_DEFAULTS, DEFAULT_LOG_LEVEL, formatCliStartupErrorOutput, formatExplainOutput, getCommandLineReferenceData, parseCommandLineArgs } = require(path.join(basePath, 'cli-options.js'));
 const { EXIT_CODES, runHeadlessSession } = require(path.join(basePath, 'headless-runner.js'));
 const { createProtocolSettingsWindowManager } = require(path.join(basePath, 'protocol-settings-window-manager.js'));
+const { createReferenceWindowManager } = require(path.join(basePath, 'reference-window-manager.js'));
 
 function requestGracefulCliExit(exitCode) {
   process.exitCode = exitCode;
@@ -134,8 +135,6 @@ app.setPath('userData', userDataPath);
 // --- Global Variables ---
 let mainWindow; // The main application window instance.
 let aboutWindow = null; // The "About" window instance.
-let helpWindow = null; // The "Help" window instance.
-let commandLineWindow = null; // The "Command Line Interface" window instance.
 let configWindow = null; // The configuration dialog instance.
 let errorWindow = null; // The error dialog instance.
 let connection = null; // Holds the active server or client socket.
@@ -159,6 +158,22 @@ let velocitySendAuthToken = false;
 
 function getVelocityAuthTokenForConnection() {
   return velocitySendAuthToken && velocityTokenManager.isAuthenticated ? velocityTokenManager.token : null;
+}
+
+const documentationUrlPrefix = 'https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/';
+
+async function getReferenceWindowTheme() {
+  const sourceWindow = mainWindow;
+  if (!sourceWindow || sourceWindow.isDestroyed() || sourceWindow.webContents.isDestroyed()) {
+    return 'dark';
+  }
+  try {
+    const theme = await sourceWindow.webContents.executeJavaScript('localStorage.getItem("theme");', true);
+    return theme || 'dark';
+  } catch (error) {
+    velocityLog('warn', `[Help] Could not read the current theme: ${error.message}`);
+    return 'dark';
+  }
 }
 
 function hotSwapVelocityAuthToken() {
@@ -205,6 +220,19 @@ const protocolSettingsWindowManager = createProtocolSettingsWindowManager({
   saveAppConfig: (config) => {
     if (configManager) configManager.saveConfig(config);
   },
+});
+const referenceWindowManager = createReferenceWindowManager({
+  BrowserWindow,
+  ipcMain,
+  screen,
+  path,
+  basePath,
+  getMainWindow: () => mainWindow,
+  getAppConfig: () => appConfig,
+  saveAppConfig: (config) => {
+    if (configManager) configManager.saveConfig(config);
+  },
+  shell,
 });
 
 // --- Splash Screen ---
@@ -254,6 +282,7 @@ async function showConfigDialog() {
     resizable: true,
     minimizable: false,
     maximizable: false,
+    closable: true,
     icon: path.join(basePath, 'assets/icon.png'),
     webPreferences: {
       preload: path.join(basePath, 'preload.js'),
@@ -323,6 +352,7 @@ async function showErrorDialog(error) {
     resizable: true,
     minimizable: false,
     maximizable: false,
+    closable: true,
     icon: path.join(basePath, 'assets/installerIcon.ico'),
     webPreferences: {
       preload: path.join(basePath, 'preload.js'),
@@ -359,114 +389,60 @@ async function showErrorDialog(error) {
 }
 
 /**
- * Creates and displays the 'Help' dialog window.
+ * Creates and displays the persistent Help reference window.
  */
 async function showHelpDialog() {
-  if (helpWindow) {
-    helpWindow.focus();
-    return;
-  }
+  if (referenceWindowManager.focus('help')) return;
+  if (!mainWindow) return;
 
-  const currentTheme = await mainWindow.webContents.executeJavaScript('localStorage.getItem("theme");', true);
-
-  helpWindow = new BrowserWindow({
-    width: 960,
-    height: 720,
-    resizable: true,
-    minimizable: false,
-    maximizable: false,
-    fullscreenable: false,
-    frame: false,
-    alwaysOnTop: true,
-    icon: path.join(basePath, 'assets/icon.png'),
-    modal: true,
-    parent: mainWindow,
-    show: false, // Keep hidden until theme is applied
+  const theme = await getReferenceWindowTheme();
+  referenceWindowManager.open({
+    key: 'help',
     title: 'Help - ArcGIS Velocity Simulator',
-    webPreferences: {
-      preload: path.join(basePath, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  });
-
-  // Wait for the theme to be applied before showing the window
-  ipcMain.once('theme-applied', () => {
-    if (helpWindow) {
-      helpWindow.show();
-    }
-  });
-
-  helpWindow.setMenuBarVisibility(false);
-  helpWindow.setMenu(null);
-  helpWindow.loadFile(path.join(basePath, 'help.html'));
-
-  // Send theme to the dialog once its content has loaded
-  helpWindow.webContents.on('did-finish-load', () => {
-    helpWindow.webContents.send('set-theme', currentTheme);
-  });
-
-  helpWindow.on('closed', () => {
-    ipcMain.removeAllListeners('theme-applied');
-    helpWindow = null;
+    file: 'help.html',
+    readyChannel: 'help-dialog-ready',
+    query: { theme },
+    allowedExternalUrlPrefix: documentationUrlPrefix,
+    defaults: {
+      width: 1080,
+      height: 760,
+      minWidth: 720,
+      minHeight: 500,
+    },
   });
 }
 
 /**
- * Creates and displays the dedicated 'Command Line Interface' dialog window.
+ * Creates and displays the persistent Command Line Interface reference window.
  */
 async function showCommandLineDialog() {
-  if (commandLineWindow) {
-    commandLineWindow.focus();
-    return;
-  }
+  if (referenceWindowManager.focus('commandLine')) return;
+  if (!mainWindow) return;
 
-  const currentTheme = await mainWindow.webContents.executeJavaScript('localStorage.getItem("theme");', true);
-
-  commandLineWindow = new BrowserWindow({
-    width: 1200,
-    height: 760,
-    resizable: true,
-    minimizable: false,
-    maximizable: false,
-    fullscreenable: false,
-    frame: false,
-    alwaysOnTop: true,
-    icon: path.join(basePath, 'assets/icon.png'),
-    modal: true,
-    parent: mainWindow,
-    show: false,
+  const theme = await getReferenceWindowTheme();
+  referenceWindowManager.open({
+    key: 'commandLine',
     title: 'Command Line Interface - ArcGIS Velocity Simulator',
-    webPreferences: {
-      preload: path.join(basePath, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  });
-
-  ipcMain.once('theme-applied', () => {
-    if (commandLineWindow) {
-      commandLineWindow.show();
-    }
-  });
-
-  commandLineWindow.setMenuBarVisibility(false);
-  commandLineWindow.setMenu(null);
-  commandLineWindow.loadFile(path.join(basePath, 'cli.html'));
-
-  commandLineWindow.webContents.on('did-finish-load', () => {
-    commandLineWindow.webContents.send('set-theme', currentTheme);
-  });
-
-  commandLineWindow.on('closed', () => {
-    ipcMain.removeAllListeners('theme-applied');
-    commandLineWindow = null;
+    file: 'cli.html',
+    readyChannel: 'cli-dialog-ready',
+    query: { theme },
+    defaults: {
+      width: 1200,
+      height: 760,
+      minWidth: 840,
+      minHeight: 520,
+    },
   });
 }
 
 // Renderer → main request to open the Command Line Interface dialog (e.g. toolbar button).
 ipcMain.on('show-cli-dialog', () => {
   showCommandLineDialog();
+});
+
+ipcMain.on('close-dialog', (event) => {
+  const dialog = BrowserWindow.fromWebContents(event.sender);
+  if (dialog && dialog !== mainWindow && !dialog.isDestroyed()) dialog.close();
 });
 
 /**
@@ -486,6 +462,7 @@ async function showAboutDialog() {
     resizable: false,
     minimizable: false,
     maximizable: false,
+    closable: true,
     parent: mainWindow,
     modal: true,
     show: false, // Keep hidden until theme is applied
@@ -676,6 +653,9 @@ function createWindow() {
   });
 
   mainWindow.on('closed', () => {
+    // Reference windows are non-modal peers, so close them explicitly with their
+    // source window instead of leaving them orphaned during application shutdown.
+    referenceWindowManager.closeAll();
     // Protocol Settings only ever mirrors the main window, so it never outlives it.
     protocolSettingsWindowManager.close({ restoreFocus: false });
     mainWindow = null;
@@ -1716,6 +1696,7 @@ async function showLaunchConfigDialog() {
     resizable: true,
     minimizable: false,
     maximizable: false,
+    closable: true,
     icon: path.join(basePath, 'assets/icon.png'),
     webPreferences: {
       preload: path.join(basePath, 'preload.js'),
@@ -2754,6 +2735,7 @@ async function showVelocityLoginDialog() {
     resizable: true,
     minimizable: false,
     maximizable: false,
+    closable: true,
     icon: path.join(basePath, 'assets/icon.png'),
     title: 'Sign In to ArcGIS Velocity',
     webPreferences: {

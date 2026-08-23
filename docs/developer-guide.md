@@ -16,6 +16,7 @@ are assumed. Packaging and publishing are covered in
 
 - [Repository structure](#repository-structure)
 - [Local development](#local-development)
+- [Windows and dialogs](#windows-and-dialogs)
 - [Testing](#testing)
 - [Documentation checks](#documentation-checks)
 - [Debugging](#debugging)
@@ -55,6 +56,7 @@ Key modules:
 | `src/protocol-settings-window-manager.js` | The secure main-process owner of the detached Protocol Settings `BrowserWindow`: window creation, focus-on-reopen, bounds resolution and persistence, and sanitized IPC for state, commands, and events. Byte-identical in the Logger. |
 | `src/protocol-settings-mirror.js` | Dependency-free DOM mirroring primitives shared by the main renderer and the detached window: serializes the authoritative Protocol Settings subtree into minimal patches and replays them exactly, so no form rule is ever duplicated. Byte-identical in the Logger. |
 | `src/protocol-settings-window.js`, `src/protocol-settings-preload.js` | The detached window's controller and its narrowly scoped preload — state in, edits out, nothing else. Byte-identical in the Logger. |
+| `src/reference-window-manager.js` | The shared Help and Command Line Interface window manager: secure native workspace options, focus-on-reopen, ready-channel sender validation, debounced bounds persistence, and shutdown cleanup. Byte-identical in the Logger. |
 | `src/tls-utils.js`, `src/format-utils.js`, `src/tooltip-utils.js` | Shared TLS, payload formatting, and custom tooltip helpers used by every transport or view that needs them. `tls-utils.js` owns the single client certificate-verification decision (`resolveClientTlsVerification()`). `tooltip-utils.js` owns title migration and the stationary pointer-intent behavior shared by every custom tooltip. |
 | `src/velocity-*.js` | ArcGIS Velocity sign-in, token handling, and the feed picker. |
 | `src/run-logger.js` | The `RunLogger` used for console and log-file output in both modes. |
@@ -81,6 +83,26 @@ The renderer never gets Node.js access: add capabilities by exposing a validated
 channel in `src/preload.js` and handling it in `src/main.js`. File paths chosen
 by the user are resolved in the main process, and the renderer receives only the
 parsed result.
+
+## Windows and dialogs
+
+Use the surface role to choose window behavior. Persistent reference and
+workspace windows use standard native chrome, while short-lived task and alert
+windows stay scoped to the main window.
+
+| Surface | Role and behavior |
+|---------|-------------------|
+| Main window | The application workspace. It owns the primary configuration and closes its dependent reference windows. |
+| Help | A non-modal, resizable reference window with native close, minimize, and maximize controls. It focuses an existing instance, persists clamped bounds in `dialogSizes.help`, and opens the documented GitHub guides through an allowlisted external-link handler. |
+| Command Line Interface | A non-modal, resizable reference window with native close, minimize, and maximize controls. It focuses an existing instance and persists clamped bounds in `dialogSizes.commandLine`. |
+| Protocol Settings | A non-modal, resizable workspace window that mirrors the authoritative renderer form. It persists clamped bounds in `dialogSizes.protocolSettings`; its in-document `<dialog>` fallback remains available when the detached host is unavailable. |
+| Configuration, launch configuration, About, error, and Velocity Login | Task or alert windows. They keep native close controls and their established task-scoped modality; Configuration, launch configuration, and Velocity Login retain their saved sizes. |
+| Splash | A temporary frameless, always-on-top startup indicator. It intentionally has no close, minimize, or maximize controls and is closed as soon as the main workspace is ready. |
+
+Use `src/reference-window-manager.js` for persistent reference-window bounds
+and native-chrome policy. Its resolver clamps restored bounds to the selected
+display work area, and its ready channel verifies the sending window before
+showing it; do not duplicate this lifecycle in `src/main.js`.
 
 ## Testing
 
@@ -114,6 +136,7 @@ node test/config.test.js     # a single suite directly
 | `npm run test:summary` | `connection-summary.test.js` | The summary generator: all twelve protocol and mode combinations, secret redaction, warning ordering, effective HTTP and WebSocket URLs, preset state, and the configured-state count. |
 | `npm run test:protocol-settings` | `protocol-settings.test.js` | The authoritative Protocol Settings dialog: its DOM nesting and preserved control ids, tablist semantics and keyboard navigation, live editing with Revert and Reset, connected and connecting locking, the summary surfaces, mirroring edits to and from the detached window, and the shortcut wiring, including that reopening focuses the existing surface instead of closing it. |
 | `node test/protocol-settings-window.test.js` | `protocol-settings-window.test.js` | The detached window: secure `BrowserWindow` creation and reuse on reopen, bounds resolution and persistence, sanitized IPC payloads for state, commands, and events, the dedicated preload's narrow allowlist, the DOM mirror's property, attribute, text, and structural replay, and the detached renderer's edit, tab, button, focus, and Escape reporting. |
+| `node test/reference-window-manager.test.js` | `reference-window-manager.test.js` | Reference-window native chrome policy, display-bound clamping, persisted bounds, Help and Command Line Interface lifecycle wiring, and main-window shutdown behavior. |
 | `npm run test:tls` | `tls-verification.test.js` | Client certificate verification stays on by default across gRPC, HTTP, and WebSocket, and is bypassed only through the explicit `allowUnverifiedTls`, `httpAllowUnverifiedTls`, and `wsAllowUnverifiedTls` options. |
 | `npm run test:xmpp-parity` | `xmpp-parity.test.js` | The Simulator and Logger contract in `AGENTS.md`: the client default, the deliberate `xmppDestination` and `xmppLocalJid` asymmetry, the shared option vocabulary and timing defaults, the shared `ip` host override, port 5222, and the absence of non-canonical aliases. |
 | `npm run test:prereqs-check` | `check-build-prereqs.test.js` | Prerequisite detection and the machine-readable `--json` output. |

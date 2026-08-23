@@ -13,6 +13,7 @@ const testSuites = [
   { file: 'connection-summary.test.js', description: '🧾 Connection Summary Tests' },
   { file: 'protocol-settings.test.js', description: '⚙️  Protocol Settings Dialog Tests' },
   { file: 'protocol-settings-window.test.js', description: '🪟 Protocol Settings Window Tests' },
+  { file: 'reference-window-manager.test.js', description: '🪟 Reference Window Manager Tests' },
   { file: 'renderer.test.js', description: '🖥️  Renderer Tests' },
   { file: 'preload.test.js', description: '🔗 Preload API Tests' },
   { file: 'about.test.js', description: '📄 About Dialog Tests' },

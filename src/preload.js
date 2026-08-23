@@ -150,4 +150,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // --- External Communication ---
   sendErrorTodeveloper: (errorDetails) => ipcRenderer.send('send-error-to-developer', errorDetails), // Opens email client for error reporting
+  send: (channel) => {
+    const validChannels = ['help-dialog-ready', 'cli-dialog-ready', 'close-dialog'];
+    if (validChannels.includes(channel)) ipcRenderer.send(channel);
+  },
 });
