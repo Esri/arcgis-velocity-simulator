@@ -1979,24 +1979,38 @@ body:not(.show-gestures) #live-gesture-received {
 
 /* Explicit certificate-verification bypass is a warning-level control. */
 .unverified-tls-check {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-  padding: 1px 6px;
-  border: 1px solid var(--button-danger-bg, #dc3545);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--button-danger-bg, #dc3545) 10%, transparent);
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 0;
+  border-left: 3px solid var(--button-warning-bg, #f0ad4e);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--button-warning-bg, #f0ad4e) 12%, transparent);
+  white-space: normal;
+  cursor: pointer;
 }
 
 .unverified-tls-check::before {
   content: '⚠';
+  flex: 0 0 auto;
+  color: var(--button-warning-bg, #f0ad4e);
 }
 
-/* The bypass label carries its own box, so it opts out of the fixed label
+.unverified-tls-check input[type="checkbox"] {
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--button-warning-bg, #f0ad4e);
+}
+
+/* The bypass label carries its own row, so it opts out of the fixed label
    column used by the surrounding aligned rows. */
 .unverified-tls-group > .unverified-tls-check {
-  flex-basis: auto;
+  flex: 1 1 auto;
+  margin-right: 0;
 }
 
 /* Compact mode: the dialog uses the full window width, the rail becomes a top

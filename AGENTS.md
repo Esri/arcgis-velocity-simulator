@@ -205,6 +205,14 @@ Use the conventional-commits style:
 - `docs:` documentation-only changes
 - `test:` test additions or fixes
 
+When suggesting, drafting, or creating a commit message, do not mention
+Copilot or add Copilot attribution or co-author trailers unless the user
+explicitly asks for that wording.
+
+Prefer a detailed commit message with a concise subject and a body that explains
+the meaningful changes and rationale. Use a brief subject-only message only when
+the user explicitly asks for a brief message.
+
 ## Git / GitHub Commit Workflow (Agent Tool Usage)
 
 When creating commits with multi-line messages, **never** construct the message inline in a chained shell command. The zsh parser inside the IDE's `run_in_terminal` tool mishandles embedded newlines, apostrophes, em dashes, and other punctuation in heredocs or `printf '…' | git commit -F -` chains — leading to mangled messages, stuck pager prompts (requiring the user to press `q`), or failed commits.
