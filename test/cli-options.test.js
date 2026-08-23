@@ -83,6 +83,14 @@ async function runCliOptionsTests() {
 
   const silentAliasResult = parseCommandLineArgs(createArgv(['runMode=silent', 'filename=./data.csv']));
   runTest('runMode=silent is treated as headless mode', () => silentAliasResult.mode === 'headless' && silentAliasResult.headless.runMode === 'headless');
+  const httpFormatResult = parseCommandLineArgs(createArgv([
+    'runMode=headless', 'filename=./data.csv', 'protocol=http', 'httpFormat=esri-json',
+  ]));
+  const wsFormatResult = parseCommandLineArgs(createArgv([
+    'runMode=headless', 'filename=./data.csv', 'protocol=ws', 'wsFormat=geo-json',
+  ]));
+  runTest('HTTP accepts the canonical esri-json format identifier', () => httpFormatResult.headless.httpFormat === 'esri-json');
+  runTest('WebSocket accepts the canonical geo-json format identifier', () => wsFormatResult.headless.wsFormat === 'geo-json');
 
   console.log('\n--- Test 3: Help output ---');
   const helpResult = parseCommandLineArgs(createArgv(['--help']));
@@ -230,6 +238,19 @@ async function runCliOptionsTests() {
   const grpcDefaultsResult = parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv', 'protocol=grpc', 'mode=client', 'ip=127.0.0.1']));
   runTest('grpcHeaderPathKey defaults to grpc-path', () => grpcDefaultsResult.headless.grpcHeaderPathKey === 'grpc-path');
   runTest('grpcHeaderPath defaults to replace.with.dedicated.uid', () => grpcDefaultsResult.headless.grpcHeaderPath === 'replace.with.dedicated.uid');
+  runTest('grpcSerialization defaults to protobuf', () => grpcDefaultsResult.headless.grpcSerialization === 'protobuf');
+
+  const grpcTextResult = parseCommandLineArgs(createArgv([
+    'runMode=headless', 'filename=./data.csv', 'protocol=grpc', 'mode=client', 'ip=127.0.0.1',
+    'grpcSerialization=text',
+  ]));
+  runTest('grpcSerialization=text is parsed in headless mode', () => grpcTextResult.headless.grpcSerialization === 'text');
+
+  const invalidSerializationResult = parseCommandLineArgs(createArgv([
+    'runMode=headless', 'filename=./data.csv', 'protocol=grpc', 'mode=client', 'ip=127.0.0.1',
+    'grpcSerialization=invalid',
+  ]));
+  runTest('Invalid grpcSerialization produces an error', () => invalidSerializationResult.errors.some((e) => e.includes('grpcSerialization')));
 
   runTest('grpcHeaderPathKey and grpcHeaderPath appear in CLI parameter definitions', () => {
     const reference = getCommandLineReferenceData();

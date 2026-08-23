@@ -18,7 +18,7 @@
  * @file main.js
  * @description This is the main process for the Electron application.
  * It handles window management, application lifecycle events, native OS interactions (like dialogs and menus),
- * backend logic for networking (TCP/UDP), file system access, and inter-process communication (IPC) with renderer processes.
+ * backend logic for all network transports, file system access, and inter-process communication (IPC) with renderer processes.
  */
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell, globalShortcut } = require('electron');
 const path = require('path');
@@ -774,8 +774,12 @@ function registerAppSpecificShortcuts() {
           showCommandLineDialog();
           event.preventDefault();
           break;
+        case 'i':
         case 'I':
-          if (input.control || input.meta) {
+          // Cmd/Ctrl+Shift+I belongs to the Connection Summary shortcut, so
+          // only the unshifted accelerator opens App Configuration. The key is
+          // matched in both cases because a shifted key arrives uppercase.
+          if ((input.control || input.meta) && !input.shift && !input.alt) {
             showConfigDialog();
             event.preventDefault();
           }
@@ -883,6 +887,25 @@ function createMainMenu() {
           click: () => {
             if (mainWindow) {
               mainWindow.webContents.send('keyboard-shortcut', 'disconnect');
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Protocol Settings...',
+          accelerator: 'CmdOrCtrl+Shift+P',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('keyboard-shortcut', 'protocol-settings');
+            }
+          }
+        },
+        {
+          label: 'Connection Summary',
+          accelerator: 'CmdOrCtrl+Shift+I',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('keyboard-shortcut', 'connection-summary');
             }
           }
         },
@@ -1893,6 +1916,21 @@ function buildContextMenu(isCompact) {
     },
     { type: 'separator' },
     {
+      label: 'Protocol Settings...',
+      accelerator: 'CmdOrCtrl+Shift+P',
+      click: () => {
+        if (mainWindow) mainWindow.webContents.send('keyboard-shortcut', 'protocol-settings');
+      }
+    },
+    {
+      label: 'Connection Summary',
+      accelerator: 'CmdOrCtrl+Shift+I',
+      click: () => {
+        if (mainWindow) mainWindow.webContents.send('keyboard-shortcut', 'connection-summary');
+      }
+    },
+    { type: 'separator' },
+    {
       label: 'Theme',
       submenu: themeSubmenu
     },
@@ -2355,7 +2393,7 @@ ipcMain.handle('connect', (event, options) => {
       const ser = grpcSerialization || 'protobuf';
       const authToken = getVelocityAuthTokenForConnection();
       if (mode === 'client') {
-        grpcTransport = createGrpcClientTransport({ ip, port, grpcSerialization, useStreaming: grpcSendMethod !== 'unary', headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls, authToken });
+        grpcTransport = createGrpcClientTransport({ ip, port, grpcSerialization, useStreaming: grpcSendMethod !== 'unary', headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls, authToken, onLog: (level, message) => velocityLog(level, message) });
         grpcTransport.connect().then((result) => {
           connection = grpcTransport;
           emitConnectionStatus('connected', `gRPC client connected to ${ip}:${port} [${ser}] ${headerPathKey}=${headerPath}\n  ${result.tlsInfo || 'tls=off'}`);
@@ -2498,19 +2536,24 @@ ipcMain.handle('connect', (event, options) => {
 });
 
 // Disconnects any active TCP or UDP connection.
-ipcMain.handle('disconnect', () => {
+// Object transports (XMPP, gRPC, HTTP, WebSocket) tear down asynchronously, so
+// the handler awaits them and reports 'disconnected' only once teardown has
+// finished. That ordering is what lets the renderer rebind the same port
+// immediately after the status arrives.
+ipcMain.handle('disconnect', async () => {
   if (!connection && !xmppTransport) return { success: false, error: 'No active connection' };
-  
+
   try {
     if (xmppTransport) { // XMPP, including a connection attempt still in progress
       const active = xmppTransport;
       xmppTransport = null;
       connection = null;
-      active.disconnect().then(() => {
+      try {
+        await active.disconnect();
         emitConnectionStatus('disconnected', 'XMPP connection has been closed.');
-      }).catch((err) => {
+      } catch (err) {
         emitConnectionStatus('disconnected', `XMPP disconnect error: ${err.message}`);
-      });
+      }
     } else if (connection instanceof net.Server) { // TCP Server
       tcpClientSockets.forEach((socket) => {
         if (!socket.destroyed) socket.destroy();
@@ -2532,22 +2575,37 @@ ipcMain.handle('disconnect', () => {
         connection = null;
       });
     } else if (grpcTransport) { // gRPC
-      grpcTransport.disconnect().then(() => {
-        emitConnectionStatus('disconnected', 'gRPC connection has been closed.');
-        connection = null;
-        grpcTransport = null;
-      });
-    } else if (httpTransport) { // HTTP
-      httpTransport.disconnect().then(() => {
-        emitConnectionStatus('disconnected', 'HTTP connection has been closed.');
-        connection = null;
-        httpTransport = null;
-      });
-    } else if (wsTransport) { // WebSocket
-      wsTransport.disconnect();
-      emitConnectionStatus('disconnected', 'WebSocket connection has been closed.');
+      const active = grpcTransport;
+      grpcTransport = null;
       connection = null;
+      try {
+        await active.disconnect();
+        emitConnectionStatus('disconnected', 'gRPC connection has been closed.');
+      } catch (err) {
+        // Teardown is total: a peer that disappeared first is a diagnostic,
+        // never a reason to leave the user stuck in a connected state.
+        emitConnectionStatus('disconnected', `gRPC connection has been closed. Teardown reported: ${err.message}`);
+      }
+    } else if (httpTransport) { // HTTP
+      const active = httpTransport;
+      httpTransport = null;
+      connection = null;
+      try {
+        await active.disconnect();
+        emitConnectionStatus('disconnected', 'HTTP connection has been closed.');
+      } catch (err) {
+        emitConnectionStatus('disconnected', `HTTP connection has been closed. Teardown reported: ${err.message}`);
+      }
+    } else if (wsTransport) { // WebSocket
+      const active = wsTransport;
       wsTransport = null;
+      connection = null;
+      try {
+        await active.disconnect();
+        emitConnectionStatus('disconnected', 'WebSocket connection has been closed.');
+      } catch (err) {
+        emitConnectionStatus('disconnected', `WebSocket connection has been closed. Teardown reported: ${err.message}`);
+      }
     }
     return { success: true };
   } catch (err) {
@@ -2620,7 +2678,13 @@ ipcMain.on('send-data', (event, data) => {
       });
     } else if (wsTransport) { // WebSocket
       try {
-        wsTransport.send(data);
+        // A client send resolves asynchronously, so the returned promise has to
+        // be handled here or a failed frame becomes an unhandled rejection and
+        // never reaches the status log. The outer try still covers a
+        // synchronous throw, such as sending while the socket is not open.
+        Promise.resolve(wsTransport.send(data)).catch((err) => {
+          logStatus(`WebSocket send error: ${err.message}`);
+        });
       } catch (err) {
         logStatus(`WebSocket send error: ${err.message}`);
       }

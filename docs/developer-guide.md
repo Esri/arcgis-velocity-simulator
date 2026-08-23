@@ -50,8 +50,9 @@ Key modules:
 | `src/transport-manager.js` | Owns TCP, UDP, HTTP, WebSocket, gRPC, and XMPP connections, tracks recipients in server mode, and raises status and connection events. |
 | `src/grpc-transport.js`, `src/http-transport.js`, `src/ws-transport.js`, `src/xmpp-transport.js` | Per-protocol client and server transports behind a common `connect`/`send`/`disconnect`/`isConnected`/`hasRecipients` shape. |
 | `src/xmpp-*.js` | XMPP protocol layers: constants, client core, server core, SASL, shared SCRAM-SHA-1 primitives, Multi-User Chat, accounts, and utilities. |
-| `src/connection-presets.js` | The twelve paired Simulator and Logger connection presets shared with the sister repository; loaded by the renderer and by the tests. See [Connection presets](connection-presets.md). |
-| `src/tls-utils.js`, `src/format-utils.js`, `src/tooltip-utils.js` | Shared TLS, payload formatting, and custom tooltip helpers used by every transport or view that needs them. `tls-utils.js` owns the single client certificate-verification decision (`resolveClientTlsVerification()`). |
+| `src/connection-presets.js` | The twelve paired Simulator and Logger connection presets shared with the sister repository; loaded by the renderer and by the tests. See [Protocol settings and presets](connection-presets.md). |
+| `src/connection-summary.js` | The pure generator behind every read-only description of a connection: the inline card, the status-bar summary button, the read-only Summary section of Protocol Settings, and the configured-state count. No DOM access, so it runs unchanged in Node. See [Connection summary](connection-summary.md). |
+| `src/tls-utils.js`, `src/format-utils.js`, `src/tooltip-utils.js` | Shared TLS, payload formatting, and custom tooltip helpers used by every transport or view that needs them. `tls-utils.js` owns the single client certificate-verification decision (`resolveClientTlsVerification()`). `tooltip-utils.js` owns the custom tooltip, including `data-tooltip-trigger`, `data-tooltip-persist-scroll`, and the top-layer re-parenting that keeps a tooltip visible above a modal `<dialog>`. |
 | `src/velocity-*.js` | ArcGIS Velocity sign-in, token handling, and the feed picker. |
 | `src/run-logger.js` | The `RunLogger` used for console and log-file output in both modes. |
 
@@ -94,23 +95,29 @@ node test/config.test.js     # a single suite directly
 | `npm run test:cli` | `cli-options.test.js` | Parsing, defaults, validation, and help modes. |
 | `npm run test:engine` | `simulation-engine.test.js` | Replay scheduling, ranges, `waitForClient`, and error modes. |
 | `npm run test:headless-runner` | `headless-runner.test.js` | The headless entry path, help short-circuiting, and engine handoff. |
+| `npm run test:transport-manager` | `transport-manager.test.js` | HTTP/WebSocket client/server delivery, recipient waiting, formats, paths, and explicit TLS verification bypass. |
 | `npm run test:help` | `help.test.js` | Help dialog filters, sorting, copy and export, shortcuts, and theme behavior. |
 | `npm run test:renderer` | `renderer.test.js` | User interface logic, DOM manipulation, and state changes. |
 | `npm run test:preload` | `preload.test.js` | The inter-process bridge and channel validation. |
 | `npm run test:about` | `about.test.js` | About dialog rendering and version display. |
-| `npm run test:grpc` | `grpc-transport.test.js` | Protobuf, Kryo, and Text serialization; client sends; server `Watch` pushes; disconnect and header paths. |
+| `npm run test:grpc` | `grpc-transport.test.js` | Protobuf, Kryo, and Text serialization; client sends; server `Watch` pushes; disconnect and header paths; and teardown after the peer disappears. |
+| `npm run test:http` | `http-transport.test.js` | HTTP client and server lifecycles, POST delivery, recovery after a transient request failure, and the Server-Sent Events subscription rules. |
+| `npm run test:ws` | `ws-transport.test.js` | WebSocket client and server lifecycles, subscription messages, bounded teardown with a connected client, immediate rebinding on the same port, and bind-conflict reporting. |
+| `npm run test:main` | `main-process.test.js` | The main-process transport lifecycle wiring: awaited disconnect teardown, teardown failures that still finalize state, and the WebSocket send promise. |
 | `npm run test:xmpp` | `xmpp-core.test.js` | Stream negotiation and clean close, STARTTLS Required, Preferred, and Disabled, SASL PLAIN and SCRAM-SHA-1, resource binding and conflict policies, IQ error rules, direct chat and undeliverable-message errors, atomic Multi-User Chat join, nickname change, and leave, XEP-0199 ping, basic XEP-0198, reconnect and rejoin, and the size, rate-limit, and loopback bounds. |
 | `npm run test:xmpp-transport` | `xmpp-transport.test.js` | Both roles end to end: Direct and Room conversations, STARTTLS policies with automatic self-signed and custom certificates, custom certificate authorities and loopback bypass, the Required pre-SASL abort, per-connection TLS metadata under Preferred, positive-only timings, reserved-identity collisions, certificate and key pairing, exact untrimmed password comparison, recipient readiness and partial-connect cleanup, body and destination limits, bare-JID enforcement, and the Copy Client Settings keys with their password guard. |
 | `npm run test:xmpp-secrets` | `xmpp-secrets.test.js` | Proves that no credential reaches standard output or error, the console, diagnostic descriptors, or event payloads during a full STARTTLS, SCRAM-SHA-1, PLAIN, and password-protected room session. |
-| `npm run test:presets` | `connection-presets.test.js` | The shared preset contract and its Simulator role mapping, applying every preset without connecting, Custom and Custom (modified), progressive disclosure, empty XMPP passwords, and the explicit certificate-verification controls. |
+| `npm run test:presets` | `connection-presets.test.js` | The shared preset contract and its Simulator role mapping, applying every preset without connecting, Custom and Custom (modified), the Protocol Settings sections, empty XMPP passwords, and the explicit certificate-verification controls. |
+| `npm run test:summary` | `connection-summary.test.js` | The summary generator: all twelve protocol and mode combinations, secret redaction, warning ordering, effective HTTP and WebSocket URLs, preset state, and the configured-state count. |
+| `npm run test:protocol-settings` | `protocol-settings.test.js` | The Protocol Settings dialog: its DOM nesting and preserved control ids, tablist semantics and keyboard navigation, live editing with Revert and Reset, connected and connecting locking, the summary surfaces, and the shortcut wiring. |
 | `npm run test:tls` | `tls-verification.test.js` | Client certificate verification stays on by default across gRPC, HTTP, and WebSocket, and is bypassed only through the explicit `allowUnverifiedTls`, `httpAllowUnverifiedTls`, and `wsAllowUnverifiedTls` options. |
 | `npm run test:xmpp-parity` | `xmpp-parity.test.js` | The Simulator and Logger contract in `AGENTS.md`: the client default, the deliberate `xmppDestination` and `xmppLocalJid` asymmetry, the shared option vocabulary and timing defaults, the shared `ip` host override, port 5222, and the absence of non-canonical aliases. |
 | `npm run test:prereqs-check` | `check-build-prereqs.test.js` | Prerequisite detection and the machine-readable `--json` output. |
 | `npm run test:prereqs-install` | `install-prereqs.test.js` | The installer plan, dry-run output, and per-host behavior. |
 
 `run-all-tests.js` also runs `external-sign.test.js`, `sign-lock.test.js`,
-`format-utils.test.js`, `ws-transport.test.js`, `velocity-auth-utils.test.js`,
-and `tooltip-utils.test.js`. Any suite can be run directly with `node`; a
+`format-utils.test.js`, `velocity-auth-utils.test.js`, and
+`tooltip-utils.test.js`. Any suite can be run directly with `node`; a
 non-zero exit code means failure.
 
 ### Manual checks
@@ -194,6 +201,15 @@ inspect the JSON summary, and `exitOnComplete=true` to exit when the file
 finishes streaming. Headless exit codes are `0` for success, `1` for a
 configuration error, and `2` for a runtime error.
 
+The headless engine supports TCP, UDP, HTTP, WebSocket, gRPC, and XMPP in both
+roles where the protocol has a meaningful client/server role. HTTP client sends
+POST requests and subscribes to SSE for inbound data; HTTP server replay
+recipients are SSE watchers. WebSocket client sends text frames and supports
+subscription, first-message suppression, custom headers, authentication tokens,
+and TLS settings; WebSocket server recipients are open sockets. These paths use
+`http-transport.js` and `ws-transport.js` directly rather than maintaining
+headless-specific network implementations.
+
 ## Logging
 
 All network-facing operations log through the shared `RunLogger` instance in
@@ -240,13 +256,21 @@ The packaged application writes its logs to:
 6. Record the exact tooltip string in the guide that owns the control, and update `src/help.html`.
 7. Persist the value through `src/config.js` if it belongs in App Config, or through the launch configuration mapping in `src/main.js` if it belongs in Launch Config.
 
+### Adding a protocol setting
+
+1. Add the control to the section it belongs to inside `#protocol-settings-dialog` in `src/index.html`: **Basics** for what is sent and where, **Security** for TLS, certificates, and who may connect, **Advanced** for what most connections leave alone. Keep the existing `.control-group aligned-group` markup so the row aligns with its neighbors.
+2. Show and hide it from the protocol's visibility function in `src/renderer.js`. A section with no visible control is dropped from the tablist automatically, so nothing else has to change.
+3. Never lock the control by hand: `updateProtocolSettingsMode()` locks every control inside the dialog through one scoped query.
+4. Map the field in `CONNECTION_PRESET_CONTROLS` in `src/connection-presets.js` and add its documented default to `PROTOCOL_SETTING_FIELDS` in `src/connection-summary.js`, then emit its row from the protocol function that owns it. A secret must go through `describeSecret()`.
+5. Record the tooltip in the owning transport guide and in `src/help.html`, then extend `test/protocol-settings.test.js` and `test/connection-summary.test.js`.
+
 ### Adding a transport
 
 1. Add the protocol's options to `src/cli-options.js` so terminal help, the reference dialog, and the documentation stay in sync.
 2. Implement the transport with the shared `connect`, `send`, `disconnect`, `isConnected`, and `hasRecipients` surface, reusing `src/tls-utils.js` and `src/format-utils.js` instead of duplicating logic.
 3. Register it in `src/transport-manager.js`, adding it to `OBJECT_TRANSPORT_PROTOCOLS` when its connection handle is a transport object rather than a raw socket. Register the transport before awaiting `connect()` so a partial connect is still torn down.
 4. In server mode, call the recipient-waiter resolution when a receiver becomes genuinely reachable so `waitForClient=true` headless runs release at the right moment.
-5. Add the controls, tooltips, and persistence described above.
+5. Add the controls, tooltips, and persistence described above, placing every protocol-specific control inside the Protocol Settings dialog and leaving host, port, and mode in the panel.
 6. Add a test suite under `test/` and list it in `test/run-all-tests.js` and in the `package.json` scripts.
 7. Write the transport guide in `docs/`, with its controls, tooltip reference, and troubleshooting, then update `src/help.html`, the [command-line reference](command-line.md), [Configuration](configuration.md), [Headless mode](headless.md), the samples in `docs/examples/`, and both documentation indexes.
 
@@ -282,3 +306,5 @@ Run before opening a pull request:
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
 | [Configuration](configuration.md) | App Config and Launch Config settings, themes, storage locations, and reset steps. |
+| [Protocol settings and presets](connection-presets.md) | The connection panel, the Protocol Settings dialog, and the paired presets. |
+| [Connection summary and protocol settings](connection-summary.md) | The summary generator, its surfaces, and how to add a row. |

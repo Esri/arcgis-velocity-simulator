@@ -504,10 +504,10 @@ async function runHelpTests() {
 
   console.log('\n--- XMPP help coverage ---');
   const helpText = helpDom.window.document.body.textContent;
-  runTest('Product Help documents both XMPP roles and XMPP Options', () =>
+  runTest('Product Help documents both XMPP roles and XMPP Settings', () =>
     helpText.includes('XMPP Client:') &&
     helpText.includes('XMPP Server:') &&
-    helpText.includes('XMPP Options'));
+    helpText.includes('XMPP Settings'));
   runTest('Product Help documents frozen XMPP defaults and limits', () =>
     helpText.includes('Required (default)') &&
     helpText.includes('Direct (default)') &&
@@ -521,11 +521,18 @@ async function runHelpTests() {
   runTest('Product Help documents safe client settings copying and actual TLS state', () =>
     helpText.includes('left out unless Include password is checked') &&
     helpText.includes('Preferred XMPP connections that fall back to plaintext'));
-  runTest('Product Help lists every XMPP Options control', () =>
-    ['Conversation:', 'Domain:', 'STARTTLS:', 'CA cert', 'Advanced:', 'Allow unverified',
+  runTest('Product Help lists every XMPP Settings control', () =>
+    ['Conversation:', 'Domain:', 'STARTTLS:', 'CA cert', 'Allow unverified',
       'TLS cert / TLS key', 'Allow remote', 'Username / Password', 'Resource',
       'Account / Acct pwd', 'Destination', 'Room / Nickname / Room pwd', 'Timeouts ms:',
       'Ping ms', 'Reconnect ms', 'Copy Client Settings'].every((control) => helpText.includes(control)));
+  runTest('Product Help documents the Protocol Settings dialog and the connection summary', () =>
+    helpText.includes('Protocol Settings') &&
+    helpText.includes('Revert changes') &&
+    helpText.includes('Reset to preset') &&
+    helpText.includes('Connection Summary') &&
+    helpText.includes('Set (hidden)') &&
+    /Basics[\s\S]{0,200}Security[\s\S]{0,200}Advanced/.test(helpText));
   runTest('Product Help documents the reconnect delay and drops every zero-disable claim', () =>
     /Reconnect ms[\s\S]{0,240}?default 60000/.test(helpText) &&
     /automatic reconnect cannot be switched off/i.test(helpText) &&
@@ -556,7 +563,7 @@ async function runHelpTests() {
     helpText.includes('xmppUsername=simulator xmppPassword=') &&
     helpText.includes('xmppDestination=velocity-logger@localhost xmppAllowUnverifiedTls=true') &&
     !/cd \/Users\/hano4470\/github/.test(helpText));
-  runTest('Product Help documents connection presets and the Advanced disclosure', () =>
+  runTest('Product Help documents connection presets and the settings sections', () =>
     helpText.includes('Connection Presets') &&
     helpText.includes('Local XMPP — Logger Server / Simulator Client') &&
     helpText.includes('Custom (modified)') &&

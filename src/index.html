@@ -60,7 +60,7 @@
       <div>
         <div class="connection-controls-group">
           <div class="control-group aligned-group">
-            <label for="csv-file">File:</label>
+            <label for="select-file">File:</label>
             <button id="select-file" class="primary-control" title="Select File">
               <div class="button-icon icon-select-file"></div>
             </button>
@@ -114,273 +114,327 @@
               <option value="xmpp-server" title="XMPP Server - starts a local XMPP client-to-server endpoint that a receiver signs in to. The simulator then publishes each line from its own application identity to every signed-in account, or into a room it occupies.">XMPP Server</option>
             </select>
           </div>
-          <!-- Extra Options disclosure row - shown only for HTTP/WS/gRPC modes -->
-          <div class="extra-options-toggle-row" id="extra-options-toggle-row" style="display: none;">
-            <button id="extra-options-toggle" class="extra-options-toggle-btn" type="button" title="Expand protocol-specific connection options." aria-expanded="false" aria-controls="extra-options-body" aria-label="Expand protocol-specific connection options.">
-              <span class="extra-options-arrow" aria-hidden="true">▸</span>
-              <span class="extra-options-label">Protocol Options</span>
-            </button>
-          </div>
-          <!-- Collapsible extra options (protocol-specific controls) -->
-          <div id="extra-options-body" class="extra-options-body" style="display: none;">
-          <!-- HTTP: essentials stay visible; certificates and verification are one click away. -->
-          <div class="control-group aligned-group" id="http-format-group" style="display: none;">
-            <label for="http-format">Format:</label>
-            <select id="http-format" title="HTTP data format - controls the Content-Type header used when sending/receiving data. Must match the format configured in the ArcGIS Velocity HTTP Receiver feed.">
-              <option value="delimited" selected title="Delimited (CSV) - sends data as text/plain. Each line is a comma-separated row of field values. This is the default format for ArcGIS Velocity TCP and HTTP feeds. Best for simple tabular data without nested structures.">Delimited (CSV)</option>
-              <option value="json" title="JSON - sends data as application/json. The standard format for most HTTP feeds. Each request body is a JSON object or array of features.">JSON</option>
-              <option value="esri-json" title="Esri JSON - sends data as application/json using the Esri Feature JSON schema (with geometry and attributes objects). Use when the Velocity HTTP Receiver expects ArcGIS-native feature format.">Esri JSON</option>
-              <option value="geo-json" title="GeoJSON - sends data as application/geo+json per RFC 7946 with FeatureCollection and Feature objects. Use when the receiver expects standard geospatial interchange format.">GeoJSON</option>
-              <option value="xml" title="XML - sends data as application/xml. Use when the Velocity HTTP Receiver is configured for XML input.">XML</option>
-            </select>
-          </div>
-          <div class="control-group aligned-group" id="http-tls-group" style="display: none;">
-            <label for="http-tls">
-               <input type="checkbox" id="http-tls" checked title="Enable TLS (HTTPS) for the HTTP connection. When checked, the connection uses HTTPS (port 8443 by default). When unchecked, uses plain HTTP (port 8080). In client mode, the OS certificate store is used automatically; in server mode, a certificate and key must be provided."> Use TLS
-            </label>
-          </div>
-          <div class="control-group aligned-group" id="http-path-group" style="display: none;">
-            <label for="http-path">HTTP path:</label>
-            <input type="text" id="http-path" value="/" title="HTTP endpoint URL path appended after the host:port (e.g. /receiver/feed-id). In server mode, only POST requests matching this path are accepted; all others return 404. In client mode, this path is used in the outgoing POST request URL. Default is /.">
-          </div>
-          <details class="advanced-options" id="http-advanced" style="display: none;">
-            <summary aria-label="Expand advanced HTTP options" data-tooltip="Show or hide the advanced HTTP certificate and verification options. Format, TLS, and HTTP path stay visible above." data-tooltip-icon="⚙" data-tooltip-kind="info">Advanced</summary>
-            <div class="advanced-options-body">
-              <div class="control-group aligned-group" id="http-tls-ca-group" style="display: none;">
-                <label for="http-tls-ca-path">CA cert:</label>
-                <input type="text" id="http-tls-ca-path" placeholder="(system default)" title="Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store automatically. Only needed for enterprise or self-signed CAs not in the system trust store.">
-              </div>
-              <div class="control-group aligned-group" id="http-tls-cert-group" style="display: none;">
-                <label for="http-tls-cert-path">TLS cert:</label>
-                <input type="text" id="http-tls-cert-path" placeholder="(optional)" title="Path to a client or server certificate file (PEM). Required for server-mode TLS. For client mode, only needed for mutual TLS (mTLS) authentication.">
-              </div>
-              <div class="control-group aligned-group" id="http-tls-key-group" style="display: none;">
-                <label for="http-tls-key-path">TLS key:</label>
-                <input type="text" id="http-tls-key-path" placeholder="(optional)" title="Path to the private key file (PEM) corresponding to the TLS certificate. Required for server-mode TLS and client-side mTLS.">
-              </div>
-              <div class="control-group aligned-group unverified-tls-group" id="http-allow-unverified-group" style="display: none;">
-                <label for="http-allow-unverified" class="unverified-tls-check" data-tooltip="Warning: accept any HTTPS server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified HTTPS certificates">
-                  <input type="checkbox" id="http-allow-unverified" data-tooltip="Warning: accept any HTTPS server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified HTTPS certificates"> Allow unverified
-                </label>
-              </div>
-            </div>
-          </details>
-          <!-- WebSocket -->
-          <div class="control-group aligned-group" id="ws-format-group" style="display: none;">
-            <label for="ws-format">Format:</label>
-            <select id="ws-format" title="WebSocket data format - controls the Content-Type associated with each message. Must match the format configured in the ArcGIS Velocity WebSocket feed.">
-              <option value="delimited" selected title="Delimited (CSV) - each message is a comma-separated row of field values (text/plain). Default format for ArcGIS Velocity WebSocket feeds.">Delimited (CSV)</option>
-              <option value="json" title="JSON - each message is a JSON object or array (application/json).">JSON</option>
-              <option value="esri-json" title="Esri JSON - each message uses the Esri Feature JSON schema (application/json).">Esri JSON</option>
-              <option value="geo-json" title="GeoJSON - each message is a GeoJSON FeatureCollection or Feature (application/geo+json).">GeoJSON</option>
-              <option value="xml" title="XML - each message is an XML payload (application/xml).">XML</option>
-            </select>
-          </div>
-          <div class="control-group aligned-group" id="ws-tls-group" style="display: none;">
-            <label for="ws-tls">
-               <input type="checkbox" id="ws-tls" checked title="Enable TLS (WSS) for the WebSocket connection. When checked, the connection uses the secure wss:// protocol (port 8443 by default). When unchecked, uses the plain ws:// protocol (port 8080). In client mode, the OS certificate store is used automatically; in server mode, a certificate and key must be provided."> Use TLS
-            </label>
-          </div>
-          <div class="control-group aligned-group" id="ws-path-group" style="display: none;">
-            <label for="ws-path">WS path:</label>
-            <input type="text" id="ws-path" value="/" title="WebSocket endpoint URL path appended after the host:port (e.g. /feed/stream-id). In server mode, only WebSocket upgrade requests matching this path are accepted. In client mode, this path is used in the outgoing connection URL, e.g. wss://host:8443/feed/stream-id. Default is /.">
-          </div>
-          <details class="advanced-options" id="ws-advanced" style="display: none;">
-            <summary aria-label="Expand advanced WebSocket options" data-tooltip="Show or hide the advanced WebSocket certificate, verification, subscription, and header options. Format, TLS, and WS path stay visible above." data-tooltip-icon="⚙" data-tooltip-kind="info">Advanced</summary>
-            <div class="advanced-options-body">
-              <div class="control-group aligned-group" id="ws-tls-ca-group" style="display: none;">
-                <label for="ws-tls-ca-path">CA cert:</label>
-                <input type="text" id="ws-tls-ca-path" placeholder="(system default)" title="Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store automatically. Only needed for enterprise or self-signed CAs not in the system trust store.">
-              </div>
-              <div class="control-group aligned-group" id="ws-tls-cert-group" style="display: none;">
-                <label for="ws-tls-cert-path">TLS cert:</label>
-                <input type="text" id="ws-tls-cert-path" placeholder="(optional)" title="Path to a client or server certificate file (PEM). Required for server-mode TLS. For client mode, only needed for mutual TLS (mTLS) authentication.">
-              </div>
-              <div class="control-group aligned-group" id="ws-tls-key-group" style="display: none;">
-                <label for="ws-tls-key-path">TLS key:</label>
-                <input type="text" id="ws-tls-key-path" placeholder="(optional)" title="Path to the private key file (PEM) corresponding to the TLS certificate. Required for server-mode TLS and client-side mTLS.">
-              </div>
-              <div class="control-group aligned-group unverified-tls-group" id="ws-allow-unverified-group" style="display: none;">
-                <label for="ws-allow-unverified" class="unverified-tls-check" data-tooltip="Warning: accept any WSS server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified WebSocket TLS certificates">
-                  <input type="checkbox" id="ws-allow-unverified" data-tooltip="Warning: accept any WSS server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified WebSocket TLS certificates"> Allow unverified
-                </label>
-              </div>
-              <div class="control-group aligned-group" id="ws-subscription-msg-group" style="display: none;">
-                <label for="ws-subscription-msg">Subscribe:</label>
-                <input type="text" id="ws-subscription-msg" placeholder="(optional)" title="Optional subscription message sent to the WebSocket server immediately after connecting. Many WebSocket APIs require a subscription or authentication message before they begin streaming data. Leave empty if not needed.">
-              </div>
-              <div class="control-group aligned-group" id="ws-ignore-first-msg-group" style="display: none;">
-                <label for="ws-ignore-first-msg">
-                   <input type="checkbox" id="ws-ignore-first-msg" title="Ignore the first message received after connecting. Some WebSocket servers send a subscription acknowledgment or welcome message before actual data. Enable this to skip that first message so only real data is processed."> Ignore 1st msg
-                </label>
-              </div>
-              <div class="control-group aligned-group" id="ws-headers-group" style="display: none;">
-                <label for="ws-headers">Headers:</label>
-                <input type="text" id="ws-headers" placeholder='(optional, JSON)' title='Custom HTTP headers sent during the WebSocket upgrade handshake, as a JSON object (e.g. {"Authorization":"Bearer token123","X-Custom":"value"}). Leave empty if no custom headers are needed.'>
-              </div>
-            </div>
-          </details>
-          <!-- gRPC -->
-          <div class="control-group aligned-group" id="grpc-serialization-group" style="display: none;">
-            <label for="grpc-serialization">Serialization:</label>
-            <select id="grpc-serialization">
-              <option value="protobuf" selected>Protobuf</option>
-              <option value="kryo">Kryo</option>
-              <option value="text">Text</option>
-            </select>
-          </div>
-          <div class="control-group aligned-group" id="grpc-send-method-group" style="display: none;">
-            <label for="grpc-send-method">RPC type:</label>
-            <select id="grpc-send-method">
-              <option value="stream" selected title="Client Streaming RPC - opens a persistent stream and sends all messages over a single long-lived connection. Higher throughput and lower per-message overhead. Uses Stream (GrpcFeed) or executeMulti (GrpcFeatureService).">Client Streaming</option>
-              <option value="unary" title="Unary RPC - sends each message as an independent request/response call. Simpler to debug and reason about, but higher per-message overhead. Uses Send (GrpcFeed) or execute (GrpcFeatureService).">Unary</option>
-            </select>
-          </div>
-          <div class="control-group aligned-group" id="grpc-tls-group" style="display: none;">
-            <label for="grpc-tls">
-              <input type="checkbox" id="grpc-tls" checked title="Use TLS (SSL) for the gRPC connection"> Use TLS
-            </label>
-          </div>
-          <div class="control-group aligned-group" id="grpc-header-path-key-group" style="display: none;">
-            <label for="grpc-header-path-key">Header path key:</label>
-            <input type="text" id="grpc-header-path-key" value="grpc-path" title="gRPC endpoint header path key">
-          </div>
-          <div class="control-group aligned-group" id="grpc-header-path-group" style="display: none;">
-            <label for="grpc-header-path" data-tooltip="gRPC endpoint header path sent as metadata on every outgoing call." aria-label="gRPC endpoint header path">Header path:</label>
-            <input type="text" id="grpc-header-path" value="replace.with.dedicated.uid" title="gRPC endpoint header path">
-          </div>
-          <details class="advanced-options" id="grpc-advanced" style="display: none;">
-            <summary aria-label="Expand advanced gRPC options" data-tooltip="Show or hide the advanced gRPC certificate and verification options. Serialization, RPC type, header path, and TLS stay visible above." data-tooltip-icon="⚙" data-tooltip-kind="info">Advanced</summary>
-            <div class="advanced-options-body">
-              <div class="control-group aligned-group" id="grpc-tls-ca-group" style="display: none;">
-                <label for="grpc-tls-ca-path">CA cert:</label>
-                <input type="text" id="grpc-tls-ca-path" placeholder="(system default)" title="Path to CA certificate file (PEM). Leave empty to use the system default CA bundle.">
-              </div>
-              <div class="control-group aligned-group" id="grpc-tls-cert-group" style="display: none;">
-                <label for="grpc-tls-cert-path">TLS cert:</label>
-                <input type="text" id="grpc-tls-cert-path" placeholder="(optional)" title="Path to client/server certificate file (PEM) for mutual TLS.">
-              </div>
-              <div class="control-group aligned-group" id="grpc-tls-key-group" style="display: none;">
-                <label for="grpc-tls-key-path">TLS key:</label>
-                <input type="text" id="grpc-tls-key-path" placeholder="(optional)" title="Path to private key file (PEM) for mutual TLS.">
-              </div>
-              <div class="control-group aligned-group unverified-tls-group" id="grpc-allow-unverified-group" style="display: none;">
-                <label for="grpc-allow-unverified" class="unverified-tls-check" data-tooltip="Warning: accept any gRPC server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified gRPC TLS certificates">
-                  <input type="checkbox" id="grpc-allow-unverified" data-tooltip="Warning: accept any gRPC server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified gRPC TLS certificates"> Allow unverified
-                </label>
-              </div>
-            </div>
-          </details>
-          <!-- XMPP -->
-          <div class="control-group aligned-group" id="xmpp-conversation-group" style="display: none;">
-            <label for="xmpp-conversation" data-tooltip="Choose whether each replayed line is delivered as a one-to-one chat message or broadcast into a Multi-User Chat room." data-tooltip-icon="💬" data-tooltip-kind="info" aria-label="XMPP conversation type">Conversation:</label>
-            <select id="xmpp-conversation" data-tooltip="XMPP Conversation: Direct. Each replayed line is delivered as a one-to-one chat message to every destination JID." data-tooltip-icon="💬" data-tooltip-kind="info" aria-label="XMPP conversation type">
-              <option value="direct" selected title="Direct - each replayed line is delivered as a one-to-one chat message to every destination JID (up to 20). This is the default and the simplest way to feed a single receiver.">Direct</option>
-              <option value="muc" title="Room (MUC) - each replayed line is broadcast as a groupchat message into an XEP-0045 Multi-User Chat room. Every occupant receives it, and the room echoes the message back to the sender.">Room (MUC)</option>
-            </select>
-          </div>
-          <div class="control-group aligned-group" id="xmpp-domain-group" style="display: none;">
-            <label for="xmpp-domain" data-tooltip="XMPP domain served or authenticated against. Independent of the host in the Connection row." data-tooltip-icon="🌐" data-tooltip-kind="info" aria-label="XMPP domain">Domain:</label>
-            <input type="text" id="xmpp-domain" value="localhost" placeholder="localhost" data-tooltip="XMPP domain.&#10;---&#10;Client: the domain your account belongs to, for example example.com. It can differ from the host in the Connection row, so you can connect to an IP address while authenticating against the real domain.&#10;Server: the domain served to clients. Rooms live under conference.&lt;domain&gt;." data-tooltip-icon="🌐" data-tooltip-kind="info" aria-label="XMPP domain">
-          </div>
-          <div class="control-group aligned-group" id="xmpp-tls-policy-group" style="display: none;">
-            <label for="xmpp-tls-policy" data-tooltip="STARTTLS negotiation policy for the XMPP stream." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP STARTTLS policy">STARTTLS:</label>
-            <select id="xmpp-tls-policy" data-tooltip="XMPP STARTTLS: Required. The stream must be encrypted before credentials are sent." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP STARTTLS policy">
-              <option value="required" selected title="Required (default) - the stream must be upgraded to TLS before any credential is sent. The server advertises STARTTLS as mandatory and refuses plaintext authentication.">Required</option>
-              <option value="preferred" title="Preferred - the stream is upgraded to TLS when the peer offers it, but authentication still proceeds on a plaintext stream when it does not.">Preferred</option>
-              <option value="disabled" title="Disabled - encryption is not required. The server stops advertising STARTTLS. As a client the Simulator still accepts an upgrade that a third-party server insists on, so Disabled means 'do not require TLS', not 'refuse TLS'.">Disabled</option>
-            </select>
-          </div>
-          <div class="control-group aligned-group" id="xmpp-username-group" style="display: none;">
-            <label for="xmpp-username" data-tooltip="Account used to sign in to the XMPP server." data-tooltip-icon="👤" data-tooltip-kind="auth" aria-label="XMPP username">Username:</label>
-            <input type="text" id="xmpp-username" placeholder="simulator" autocomplete="off" data-tooltip="Account used to sign in.&#10;---&#10;Enter either a local part such as simulator, or a full bare JID such as simulator@example.com.&#10;A bare JID overrides the Domain field, so a copied JID can be pasted straight in." data-tooltip-icon="👤" data-tooltip-kind="auth" aria-label="XMPP username or bare JID">
-          </div>
-          <div class="control-group aligned-group" id="xmpp-password-group" style="display: none;">
-            <label for="xmpp-password" data-tooltip="Password for the XMPP account. Never logged or exported." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP password">Password:</label>
-            <input type="password" id="xmpp-password" placeholder="(may be empty)" autocomplete="off" data-tooltip="Password for the XMPP account.&#10;---&#10;Held in memory for the lifetime of the connection and never written to status, logs, or saved launch configurations.&#10;Add it manually only to a protected launch configuration used for automation." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP password">
-          </div>
-          <div class="control-group aligned-group" id="xmpp-resource-group" style="display: none;">
-            <label for="xmpp-resource" data-tooltip="Resource part requested at bind time." data-tooltip-icon="🏷" data-tooltip-kind="info" aria-label="XMPP resource">Resource:</label>
-            <input type="text" id="xmpp-resource" value="velocity-simulator" data-tooltip="Resource part requested at bind time, which distinguishes this stream from other sessions of the same account. The server assigns a random resource when this is left empty." data-tooltip-icon="🏷" data-tooltip-kind="info" aria-label="XMPP resource part">
-          </div>
-          <div class="control-group aligned-group" id="xmpp-external-username-group" style="display: none;">
-            <label for="xmpp-external-username" data-tooltip="Username of the single external account the built-in server accepts." data-tooltip-icon="👤" data-tooltip-kind="auth" aria-label="XMPP external account username">Account:</label>
-            <input type="text" id="xmpp-external-username" placeholder="receiver (required)" autocomplete="off" data-tooltip="Username of the required external account the built-in XMPP server accepts.&#10;---&#10;The simulator's own application identity is created automatically and is always available.&#10;Give this account to the receiver you want to sign in, for example an ArcGIS Velocity XMPP feed." data-tooltip-icon="👤" data-tooltip-kind="auth" aria-label="XMPP external account username">
-          </div>
-          <div class="control-group aligned-group" id="xmpp-external-password-group" style="display: none;">
-            <label for="xmpp-external-password" data-tooltip="Password for the single external account. Never logged." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP external account password">Acct pwd:</label>
-            <input type="password" id="xmpp-external-password" placeholder="(may be empty)" autocomplete="off" data-tooltip="Password for the required external account the built-in XMPP server accepts.&#10;---&#10;Held in memory for the lifetime of the server and never written to status, logs, or saved launch configurations.&#10;Add it manually only to a protected launch configuration used for automation." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP external account password">
-          </div>
-          <div class="control-group aligned-group" id="xmpp-destination-group" style="display: none;">
-            <label for="xmpp-destination" data-tooltip="Bare destination JIDs that receive each replayed line." data-tooltip-icon="📨" data-tooltip-kind="info" aria-label="XMPP destination JIDs">Destination:</label>
-            <input type="text" id="xmpp-destination" placeholder="feed@example.com, geoevent@example.com" data-tooltip="Bare destination JIDs that receive each replayed line.&#10;---&#10;Use user@domain form with no resource part.&#10;Separate up to 20 destinations with commas.&#10;In server mode, leave this empty to publish to every signed-in account." data-tooltip-icon="📨" data-tooltip-kind="info" aria-label="XMPP destination JIDs, comma separated, maximum 20">
-          </div>
-          <div class="control-group aligned-group" id="xmpp-room-group" style="display: none;">
-            <label for="xmpp-room" data-tooltip="Multi-User Chat room to publish into." data-tooltip-icon="🏛" data-tooltip-kind="info" aria-label="XMPP room">Room:</label>
-            <input type="text" id="xmpp-room" placeholder="traffic" data-tooltip="Multi-User Chat room to publish into.&#10;---&#10;Enter a bare room name such as traffic, which is qualified with the conversation sub-domain of the Domain field.&#10;A full room JID such as traffic@conference.example.com is also accepted." data-tooltip-icon="🏛" data-tooltip-kind="info" aria-label="XMPP Multi-User Chat room name or room JID">
-          </div>
-          <div class="control-group aligned-group" id="xmpp-nickname-group" style="display: none;">
-            <label for="xmpp-nickname" data-tooltip="Nickname used inside the room." data-tooltip-icon="🏷" data-tooltip-kind="info" aria-label="XMPP room nickname">Nickname:</label>
-            <input type="text" id="xmpp-nickname" value="velocity-simulator" data-tooltip="Nickname used inside the Multi-User Chat room.&#10;---&#10;Occupants see messages as room@conference.domain/nickname.&#10;It must not contain '/' or '@'.&#10;The room refuses entry when the nickname is already taken." data-tooltip-icon="🏷" data-tooltip-kind="info" aria-label="XMPP room nickname">
-          </div>
-          <div class="control-group aligned-group" id="xmpp-room-password-group" style="display: none;">
-            <label for="xmpp-room-password" data-tooltip="Password required to enter the room. Never logged." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP room password">Room pwd:</label>
-            <input type="password" id="xmpp-room-password" placeholder="(optional)" autocomplete="off" data-tooltip="Password required to enter the Multi-User Chat room.&#10;---&#10;In server mode this also protects the room against every other occupant.&#10;Leave empty for an open room. It is never logged or written to saved launch configurations." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP room password">
-          </div>
-          <div class="control-group aligned-group" id="xmpp-copy-settings-group" style="display: none;">
-            <label for="xmpp-copy-settings" data-tooltip="Copy the settings a receiver needs to sign in to this server." data-tooltip-icon="📋" data-tooltip-kind="info" aria-label="Copy XMPP client settings">Client cfg:</label>
-            <button type="button" id="xmpp-copy-settings" class="xmpp-copy-settings-btn" disabled data-tooltip="Copy the settings a receiver needs to sign in to this server.&#10;---&#10;Connect the XMPP server first so its bound address and generated identity are known.&#10;Copies canonical option=value lines: ip, port, xmppDomain, xmppTlsPolicy, xmppAllowUnverifiedTls, the account, destination or room, and reconnect timing.&#10;The account password is left out unless 'Include password' is checked." data-tooltip-icon="📋" data-tooltip-kind="info" aria-label="Copy XMPP client settings to the clipboard">Copy Client Settings</button>
-            <label for="xmpp-copy-password" class="xmpp-inline-check" data-tooltip="Include the external account password in the copied settings." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Include password when copying client settings">
-              <input type="checkbox" id="xmpp-copy-password" disabled data-tooltip="Include the external account password in the copied settings.&#10;---&#10;Available while the XMPP server is connected. It resets after every successful copy so later copies cannot include a credential accidentally." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Include the external account password when copying client settings"> Include password
-            </label>
-          </div>
-          <details class="advanced-options" id="xmpp-advanced" style="display: none;">
-            <summary aria-label="Expand advanced XMPP options" data-tooltip="Show or hide the advanced XMPP certificate, verification, remote-bind, and timing options. Conversation, domain, STARTTLS, and the account fields stay visible above." data-tooltip-icon="⚙" data-tooltip-kind="info">Advanced</summary>
-            <div class="advanced-options-body">
-              <div class="control-group aligned-group" id="xmpp-tls-ca-group" style="display: none;">
-                <label for="xmpp-tls-ca-path" data-tooltip="Custom CA certificate used to verify the XMPP server certificate." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP CA certificate path">CA cert:</label>
-                <input type="text" id="xmpp-tls-ca-path" placeholder="(system default)" data-tooltip="Path to a custom CA certificate file (PEM) used to verify the XMPP server certificate. Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs that are not in the system trust store." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP CA certificate path">
-              </div>
-              <div class="control-group aligned-group" id="xmpp-tls-cert-group" style="display: none;">
-                <label for="xmpp-tls-cert-path" data-tooltip="Server certificate presented during STARTTLS." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP server certificate path">TLS cert:</label>
-                <input type="text" id="xmpp-tls-cert-path" placeholder="(automatic self-signed)" data-tooltip="Path to the server certificate file (PEM) presented during STARTTLS. Leave empty to let the app generate an automatic self-signed certificate for local testing. Requires a matching private key." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP server certificate path">
-              </div>
-              <div class="control-group aligned-group" id="xmpp-tls-key-group" style="display: none;">
-                <label for="xmpp-tls-key-path" data-tooltip="Private key matching the XMPP server certificate." data-tooltip-icon="🔑" data-tooltip-kind="secure" aria-label="XMPP server private key path">TLS key:</label>
-                <input type="text" id="xmpp-tls-key-path" placeholder="(automatic self-signed)" data-tooltip="Path to the private key file (PEM) that matches the XMPP server certificate. Required whenever a certificate path is set. Leave empty to use the automatic self-signed certificate." data-tooltip-icon="🔑" data-tooltip-kind="secure" aria-label="XMPP server private key path">
-              </div>
-              <div class="control-group aligned-group unverified-tls-group" id="xmpp-allow-unverified-group" style="display: none;">
-                <label for="xmpp-allow-unverified" class="unverified-tls-check" data-tooltip="Warning: accept any XMPP server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. STARTTLS still encrypts the stream, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified XMPP TLS certificates">
-                  <input type="checkbox" id="xmpp-allow-unverified" data-tooltip="Warning: accept any XMPP server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. STARTTLS still encrypts the stream, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified XMPP TLS certificates"> Allow unverified
-                </label>
-              </div>
-              <div class="control-group aligned-group" id="xmpp-allow-remote-group" style="display: none;">
-                <label for="xmpp-allow-remote" data-tooltip="Allow the built-in XMPP server to bind a non-loopback address." data-tooltip-icon="🌐" data-tooltip-kind="warning" aria-label="Allow remote XMPP clients">
-                  <input type="checkbox" id="xmpp-allow-remote" data-tooltip="Allow remote clients to reach the built-in XMPP server.&#10;---&#10;Left off, the server binds a loopback address only, so nothing outside this machine can sign in.&#10;Turn it on to bind an address such as 0.0.0.0 and accept connections from the network." data-tooltip-icon="🌐" data-tooltip-kind="warning" aria-label="Allow remote XMPP clients to sign in"> Allow remote
-                </label>
-              </div>
-              <div class="control-group combined-input-group aligned-group" id="xmpp-timeouts-group" style="display: none;">
-                <label for="xmpp-connect-timeout" data-tooltip="Connect and reply timeouts, in milliseconds." data-tooltip-icon="⏱" data-tooltip-kind="info" aria-label="XMPP timeouts">Timeouts ms:</label>
-                <input type="number" id="xmpp-connect-timeout" value="30000" min="1" step="1000" data-tooltip="Connect timeout, in milliseconds.&#10;---&#10;How long to wait for the stream to negotiate, authenticate and bind a resource before the attempt fails.&#10;Default is 30000.&#10;Must be a positive whole number; there is no wait-forever value." data-tooltip-icon="⏱" data-tooltip-kind="info" aria-label="XMPP connect timeout in milliseconds">
-                <input type="number" id="xmpp-reply-timeout" value="15000" min="1" step="1000" data-tooltip="Reply timeout, in milliseconds.&#10;---&#10;How long to wait for a reply to a request that expects one, such as a room entry confirmation or a ping result.&#10;Default is 15000.&#10;Must be a positive whole number; there is no wait-forever value." data-tooltip-icon="⏱" data-tooltip-kind="info" aria-label="XMPP reply timeout in milliseconds">
-              </div>
-              <div class="control-group aligned-group" id="xmpp-ping-interval-group" style="display: none;">
-                <label for="xmpp-ping-interval" data-tooltip="Keepalive ping interval, in milliseconds." data-tooltip-icon="📶" data-tooltip-kind="info" aria-label="XMPP keepalive ping interval">Ping ms:</label>
-                <input type="number" id="xmpp-ping-interval" value="60000" min="1" step="1000" data-tooltip="Keepalive ping interval, in milliseconds.&#10;---&#10;Sends an XEP-0199 ping on an otherwise idle stream so an intermediate firewall does not drop it.&#10;Default is 60000.&#10;Must be a positive whole number; the keepalive cannot be switched off." data-tooltip-icon="📶" data-tooltip-kind="info" aria-label="XMPP keepalive ping interval in milliseconds">
-              </div>
-              <div class="control-group aligned-group" id="xmpp-reconnect-delay-group" style="display: none;">
-                <label for="xmpp-reconnect-delay" data-tooltip="Delay before an automatic reconnect, in milliseconds." data-tooltip-icon="🔄" data-tooltip-kind="info" aria-label="XMPP reconnect delay">Reconnect ms:</label>
-                <input type="number" id="xmpp-reconnect-delay" value="60000" min="1" step="1000" data-tooltip="Automatic reconnect delay, in milliseconds.&#10;---&#10;How long to wait after a dropped stream before signing in again.&#10;A reconnect re-binds the resource and re-joins the room; stream resumption is not implemented, so nothing sent while offline is replayed.&#10;Default is 60000.&#10;Must be a positive whole number; automatic reconnect cannot be switched off." data-tooltip-icon="🔄" data-tooltip-kind="info" aria-label="XMPP automatic reconnect delay in milliseconds">
-              </div>
-            </div>
-          </details>
-          </div><!-- /#extra-options-body -->
           <div class="control-group combined-input-group aligned-group">
             <label for="ip-address">Connection:</label>
             <input type="text" id="ip-address" value="127.0.0.1" title="IP Address">
             <input type="number" id="port" value="5565" title="Port">
           </div>
+          <!-- Protocol Settings opener. Everything protocol-specific is edited in the dialog. -->
+          <div class="control-group protocol-settings-row">
+            <button id="protocol-settings-btn" class="protocol-settings-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="protocol-settings-dialog" aria-label="Protocol Settings" data-tooltip="Protocol Settings (Cmd/Ctrl+Shift+P)&#10;---&#10;Open the settings for the selected protocol in a dialog with Basics, Security, and Advanced sections. Preset, connection type, host, and port stay in this row." data-tooltip-icon="⚙" data-tooltip-kind="info">
+              <span class="protocol-settings-btn-icon" aria-hidden="true">⚙</span>
+              <span class="protocol-settings-btn-label">Protocol Settings…</span>
+              <span id="protocol-settings-count" class="protocol-settings-count">TCP · no protocol settings</span>
+            </button>
+          </div>
+          <!--
+            Protocol Settings dialog. It lives inside .connection-controls-group so the
+            delegated preset-modification listeners still see every edit, and it is a
+            native <dialog>, so the browser renders it in the top layer and traps focus.
+          -->
+          <dialog id="protocol-settings-dialog" class="protocol-settings-dialog" aria-labelledby="protocol-settings-title">
+            <div class="protocol-settings-header">
+              <div class="protocol-settings-heading">
+                <h2 id="protocol-settings-title" class="protocol-settings-title">TCP Server settings</h2>
+                <p id="protocol-settings-subtitle" class="protocol-settings-subtitle">Listening on 127.0.0.1:5565</p>
+              </div>
+              <button id="protocol-settings-close" type="button" class="protocol-settings-close" aria-label="Close Protocol Settings" data-tooltip="Close Protocol Settings and keep your edits (Esc)" data-tooltip-icon="✕" data-tooltip-kind="info">✕</button>
+            </div>
+            <p id="protocol-settings-readonly" class="protocol-settings-banner protocol-settings-banner-readonly" role="status" hidden>Disconnect to change these settings</p>
+            <div id="protocol-settings-alert" class="protocol-settings-banner protocol-settings-banner-error protocol-settings-alert" role="alert" aria-live="assertive" hidden></div>
+            <div class="protocol-settings-body">
+              <div id="protocol-settings-tablist" class="protocol-settings-tablist" role="tablist" aria-orientation="vertical" aria-label="Protocol settings sections">
+                <button id="protocol-settings-tab-basics" class="protocol-settings-tab" type="button" role="tab" data-section="basics" aria-controls="protocol-settings-panel-basics" aria-selected="true" tabindex="0" aria-label="Basics section" data-tooltip="Basics&#10;The settings this protocol needs before it can send data." data-tooltip-icon="◉" data-tooltip-kind="info" data-tooltip-trigger="both" data-tooltip-persist-scroll="true">Basics</button>
+                <button id="protocol-settings-tab-security" class="protocol-settings-tab" type="button" role="tab" data-section="security" aria-controls="protocol-settings-panel-security" aria-selected="false" tabindex="-1" aria-label="Security section" data-tooltip="Security&#10;TLS, certificate verification, and certificate paths for this protocol." data-tooltip-icon="🔒" data-tooltip-kind="secure" data-tooltip-trigger="both" data-tooltip-persist-scroll="true">Security</button>
+                <button id="protocol-settings-tab-advanced" class="protocol-settings-tab" type="button" role="tab" data-section="advanced" aria-controls="protocol-settings-panel-advanced" aria-selected="false" tabindex="-1" aria-label="Advanced section" data-tooltip="Advanced&#10;Optional settings that most connections leave at their defaults." data-tooltip-icon="⚙" data-tooltip-kind="info" data-tooltip-trigger="both" data-tooltip-persist-scroll="true">Advanced</button>
+                <button id="protocol-settings-tab-summary" class="protocol-settings-tab" type="button" role="tab" data-section="summary" aria-controls="protocol-settings-panel-summary" aria-selected="false" tabindex="-1" aria-label="Summary section" data-tooltip="Summary&#10;Every connection setting in one read-only list, with warnings first. Passwords are never shown." data-tooltip-icon="▤" data-tooltip-kind="info" data-tooltip-trigger="both" data-tooltip-persist-scroll="true">Summary</button>
+              </div>
+              <div class="protocol-settings-panels">
+                <div id="protocol-settings-panel-basics" class="protocol-settings-panel" role="tabpanel" tabindex="0" aria-labelledby="protocol-settings-tab-basics">
+                  <div class="protocol-settings-group" data-protocol="grpc" data-section="basics">
+                    <div class="control-group aligned-group" id="grpc-serialization-group" style="display: none;">
+                      <label for="grpc-serialization">Serialization:</label>
+                      <select id="grpc-serialization">
+                        <option value="protobuf" selected>Protobuf</option>
+                        <option value="kryo">Kryo</option>
+                        <option value="text">Text</option>
+                      </select>
+                    </div>
+                    <div class="control-group aligned-group" id="grpc-send-method-group" style="display: none;">
+                      <label for="grpc-send-method">RPC type:</label>
+                      <select id="grpc-send-method">
+                        <option value="stream" selected title="Client Streaming RPC - opens a persistent stream and sends all messages over a single long-lived connection. Higher throughput and lower per-message overhead. Uses Stream (GrpcFeed) or executeMulti (GrpcFeatureService).">Client Streaming</option>
+                        <option value="unary" title="Unary RPC - sends each message as an independent request/response call. Simpler to debug and reason about, but higher per-message overhead. Uses Send (GrpcFeed) or execute (GrpcFeatureService).">Unary</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="protocol-settings-group" data-protocol="http" data-section="basics">
+                    <div class="control-group aligned-group" id="http-format-group" style="display: none;">
+                      <label for="http-format">Format:</label>
+                      <select id="http-format" title="HTTP data format - controls the Content-Type header used when sending/receiving data. Must match the format configured in the ArcGIS Velocity HTTP Receiver feed.">
+                        <option value="delimited" selected title="Delimited (CSV) - sends data as text/plain. Each line is a comma-separated row of field values. This is the default format for ArcGIS Velocity TCP and HTTP feeds. Best for simple tabular data without nested structures.">Delimited (CSV)</option>
+                        <option value="json" title="JSON - sends data as application/json. The standard format for most HTTP feeds. Each request body is a JSON object or array of features.">JSON</option>
+                        <option value="esri-json" title="Esri JSON - sends data as application/json using the Esri Feature JSON schema (with geometry and attributes objects). Use when the Velocity HTTP Receiver expects ArcGIS-native feature format.">Esri JSON</option>
+                        <option value="geo-json" title="GeoJSON - sends data as application/geo+json per RFC 7946 with FeatureCollection and Feature objects. Use when the receiver expects standard geospatial interchange format.">GeoJSON</option>
+                        <option value="xml" title="XML - sends data as application/xml. Use when the Velocity HTTP Receiver is configured for XML input.">XML</option>
+                      </select>
+                    </div>
+                    <div class="control-group aligned-group" id="http-path-group" style="display: none;">
+                      <label for="http-path">HTTP path:</label>
+                      <input type="text" id="http-path" value="/" title="HTTP endpoint URL path appended after the host:port (e.g. /receiver/feed-id). In server mode, only POST requests matching this path are accepted; all others return 404. In client mode, this path is used in the outgoing POST request URL. Default is /.">
+                    </div>
+                  </div>
+                  <div class="protocol-settings-group" data-protocol="ws" data-section="basics">
+                    <div class="control-group aligned-group" id="ws-format-group" style="display: none;">
+                      <label for="ws-format">Format:</label>
+                      <select id="ws-format" title="WebSocket data format - controls the Content-Type associated with each message. Must match the format configured in the ArcGIS Velocity WebSocket feed.">
+                        <option value="delimited" selected title="Delimited (CSV) - each message is a comma-separated row of field values (text/plain). Default format for ArcGIS Velocity WebSocket feeds.">Delimited (CSV)</option>
+                        <option value="json" title="JSON - each message is a JSON object or array (application/json).">JSON</option>
+                        <option value="esri-json" title="Esri JSON - each message uses the Esri Feature JSON schema (application/json).">Esri JSON</option>
+                        <option value="geo-json" title="GeoJSON - each message is a GeoJSON FeatureCollection or Feature (application/geo+json).">GeoJSON</option>
+                        <option value="xml" title="XML - each message is an XML payload (application/xml).">XML</option>
+                      </select>
+                    </div>
+                    <div class="control-group aligned-group" id="ws-path-group" style="display: none;">
+                      <label for="ws-path">WS path:</label>
+                      <input type="text" id="ws-path" value="/" title="WebSocket endpoint URL path appended after the host:port (e.g. /feed/stream-id). In server mode, only WebSocket upgrade requests matching this path are accepted. In client mode, this path is used in the outgoing connection URL, e.g. wss://host:8443/feed/stream-id. Default is /.">
+                    </div>
+                  </div>
+                  <div class="protocol-settings-group" data-protocol="xmpp" data-section="basics">
+                    <div class="control-group aligned-group" id="xmpp-conversation-group" style="display: none;">
+                      <label for="xmpp-conversation" data-tooltip="Choose whether each replayed line is delivered as a one-to-one chat message or broadcast into a Multi-User Chat room." data-tooltip-icon="💬" data-tooltip-kind="info" aria-label="XMPP conversation type">Conversation:</label>
+                      <select id="xmpp-conversation" data-tooltip="XMPP Conversation: Direct. Each replayed line is delivered as a one-to-one chat message to every destination JID." data-tooltip-icon="💬" data-tooltip-kind="info" aria-label="XMPP conversation type">
+                        <option value="direct" selected title="Direct - each replayed line is delivered as a one-to-one chat message to every destination JID (up to 20). This is the default and the simplest way to feed a single receiver.">Direct</option>
+                        <option value="muc" title="Room (MUC) - each replayed line is broadcast as a groupchat message into an XEP-0045 Multi-User Chat room. Every occupant receives it, and the room echoes the message back to the sender.">Room (MUC)</option>
+                      </select>
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-domain-group" style="display: none;">
+                      <label for="xmpp-domain" data-tooltip="XMPP domain served or authenticated against. Independent of the host in the Connection row." data-tooltip-icon="🌐" data-tooltip-kind="info" aria-label="XMPP domain">Domain:</label>
+                      <input type="text" id="xmpp-domain" value="localhost" placeholder="localhost" data-tooltip="XMPP domain.&#10;---&#10;Client: the domain your account belongs to, for example example.com. It can differ from the host in the Connection row, so you can connect to an IP address while authenticating against the real domain.&#10;Server: the domain served to clients. Rooms live under conference.&lt;domain&gt;." data-tooltip-icon="🌐" data-tooltip-kind="info" aria-label="XMPP domain">
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-username-group" style="display: none;">
+                      <label for="xmpp-username" data-tooltip="Account used to sign in to the XMPP server." data-tooltip-icon="👤" data-tooltip-kind="auth" aria-label="XMPP username">Username:</label>
+                      <input type="text" id="xmpp-username" placeholder="simulator" autocomplete="off" data-tooltip="Account used to sign in.&#10;---&#10;Enter either a local part such as simulator, or a full bare JID such as simulator@example.com.&#10;A bare JID overrides the Domain field, so a copied JID can be pasted straight in." data-tooltip-icon="👤" data-tooltip-kind="auth" aria-label="XMPP username or bare JID">
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-password-group" style="display: none;">
+                      <label for="xmpp-password" data-tooltip="Password for the XMPP account. Never logged or exported." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP password">Password:</label>
+                      <input type="password" id="xmpp-password" placeholder="(may be empty)" autocomplete="off" data-tooltip="Password for the XMPP account.&#10;---&#10;Held in memory for the lifetime of the connection and never written to status, logs, or saved launch configurations.&#10;Add it manually only to a protected launch configuration used for automation." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP password">
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-resource-group" style="display: none;">
+                      <label for="xmpp-resource" data-tooltip="Resource part requested at bind time." data-tooltip-icon="🏷" data-tooltip-kind="info" aria-label="XMPP resource">Resource:</label>
+                      <input type="text" id="xmpp-resource" value="velocity-simulator" data-tooltip="Resource part requested at bind time, which distinguishes this stream from other sessions of the same account. The server assigns a random resource when this is left empty." data-tooltip-icon="🏷" data-tooltip-kind="info" aria-label="XMPP resource part">
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-external-username-group" style="display: none;">
+                      <label for="xmpp-external-username" data-tooltip="Username of the single external account the built-in server accepts." data-tooltip-icon="👤" data-tooltip-kind="auth" aria-label="XMPP external account username">Account:</label>
+                      <input type="text" id="xmpp-external-username" placeholder="receiver (required)" autocomplete="off" data-tooltip="Username of the required external account the built-in XMPP server accepts.&#10;---&#10;The simulator's own application identity is created automatically and is always available.&#10;Give this account to the receiver you want to sign in, for example an ArcGIS Velocity XMPP feed." data-tooltip-icon="👤" data-tooltip-kind="auth" aria-label="XMPP external account username">
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-external-password-group" style="display: none;">
+                      <label for="xmpp-external-password" data-tooltip="Password for the single external account. Never logged." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP external account password">Acct pwd:</label>
+                      <input type="password" id="xmpp-external-password" placeholder="(may be empty)" autocomplete="off" data-tooltip="Password for the required external account the built-in XMPP server accepts.&#10;---&#10;Held in memory for the lifetime of the server and never written to status, logs, or saved launch configurations.&#10;Add it manually only to a protected launch configuration used for automation." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP external account password">
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-destination-group" style="display: none;">
+                      <label for="xmpp-destination" data-tooltip="Bare destination JIDs that receive each replayed line." data-tooltip-icon="📨" data-tooltip-kind="info" aria-label="XMPP destination JIDs">Destination:</label>
+                      <input type="text" id="xmpp-destination" placeholder="feed@example.com, geoevent@example.com" data-tooltip="Bare destination JIDs that receive each replayed line.&#10;---&#10;Use user@domain form with no resource part.&#10;Separate up to 20 destinations with commas.&#10;In server mode, leave this empty to publish to every signed-in account." data-tooltip-icon="📨" data-tooltip-kind="info" aria-label="XMPP destination JIDs, comma separated, maximum 20">
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-room-group" style="display: none;">
+                      <label for="xmpp-room" data-tooltip="Multi-User Chat room to publish into." data-tooltip-icon="🏛" data-tooltip-kind="info" aria-label="XMPP room">Room:</label>
+                      <input type="text" id="xmpp-room" placeholder="traffic" data-tooltip="Multi-User Chat room to publish into.&#10;---&#10;Enter a bare room name such as traffic, which is qualified with the conversation sub-domain of the Domain field.&#10;A full room JID such as traffic@conference.example.com is also accepted." data-tooltip-icon="🏛" data-tooltip-kind="info" aria-label="XMPP Multi-User Chat room name or room JID">
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-nickname-group" style="display: none;">
+                      <label for="xmpp-nickname" data-tooltip="Nickname used inside the room." data-tooltip-icon="🏷" data-tooltip-kind="info" aria-label="XMPP room nickname">Nickname:</label>
+                      <input type="text" id="xmpp-nickname" value="velocity-simulator" data-tooltip="Nickname used inside the Multi-User Chat room.&#10;---&#10;Occupants see messages as room@conference.domain/nickname.&#10;It must not contain '/' or '@'.&#10;The room refuses entry when the nickname is already taken." data-tooltip-icon="🏷" data-tooltip-kind="info" aria-label="XMPP room nickname">
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-room-password-group" style="display: none;">
+                      <label for="xmpp-room-password" data-tooltip="Password required to enter the room. Never logged." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP room password">Room pwd:</label>
+                      <input type="password" id="xmpp-room-password" placeholder="(optional)" autocomplete="off" data-tooltip="Password required to enter the Multi-User Chat room.&#10;---&#10;In server mode this also protects the room against every other occupant.&#10;Leave empty for an open room. It is never logged or written to saved launch configurations." data-tooltip-icon="🔑" data-tooltip-kind="auth" aria-label="XMPP room password">
+                    </div>
+                  </div>
+                </div>
+                <div id="protocol-settings-panel-security" class="protocol-settings-panel" role="tabpanel" tabindex="0" aria-labelledby="protocol-settings-tab-security" hidden>
+                  <div class="protocol-settings-group" data-protocol="grpc" data-section="security">
+                    <div class="control-group aligned-group" id="grpc-tls-group" style="display: none;">
+                      <label for="grpc-tls">
+                        <input type="checkbox" id="grpc-tls" checked title="Use TLS (SSL) for the gRPC connection"> Use TLS
+                      </label>
+                    </div>
+                    <div class="control-group aligned-group" id="grpc-tls-ca-group" style="display: none;">
+                      <label for="grpc-tls-ca-path">CA cert:</label>
+                      <input type="text" id="grpc-tls-ca-path" placeholder="(system default)" title="Path to CA certificate file (PEM). Leave empty to use the system default CA bundle.">
+                    </div>
+                    <div class="control-group aligned-group" id="grpc-tls-cert-group" style="display: none;">
+                      <label for="grpc-tls-cert-path">TLS cert:</label>
+                      <input type="text" id="grpc-tls-cert-path" placeholder="(optional)" title="Path to client/server certificate file (PEM) for mutual TLS.">
+                    </div>
+                    <div class="control-group aligned-group" id="grpc-tls-key-group" style="display: none;">
+                      <label for="grpc-tls-key-path">TLS key:</label>
+                      <input type="text" id="grpc-tls-key-path" placeholder="(optional)" title="Path to private key file (PEM) for mutual TLS.">
+                    </div>
+                    <div class="control-group aligned-group unverified-tls-group" id="grpc-allow-unverified-group" style="display: none;">
+                      <label for="grpc-allow-unverified" class="unverified-tls-check" data-tooltip="Warning: accept any gRPC server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified gRPC TLS certificates">
+                        <input type="checkbox" id="grpc-allow-unverified" data-tooltip="Warning: accept any gRPC server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified gRPC TLS certificates"> Allow unverified
+                      </label>
+                    </div>
+                  </div>
+                  <div class="protocol-settings-group" data-protocol="http" data-section="security">
+                    <div class="control-group aligned-group" id="http-tls-group" style="display: none;">
+                      <label for="http-tls">
+                         <input type="checkbox" id="http-tls" checked title="Enable TLS (HTTPS) for the HTTP connection. When checked, the connection uses HTTPS (port 8443 by default). When unchecked, uses plain HTTP (port 8080). In client mode, the OS certificate store is used automatically; in server mode, a certificate and key must be provided."> Use TLS
+                      </label>
+                    </div>
+                    <div class="control-group aligned-group" id="http-tls-ca-group" style="display: none;">
+                      <label for="http-tls-ca-path">CA cert:</label>
+                      <input type="text" id="http-tls-ca-path" placeholder="(system default)" title="Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store automatically. Only needed for enterprise or self-signed CAs not in the system trust store.">
+                    </div>
+                    <div class="control-group aligned-group" id="http-tls-cert-group" style="display: none;">
+                      <label for="http-tls-cert-path">TLS cert:</label>
+                      <input type="text" id="http-tls-cert-path" placeholder="(optional)" title="Path to a client or server certificate file (PEM). Required for server-mode TLS. For client mode, only needed for mutual TLS (mTLS) authentication.">
+                    </div>
+                    <div class="control-group aligned-group" id="http-tls-key-group" style="display: none;">
+                      <label for="http-tls-key-path">TLS key:</label>
+                      <input type="text" id="http-tls-key-path" placeholder="(optional)" title="Path to the private key file (PEM) corresponding to the TLS certificate. Required for server-mode TLS and client-side mTLS.">
+                    </div>
+                    <div class="control-group aligned-group unverified-tls-group" id="http-allow-unverified-group" style="display: none;">
+                      <label for="http-allow-unverified" class="unverified-tls-check" data-tooltip="Warning: accept any HTTPS server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified HTTPS certificates">
+                        <input type="checkbox" id="http-allow-unverified" data-tooltip="Warning: accept any HTTPS server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified HTTPS certificates"> Allow unverified
+                      </label>
+                    </div>
+                  </div>
+                  <div class="protocol-settings-group" data-protocol="ws" data-section="security">
+                    <div class="control-group aligned-group" id="ws-tls-group" style="display: none;">
+                      <label for="ws-tls">
+                         <input type="checkbox" id="ws-tls" checked title="Enable TLS (WSS) for the WebSocket connection. When checked, the connection uses the secure wss:// protocol (port 8443 by default). When unchecked, uses the plain ws:// protocol (port 8080). In client mode, the OS certificate store is used automatically; in server mode, a certificate and key must be provided."> Use TLS
+                      </label>
+                    </div>
+                    <div class="control-group aligned-group" id="ws-tls-ca-group" style="display: none;">
+                      <label for="ws-tls-ca-path">CA cert:</label>
+                      <input type="text" id="ws-tls-ca-path" placeholder="(system default)" title="Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store automatically. Only needed for enterprise or self-signed CAs not in the system trust store.">
+                    </div>
+                    <div class="control-group aligned-group" id="ws-tls-cert-group" style="display: none;">
+                      <label for="ws-tls-cert-path">TLS cert:</label>
+                      <input type="text" id="ws-tls-cert-path" placeholder="(optional)" title="Path to a client or server certificate file (PEM). Required for server-mode TLS. For client mode, only needed for mutual TLS (mTLS) authentication.">
+                    </div>
+                    <div class="control-group aligned-group" id="ws-tls-key-group" style="display: none;">
+                      <label for="ws-tls-key-path">TLS key:</label>
+                      <input type="text" id="ws-tls-key-path" placeholder="(optional)" title="Path to the private key file (PEM) corresponding to the TLS certificate. Required for server-mode TLS and client-side mTLS.">
+                    </div>
+                    <div class="control-group aligned-group unverified-tls-group" id="ws-allow-unverified-group" style="display: none;">
+                      <label for="ws-allow-unverified" class="unverified-tls-check" data-tooltip="Warning: accept any WSS server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified WebSocket TLS certificates">
+                        <input type="checkbox" id="ws-allow-unverified" data-tooltip="Warning: accept any WSS server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified WebSocket TLS certificates"> Allow unverified
+                      </label>
+                    </div>
+                  </div>
+                  <div class="protocol-settings-group" data-protocol="xmpp" data-section="security">
+                    <div class="control-group aligned-group" id="xmpp-tls-policy-group" style="display: none;">
+                      <label for="xmpp-tls-policy" data-tooltip="STARTTLS negotiation policy for the XMPP stream." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP STARTTLS policy">STARTTLS:</label>
+                      <select id="xmpp-tls-policy" data-tooltip="XMPP STARTTLS: Required. The stream must be encrypted before credentials are sent." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP STARTTLS policy">
+                        <option value="required" selected title="Required (default) - the stream must be upgraded to TLS before any credential is sent. The server advertises STARTTLS as mandatory and refuses plaintext authentication.">Required</option>
+                        <option value="preferred" title="Preferred - the stream is upgraded to TLS when the peer offers it, but authentication still proceeds on a plaintext stream when it does not.">Preferred</option>
+                        <option value="disabled" title="Disabled - encryption is not required. The server stops advertising STARTTLS. As a client the Simulator still accepts an upgrade that a third-party server insists on, so Disabled means 'do not require TLS', not 'refuse TLS'.">Disabled</option>
+                      </select>
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-tls-ca-group" style="display: none;">
+                      <label for="xmpp-tls-ca-path" data-tooltip="Custom CA certificate used to verify the XMPP server certificate." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP CA certificate path">CA cert:</label>
+                      <input type="text" id="xmpp-tls-ca-path" placeholder="(system default)" data-tooltip="Path to a custom CA certificate file (PEM) used to verify the XMPP server certificate. Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs that are not in the system trust store." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP CA certificate path">
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-tls-cert-group" style="display: none;">
+                      <label for="xmpp-tls-cert-path" data-tooltip="Server certificate presented during STARTTLS." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP server certificate path">TLS cert:</label>
+                      <input type="text" id="xmpp-tls-cert-path" placeholder="(automatic self-signed)" data-tooltip="Path to the server certificate file (PEM) presented during STARTTLS. Leave empty to let the app generate an automatic self-signed certificate for local testing. Requires a matching private key." data-tooltip-icon="🔒" data-tooltip-kind="secure" aria-label="XMPP server certificate path">
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-tls-key-group" style="display: none;">
+                      <label for="xmpp-tls-key-path" data-tooltip="Private key matching the XMPP server certificate." data-tooltip-icon="🔑" data-tooltip-kind="secure" aria-label="XMPP server private key path">TLS key:</label>
+                      <input type="text" id="xmpp-tls-key-path" placeholder="(automatic self-signed)" data-tooltip="Path to the private key file (PEM) that matches the XMPP server certificate. Required whenever a certificate path is set. Leave empty to use the automatic self-signed certificate." data-tooltip-icon="🔑" data-tooltip-kind="secure" aria-label="XMPP server private key path">
+                    </div>
+                    <div class="control-group aligned-group unverified-tls-group" id="xmpp-allow-unverified-group" style="display: none;">
+                      <label for="xmpp-allow-unverified" class="unverified-tls-check" data-tooltip="Warning: accept any XMPP server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. STARTTLS still encrypts the stream, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified XMPP TLS certificates">
+                        <input type="checkbox" id="xmpp-allow-unverified" data-tooltip="Warning: accept any XMPP server certificate&#10;---&#10;Certificate verification is disabled for every host, not only localhost. STARTTLS still encrypts the stream, but the server identity is not checked. Use only for local self-signed testing." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Allow unverified XMPP TLS certificates"> Allow unverified
+                      </label>
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-allow-remote-group" style="display: none;">
+                      <label for="xmpp-allow-remote" data-tooltip="Allow the built-in XMPP server to bind a non-loopback address." data-tooltip-icon="🌐" data-tooltip-kind="warning" aria-label="Allow remote XMPP clients">
+                        <input type="checkbox" id="xmpp-allow-remote" data-tooltip="Allow remote clients to reach the built-in XMPP server.&#10;---&#10;Left off, the server binds a loopback address only, so nothing outside this machine can sign in.&#10;Turn it on to bind an address such as 0.0.0.0 and accept connections from the network." data-tooltip-icon="🌐" data-tooltip-kind="warning" aria-label="Allow remote XMPP clients to sign in"> Allow remote
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div id="protocol-settings-panel-advanced" class="protocol-settings-panel" role="tabpanel" tabindex="0" aria-labelledby="protocol-settings-tab-advanced" hidden>
+                  <div class="protocol-settings-group" id="grpc-advanced" data-protocol="grpc" data-section="advanced">
+                    <div class="control-group aligned-group" id="grpc-header-path-key-group" style="display: none;">
+                      <label for="grpc-header-path-key">Header path key:</label>
+                      <input type="text" id="grpc-header-path-key" value="grpc-path" title="gRPC endpoint header path key">
+                    </div>
+                    <div class="control-group aligned-group" id="grpc-header-path-group" style="display: none;">
+                      <label for="grpc-header-path" data-tooltip="gRPC endpoint header path sent as metadata on every outgoing call." aria-label="gRPC endpoint header path">Header path:</label>
+                      <input type="text" id="grpc-header-path" value="replace.with.dedicated.uid" title="gRPC endpoint header path">
+                    </div>
+                  </div>
+                  <div class="protocol-settings-group" id="http-advanced" data-protocol="http" data-section="advanced">
+                  </div>
+                  <div class="protocol-settings-group" id="ws-advanced" data-protocol="ws" data-section="advanced">
+                    <div class="control-group aligned-group" id="ws-subscription-msg-group" style="display: none;">
+                      <label for="ws-subscription-msg">Subscribe:</label>
+                      <input type="text" id="ws-subscription-msg" placeholder="(optional)" title="Optional subscription message sent to the WebSocket server immediately after connecting. Many WebSocket APIs require a subscription or authentication message before they begin streaming data. Leave empty if not needed.">
+                    </div>
+                    <div class="control-group aligned-group" id="ws-ignore-first-msg-group" style="display: none;">
+                      <label for="ws-ignore-first-msg">
+                         <input type="checkbox" id="ws-ignore-first-msg" title="Ignore the first message received after connecting. Some WebSocket servers send a subscription acknowledgment or welcome message before actual data. Enable this to skip that first message so only real data is processed."> Ignore 1st msg
+                      </label>
+                    </div>
+                    <div class="control-group aligned-group" id="ws-headers-group" style="display: none;">
+                      <label for="ws-headers">Headers:</label>
+                      <input type="text" id="ws-headers" placeholder='(optional, JSON)' title='Custom HTTP headers sent during the WebSocket upgrade handshake, as a JSON object (e.g. {"Authorization":"Bearer token123","X-Custom":"value"}). Leave empty if no custom headers are needed.'>
+                    </div>
+                  </div>
+                  <div class="protocol-settings-group" id="xmpp-advanced" data-protocol="xmpp" data-section="advanced">
+                    <div class="control-group combined-input-group aligned-group" id="xmpp-timeouts-group" style="display: none;">
+                      <label for="xmpp-connect-timeout" data-tooltip="Connect and reply timeouts, in milliseconds." data-tooltip-icon="⏱" data-tooltip-kind="info" aria-label="XMPP timeouts">Timeouts ms:</label>
+                      <input type="number" id="xmpp-connect-timeout" value="30000" min="1" step="1000" data-tooltip="Connect timeout, in milliseconds.&#10;---&#10;How long to wait for the stream to negotiate, authenticate and bind a resource before the attempt fails.&#10;Default is 30000.&#10;Must be a positive whole number; there is no wait-forever value." data-tooltip-icon="⏱" data-tooltip-kind="info" aria-label="XMPP connect timeout in milliseconds">
+                      <input type="number" id="xmpp-reply-timeout" value="15000" min="1" step="1000" data-tooltip="Reply timeout, in milliseconds.&#10;---&#10;How long to wait for a reply to a request that expects one, such as a room entry confirmation or a ping result.&#10;Default is 15000.&#10;Must be a positive whole number; there is no wait-forever value." data-tooltip-icon="⏱" data-tooltip-kind="info" aria-label="XMPP reply timeout in milliseconds">
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-ping-interval-group" style="display: none;">
+                      <label for="xmpp-ping-interval" data-tooltip="Keepalive ping interval, in milliseconds." data-tooltip-icon="📶" data-tooltip-kind="info" aria-label="XMPP keepalive ping interval">Ping ms:</label>
+                      <input type="number" id="xmpp-ping-interval" value="60000" min="1" step="1000" data-tooltip="Keepalive ping interval, in milliseconds.&#10;---&#10;Sends an XEP-0199 ping on an otherwise idle stream so an intermediate firewall does not drop it.&#10;Default is 60000.&#10;Must be a positive whole number; the keepalive cannot be switched off." data-tooltip-icon="📶" data-tooltip-kind="info" aria-label="XMPP keepalive ping interval in milliseconds">
+                    </div>
+                    <div class="control-group aligned-group" id="xmpp-reconnect-delay-group" style="display: none;">
+                      <label for="xmpp-reconnect-delay" data-tooltip="Delay before an automatic reconnect, in milliseconds." data-tooltip-icon="🔄" data-tooltip-kind="info" aria-label="XMPP reconnect delay">Reconnect ms:</label>
+                      <input type="number" id="xmpp-reconnect-delay" value="60000" min="1" step="1000" data-tooltip="Automatic reconnect delay, in milliseconds.&#10;---&#10;How long to wait after a dropped stream before signing in again.&#10;A reconnect re-binds the resource and re-joins the room; stream resumption is not implemented, so nothing sent while offline is replayed.&#10;Default is 60000.&#10;Must be a positive whole number; automatic reconnect cannot be switched off." data-tooltip-icon="🔄" data-tooltip-kind="info" aria-label="XMPP automatic reconnect delay in milliseconds">
+                    </div>
+                  </div>
+                </div>
+                <div id="protocol-settings-panel-summary" class="protocol-settings-panel protocol-settings-summary" role="tabpanel" tabindex="0" aria-labelledby="protocol-settings-tab-summary" hidden>
+                  <p id="protocol-settings-empty" class="protocol-settings-empty" hidden>TCP has no protocol settings. Connection type, host, and port stay in the connection row.</p>
+                  <dl id="protocol-settings-summary-rows" class="connection-summary-rows"></dl>
+                </div>
+              </div>
+            </div>
+            <div class="control-group aligned-group xmpp-actions" id="xmpp-copy-settings-group" role="group" aria-label="XMPP server client settings" style="display: none;">
+              <label for="xmpp-copy-settings" data-tooltip="Copy the settings a receiver needs to sign in to this server." data-tooltip-icon="📋" data-tooltip-kind="info" aria-label="Copy XMPP client settings">Client cfg:</label>
+              <button type="button" id="xmpp-copy-settings" class="xmpp-copy-settings-btn" disabled data-tooltip="Copy the settings a receiver needs to sign in to this server.&#10;---&#10;Connect the XMPP server first so its bound address and generated identity are known.&#10;Copies canonical option=value lines: ip, port, xmppDomain, xmppTlsPolicy, xmppAllowUnverifiedTls, the account, destination or room, and reconnect timing.&#10;The account password is left out unless 'Include password' is checked." data-tooltip-icon="📋" data-tooltip-kind="info" aria-label="Copy XMPP client settings to the clipboard">Copy Client Settings</button>
+              <label for="xmpp-copy-password" class="xmpp-inline-check" data-tooltip="Include the external account password in the copied settings." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Include password when copying client settings">
+                <input type="checkbox" id="xmpp-copy-password" disabled data-tooltip="Include the external account password in the copied settings.&#10;---&#10;Available while the XMPP server is connected. It resets after every successful copy so later copies cannot include a credential accidentally." data-tooltip-icon="⚠" data-tooltip-kind="warning" aria-label="Include the external account password when copying client settings"> Include password
+              </label>
+            </div>
+            <div class="protocol-settings-footer">
+              <button id="protocol-settings-reset" type="button" class="protocol-settings-secondary" disabled aria-label="Reset to preset" data-tooltip="Restore every field of the preset these settings started from. Available only after a preset is applied and edited." data-tooltip-icon="↺" data-tooltip-kind="info">Reset to preset</button>
+              <button id="protocol-settings-revert" type="button" class="protocol-settings-secondary" disabled aria-label="Revert changes" data-tooltip="Restore the values this dialog opened with. Fields outside the dialog are untouched." data-tooltip-icon="⟲" data-tooltip-kind="info">Revert changes</button>
+              <button id="protocol-settings-done" type="button" class="protocol-settings-done" aria-label="Done" data-tooltip="Keep your edits and close Protocol Settings. Nothing connects until you select Connect." data-tooltip-icon="✓" data-tooltip-kind="success">Done</button>
+            </div>
+          </dialog>
         </div>
+        <!--
+          Inline Connection Summary. It is rendered from the same generator as the
+          status-bar button and the read-only Summary section of Protocol Settings,
+          so the three surfaces can never disagree.
+        -->
+        <section id="connection-summary-card" class="connection-summary-card" tabindex="-1" aria-labelledby="connection-summary-card-title">
+          <div class="connection-summary-card-header">
+            <h2 id="connection-summary-card-title" class="connection-summary-card-title">Connection summary</h2>
+            <div class="connection-summary-card-actions">
+              <button id="connection-summary-show-all" type="button" class="connection-summary-action" aria-label="Show all connection settings" data-tooltip="Show every connection setting, with warnings first, in a read-only summary." data-tooltip-icon="▤" data-tooltip-kind="info">Show all</button>
+              <button id="connection-summary-copy" type="button" class="connection-summary-action" aria-label="Copy the connection summary" data-tooltip="Copy the connection summary as text. Passwords are never copied." data-tooltip-icon="⧉" data-tooltip-kind="info">Copy</button>
+            </div>
+          </div>
+          <dl id="connection-summary-rows" class="connection-summary-rows" aria-live="polite"></dl>
+        </section>
         <div class="control-group combined-input-group aligned-group">
           <label for="lines-per-interval">Lines / ms:</label>
           <input type="number" id="lines-per-interval" value="1" min="1" step="1" title="Lines count">
@@ -492,6 +546,9 @@
           <span id="auth-badge-content" class="tls-badge-content"></span>
         </span>
       </span>
+      <button id="connection-summary-status-btn" class="connection-summary-status-btn" type="button" aria-haspopup="dialog" aria-controls="protocol-settings-dialog" aria-label="Connection summary" data-tooltip="Connection summary&#10;---&#10;Select or press Enter to open the full read-only summary. Hovering only previews this line." data-tooltip-icon="▤" data-tooltip-kind="info">
+        <span id="connection-summary-status-label" class="connection-summary-status-label">TCP Server · 127.0.0.1:5565</span>
+      </button>
     </div>
     <div class="status-bar-right">
       <div id="lines-sent-container" class="status-text">
@@ -505,6 +562,7 @@
   <script src="tooltip-utils.js"></script>
   <script src="velocity-auth-utils.js"></script>
   <script src="connection-presets.js"></script>
+  <script src="connection-summary.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

@@ -20,7 +20,7 @@
  * Backend transport abstraction used by the headless simulation engine.
  *
  * Purpose:
- * - provide a single API for TCP/UDP/gRPC/XMPP + server/client combinations
+ * - provide a single API for TCP/UDP/HTTP/WebSocket/gRPC/XMPP server/client combinations
  * - hide socket/server implementation details from the simulation engine
  * - track recipient availability for server-side replay scenarios
  * - emit lifecycle/status events that can be consumed by logging, tests, or orchestration
@@ -49,10 +49,10 @@ const dgram = require('dgram');
  * Node socket or server. Keeping the set in one place avoids per-protocol
  * branches spreading through the lifecycle methods.
  */
-const OBJECT_TRANSPORT_PROTOCOLS = new Set(['grpc', 'xmpp']);
+const OBJECT_TRANSPORT_PROTOCOLS = new Set(['grpc', 'http', 'ws', 'xmpp']);
 
 /**
- * Manages TCP/UDP/gRPC/XMPP connections for both client and server execution paths.
+ * Manages TCP/UDP/HTTP/WebSocket/gRPC/XMPP connections for client and server paths.
  *
  * This class is intentionally renderer-independent so it can be used from:
  * - true headless runs
@@ -193,7 +193,7 @@ class TransportManager extends EventEmitter {
 
   /**
    * Entry point for transport creation.
-   * Dispatches to the correct TCP/UDP + client/server implementation.
+   * Dispatches to the correct protocol and client/server implementation.
    */
   async connect(options) {
     const {
@@ -203,7 +203,10 @@ class TransportManager extends EventEmitter {
       connectTimeoutMs = 0, connectWaitForServer = false, connectRetryIntervalMs = 1000,
     } = options;
     if (this.connection) {
-      throw new Error('A connection is already active.');
+      if (this.isConnected()) {
+        throw new Error('A connection is already active.');
+      }
+      await this.disconnect();
     }
 
     this.protocol = protocol;
@@ -219,6 +222,14 @@ class TransportManager extends EventEmitter {
       return this.connectXmpp(options);
     }
 
+    if (protocol === 'http') {
+      return this.connectHttp(options);
+    }
+
+    if (protocol === 'ws') {
+      return this.connectWebSocket(options);
+    }
+
     if (protocol === 'tcp') {
       return mode === 'server'
         ? this.connectTcpServer({ ip, port, connectTimeoutMs })
@@ -228,6 +239,133 @@ class TransportManager extends EventEmitter {
     return mode === 'server'
       ? this.connectUdpServer({ ip, port, connectTimeoutMs })
       : this.connectUdpClient({ ip, port, connectTimeoutMs, connectWaitForServer, connectRetryIntervalMs });
+  }
+
+  /**
+   * Connects the existing HTTP transport implementation to the headless lifecycle.
+   * A client also opens the transport's SSE subscription so inbound server broadcasts
+   * remain observable through `data-received`.
+   */
+  async connectHttp(options) {
+    const { createHttpClientTransport, createHttpServerTransport } = require('./http-transport.js');
+    const { mode, ip, port, httpFormat = 'delimited', httpPath = '/' } = options;
+    const shared = {
+      ...options,
+      onLog: (level, message) => this.log(level, message),
+      onData: (data, metadata) => {
+        const clientKey = metadata.remote || null;
+        this.emit('data-received', { protocol: 'http', mode, data, clientKey, metadata });
+        this.log('debug', `[HTTP] Received from ${clientKey || 'peer'}: ${data}`);
+      },
+    };
+    const onClientConnected = () => {
+      this.emit('client-connected', { protocol: 'http', mode: 'server' });
+      this.resolveRecipientWaiters();
+    };
+    const onClientDisconnected = () => {
+      this.emit('client-disconnected', { protocol: 'http', mode: 'server' });
+    };
+    const transport = mode === 'client'
+      ? createHttpClientTransport(shared)
+      : createHttpServerTransport({ ...shared, onClientConnected, onClientDisconnected });
+
+    this.connection = transport;
+    try {
+      const result = await transport.connect();
+      const target = mode === 'client'
+        ? result.address
+        : `${result.address.address}:${result.address.port}${httpPath.startsWith('/') ? httpPath : `/${httpPath}`}`;
+      this.emitStatus('connected', `HTTP ${mode} ${mode === 'client' ? 'connected to' : 'listening on'} ${target} [${httpFormat}]\n  ${result.tlsInfo || 'tls=off'}`);
+      return result;
+    } catch (error) {
+      await transport.disconnect().catch(() => {});
+      if (this.connection === transport) this.connection = null;
+      this.emitStatus('disconnected', `HTTP ${mode} connection failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Connects the existing WebSocket transport implementation to headless execution.
+   * Client retries use the same deadline/spacing options as TCP client retries.
+   */
+  async connectWebSocket(options) {
+    const { createWsClientTransport, createWsServerTransport } = require('./ws-transport.js');
+    const {
+      mode, ip, port, wsFormat = 'delimited', wsPath = '/',
+      connectTimeoutMs = 0, connectWaitForServer = false, connectRetryIntervalMs = 1000,
+    } = options;
+    const shared = {
+      ...options,
+      onData: (data, metadata) => {
+        const clientKey = metadata.remote || null;
+        this.emit('data-received', { protocol: 'ws', mode, data, clientKey, metadata });
+        this.log('debug', `[WebSocket] Received from ${clientKey || 'peer'}: ${data}`);
+      },
+      onStateChange: (state, detail = {}) => {
+        this.emit('transport-state', { protocol: 'ws', mode, state, detail });
+        if (state === 'closed' && this.connection) {
+          this.emitStatus('disconnected', detail.message || 'WebSocket connection closed.');
+        } else if (state === 'error') {
+          this.log('warn', `[WebSocket] ${detail.message || 'Transport error.'}`);
+        }
+      },
+    };
+
+    if (mode === 'server') {
+      const transport = createWsServerTransport({
+        ...shared,
+        onClientConnected: () => {
+          this.emit('client-connected', { protocol: 'ws', mode: 'server' });
+          this.resolveRecipientWaiters();
+        },
+        onClientDisconnected: () => {
+          this.emit('client-disconnected', { protocol: 'ws', mode: 'server' });
+        },
+      });
+      this.connection = transport;
+      try {
+        const result = await transport.connect();
+        this.emitStatus('connected', `WebSocket server listening on ${result.url} [${wsFormat}]\n  ${result.tlsInfo || 'tls=off'}`);
+        return result;
+      } catch (error) {
+        await Promise.resolve(transport.disconnect()).catch(() => {});
+        if (this.connection === transport) this.connection = null;
+        this.emitStatus('disconnected', `WebSocket server connection failed: ${error.message}`);
+        throw error;
+      }
+    }
+
+    const deadline = connectTimeoutMs > 0 ? Date.now() + connectTimeoutMs : null;
+    let attempt = 0;
+    for (;;) {
+      const transport = createWsClientTransport(shared);
+      this.connection = transport;
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const result = await transport.connect();
+        this.emitStatus('connected', `WebSocket client connected to ${result.address} [${wsFormat}]\n  ${result.tlsInfo || 'tls=off'}`);
+        return result;
+      } catch (error) {
+        // eslint-disable-next-line no-await-in-loop
+        await Promise.resolve(transport.disconnect()).catch(() => {});
+        if (this.connection === transport) this.connection = null;
+        attempt += 1;
+        if (!connectWaitForServer) {
+          this.emitStatus('disconnected', `WebSocket client connection failed: ${error.message}`);
+          throw error;
+        }
+        const remaining = deadline ? deadline - Date.now() : Infinity;
+        if (remaining <= 0) {
+          throw new Error(`Timed out waiting for WebSocket server at ${ip}:${port}${wsPath} after ${connectTimeoutMs}ms (${attempt} attempt(s)).`);
+        }
+        const delay = Math.min(connectRetryIntervalMs, remaining);
+        this.emitStatus('connecting', `Waiting for WebSocket server at ${ip}:${port}. Retry in ${delay}ms.`);
+        this.log('info', `WebSocket server not yet available at ${ip}:${port} (${error.message}). Retrying in ${delay}ms... (attempt ${attempt})`);
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
   }
 
   /**
@@ -314,7 +452,7 @@ class TransportManager extends EventEmitter {
     const ser = grpcSerialization || 'protobuf';
     if (mode === 'client') {
       const useStreaming = grpcSendMethod !== 'unary';
-      const transport = createGrpcClientTransport({ ip, port, grpcSerialization, useStreaming, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls });
+      const transport = createGrpcClientTransport({ ip, port, grpcSerialization, useStreaming, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls, onLog: (level, message) => this.log(level, message) });
       const result = await transport.connect();
       this.connection = transport;
       this.emitStatus('connected', `gRPC client connected to ${ip}:${port} [${ser}] ${headerPathKey}=${headerPath}\n  ${result.tlsInfo || 'tls=off'}`);
@@ -654,7 +792,22 @@ class TransportManager extends EventEmitter {
     }
 
     if (OBJECT_TRANSPORT_PROTOCOLS.has(this.protocol)) {
-      return this.connection.send(data);
+      const result = await this.connection.send(data);
+      if (result && result.reason === 'no-watchers') {
+        return { ...result, reason: 'no-clients' };
+      }
+      if (result && typeof result.delivered === 'boolean') {
+        return result;
+      }
+      if (this.mode === 'server') {
+        const recipients = typeof this.connection.getClientCount === 'function'
+          ? this.connection.getClientCount()
+          : (this.connection.hasRecipients() ? 1 : 0);
+        return recipients > 0
+          ? { delivered: true, recipients }
+          : { delivered: false, recipients: 0, reason: 'no-clients' };
+      }
+      return { delivered: true, recipients: 1 };
     }
 
     if (this.connection instanceof net.Server) {
@@ -748,6 +901,10 @@ class TransportManager extends EventEmitter {
 
     if (OBJECT_TRANSPORT_PROTOCOLS.has(this.protocol)) {
       await activeConnection.disconnect();
+      if (this.protocol === 'http' || this.protocol === 'ws') {
+        const label = this.protocol === 'http' ? 'HTTP' : 'WebSocket';
+        this.emitStatus('disconnected', `${label} ${this.mode} disconnected.`);
+      }
       return;
     }
 

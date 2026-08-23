@@ -60,6 +60,22 @@ function writeDoneFile(doneFile, payload) {
 }
 
 /**
+ * Tears down transport resources without letting a teardown failure change the
+ * outcome of the run.
+ *
+ * A peer that disappeared before shutdown, or a socket that never answered its
+ * close handshake, is a diagnostic: a replay that already completed must still
+ * report success and exit 0.
+ */
+async function disconnectQuietly(transport, logger, context = 'after the run') {
+  try {
+    await transport.disconnect();
+  } catch (error) {
+    logger.warn(`[Transport] Teardown ${context} reported: ${error.message}`);
+  }
+}
+
+/**
  * Runs one fully configured headless session.
  *
  * Behavior summary:
@@ -114,7 +130,7 @@ async function runHeadlessSession(options, { app = null, logger = null } = {}) {
       return new Promise(() => {});
     }
 
-    await transport.disconnect();
+    await disconnectQuietly(transport, logger);
     logger.info(`Headless run finished with status '${summary.status}'. Lines processed: ${summary.linesSent}`);
     writeDoneFile(options.doneFile, {
       ...baseDonePayload,
@@ -130,11 +146,7 @@ async function runHeadlessSession(options, { app = null, logger = null } = {}) {
     return EXIT_CODES.success;
   } catch (error) {
     logger.error(`Headless run failed: ${error.message}`);
-    try {
-      await transport.disconnect();
-    } catch (disconnectError) {
-      logger.warn(`Additional disconnect error: ${disconnectError.message}`);
-    }
+    await disconnectQuietly(transport, logger, 'after a failed run');
 
     writeDoneFile(options.doneFile, {
       ...baseDonePayload,

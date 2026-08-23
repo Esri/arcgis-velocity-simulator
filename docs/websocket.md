@@ -38,6 +38,19 @@ security](tls.md) guide.
 | WebSocket Client | Connects to a remote WebSocket server (ws:// or wss://) and sends data as text frames. |
 | WebSocket Server | Starts a local WebSocket server that accepts incoming ws:// or wss:// connections and broadcasts data to all connected clients. |
 
+Both roles are supported by the renderer-independent headless
+`TransportManager`, reusing `src/ws-transport.js` for the same connect, send,
+receive, recipient, and disconnect behavior as the UI.
+
+Disconnect closes every connected client, then the WebSocket server, then the
+underlying HTTP server, and only reports `disconnected` once the listening
+socket has been released. Reconnecting on the same port immediately after that
+message therefore succeeds. Each close is bounded by a short wait, so a client
+that never answers the close handshake is terminated instead of stalling the
+disconnect. When a port is already in use, connecting fails with a
+`WebSocket server failed to bind on <host>:<port>` message rather than an
+unhandled error.
+
 ## Format options
 
 The WebSocket Format dropdown controls the Content-Type associated with each
@@ -113,25 +126,43 @@ Useful for authentication tokens or API keys required by the WebSocket endpoint.
 
 ## UI controls
 
-When WebSocket is selected as the connection type, a **▸ WebSocket Options**
-section-divider row appears between the connection-type row and the IP/Port row.
-Click it to expand or collapse the protocol-specific controls. See [HTTP and
-HTTPS transport](http.md#ui-controls) for a description of the disclosure row UX
-pattern.
+When WebSocket is selected in the **Mode** dropdown, a **WebSocket Settings…**
+button appears below the **Connection** row. It opens the Protocol Settings
+dialog, which holds every WebSocket-specific control, and it carries a concise
+configured state, such as `WebSocket · defaults` or
+`WebSocket · 2 changed · 1 warning`. Open it with the button or with
+`Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on Windows and Linux.
+The dialog layout, its sections, and the Done, Revert changes, and Reset to
+preset actions are described in
+[Protocol settings and presets](connection-presets.md#the-protocol-settings-dialog).
 
-The following controls appear inside the expanded section:
+Host, port, and the connection mode stay in the panel, because they apply to
+every protocol.
+
+The dialog offers three sections for WebSocket:
+
+**Basics**
 
 - **Format** - `Delimited (CSV)` (default), `JSON`, `Esri JSON`, `GeoJSON`, or `XML`.
+- **WS path** - URL path (default `/`).
+
+**Security**
+
 - **Use TLS** - Checkbox: checked = `wss://` (port 8443), unchecked = `ws://` (port 8080).
-- **WS Path** - URL path (default `/`).
-- **Advanced** - Collapsed disclosure holding the certificate paths, the verification option, the subscription message, **Ignore 1st msg**, and the headers field. Format, TLS, and WS path stay visible above it. See [Connection presets](connection-presets.md#progressive-disclosure).
-- **CA cert path** - Custom CA certificate (PEM). Inside **Advanced**.
-- **TLS cert path** - Client/server certificate (PEM). Inside **Advanced**.
-- **TLS key path** - Private key (PEM). Inside **Advanced**.
-- **Allow unverified** - Client-only warning checkbox inside **Advanced**, shown when TLS is enabled. Accepts an unverified server certificate for any host. Off by default; see [TLS and SSL security](tls.md#explicit-certificate-verification-bypass).
-- **Subscribe** - Optional subscription message sent after connecting. Inside **Advanced**.
-- **Ignore 1st msg** - Checkbox to skip the first received message. Inside **Advanced**.
-- **Headers** - Custom HTTP headers as JSON for the upgrade handshake. Inside **Advanced**.
+- **CA cert** - Custom CA certificate (PEM). Client mode only.
+- **TLS cert** - Client or server certificate (PEM).
+- **TLS key** - Private key (PEM).
+- **Allow unverified** - Client-only warning checkbox, shown when TLS is enabled. Accepts an unverified server certificate for any host. Off by default; see [TLS and SSL security](tls.md#explicit-certificate-verification-bypass).
+
+**Advanced**
+
+- **Subscribe** - Optional subscription message sent after connecting.
+- **Ignore 1st msg** - Checkbox to skip the first received message.
+- **Headers** - Custom HTTP headers as JSON for the upgrade handshake.
+
+The current format, path, TLS state, and effective `ws://` or `wss://` URL are
+also reported by the [connection summary](connection-summary.md), which never
+shows a secret value.
 
 ## Tooltip reference
 
@@ -160,7 +191,7 @@ The following controls appear inside the expanded section:
 | CA cert path | Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store automatically. |
 | TLS cert path | Path to a client or server certificate file (PEM). Required for server-mode TLS. |
 | TLS key path | Path to the private key file (PEM). Required for server-mode TLS and client-side mTLS. |
-| Advanced | Show or hide the advanced WebSocket certificate, verification, subscription, and header options. Format, TLS, and WS path stay visible above. |
+| WebSocket Settings… | Open WebSocket settings (Cmd+Shift+P / Ctrl+Shift+P).<br>---<br>Everything specific to WebSocket is edited in the dialog: format, WS path, TLS, certificates, subscription message, and headers.<br>Configured: &lt;state&gt;.<br>Nothing is sent until you select Connect. |
 | Allow unverified | Warning: accept any WSS server certificate<br>---<br>Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing. |
 | WS path | WebSocket endpoint URL path appended after the host:port (e.g. /feed/stream-id). Default is /. |
 | Subscribe | Optional subscription message sent to the WebSocket server immediately after connecting. Leave empty if not needed. |
@@ -189,17 +220,23 @@ formats, OS trust store behaviour, and setup guides.
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `--protocol ws` | Use WebSocket transport | - |
-| `--mode client\|server` | Connection mode | `server` |
-| `--wsFormat <format>` | Data format (`delimited`, `json`, `esri-json`, `geo-json`, `xml`) | `delimited` |
-| `--wsTls` | Enable TLS (WSS) | `true` |
-| `--wsTlsCaPath <path>` | CA certificate file path | system default |
-| `--wsTlsCertPath <path>` | Client/server certificate file path | - |
-| `--wsTlsKeyPath <path>` | Private key file path | - |
-| `--wsPath <path>` | WebSocket endpoint URL path | `/` |
-| `--wsSubscriptionMsg <msg>` | Subscription message sent after connecting | - |
-| `--wsIgnoreFirstMsg` | Ignore first received message | `false` |
-| `--wsHeaders <json>` | Custom HTTP headers as JSON string | - |
+| `protocol=ws` | Use WebSocket transport. | - |
+| `mode=client\|server` | Connect outward as a client or host a broadcast server. | `server` |
+| `wsFormat=<format>` | Message format: `delimited`, `json`, `esri-json`, `geo-json`, or `xml`. | `delimited` |
+| `wsPath=<path>` | Upgrade endpoint path. A missing leading slash is added. | `/` |
+| `wsTls=true\|false` | Use WSS when true or unsecure WS when false. | `true` |
+| `wsTlsCaPath=<path>` | Custom CA certificate PEM; otherwise use system/Node trust in client mode. | `(none)` |
+| `wsTlsCertPath=<path>` | Client mTLS or server identity certificate PEM. | `(none)` |
+| `wsTlsKeyPath=<path>` | Private key PEM paired with the certificate. | `(none)` |
+| `wsAllowUnverifiedTls=true\|false` | Client only: explicitly disable WSS certificate verification for any host. Encryption remains enabled. | `false` |
+| `wsSubscriptionMsg=<text>` | Client-only text frame sent immediately after open. | `(none)` |
+| `wsIgnoreFirstMsg=true\|false` | Client-only: discard the first received frame, commonly a subscription acknowledgement. | `false` |
+| `wsHeaders=<json>` | Client-only JSON object of HTTP upgrade headers. | `(none)` |
+
+In headless server mode, `waitForClient=true` pauses replay until at least one
+WebSocket is open and pauses again whenever the recipient count returns to zero.
+Client connection retry and restart recovery honor `connectWaitForServer`,
+`connectRetryIntervalMs`, and `connectTimeoutMs`.
 
 ## Metadata logging
 
@@ -235,7 +272,8 @@ WebSocket parameters can be set in launch configuration JSON files:
 | Document | Purpose |
 |----------|---------|
 | [TLS and SSL security](tls.md) | Certificate types, trust stores, mutual TLS, and the TLS Trust Badge. |
-| [Connection presets](connection-presets.md) | Paired Simulator and Logger presets and the Essentials plus Advanced layout. |
+| [Protocol settings and presets](connection-presets.md) | The Protocol Settings dialog, its sections, and the paired Simulator and Logger presets. |
+| [Connection summary and protocol settings](connection-summary.md) | The read-only description of the current connection, its warnings, and the effective URL. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
 | [HTTP and HTTPS transport](http.md) | HTTP and HTTPS modes, data formats, and request paths. |

@@ -25,6 +25,7 @@
   let showTimer;
   let hideTimer;
   let activeTooltipText = '';
+  let activeTooltipMode = '';
   let nativeTitleSuppressorInstalled = false;
   let originalSetAttribute;
   let originalRemoveAttribute;
@@ -307,6 +308,23 @@
     return normalizeTooltipText(target.getAttribute('data-tooltip')) ? target : null;
   }
 
+  function getTooltipTrigger(target) {
+    return String((target && target.getAttribute('data-tooltip-trigger')) || 'hover').toLowerCase();
+  }
+
+  function supportsHoverTrigger(target) {
+    return getTooltipTrigger(target) !== 'click';
+  }
+
+  function supportsClickTrigger(target) {
+    const trigger = getTooltipTrigger(target);
+    return trigger === 'click' || trigger === 'both';
+  }
+
+  function shouldPersistOnScroll(target) {
+    return target && String(target.getAttribute('data-tooltip-persist-scroll') || '').toLowerCase() === 'true';
+  }
+
   function setTooltipContent(target) {
     const text = normalizeTooltipText(target.getAttribute('data-tooltip'));
     const icon = inferTooltipIcon(text, target);
@@ -319,11 +337,44 @@
     renderTooltipText(text);
     copyButtonEl.textContent = 'Copy';
     copyButtonEl.classList.remove('copied');
-    target.setAttribute('aria-describedby', 'custom-tooltip');
+    addTooltipDescription(target);
     tooltipEl.id = 'custom-tooltip';
   }
 
+  /**
+   * Adds the tooltip to a target's descriptions without discarding one it
+   * already has, so a validation banner association survives a hover.
+   */
+  function addTooltipDescription(target) {
+    const tokens = (target.getAttribute('aria-describedby') || '')
+      .split(/\s+/)
+      .filter((token) => token && token !== 'custom-tooltip');
+    target.setAttribute('aria-describedby', [...tokens, 'custom-tooltip'].join(' '));
+  }
+
+  /** Removes only the tooltip token, restoring any other description. */
+  function removeTooltipDescription(target) {
+    const tokens = (target.getAttribute('aria-describedby') || '')
+      .split(/\s+/)
+      .filter((token) => token && token !== 'custom-tooltip');
+    if (tokens.length) target.setAttribute('aria-describedby', tokens.join(' '));
+    else target.removeAttribute('aria-describedby');
+  }
+
+  /**
+   * Keeps the tooltip in the same layer as its target. A modal <dialog> paints
+   * in the browser top layer, above everything in the body, so a tooltip for a
+   * control inside one has to live inside that dialog to stay visible.
+   */
+  function attachTooltipToLayer(target) {
+    if (!tooltipEl || !target || typeof target.closest !== 'function') return;
+    const openDialog = target.closest('dialog[open]');
+    const host = openDialog || document.body;
+    if (tooltipEl.parentElement !== host) host.appendChild(tooltipEl);
+  }
+
   function positionTooltip(target) {
+    attachTooltipToLayer(target);
     const rect = target.getBoundingClientRect();
     const tipRect = tooltipEl.getBoundingClientRect();
     const margin = 10;
@@ -346,26 +397,30 @@
     positionTooltip(activeTarget);
   }
 
-  function showTooltip(target) {
+  function showTooltip(target, immediate = false, mode = 'hover') {
     clearTimeout(hideTimer);
     clearTimeout(showTimer);
     ensureTooltipElement();
     activeTarget = target;
-    showTimer = setTimeout(() => {
+    const render = () => {
       if (!activeTarget) return;
+      activeTooltipMode = mode;
       setTooltipContent(activeTarget);
       tooltipEl.classList.add('visible');
       tooltipEl.setAttribute('aria-hidden', 'false');
       positionTooltip(activeTarget);
-    }, 500);
+    };
+    if (immediate) render();
+    else showTimer = setTimeout(render, 500);
   }
 
   function hideTooltip() {
     clearTimeout(showTimer);
     hideTimer = setTimeout(() => {
-      if (activeTarget) activeTarget.removeAttribute('aria-describedby');
+      if (activeTarget) removeTooltipDescription(activeTarget);
       activeTarget = null;
       activeTooltipText = '';
+      activeTooltipMode = '';
       if (tooltipEl) {
         tooltipEl.classList.remove('visible');
         tooltipEl.setAttribute('aria-hidden', 'true');
@@ -381,26 +436,49 @@
 
     document.addEventListener('mouseover', (event) => {
       const target = getTooltipTarget(event.target);
-      if (target) showTooltip(target);
+      if (target && supportsHoverTrigger(target)) showTooltip(target, false, 'hover');
     });
 
     document.addEventListener('mouseout', (event) => {
+      if (activeTarget && activeTooltipMode === 'click') return;
       if (activeTarget && !activeTarget.contains(event.relatedTarget) && (!tooltipEl || !tooltipEl.contains(event.relatedTarget))) hideTooltip();
     });
 
     document.addEventListener('focusin', (event) => {
       const target = getTooltipTarget(event.target);
-      if (target) showTooltip(target);
+      if (target && supportsHoverTrigger(target)) showTooltip(target, false, 'hover');
+    });
+
+    document.addEventListener('click', (event) => {
+      if (tooltipEl && tooltipEl.contains(event.target)) return;
+      const target = getTooltipTarget(event.target);
+      if (!target || !supportsClickTrigger(target)) {
+        if (activeTarget && activeTooltipMode === 'click') hideTooltip();
+        return;
+      }
+      event.stopPropagation();
+      if (activeTarget === target && activeTooltipMode === 'click' && tooltipEl && tooltipEl.classList.contains('visible')) {
+        hideTooltip();
+        return;
+      }
+      showTooltip(target, true, 'click');
     });
 
     document.addEventListener('focusout', (event) => {
+      if (activeTarget && activeTooltipMode === 'click') return;
       if (tooltipEl && tooltipEl.contains(event.relatedTarget)) return;
       hideTooltip();
     });
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') hideTooltip();
     });
-    window.addEventListener('scroll', hideTooltip, true);
+    window.addEventListener('scroll', () => {
+      if (activeTarget && activeTooltipMode === 'click' && shouldPersistOnScroll(activeTarget)) {
+        positionTooltip(activeTarget);
+        return;
+      }
+      hideTooltip();
+    }, true);
     window.addEventListener('resize', hideTooltip);
 
     const observer = new MutationObserver((mutations) => {
@@ -423,7 +501,7 @@
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['title', 'data-tooltip', 'data-tooltip-icon', 'data-tooltip-kind', 'aria-label'],
+      attributeFilter: ['title', 'data-tooltip', 'data-tooltip-icon', 'data-tooltip-kind', 'data-tooltip-trigger', 'data-tooltip-persist-scroll', 'aria-label'],
     });
   }
 

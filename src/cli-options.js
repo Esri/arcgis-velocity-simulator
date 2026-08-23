@@ -74,7 +74,7 @@ const VALID_GRPC_SEND_METHODS = new Set(['stream', 'unary']);
 const VALID_LOG_LEVELS = new Set(['error', 'warn', 'info', 'debug']);
 const DEFAULT_LOG_LEVEL = 'debug';
 const VALID_ON_ERROR = new Set(['exit', 'continue', 'pause']);
-const VALID_DATA_FORMATS = new Set(['json', 'delimited', 'esriJson', 'geojson', 'xml']);
+const VALID_DATA_FORMATS = new Set(['json', 'delimited', 'esri-json', 'geo-json', 'xml']);
 const VALID_XMPP_TLS_POLICIES = new Set(['required', 'preferred', 'disabled']);
 const VALID_XMPP_CONVERSATIONS = new Set(['direct', 'muc']);
 const CLI_OPTION_KEYS = new Set([
@@ -701,10 +701,10 @@ const CLI_PARAMETER_DEFINITIONS = [
   {
     key: 'httpFormat',
     defaultValue: DEFAULT_HEADLESS_OPTIONS.httpFormat,
-    options: ['json', 'delimited', 'esriJson', 'geojson', 'xml'],
+    options: ['json', 'delimited', 'esri-json', 'geo-json', 'xml'],
     example: 'httpFormat=json',
     requiredInHeadless: 'No',
-    purpose: 'HTTP data format controlling the Content-Type header. "json" (application/json), "delimited" (text/plain, CSV), "esriJson" (application/json), "geojson" (application/geo+json), or "xml" (application/xml). Only applies when protocol=http.',
+    purpose: 'HTTP data format controlling the Content-Type header. "json" (application/json), "delimited" (text/plain, CSV), "esri-json" (application/json), "geo-json" (application/geo+json), or "xml" (application/xml). Only applies when protocol=http.',
   },
   {
     key: 'httpPath',
@@ -749,10 +749,10 @@ const CLI_PARAMETER_DEFINITIONS = [
   {
     key: 'wsFormat',
     defaultValue: DEFAULT_HEADLESS_OPTIONS.wsFormat,
-    options: ['json', 'delimited', 'esriJson', 'geojson', 'xml'],
+    options: ['json', 'delimited', 'esri-json', 'geo-json', 'xml'],
     example: 'wsFormat=json',
     requiredInHeadless: 'No',
-    purpose: 'WebSocket data format. "json" (application/json), "delimited" (text/plain, CSV), "esriJson" (application/json), "geojson" (application/geo+json), or "xml" (application/xml). Only applies when protocol=ws.',
+    purpose: 'WebSocket data format. "json" (application/json), "delimited" (text/plain, CSV), "esri-json" (application/json), "geo-json" (application/geo+json), or "xml" (application/xml). Only applies when protocol=ws.',
   },
   {
     key: 'wsHeaders',
@@ -1880,6 +1880,15 @@ function validateHeadlessOptions(values, errors, warnings) {
     options.grpcHeaderPath = String(normalized.grpcHeaderPath).trim();
   }
 
+  if (normalized.grpcSerialization !== undefined) {
+    const serialization = String(normalized.grpcSerialization).trim().toLowerCase();
+    if (!VALID_SERIALIZATIONS.has(serialization)) {
+      errors.push(`Invalid grpcSerialization '${normalized.grpcSerialization}'. Use protobuf, kryo, or text.`);
+    } else {
+      options.grpcSerialization = serialization;
+    }
+  }
+
   if (normalized.grpcSendMethod !== undefined) {
     const method = String(normalized.grpcSendMethod).trim().toLowerCase();
     if (!VALID_GRPC_SEND_METHODS.has(method)) {
@@ -1910,7 +1919,7 @@ function validateHeadlessOptions(values, errors, warnings) {
   if (normalized.httpFormat !== undefined) {
     const fmt = String(normalized.httpFormat).trim().toLowerCase();
     if (!VALID_DATA_FORMATS.has(fmt)) {
-      errors.push(`Invalid httpFormat '${normalized.httpFormat}'. Use json, delimited, esriJson, geojson, or xml.`);
+      errors.push(`Invalid httpFormat '${normalized.httpFormat}'. Use json, delimited, esri-json, geo-json, or xml.`);
     } else { options.httpFormat = fmt; }
   }
   if (normalized.httpTls !== undefined) {
@@ -1933,7 +1942,7 @@ function validateHeadlessOptions(values, errors, warnings) {
   if (normalized.wsFormat !== undefined) {
     const fmt = String(normalized.wsFormat).trim().toLowerCase();
     if (!VALID_DATA_FORMATS.has(fmt)) {
-      errors.push(`Invalid wsFormat '${normalized.wsFormat}'. Use json, delimited, esriJson, geojson, or xml.`);
+      errors.push(`Invalid wsFormat '${normalized.wsFormat}'. Use json, delimited, esri-json, geo-json, or xml.`);
     } else { options.wsFormat = fmt; }
   }
   if (normalized.wsTls !== undefined) {

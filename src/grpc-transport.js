@@ -66,6 +66,115 @@ const SERIALIZATION_FORMATS = Object.freeze({
 
 const VALID_SERIALIZATION_FORMATS = new Set(Object.values(SERIALIZATION_FORMATS));
 
+function writeGrpcMessage(stream, message, label) {
+  return new Promise((resolve, reject) => {
+    try {
+      stream.write(message, (error) => {
+        if (error) reject(new Error(`${label} failed: ${error.message}`));
+        else resolve();
+      });
+    } catch (error) {
+      reject(new Error(`${label} failed: ${error.message}`));
+    }
+  });
+}
+
+function waitForGrpcCompletion(promise, label, timeoutMs = 5000) {
+  let timeout;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timeout = setTimeout(() => reject(new Error(`${label} did not finish within ${timeoutMs}ms.`)), timeoutMs);
+    }),
+  ]).finally(() => {
+    if (timeout) clearTimeout(timeout);
+  });
+}
+
+function endGrpcStream(stream, timeoutMs = 1000) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve();
+    };
+    const timeout = setTimeout(finish, timeoutMs);
+    try {
+      stream.end(finish);
+    } catch (error) {
+      clearTimeout(timeout);
+      reject(error);
+    }
+  });
+}
+
+function shutdownGrpcServer(server, timeoutMs = 5000) {
+  return new Promise((resolve) => {
+    let settled = false;
+    let timeout = null;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      if (timeout) clearTimeout(timeout);
+      resolve();
+    };
+    timeout = setTimeout(() => {
+      try { server.forceShutdown(); } catch (_) {}
+      finish();
+    }, timeoutMs);
+    server.tryShutdown(finish);
+  });
+}
+
+/**
+ * Tears down a gRPC client transport: half-closes the streaming call, waits for
+ * the call to complete, and always closes the channel.
+ *
+ * Teardown is total and never throws. A peer that disappeared before disconnect
+ * cannot acknowledge the half-close, and the pending call completion rejects
+ * with the loss instead. That is a diagnostic, not a disconnect failure: the
+ * channel is still closed, the transport is still marked disconnected, and a
+ * headless run that already finished its replay still finishes successfully.
+ *
+ * Shared by both client implementations so the two serialization families tear
+ * down identically.
+ *
+ * @param {object} transport - gRPC client transport instance
+ * @param {string} label - streaming call name used in diagnostics
+ * @returns {Promise<{warnings: Array<string>}>} teardown diagnostics, if any
+ */
+async function teardownGrpcClient(transport, label) {
+  const warnings = [];
+  const stream = transport.stream;
+  const completion = transport._streamCompletion;
+  transport.stream = null;
+  transport._streamCompletion = null;
+
+  if (stream) {
+    try {
+      await endGrpcStream(stream);
+      if (completion) await waitForGrpcCompletion(completion, label);
+    } catch (error) {
+      warnings.push(error.message);
+    }
+  }
+
+  try {
+    if (transport.client) transport.client.close();
+  } catch (error) {
+    warnings.push(`Closing the gRPC channel reported: ${error.message}`);
+  }
+  transport.client = null;
+  transport._connected = false;
+
+  if (warnings.length && typeof transport.onLog === 'function') {
+    warnings.forEach((message) => transport.onLog('warn', `[Transport] gRPC teardown reported: ${message}`));
+  }
+  return { warnings };
+}
+
 function loadVelocityProto() {
   const packageDefinition = protoLoader.loadSync(VELOCITY_PROTO_PATH, {
     keepCase: true,
@@ -349,7 +458,7 @@ function buildServerCredentials({ useTls = true, tlsCaPath, tlsCertPath, tlsKeyP
 // =============================================================================
 
 class GrpcClientTransportProtobuf {
-  constructor({ ip, port, schema = null, useStreaming = false, headerPathKey = 'grpc-path', headerPath = 'replace.with.dedicated.uid', useTls = true, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls = false, authToken }) {
+  constructor({ ip, port, schema = null, useStreaming = false, headerPathKey = 'grpc-path', headerPath = 'replace.with.dedicated.uid', useTls = true, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls = false, authToken, onLog = null }) {
     this.ip = ip;
     this.port = port;
     this.schema = schema;
@@ -362,8 +471,10 @@ class GrpcClientTransportProtobuf {
     this.tlsKeyPath = tlsKeyPath;
     this.allowUnverifiedTls = allowUnverifiedTls === true;
     this.authToken = authToken || null;
+    this.onLog = typeof onLog === 'function' ? onLog : null;
     this.client = null;
     this.stream = null;
+    this._streamCompletion = null;
     this._connected = false;
     this.wrapperTypes = loadWrapperTypes();
   }
@@ -392,9 +503,17 @@ class GrpcClientTransportProtobuf {
           return;
         }
         if (this.useStreaming) {
-          this.stream = this.client.Stream(this._buildMetadata(), (err, response) => {
-            if (err && err.code !== grpc.status.CANCELLED) this._connected = false;
+          this._streamCompletion = new Promise((resolveStream, rejectStream) => {
+            this.stream = this.client.Stream(this._buildMetadata(), (err, response) => {
+              if (err && err.code !== grpc.status.CANCELLED) {
+                this._connected = false;
+                rejectStream(new Error(`gRPC Stream failed: ${err.message}`));
+              } else {
+                resolveStream(response);
+              }
+            });
           });
+          this._streamCompletion.catch(() => {});
           this.stream.on('error', (err) => {
             if (err.code !== grpc.status.CANCELLED) this._connected = false;
           });
@@ -413,7 +532,7 @@ class GrpcClientTransportProtobuf {
     const request = { features: [{ attributes }] };
 
     if (this.useStreaming && this.stream) {
-      this.stream.write(request);
+      await writeGrpcMessage(this.stream, request, 'gRPC Stream write');
       return { delivered: true, recipients: 1 };
     }
 
@@ -426,9 +545,7 @@ class GrpcClientTransportProtobuf {
   }
 
   async disconnect() {
-    if (this.stream) { this.stream.end(); this.stream = null; }
-    if (this.client) { this.client.close(); this.client = null; }
-    this._connected = false;
+    return teardownGrpcClient(this, 'gRPC Stream');
   }
 }
 
@@ -513,23 +630,27 @@ class GrpcServerTransportProtobuf {
     }
     const attributes = lineToFeatureAttributes(data, null, this.wrapperTypes);
     const request = { features: [{ attributes }] };
-    const dead = [];
-    for (const call of this._watcherCalls) {
-      try {
-        call.write(request);
-      } catch (_) {
-        dead.push(call);
-      }
-    }
-    for (const call of dead) { this._watcherCalls.delete(call); }
-    const sent = this._watcherCalls.size;
+    const calls = Array.from(this._watcherCalls);
+    const results = await Promise.allSettled(
+      calls.map((call) => writeGrpcMessage(call, request, 'gRPC Watch write'))
+    );
+    let sent = 0;
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') sent += 1;
+      else this._watcherCalls.delete(calls[index]);
+    });
     return { delivered: sent > 0, recipients: sent };
   }
 
   async disconnect() {
-    for (const call of this._watcherCalls) { try { call.end(); } catch (_) {} }
+    const calls = Array.from(this._watcherCalls);
     this._watcherCalls.clear();
-    if (this.server) { this.server.forceShutdown(); this.server = null; }
+    await Promise.allSettled(calls.map((call) => endGrpcStream(call)));
+    if (this.server) {
+      const server = this.server;
+      this.server = null;
+      await shutdownGrpcServer(server);
+    }
     this._listening = false;
     this._clientCount = 0;
   }
@@ -541,7 +662,7 @@ class GrpcServerTransportProtobuf {
 // =============================================================================
 
 class GrpcClientTransportInternal {
-  constructor({ ip, port, itemId = 'simulator', grpcSerialization = 'text', useStreaming = false, headerPathKey = 'grpc-path', headerPath = 'replace.with.dedicated.uid', useTls = true, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls = false, authToken }) {
+  constructor({ ip, port, itemId = 'simulator', grpcSerialization = 'text', useStreaming = false, headerPathKey = 'grpc-path', headerPath = 'replace.with.dedicated.uid', useTls = true, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls = false, authToken, onLog = null }) {
     this.ip = ip;
     this.port = port;
     this.itemId = itemId;
@@ -555,8 +676,10 @@ class GrpcClientTransportInternal {
     this.tlsKeyPath = tlsKeyPath;
     this.allowUnverifiedTls = allowUnverifiedTls === true;
     this.authToken = authToken || null;
+    this.onLog = typeof onLog === 'function' ? onLog : null;
     this.client = null;
     this.stream = null;
+    this._streamCompletion = null;
     this._connected = false;
   }
 
@@ -585,6 +708,14 @@ class GrpcClientTransportInternal {
         }
         if (this.useStreaming) {
           this.stream = this.client.executeMulti(this._buildMetadata());
+          this._streamCompletion = new Promise((resolveStream, rejectStream) => {
+            this.stream.once('end', resolveStream);
+            this.stream.once('error', (error) => {
+              if (error.code === grpc.status.CANCELLED) resolveStream();
+              else rejectStream(error);
+            });
+          });
+          this._streamCompletion.catch(() => {});
           this.stream.on('data', () => {}); // consume responses
           this.stream.on('error', (err) => {
             if (err.code !== grpc.status.CANCELLED) this._connected = false;
@@ -604,7 +735,7 @@ class GrpcClientTransportInternal {
     const request = { itemId: this.itemId, bytes };
 
     if (this.useStreaming && this.stream) {
-      this.stream.write(request);
+      await writeGrpcMessage(this.stream, request, 'gRPC executeMulti write');
       return { delivered: true, recipients: 1 };
     }
 
@@ -617,9 +748,7 @@ class GrpcClientTransportInternal {
   }
 
   async disconnect() {
-    if (this.stream) { this.stream.end(); this.stream = null; }
-    if (this.client) { this.client.close(); this.client = null; }
-    this._connected = false;
+    return teardownGrpcClient(this, 'gRPC executeMulti');
   }
 }
 
@@ -698,23 +827,27 @@ class GrpcServerTransportInternal {
     }
     const bytes = Buffer.from(data, 'utf-8');
     const request = { itemId: this.itemId, bytes };
-    const dead = [];
-    for (const call of this._watcherCalls) {
-      try {
-        call.write(request);
-      } catch (_) {
-        dead.push(call);
-      }
-    }
-    for (const call of dead) { this._watcherCalls.delete(call); }
-    const sent = this._watcherCalls.size;
+    const calls = Array.from(this._watcherCalls);
+    const results = await Promise.allSettled(
+      calls.map((call) => writeGrpcMessage(call, request, 'gRPC watch write'))
+    );
+    let sent = 0;
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') sent += 1;
+      else this._watcherCalls.delete(calls[index]);
+    });
     return { delivered: sent > 0, recipients: sent };
   }
 
   async disconnect() {
-    for (const call of this._watcherCalls) { try { call.end(); } catch (_) {} }
+    const calls = Array.from(this._watcherCalls);
     this._watcherCalls.clear();
-    if (this.server) { this.server.forceShutdown(); this.server = null; }
+    await Promise.allSettled(calls.map((call) => endGrpcStream(call)));
+    if (this.server) {
+      const server = this.server;
+      this.server = null;
+      await shutdownGrpcServer(server);
+    }
     this._listening = false;
     this._clientCount = 0;
   }

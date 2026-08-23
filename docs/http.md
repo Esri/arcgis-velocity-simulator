@@ -32,7 +32,11 @@ concepts live in the [TLS and SSL security](tls.md) guide.
 | Mode | Description |
 |------|-------------|
 | HTTP Client | POSTs data to an HTTP(S) endpoint. |
-| HTTP Server | Hosts an HTTP(S) server that accepts POST requests. |
+| HTTP Server | Hosts an HTTP(S) server that accepts POST requests and broadcasts replay data to SSE watchers. |
+
+Both modes are available in renderer-independent headless runs through
+`TransportManager`; the same `src/http-transport.js` implementation is used by
+the UI and headless engine.
 
 ## Format options
 
@@ -92,26 +96,42 @@ for the same path.
 
 ## UI controls
 
-When HTTP is selected as the connection type (Mode dropdown), a **▸ HTTP
-Options** section-divider row appears between the connection-type row and the
-IP/Port row. Click it to expand or collapse the protocol-specific controls. The
-row is a minimal full-width disclosure header - it takes up only one line of
-height and uses hairline borders so it blends with the form without wasting
-space. The label updates to reflect the active protocol (e.g. `▸ HTTP Options`,
-`▸ WebSocket Options`, `▸ gRPC Options`), and the arrow rotates 90° when
-expanded.
+When HTTP is selected in the **Mode** dropdown, a **HTTP Settings…** button
+appears below the **Connection** row. It opens the Protocol Settings dialog,
+which holds every HTTP-specific control, and it carries a concise configured
+state, such as `HTTP · defaults` or `HTTP · 2 changed · 1 warning`. Open it
+with the button or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on Windows
+and Linux. The dialog
+layout, its sections, and the Done, Revert changes, and Reset to preset actions
+are described in
+[Protocol settings and presets](connection-presets.md#the-protocol-settings-dialog).
 
-The following controls appear inside the expanded section:
+Host, port, and the connection mode stay in the panel, because they apply to
+every protocol.
 
-- **Mode** - `HTTP Client` or `HTTP Server`. Hovering over each option shows a description of that connection mode. All connection modes (TCP, UDP, HTTP, gRPC) have descriptive tooltips.
+The dialog offers two sections for HTTP:
+
+**Basics**
+
 - **Format** - `Delimited (CSV)` (default), `JSON`, `Esri JSON`, `GeoJSON`, or `XML`. Controls the `Content-Type` header sent with each request. Must match the format configured in the ArcGIS Velocity HTTP Receiver feed. Hovering over the dropdown shows a detailed tooltip for the currently selected format.
-- **Use TLS** - Checkbox to enable TLS (HTTPS). When checked, the connection uses HTTPS and the port defaults to `8443`. When unchecked, uses plain HTTP with port `8080`. Toggling this checkbox also reveals/hides the certificate path fields.
-- **Advanced** - Collapsed disclosure holding the certificate paths and the verification option. Format, TLS, and HTTP path stay visible above it. See [Connection presets](connection-presets.md#progressive-disclosure).
-- **CA cert path** - Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs. Inside **Advanced**.
-- **TLS cert path** - Path to a client or server certificate file (PEM). Required for server-mode TLS; only needed in client mode for mutual TLS (mTLS). Inside **Advanced**.
-- **TLS key path** - Path to the private key file (PEM). Required for server-mode TLS and client-side mTLS. Inside **Advanced**.
-- **Allow unverified** - Client-only warning checkbox inside **Advanced**, shown when TLS is enabled. Accepts an unverified server certificate for any host. Off by default; see [TLS and SSL security](tls.md#explicit-certificate-verification-bypass).
-- **HTTP Path** - The URL path appended after the host:port (default `/`). In server mode, only POST requests matching this path are accepted. In client mode, this path is used in outgoing POST URLs. Set this to the Velocity feed's system-generated path when connecting to a real endpoint.
+- **HTTP path** - The URL path appended after the host:port (default `/`). In server mode, only POST requests matching this path are accepted. In client mode, this path is used in outgoing POST URLs. Set this to the Velocity feed's system-generated path when connecting to a real endpoint.
+
+**Security**
+
+- **Use TLS** - Checkbox to enable TLS (HTTPS). When checked, the connection uses HTTPS and the port defaults to `8443`. When unchecked, uses plain HTTP with port `8080`. Toggling this checkbox also reveals or hides the certificate path fields.
+- **CA cert** - Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs. Client mode only.
+- **TLS cert** - Path to a client or server certificate file (PEM). Required for server-mode TLS; only needed in client mode for mutual TLS (mTLS).
+- **TLS key** - Path to the private key file (PEM). Required for server-mode TLS and client-side mTLS.
+- **Allow unverified** - Client-only warning checkbox, shown when TLS is enabled. Accepts an unverified server certificate for any host. Off by default; see [TLS and SSL security](tls.md#explicit-certificate-verification-bypass).
+
+HTTP has no Advanced section, because every HTTP setting belongs to Basics or
+Security.
+
+**Mode** stays in the panel and offers `HTTP Client` and `HTTP Server`. Hovering
+over each option shows a description of that connection mode.
+
+The current format, path, TLS state, and effective URL are also reported by the
+[connection summary](connection-summary.md), which never shows a secret value.
 
 ## Tooltip reference
 
@@ -144,7 +164,7 @@ UI. These are also set dynamically via `HTTP_FORMAT_TOOLTIPS` and
 | CA cert path | Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store automatically. Only needed for enterprise or self-signed CAs not in the system trust store. |
 | TLS cert path | Path to a client or server certificate file (PEM). Required for server-mode TLS. For client mode, only needed for mutual TLS (mTLS) authentication. |
 | TLS key path | Path to the private key file (PEM) corresponding to the TLS certificate. Required for server-mode TLS and client-side mTLS. |
-| Advanced | Show or hide the advanced HTTP certificate and verification options. Format, TLS, and HTTP path stay visible above. |
+| HTTP Settings… | Open HTTP settings (Cmd+Shift+P / Ctrl+Shift+P).<br>---<br>Everything specific to HTTP is edited in the dialog: format, HTTP path, TLS, and certificates.<br>Configured: &lt;state&gt;.<br>Nothing is sent until you select Connect. |
 | Allow unverified | Warning: accept any HTTPS server certificate<br>---<br>Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing. |
 | HTTP path | HTTP endpoint URL path appended after the host:port (e.g. /receiver/feed-id). In server mode, only POST requests matching this path are accepted; all others return 404. In client mode, this path is used in the outgoing POST request URL. Default is /. |
 
@@ -170,14 +190,34 @@ formats, OS trust store behaviour, and setup guides.
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `--protocol http` | Use HTTP transport | - |
-| `--mode client\|server` | Connection mode | `server` |
-| `--httpFormat <format>` | Data format (`delimited`, `json`, `esri-json`, `geo-json`, `xml`) | `delimited` |
-| `--httpTls` | Enable TLS (HTTPS) | `true` |
-| `--httpTlsCaPath <path>` | CA certificate file path | system default |
-| `--httpTlsCertPath <path>` | Client/server certificate file path | - |
-| `--httpTlsKeyPath <path>` | Private key file path | - |
-| `--httpPath <path>` | HTTP endpoint URL path | `/` |
+| `protocol=http` | Use HTTP transport. | - |
+| `mode=client\|server` | Send POST requests as a client, or host POST/SSE endpoints as a server. | `server` |
+| `httpFormat=<format>` | Content type format: `delimited`, `json`, `esri-json`, `geo-json`, or `xml`. | `delimited` |
+| `httpPath=<path>` | Exact POST, health-check, and SSE endpoint path. A missing leading slash is added. | `/` |
+| `httpTls=true\|false` | Use HTTPS when true or unsecure HTTP when false. | `true` |
+| `httpTlsCaPath=<path>` | Custom CA certificate PEM; otherwise use system/Node trust in client mode. | `(none)` |
+| `httpTlsCertPath=<path>` | Client mTLS or server identity certificate PEM. | `(none)` |
+| `httpTlsKeyPath=<path>` | Private key PEM paired with the certificate. | `(none)` |
+| `httpAllowUnverifiedTls=true\|false` | Client only: explicitly disable HTTPS certificate verification for any host. Encryption remains enabled. | `false` |
+
+In headless server mode, `waitForClient=true` treats an active SSE watcher as a
+recipient and does not consume source lines until one exists. Without it, sends
+with no watcher report zero recipients and the replay advances normally.
+Headless client mode also opens the SSE subscription, so server-to-client data is
+raised as a `data-received` event while POST remains the outgoing send path.
+
+The subscription follows two rules. When the endpoint answers the subscription
+with anything other than HTTP 200 and a `text/event-stream` content type — for
+example a POST-only endpoint that answers `200 application/json` — the answer is
+definitive: the subscription stops for the life of the connection, is logged
+once, and the endpoint is never polled or re-sent the `Authorization` header.
+When a stream that was established does drop, it is a transport failure rather
+than an answer, so the client re-subscribes after one second and retries a
+refused connection every two seconds. Sending is unaffected either way.
+
+A POST that fails is a per-request failure, not a disconnect. The client stays
+connected, the failure is reported for that line, and a later send succeeds once
+the peer is reachable again. Only an explicit disconnect ends the connection.
 
 ## Metadata logging
 
@@ -210,7 +250,8 @@ HTTP parameters can be set in launch configuration JSON files:
 | Document | Purpose |
 |----------|---------|
 | [TLS and SSL security](tls.md) | Certificate types, trust stores, mutual TLS, and the TLS Trust Badge. |
-| [Connection presets](connection-presets.md) | Paired Simulator and Logger presets and the Essentials plus Advanced layout. |
+| [Protocol settings and presets](connection-presets.md) | The Protocol Settings dialog, its sections, and the paired Simulator and Logger presets. |
+| [Connection summary and protocol settings](connection-summary.md) | The read-only description of the current connection, its warnings, and the effective URL. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
 | [WebSocket transport](websocket.md) | WebSocket modes, formats, subscription messages, and custom headers. |

@@ -137,6 +137,66 @@ console.log('\n--- Test 3: Server connect and disconnect ---');
   subClient.disconnect();
   subServer.disconnect();
 
+  console.log('\n--- Test 8: Disconnect with a connected client, then immediate rebind on the same port ---');
+  const rebindPort = 19985;
+  const rebindServer = createWsServerTransport({ ip: '127.0.0.1', port: rebindPort, wsFormat: 'delimited', wsTls: false });
+  await rebindServer.connect();
+  const rebindClient = createWsClientTransport({ ip: '127.0.0.1', port: rebindPort, wsTls: false });
+  await rebindClient.connect();
+  await new Promise(r => setTimeout(r, 100));
+  assert(rebindServer.getClientCount() === 1, 'server tracks the connected client before teardown');
+
+  const teardownStarted = Date.now();
+  await rebindServer.disconnect();
+  const teardownMs = Date.now() - teardownStarted;
+  assert(teardownMs < 1000, `server disconnect completes promptly with a client attached (${teardownMs}ms)`);
+
+  // The listening socket must already be released when disconnect resolves,
+  // which is what lets the UI reconnect the moment it reports 'disconnected'.
+  const reboundServer = createWsServerTransport({ ip: '127.0.0.1', port: rebindPort, wsFormat: 'delimited', wsTls: false });
+  let rebindError = null;
+  let reboundResult = null;
+  try {
+    reboundResult = await reboundServer.connect();
+  } catch (err) {
+    rebindError = err;
+  }
+  assert(rebindError === null, `immediate rebind on port ${rebindPort} succeeds (${rebindError ? rebindError.message : 'no error'})`);
+  assert(reboundResult !== null && reboundResult.address.port === rebindPort, 'the rebound server is listening on the same port');
+  await rebindClient.disconnect();
+  await reboundServer.disconnect();
+
+  console.log('\n--- Test 9: A port conflict rejects connect instead of raising an unhandled error ---');
+  // The ws server forwards the HTTP server's error events. Without a listener
+  // on both emitters, EADDRINUSE takes the whole process down; reaching the
+  // assertions below at all proves that it does not.
+  const busyServer = createWsServerTransport({ ip: '127.0.0.1', port: 19986, wsTls: false });
+  await busyServer.connect();
+  const conflictingServer = createWsServerTransport({ ip: '127.0.0.1', port: 19986, wsTls: false });
+  let conflictError = null;
+  try {
+    await conflictingServer.connect();
+  } catch (err) {
+    conflictError = err;
+  }
+  assert(conflictError !== null, 'a second server on a busy port rejects connect');
+  assert(/EADDRINUSE/.test(conflictError.message), `the rejection names the bind failure: ${conflictError && conflictError.message}`);
+  assert(/WebSocket server failed to bind on 127\.0\.0\.1:19986/.test(conflictError.message), 'the rejection names the address');
+  await conflictingServer.disconnect();
+  await busyServer.disconnect();
+
+  console.log('\n--- Test 10: Client disconnect completes after the peer disappears ---');
+  const goneServer = createWsServerTransport({ ip: '127.0.0.1', port: 19987, wsTls: false });
+  await goneServer.connect();
+  const strandedClient = createWsClientTransport({ ip: '127.0.0.1', port: 19987, wsTls: false });
+  await strandedClient.connect();
+  await goneServer.disconnect();
+  const strandedStarted = Date.now();
+  await strandedClient.disconnect();
+  const strandedMs = Date.now() - strandedStarted;
+  assert(strandedMs < 1000, `client disconnect completes promptly after the server is gone (${strandedMs}ms)`);
+  assert(strandedClient.isConnected() === false, 'client reports disconnected after the peer disappeared');
+
   console.log(`\n=== Test Results ===`);
   console.log(`✅ Passed: ${passed}`);
   console.log(`❌ Failed: ${failed}`);

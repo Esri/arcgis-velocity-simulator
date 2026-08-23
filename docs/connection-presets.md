@@ -1,20 +1,113 @@
-# Connection presets
+# Protocol settings and presets
 
-Connection presets pre-fill the connection fields for a paired local test
-between the ArcGIS Velocity Simulator and the ArcGIS Velocity Logger. The
-**Preset** dropdown sits at the top of the connection block, above **Mode**.
+[← Documentation index](README.md) · [Repository overview](../README.md#documentation)
+
+The connection panel holds the settings every connection needs, and the
+**Protocol Settings** dialog holds everything specific to the selected
+protocol. Connection presets pre-fill both at once for a paired local test
+between the ArcGIS Velocity Simulator and the ArcGIS Velocity Logger.
+
+This guide is written for users configuring a connection and for developers
+changing the panel. It covers the panel layout, the Protocol Settings dialog,
+the twelve paired presets, and the Custom and Custom (modified) states.
 
 ## Table of contents
 
+- [The connection panel](#the-connection-panel)
+- [The Protocol Settings dialog](#the-protocol-settings-dialog)
 - [What a preset is](#what-a-preset-is)
 - [The twelve paired presets](#the-twelve-paired-presets)
 - [What each preset fills](#what-each-preset-fills)
 - [Custom and Custom (modified)](#custom-and-custom-modified)
-- [Progressive disclosure](#progressive-disclosure)
 - [Minimal local test with the Logger](#minimal-local-test-with-the-logger)
 - [UI controls](#ui-controls)
 - [Tooltip reference](#tooltip-reference)
 - [Related documentation](#related-documentation)
+
+## The connection panel
+
+The panel shows only what is true of every connection, in this order:
+
+1. **File** — the file to replay.
+2. **Preset** — the paired local preset, with the **Modified** badge beside it.
+3. **Mode** — the connection type, which is the protocol and the role.
+4. **Connection** — the host and the port.
+5. **Protocol Settings…** — opens the dialog for the selected protocol.
+6. **Lines / ms** — the replay rate.
+7. **Connect**, **Disconnect**, **Play/Pause**, and **Step**.
+
+TCP and UDP have no settings of their own, so the **Protocol Settings…** button
+is shown only for HTTP, WebSocket, gRPC, and XMPP.
+
+Below the panel, the [Connection summary](connection-summary.md) card describes
+what the current fields add up to.
+
+## The Protocol Settings dialog
+
+**Protocol Settings…** opens an in-window dialog that holds every control
+belonging to the selected protocol. The dialog title tracks the selection, for
+example `WebSocket Client settings`, and the button carries a concise configured
+state: `TCP · no protocol settings`, `HTTP · defaults`, `HTTP · 2 changed`, or
+`HTTP · 2 changed · 1 warning`. A warning is appended to the count, never
+substituted for it.
+
+Open it with the button or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on
+Windows and Linux.
+
+### Sections
+
+The dialog offers only the sections that hold a control for the current
+protocol and role:
+
+| Protocol | Basics | Security | Advanced |
+|---|---|---|---|
+| HTTP | Format, HTTP path | TLS, CA/cert/key paths, Allow unverified | — |
+| WebSocket | Format, WS path | TLS, CA/cert/key paths, Allow unverified | Subscribe, Ignore 1st msg, Headers |
+| gRPC | Serialization, RPC type | TLS, CA/cert/key paths, Allow unverified | Header path key and value, for a client |
+| XMPP | Conversation, domain, account, destination or room, Copy Client Settings | STARTTLS, CA/cert/key paths, Allow unverified, Allow remote | Timeouts, ping interval, reconnect delay |
+
+A fourth section, **Summary**, is always offered and holds the read-only
+connection summary. TCP and UDP have no protocol settings, so only **Summary**
+is offered and the panel says where the connection fields live.
+
+The section list is a tablist. It is a left rail at normal width and a top
+segmented control in compact view, and the same keys work in both: `Arrow` keys
+move between sections and wrap around, `Home` selects the first section, and
+`End` selects the last. A single tab stop leads into the rail, so `Tab` moves
+into the section rather than through every section name.
+
+### Editing, reverting, and closing
+
+Edits take effect in the application as you make them, but nothing reaches the
+network until you select **Connect**.
+
+| Action | Result |
+|---|---|
+| **Done** | Closes the dialog and keeps the edits. |
+| **Revert changes** | Restores every field to the value it held when the dialog was opened, and keeps the dialog open. It is enabled only while something still differs from those values. |
+| **Reset to preset** | Reapplies the preset the fields were modified from. It is enabled only while the fields derive from a modified preset. |
+| `Esc` | Closes the dialog and keeps the edits, exactly like **Done**. |
+
+Focus returns to the **Protocol Settings…** button when the dialog closes.
+
+### Connection state
+
+| State | Dialog |
+|---|---|
+| Disconnected | Every control is editable. |
+| Connecting | The dialog opens, every control is read-only, and the banner reads `Connecting. Disconnect to change these settings.` The shared preset, connection type, host, and port are locked with it. |
+| Connected | The dialog opens on the read-only **Summary** section with the banner `Connected. Disconnect to change these settings.` |
+
+While an XMPP server is connected, **Copy Client Settings** and **Include
+password** stay available, because that is the only state in which the bound
+address and the generated identity are known. Everything else is locked.
+
+No field required to connect is hidden. If validation fails while the dialog is
+closed, the dialog opens on the section holding the offending control, the
+control is revealed and focused, an assertive banner names the problem, and the
+same message is written to the status log. The banner is added to the control's
+`aria-describedby` rather than replacing it, so a hover tooltip and the banner
+can describe the control at the same time.
 
 ## What a preset is
 
@@ -98,23 +191,14 @@ control stays off until you turn it on. See
 
 Command-line prepopulation (`npm start -- protocol=… mode=…`) fills the same
 fields without marking the state as modified, because it is not a manual edit.
+The same is true of a feed applied from the
+[ArcGIS Velocity sign-in and feed picker](velocity-login.md).
 
-## Progressive disclosure
-
-Each protocol shows its essentials directly under **Protocol Options** and
-keeps certificates, verification, timing, and metadata options one click away
-under an **Advanced** disclosure:
-
-| Protocol | Essentials | Advanced |
-|---|---|---|
-| gRPC | Serialization, RPC type, TLS, header path key and value | CA/cert/key paths, Allow unverified |
-| HTTP | Format, TLS, HTTP path | CA/cert/key paths, Allow unverified |
-| WebSocket | Format, TLS, WS path | CA/cert/key paths, Allow unverified, subscribe message, Ignore 1st msg, headers |
-| XMPP | Conversation, domain, STARTTLS, account, destination or room, Copy Client Settings | CA/cert/key paths, Allow unverified, Allow remote, timeouts, ping and reconnect timing |
-
-No field required to connect is hidden: validation reveals and focuses the
-offending control, opening **Protocol Options** and every collapsed disclosure
-above it.
+A preset never opens the Protocol Settings dialog. It pre-fills the fields
+wherever they live, whether the dialog is open or closed, and reports what it
+did in the status log. When a preset turns a certificate-verification bypass on,
+it also says so and sends the dialog to **Security** the next time it opens, so
+a warning-level control is never enabled out of sight.
 
 ## Minimal local test with the Logger
 
@@ -150,7 +234,11 @@ testing.
 |---|---|
 | Preset | Pre-fills the connection fields for a paired local Simulator and Logger test. Defaults to Custom. |
 | Modified badge | Appears after a populated field is edited; names the preset the fields started from. |
-| Advanced (gRPC, HTTP, WebSocket, XMPP) | Shows or hides the advanced certificate, verification, subscription, and timing options for that protocol. |
+| Protocol Settings… | Opens the dialog holding every setting of the selected protocol. Shown for HTTP, WebSocket, gRPC, and XMPP. Carries the configured state. |
+| Section tabs | Basics, Security, and Advanced, offered only where the section holds a control. |
+| Done | Closes the dialog and keeps the edits. |
+| Revert changes | Restores the values the fields held when the dialog was opened. |
+| Reset to preset | Reapplies the preset the fields were modified from. Enabled only for a modified preset. |
 
 ## Tooltip reference
 
@@ -164,15 +252,31 @@ These strings are produced by `describeConnectionPreset()` in
 | Preset (applied) | `<label>` / `<preset summary>` / `Preset: pre-fills the connection fields for a paired local Simulator and Logger test. It only fills editable fields — it never connects, starts playback, selects a file, or saves a secret.` |
 | Preset (modified) | `Custom (modified)` / `These fields started from "<label>" and were edited. Select the preset again to restore its values.` / `Preset: pre-fills the connection fields for a paired local Simulator and Logger test. It only fills editable fields — it never connects, starts playback, selects a file, or saves a secret.` |
 | Modified badge | `Modified` / `These fields started from "<label>" and were edited. Select the preset again to restore its values.` |
-| Advanced (gRPC) | `Show or hide the advanced gRPC certificate and verification options. Serialization, RPC type, header path, and TLS stay visible above.` |
-| Advanced (HTTP) | `Show or hide the advanced HTTP certificate and verification options. Format, TLS, and HTTP path stay visible above.` |
-| Advanced (WebSocket) | `Show or hide the advanced WebSocket certificate, verification, subscription, and header options. Format, TLS, and WS path stay visible above.` |
-| Advanced (XMPP) | `Show or hide the advanced XMPP certificate, verification, remote-bind, and timing options. Conversation, domain, STARTTLS, and the account fields stay visible above.` |
+| Protocol Settings… | `Open <protocol> settings (Cmd+Shift+P / Ctrl+Shift+P).` / `Everything specific to <protocol> is edited in the dialog: <contents>.` / `Configured: <state>.` / `Nothing is sent until you select Connect.` |
+| Basics tab | `Basics: the settings that decide what is sent and where it is delivered.` |
+| Security tab | `Security: TLS, certificates, certificate verification, and who may connect.` |
+| Advanced tab | `Advanced: the settings most connections can leave at their defaults.` |
+| Close | `Close Protocol Settings and keep the current edits (Esc).` |
+| Done | `Close Protocol Settings and keep the current edits. Nothing is sent until you select Connect.` |
+| Revert changes | `Restore every field to the values it held when this dialog was opened.` |
+| Reset to preset | `Reset every field back to the preset these settings started from. It is available only while the fields still derive from a modified preset.` |
+
+The `<contents>` fragment of the **Protocol Settings…** tooltip names what the
+dialog holds for the selected protocol:
+
+| Protocol | Contents |
+|---|---|
+| HTTP | `format, HTTP path, TLS, and certificates` |
+| WebSocket | `format, WS path, TLS, certificates, subscription message, and headers` |
+| gRPC | `serialization, RPC type, header path, TLS, and certificates` |
+| XMPP | `conversation, domain, account, destinations, STARTTLS, and timings` |
 
 ## Related documentation
 
-- [Documentation index](README.md)
-- [XMPP transport](xmpp.md)
-- [TLS and SSL security](tls.md)
-- [Command-line reference](command-line.md)
-- [Configuration](configuration.md)
+| | Guide | Purpose |
+|---|-------|---------|
+| 🧾 | [Connection summary and protocol settings](connection-summary.md) | The read-only description of the current connection, its warnings, and how it is copied. |
+| 💬 | [XMPP transport](xmpp.md) | Client and server roles, conversations, accounts, and STARTTLS policies. |
+| 🔒 | [TLS and SSL security](tls.md) | Certificate types, trust stores, and the explicit verification bypass. |
+| ⌨️ | [Command-line reference](command-line.md) | Every parameter, its values, default, and example. |
+| ⚙️ | [Configuration](configuration.md) | Persisted App Config and Launch Config keys. |

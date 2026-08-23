@@ -11,6 +11,22 @@ function assert(condition, message) {
   else { failed++; console.error(`❌ ${message}`); }
 }
 
+/** Polls until a condition holds, so timing-sensitive tests stay deterministic. */
+async function waitFor(predicate, message, timeoutMs = 4000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() >= deadline) {
+      failed++;
+      console.error(`❌ ${message} (timed out after ${timeoutMs}ms)`);
+      return false;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  passed++;
+  console.log(`✅ ${message}`);
+  return true;
+}
+
 console.log('\n--- Test 1: Constants ---');
 assert(HTTP_FORMATS.JSON === 'json', 'HTTP_FORMATS.JSON is json');
 assert(HTTP_FORMATS.DELIMITED === 'delimited', 'HTTP_FORMATS.DELIMITED is delimited');
@@ -99,6 +115,130 @@ console.log('\n--- Test 4: HTTP Client connect/disconnect (unsecure) ---');
   assert(receivedMetadata.contentType === 'application/json', 'metadata contentType is application/json');
   assert(receivedMetadata.httpFormat === 'json', 'metadata httpFormat is json');
   await s2.disconnect();
+
+  console.log('\n--- Test 7: A transient POST failure does not latch the client disconnected ---');
+  const recoveryPort = 19879;
+  const recoveryReceived = [];
+  const makeRecoveryServer = () => createHttpServerTransport({
+    ip: '127.0.0.1', port: recoveryPort, httpFormat: 'json', httpPath: '/', httpTls: false,
+    onData: (data) => { recoveryReceived.push(data); },
+  });
+  let recoveryServer = makeRecoveryServer();
+  await recoveryServer.connect();
+
+  const recoveryClient = createHttpClientTransport({ ip: '127.0.0.1', port: recoveryPort, httpFormat: 'json', httpPath: '/', httpTls: false });
+  await recoveryClient.connect();
+  const firstSend = await recoveryClient.send('{"n":1}');
+  assert(firstSend.delivered === true, 'the first send is delivered');
+
+  await recoveryServer.disconnect();
+  let transientError = null;
+  try {
+    await recoveryClient.send('{"n":2}');
+  } catch (error) {
+    transientError = error;
+  }
+  assert(transientError !== null, 'a send with the peer down rejects');
+  assert(/HTTP request failed/.test(transientError.message), `the rejection names the request failure: ${transientError && transientError.message}`);
+  assert(recoveryClient.isConnected() === true, 'a transient request failure does not latch the client disconnected');
+
+  recoveryServer = makeRecoveryServer();
+  await recoveryServer.connect();
+  const recoverySend = await recoveryClient.send('{"n":3}');
+  assert(recoverySend.delivered === true, 'a later send succeeds once the peer is back');
+  assert(recoveryReceived.includes('{"n":3}'), 'the recovered send reaches the restarted server');
+
+  await recoveryClient.disconnect();
+  assert(recoveryClient.isConnected() === false, 'an explicit disconnect still clears the connected state');
+  let afterDisconnectError = null;
+  try {
+    await recoveryClient.send('{"n":4}');
+  } catch (error) {
+    afterDisconnectError = error;
+  }
+  assert(afterDisconnectError !== null && /not connected/.test(afterDisconnectError.message),
+    'sending after an explicit disconnect still reports that the client is not connected');
+  await recoveryServer.disconnect();
+
+  console.log('\n--- Test 8: The SSE subscription stops after a definitive non-SSE response ---');
+  const pacingDefaults = createHttpClientTransport({ ip: '127.0.0.1', port: 1, httpTls: false });
+  assert(pacingDefaults._sseReconnectDelayMs === 1000, 'a dropped stream reconnects after 1000ms by default');
+  assert(pacingDefaults._sseErrorRetryDelayMs === 2000, 'a connection failure retries after 2000ms by default');
+
+  const plainRequests = [];
+  const plainServer = http.createServer((req, res) => {
+    plainRequests.push({ method: req.method, authorization: req.headers.authorization || null });
+    if (req.method === 'POST') {
+      req.resume();
+      req.on('end', () => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      });
+      return;
+    }
+    // A POST-only endpoint: it answers the subscription, but never with an event stream.
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'listening' }));
+  });
+  await new Promise((resolve) => plainServer.listen(19880, '127.0.0.1', resolve));
+
+  const subscriptionLogs = [];
+  const pollingClient = createHttpClientTransport({
+    ip: '127.0.0.1', port: 19880, httpFormat: 'json', httpPath: '/', httpTls: false,
+    authToken: 'unit-test-token',
+    onData: () => {},
+    onLog: (level, message) => subscriptionLogs.push(`${level}: ${message}`),
+  });
+  // Production pacing on purpose: the earlier behavior re-subscribed every
+  // 1000ms, so this window would have collected roughly six GET requests.
+  await pollingClient.connect();
+  await new Promise((resolve) => setTimeout(resolve, 6400)); // ~6 retry intervals
+
+  const subscriptionGets = plainRequests.filter((entry) => entry.method === 'GET');
+  assert(subscriptionGets.length === 1, `exactly one GET is sent to a non-SSE endpoint over ~6 retry intervals (got ${subscriptionGets.length})`);
+  assert(subscriptionGets.filter((entry) => entry.authorization).length === 1,
+    'the Authorization header is not resent to an endpoint that does not stream');
+  assert(subscriptionLogs.some((entry) => entry.includes('Server-to-client streaming is off')),
+    'the definitive non-SSE answer is reported once');
+
+  const pollingSend = await pollingClient.send('{"n":1}');
+  assert(pollingSend.delivered === true, 'sending still works after the subscription stopped');
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert(plainRequests.filter((entry) => entry.method === 'GET').length === 1,
+    'the subscription stays stopped after a later send');
+  await pollingClient.disconnect();
+  await new Promise((resolve) => plainServer.close(resolve));
+
+  console.log('\n--- Test 9: An established SSE stream still reconnects when it drops ---');
+  // This is the paired Simulator-server / Logger-client shape: one side hosts
+  // the SSE endpoint, the other subscribes and must survive a restart.
+  const pairedPort = 19881;
+  const makePairedServer = () => createHttpServerTransport({
+    ip: '127.0.0.1', port: pairedPort, httpFormat: 'delimited', httpPath: '/', httpTls: false,
+  });
+  let pairedServer = makePairedServer();
+  await pairedServer.connect();
+
+  const watched = [];
+  const watcher = createHttpClientTransport({
+    ip: '127.0.0.1', port: pairedPort, httpFormat: 'delimited', httpPath: '/', httpTls: false,
+    onData: (data) => { watched.push(data); },
+  });
+  await watcher.connect();
+  await waitFor(() => pairedServer.hasRecipients(), 'the watcher subscribed to the SSE endpoint');
+  await pairedServer.send('alpha');
+  await waitFor(() => watched.includes('alpha'), 'the watcher received the first broadcast');
+
+  // The stream drops with the server, then the same endpoint comes back.
+  await pairedServer.disconnect();
+  pairedServer = makePairedServer();
+  await pairedServer.connect();
+  await waitFor(() => pairedServer.hasRecipients(), 'the watcher re-subscribed after the stream dropped', 10000);
+  await pairedServer.send('beta');
+  await waitFor(() => watched.includes('beta'), 'the watcher received a broadcast after reconnecting');
+  assert(true, 'an established SSE stream reconnects after it drops');
+  await watcher.disconnect();
+  await pairedServer.disconnect();
 
   console.log(`\n=== Test Results ===`);
   console.log(`✅ Passed: ${passed}`);

@@ -48,6 +48,78 @@ const { DATA_FORMATS, VALID_DATA_FORMATS, FORMAT_CONTENT_TYPES, DEFAULT_FORMAT }
 const WS_DEFAULT_PORT = 8080;
 const WSS_DEFAULT_PORT = 8443;
 
+/**
+ * Bound applied to every teardown wait. A peer that never answers the close
+ * handshake, or a keep-alive socket that never ends, must not stall disconnect:
+ * the wait expires, the socket is forced shut, and the port is released.
+ */
+const WS_CLOSE_TIMEOUT_MS = 2000;
+
+/**
+ * Closes one WebSocket and resolves once it is closed or the bound wait
+ * expires, terminating it in that case so teardown always completes.
+ *
+ * @param {object} socket - ws WebSocket instance
+ * @param {number} [timeoutMs] - bound on the close handshake
+ * @returns {Promise<void>}
+ */
+function closeWebSocket(socket, timeoutMs = WS_CLOSE_TIMEOUT_MS) {
+  if (!socket || socket.readyState === WebSocket.CLOSED) return Promise.resolve();
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      socket.removeListener('close', finish);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      try { socket.terminate(); } catch (_) { /* already gone */ }
+      finish();
+    }, timeoutMs);
+    if (typeof timer.unref === 'function') timer.unref();
+    socket.once('close', finish);
+    try {
+      socket.close();
+    } catch (_) {
+      try { socket.terminate(); } catch (__) { /* already gone */ }
+      finish();
+    }
+  });
+}
+
+/**
+ * Runs a callback-style close and resolves when it completes or when the bound
+ * wait expires, so one unresponsive connection cannot stall teardown.
+ *
+ * @param {function} start - receives the completion callback
+ * @param {number} [timeoutMs] - bound on the close
+ * @param {function} [onTimeout] - forced cleanup applied when the wait expires
+ * @returns {Promise<void>}
+ */
+function closeWithTimeout(start, timeoutMs = WS_CLOSE_TIMEOUT_MS, onTimeout = null) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      if (onTimeout) { try { onTimeout(); } catch (_) { /* best effort */ } }
+      finish();
+    }, timeoutMs);
+    if (typeof timer.unref === 'function') timer.unref();
+    try {
+      start(finish);
+    } catch (_) {
+      finish();
+    }
+  });
+}
+
 // =============================================================================
 // Client Transport
 // =============================================================================
@@ -84,6 +156,7 @@ function createWsClientTransport(opts) {
     authToken,
     authBasic,
     onData,
+    onStateChange,
   } = opts;
 
   let ws = null;
@@ -139,8 +212,13 @@ function createWsClientTransport(opts) {
 
         const onOpen = () => {
           connected = true;
+          if (onStateChange) onStateChange('connected', { url });
           firstMsgSkipped = false;
           cleanup();
+          ws.on('error', (error) => {
+            connected = false;
+            if (onStateChange) onStateChange('error', { message: error.message, error });
+          });
 
           // Send subscription message if provided
           if (wsSubscriptionMsg) {
@@ -180,6 +258,7 @@ function createWsClientTransport(opts) {
         };
 
         const onError = (err) => {
+          if (onStateChange) onStateChange('error', { message: err.message, error: err });
           cleanup();
           // Enrich HTTP-upgrade errors with status code, URL, and actionable hints
           const res = err && err.response;
@@ -210,6 +289,10 @@ function createWsClientTransport(opts) {
 
         ws.on('open', onOpen);
         ws.on('error', onError);
+        ws.on('close', () => {
+          connected = false;
+          if (onStateChange) onStateChange('closed', { message: `WebSocket connection to ${url} closed.` });
+        });
       });
     },
 
@@ -217,15 +300,20 @@ function createWsClientTransport(opts) {
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         throw new Error('WebSocket client is not connected');
       }
-      ws.send(data);
+      return new Promise((resolve, reject) => {
+        ws.send(data, (error) => {
+          if (error) reject(error);
+          else resolve({ delivered: true, recipients: 1 });
+        });
+      });
     },
 
-    disconnect() {
-      if (ws) {
-        connected = false;
-        ws.close();
-        ws = null;
-      }
+    async disconnect() {
+      connected = false;
+      if (!ws) return;
+      const activeWs = ws;
+      ws = null;
+      await closeWebSocket(activeWs);
     },
 
     isConnected() {
@@ -261,6 +349,8 @@ function createWsServerTransport(opts) {
     wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath,
     onData,
     onClientConnected,
+    onClientDisconnected,
+    onStateChange,
   } = opts;
 
   let httpServer = null;
@@ -274,7 +364,7 @@ function createWsServerTransport(opts) {
 
       // Create underlying HTTP(S) server
       if (wsTls) {
-        const { serverOptions } = buildHttpsServerOptions({ tlsCaPath: wsTlsCaPath, tlsCertPath: wsTlsCertPath, tlsKeyPath: wsTlsKeyPath });
+        const { serverOptions } = buildHttpsServerOptions({ ip, tlsCaPath: wsTlsCaPath, tlsCertPath: wsTlsCertPath, tlsKeyPath: wsTlsKeyPath });
         httpServer = https.createServer(serverOptions);
       } else {
         httpServer = http.createServer();
@@ -308,19 +398,40 @@ function createWsServerTransport(opts) {
         });
 
         clientWs.on('close', () => {
-          clients.delete(clientWs);
+          if (clients.delete(clientWs) && clients.size === 0 && onClientDisconnected) {
+            onClientDisconnected();
+          }
         });
 
         clientWs.on('error', () => {
-          clients.delete(clientWs);
+          if (clients.delete(clientWs) && clients.size === 0 && onClientDisconnected) {
+            onClientDisconnected();
+          }
         });
       });
 
       return new Promise((resolve, reject) => {
-        httpServer.on('error', reject);
+        let settled = false;
+        // The ws server forwards the underlying HTTP server's error events, so
+        // both emitters need a listener. Without the wss listener a bind
+        // failure such as EADDRINUSE becomes an unhandled 'error' event and
+        // takes the process down instead of rejecting connect().
+        const handleServerError = (err) => {
+          if (settled) {
+            if (onStateChange) onStateChange('error', { message: err.message, error: err });
+            return;
+          }
+          settled = true;
+          reject(new Error(`WebSocket server failed to bind on ${ip}:${port}: ${err.message}`));
+        };
+        wss.on('error', handleServerError);
+        httpServer.on('error', handleServerError);
         httpServer.listen(port, ip, () => {
+          if (settled) return;
+          settled = true;
           connected = true;
           const addr = httpServer.address();
+          if (onStateChange) onStateChange('connected', { address: addr });
           const scheme = wsTls ? 'wss' : 'ws';
           const tlsInfo = wsTls
             ? formatTlsCertSummary({ tlsCaPath: wsTlsCaPath, tlsCertPath: wsTlsCertPath, tlsKeyPath: wsTlsKeyPath })
@@ -340,22 +451,41 @@ function createWsServerTransport(opts) {
       });
     },
 
-    send(data) {
-      for (const client of clients) {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(data);
-        }
+    async send(data) {
+      const openClients = [...clients].filter((client) => client.readyState === WebSocket.OPEN);
+      if (openClients.length === 0) {
+        return { delivered: false, recipients: 0, reason: 'no-clients' };
       }
+      await Promise.all(openClients.map((client) => new Promise((resolve, reject) => {
+        client.send(data, (error) => error ? reject(error) : resolve());
+      })));
+      return { delivered: true, recipients: openClients.length };
     },
 
-    disconnect() {
+    async disconnect() {
       connected = false;
-      for (const client of clients) {
-        client.close();
-      }
+      const activeWss = wss;
+      const activeHttpServer = httpServer;
+      wss = null;
+      httpServer = null;
+      // Every wait is bounded, so an unresponsive client cannot keep the
+      // listening socket alive and block an immediate rebind on the same port.
+      await Promise.all([...clients].map((client) => closeWebSocket(client)));
       clients.clear();
-      if (wss) { wss.close(); wss = null; }
-      if (httpServer) { httpServer.close(); httpServer = null; }
+      if (activeWss) {
+        await closeWithTimeout((done) => activeWss.close(done));
+      }
+      if (activeHttpServer && activeHttpServer.listening) {
+        await closeWithTimeout((done) => {
+          activeHttpServer.close(done);
+          // Any socket left over from a non-upgrade request would otherwise
+          // hold the close callback until it times out on its own.
+          if (typeof activeHttpServer.closeAllConnections === 'function') {
+            activeHttpServer.closeAllConnections();
+          }
+        });
+      }
+      if (onStateChange) onStateChange('closed', { message: 'WebSocket server closed.' });
     },
 
     isConnected() {
@@ -364,6 +494,10 @@ function createWsServerTransport(opts) {
 
     getClientCount() {
       return clients.size;
+    },
+
+    hasRecipients() {
+      return clients.size > 0;
     },
   };
 }
@@ -379,4 +513,3 @@ module.exports = {
   FORMAT_CONTENT_TYPES,
   DEFAULT_FORMAT,
 };
-

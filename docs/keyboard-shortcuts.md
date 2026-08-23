@@ -18,6 +18,7 @@ for macOS (`Cmd`); both forms appear in every table.
 - [Help and information](#help-and-information)
 - [Developer tools](#developer-tools)
 - [Application management](#application-management)
+- [Protocol Settings dialog](#protocol-settings-dialog)
 - [Customization options](#customization-options)
 - [Notes](#notes)
 - [Related documentation](#related-documentation)
@@ -48,6 +49,8 @@ for macOS (`Cmd`); both forms appear in every table.
 | `Ctrl+D` (Windows/Linux)<br>`Cmd+D` (macOS) | **Disconnect** | Disconnects from current connection |
 | `Ctrl+Delete` (Windows/Linux)<br>`Cmd+Delete` (macOS) | **Clear Status Log** | Clears the status/log area |
 | `Ctrl+Shift+O` (Windows/Linux)<br>`Cmd+Shift+O` (macOS) | **Toggle Status Log Sort Order** | Switch between Ascending and Descending order (default: Ascending) |
+| `Ctrl+Shift+P` (Windows/Linux)<br>`Cmd+Shift+P` (macOS) | **Protocol Settings...** | Opens the Protocol Settings dialog for the selected protocol, or closes it again. TCP and UDP have no protocol settings, so the status log says so instead. |
+| `Ctrl+Shift+I` (Windows/Linux)<br>`Cmd+Shift+I` (macOS) | **Connection Summary** | Opens the connection summary, expands every row, and moves focus to the summary card. In compact view, where the inline card is hidden, it opens the Summary section of Protocol Settings instead and returns focus to the status-bar summary button when that dialog closes |
 
 ## Standard text editing
 
@@ -97,6 +100,18 @@ chips, sortable columns, active-filter pills, and visible-row copy/export tools.
 | `Ctrl+H` (Windows/Linux)<br>`Cmd+H` (macOS) | **Hide Application** | Hides the application window |
 | `Ctrl+Alt+H` (Windows/Linux)<br>`Cmd+Alt+H` (macOS) | **Hide Others** | Hides all other applications |
 
+## Protocol Settings dialog
+
+These keys apply while the Protocol Settings dialog is open.
+
+| Shortcut | Action | Description |
+|----------|--------|-------------|
+| `Arrow Up` / `Arrow Down` / `Arrow Left` / `Arrow Right` | **Previous / next section** | Moves between Basics, Security, and Advanced, wrapping around at either end |
+| `Home` | **First section** | Selects the first section offered for the protocol |
+| `End` | **Last section** | Selects the last section offered for the protocol |
+| `Tab` | **Move into the section** | The section tablist has a single tab stop, so `Tab` moves into the controls rather than through every section name |
+| `Esc` | **Close and keep the edits** | Closes the dialog, keeps every edit, and returns focus to the Protocol Settings button |
+
 ## Customization options
 
 ### Context menu (right-click)
@@ -107,6 +122,7 @@ The application provides extensive customization through the context menu:
 - **Window Opacity**: 50% to 100% transparency
 - **Configuration Management**: App Config and Launch Config import/export
 - **View Mode Switching**: Toggle between full and compact views
+- **Connection Review**: Protocol Settings and Connection Summary, with the same shortcuts as the application menu
 
 ### Available fonts
 The application supports 17 font families including:
@@ -130,3 +146,5 @@ The application supports 17 font families including:
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [ArcGIS Velocity sign-in and feed picker](velocity-login.md) | ArcGIS Velocity sign-in, feed picker, and token-based authentication. |
 | [Offline speech recognition](offline-speech.md) | Local voice control, supported commands, and troubleshooting. |
+| [Protocol settings and presets](connection-presets.md) | The Protocol Settings dialog, its sections, and the paired presets. |
+| [Connection summary and protocol settings](connection-summary.md) | The read-only description of the current connection and its warnings. |

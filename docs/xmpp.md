@@ -202,12 +202,13 @@ preset is the only place where **Allow unverified** is turned on automatically,
 because the paired Logger presents an ephemeral self-signed certificate. See
 [Connection presets](connection-presets.md).
 
-The XMPP options are grouped by progressive disclosure. Conversation, domain,
-STARTTLS, and the account, destination, and room fields are shown directly;
-certificate paths, **Allow unverified**, **Allow remote**, and the timing values
-are one click away under **Advanced**. Validation opens **Protocol Options**,
-opens **Advanced**, and focuses the offending control when a required field is
-missing.
+The XMPP options live in the Protocol Settings dialog, grouped into three
+sections: **Basics** holds the conversation, domain, account, destination, and
+room fields; **Security** holds the STARTTLS policy, certificate paths, **Allow
+unverified**, and **Allow remote**; **Advanced** holds the timing values.
+Validation opens the dialog on the section holding the offending control,
+reveals and focuses it, and names the problem in an assertive banner as well as
+in the status log.
 
 ## Empty passwords
 
@@ -250,8 +251,19 @@ rejects the zero-length HMAC key produced by an empty password.
 
 ## UI controls
 
-XMPP Options use progressive disclosure: role-, conversation-, and TLS-specific
-controls remain hidden until applicable. Text fields and selects are left
+When XMPP is selected in the **Mode** dropdown, an **XMPP Settings…** button
+appears below the **Connection** row. It opens the Protocol Settings dialog,
+which holds every XMPP-specific control, and it carries a concise configured
+state, such as `XMPP · defaults` or `XMPP · 2 changed · 1 warning`. Open it
+with the button or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on Windows
+and Linux. The dialog
+layout, its sections, and the Done, Revert changes, and Reset to preset actions
+are described in
+[Protocol settings and presets](connection-presets.md#the-protocol-settings-dialog).
+
+Host, port, and the connection mode stay in the panel, because they apply to
+every protocol. Inside the dialog, role-, conversation-, and TLS-specific
+controls remain hidden until they apply. Text fields and selects are left
 aligned.
 
 | Control | Applies to | Purpose |
@@ -259,20 +271,19 @@ aligned.
 | Conversation | Both | Select Direct or Room (MUC). |
 | Domain | Both | XMPP domain, independent of host override. |
 | STARTTLS | Both | Required, Preferred, or Disabled. |
-| Advanced | Both | Collapsed disclosure holding the certificate paths, Allow unverified, Allow remote, and the timing values. |
-| CA cert | Client with TLS | Custom PEM trust anchor. Inside **Advanced**. |
-| Allow unverified | Client with TLS | Explicit certificate-verification bypass for any host. Warning-styled and off by default. Inside **Advanced**. |
-| TLS cert / TLS key | Server with TLS | Matching server certificate and private key; omit both for automatic self-signed. Inside **Advanced**. |
-| Allow remote | Server | Permit non-loopback binding. Inside **Advanced**. |
+| CA cert | Client with TLS | Custom PEM trust anchor. In **Security**. |
+| Allow unverified | Client with TLS | Explicit certificate-verification bypass for any host. Warning-styled and off by default. In **Security**. |
+| TLS cert / TLS key | Server with TLS | Matching server certificate and private key; omit both for automatic self-signed. In **Security**. |
+| Allow remote | Server | Permit non-loopback binding. In **Security**. |
 | Username / Password / Resource | Client | Sign-in identity, secret, and bind resource. The password may be present but empty. |
 | Account / Acct pwd | Server | Single external account. The account password may be present but empty. |
 | Destination | Direct | Up to 20 bare destination JIDs; optional in server role. |
 | Room / Nickname / Room pwd | MUC | Room identity, occupant nickname, and optional room password. |
-| Preset | Both | Pre-fills a paired local Simulator and Logger test. Defaults to Custom. Shown above Mode, outside the XMPP panel. |
-| Timeouts ms | Both | Connect (30000) and reply (15000) deadlines. Positive whole milliseconds only; there is no wait-forever value. |
-| Ping ms | Client | XEP-0199 keepalive interval (60000). Positive whole milliseconds only; the keepalive cannot be switched off. |
-| Reconnect ms | Client | Delay before the automatic reconnect after a dropped stream (60000). Positive whole milliseconds only; automatic reconnect cannot be switched off. |
-| Copy Client Settings | Server | Copy receiver settings as canonical `option=value` lines. Password is withheld unless Include password is checked. |
+| Preset | Both | Pre-fills a paired local Simulator and Logger test. Defaults to Custom. Shown above Mode, in the panel rather than the dialog. |
+| Timeouts ms | Both | Connect (30000) and reply (15000) deadlines. In **Advanced**. Positive whole milliseconds only; there is no wait-forever value. |
+| Ping ms | Client | XEP-0199 keepalive interval (60000). In **Advanced**. Positive whole milliseconds only; the keepalive cannot be switched off. |
+| Reconnect ms | Client | Delay before the automatic reconnect after a dropped stream (60000). In **Advanced**. Positive whole milliseconds only; automatic reconnect cannot be switched off. |
+| Copy Client Settings | Server | Copy receiver settings as canonical `option=value` lines. Password is withheld unless Include password is checked. Stays available while the server is connected, when every other dialog control is read-only. |
 
 Every numeric timing input has `min="1"`. A blank, zero, or negative entry falls
 back to the canonical default rather than being sent to the transport, and the
@@ -326,7 +337,10 @@ shown as spaces):
 - **TLS cert:** `Path to the server certificate file (PEM) presented during STARTTLS. Leave empty to let the app generate an automatic self-signed certificate for local testing. Requires a matching private key.`
 - **TLS key:** `Path to the private key file (PEM) that matches the XMPP server certificate. Required whenever a certificate path is set. Leave empty to use the automatic self-signed certificate.`
 - **Allow unverified:** `Warning: accept any XMPP server certificate --- Certificate verification is disabled for every host, not only localhost. STARTTLS still encrypts the stream, but the server identity is not checked. Use only for local self-signed testing.`
-- **Advanced:** `Show or hide the advanced XMPP certificate, verification, remote-bind, and timing options. Conversation, domain, STARTTLS, and the account fields stay visible above.`
+- **XMPP Settings…:** `Open XMPP settings (Cmd+Shift+P / Ctrl+Shift+P). --- Everything specific to XMPP is edited in the dialog: conversation, domain, account, destinations, STARTTLS, and timings. Configured: <state>. Nothing is sent until you select Connect.`
+- **Basics tab:** `Basics: the settings that decide what is sent and where it is delivered.`
+- **Security tab:** `Security: TLS, certificates, certificate verification, and who may connect.`
+- **Advanced tab:** `Advanced: the settings most connections can leave at their defaults.`
 - **Preset:** `Pre-fills the connection fields for a paired local Simulator and Logger test.`
 - **Allow remote:** `Allow remote clients to reach the built-in XMPP server. Left off, the server binds a loopback address only, so nothing outside this machine can sign in. Turn it on to bind an address such as 0.0.0.0 and accept connections from the network.`
 - **Username:** `Account used to sign in. Enter either a local part such as simulator, or a full bare JID such as simulator@example.com. A bare JID overrides the Domain field, so a copied JID can be pasted straight in.`
@@ -629,7 +643,8 @@ publish into it.
 | Document | Purpose |
 |----------|---------|
 | [TLS and SSL security](tls.md) | Certificate types, trust stores, mutual TLS, and the TLS Trust Badge. |
-| [Connection presets](connection-presets.md) | Paired Simulator and Logger presets, empty XMPP passwords, and the Essentials plus Advanced layout. |
+| [Protocol settings and presets](connection-presets.md) | The Protocol Settings dialog, its sections, and the paired presets with empty XMPP passwords. |
+| [Connection summary and protocol settings](connection-summary.md) | The read-only description of the current connection and its warnings. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
 | [Configuration](configuration.md) | App Config and Launch Config settings, storage locations, and reset steps. |

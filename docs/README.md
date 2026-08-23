@@ -17,7 +17,8 @@ documentation samples rather than runtime configuration.
 |---|-------|---------|----------|
 | 📦 | [Build and release](build-and-release.md) | Prerequisites, local and multi-platform builds, platform packaging, code signing, release commands, and troubleshooting. | Developers |
 | ⌨️ | [Command-line reference](command-line.md) | Every parameter with its supported values, default, headless requirement, and example, plus help layouts. | Users and developers |
-| 🎚 | [Connection presets](connection-presets.md) | The paired Simulator and Logger presets, what each one pre-fills, the Custom and Custom (modified) states, and the connection-row progressive disclosure. | Users and developers |
+| 🎚 | [Protocol settings and presets](connection-presets.md) | The connection panel, the Protocol Settings dialog and its sections, the paired Simulator and Logger presets, and the Custom and Custom (modified) states. | Users and developers |
+| 🧾 | [Connection summary and protocol settings](connection-summary.md) | The Protocol Settings dialog, its sections, and the three connection summary surfaces. | Users and developers |
 | ⚙️ | [Configuration](configuration.md) | App Config and Launch Config settings, themes, fonts, platform storage locations, launch configuration samples, and reset steps. | Users and developers |
 | 🧑‍💻 | [Developer guide](developer-guide.md) | Repository structure, local development, tests, documentation checks, debugging, logging, and how to add controls, transports, and themes. | Developers |
 | 🔌 | [gRPC transport](grpc.md) | Client and server modes, Protobuf, Kryo, and Text serialization, remote procedure call types, TLS, and metadata. | Users and developers |
@@ -50,6 +51,7 @@ key list is documented in [Configuration](configuration.md) and the workflow in
 |---|------|-----------|
 | 🏁 | Run the application for the first time | [Repository overview](../README.md), then [Keyboard shortcuts](keyboard-shortcuts.md). |
 | 🧵 | Stream a file to an ArcGIS Velocity feed | The transport guide for your protocol, then [TLS and SSL security](tls.md). |
+| 🔍 | Check what a connection will do before starting it | [Connection summary and protocol settings](connection-summary.md). |
 | 🗓️ | Schedule an unattended replay | [Headless mode](headless.md), then the launch configuration samples above. |
 | 🧑‍💻 | Change the application | [Developer guide](developer-guide.md). |
 | 📤 | Publish a build | [Build and release](build-and-release.md). |

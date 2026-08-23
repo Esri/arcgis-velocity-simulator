@@ -26,7 +26,8 @@ lists all of them with their intended audience.
 | [Documentation index](docs/README.md) | Every guide with its purpose and audience, plus documentation maintenance rules. |
 | [Build and release](docs/build-and-release.md) | Prerequisites, local builds, platform packaging, code signing, and release commands. |
 | [Command-line reference](docs/command-line.md) | Every CLI parameter, help layout, default, and usage example. |
-| [Connection presets](docs/connection-presets.md) | The twelve paired Simulator and Logger presets, what they pre-fill, and the Essentials plus Advanced layout. |
+| [Protocol settings and presets](docs/connection-presets.md) | The connection panel, the Protocol Settings dialog, and the twelve paired Simulator and Logger presets. |
+| [Connection summary and protocol settings](docs/connection-summary.md) | The Protocol Settings dialog, its sections, and the three connection summary surfaces. |
 | [Configuration](docs/configuration.md) | Configuration file format, settings, themes, fonts, storage locations, and launch configuration samples. |
 | [Developer guide](docs/developer-guide.md) | Repository structure, local development, tests, documentation checks, debugging, logging, and extension points. |
 | [Headless mode](docs/headless.md) | No-UI replay: parameters, launch configuration workflow, output formats, and the done file. |
@@ -191,6 +192,8 @@ offline guide: [Offline speech recognition](docs/offline-speech.md).
 - `Ctrl+I` / `Cmd+I` - Open Preferences
 - `Ctrl+Shift+C` / `Cmd+Shift+C` - Connect
 - `Ctrl+D` / `Cmd+D` - Disconnect
+- `Ctrl+Shift+P` / `Cmd+Shift+P` - Protocol Settings
+- `Ctrl+Shift+I` / `Cmd+Shift+I` - Connection Summary
 - `Ctrl+T` / `Cmd+T` - Toggle View (Full/Compact)
 - `F1` - Help, `F2` - About, `F3` - Command Line Interface
 
@@ -198,6 +201,11 @@ Inside the Command Line Interface dialog, you can also use `Ctrl+F` / `Cmd+F`
 (or `/`) to focus the command-line filter and `Escape` to close the dialog.
 
 See [Keyboard shortcuts](docs/keyboard-shortcuts.md) for complete list.
+
+### Connection controls
+- **Panel**: File, **Preset**, **Mode**, **Connection** (host and port), **Protocol Settings…**, replay rate, and the connection actions.
+- **Protocol Settings…**: Opens an in-window dialog holding every setting of the selected protocol, grouped into Basics, Security, and Advanced. Shown for HTTP, WebSocket, gRPC, and XMPP. Edits apply to the next connection; nothing is sent until you select **Connect**.
+- **Connection Summary**: A read-only card below the panel and a status-bar chip describe what the current fields add up to, including warnings such as a disabled certificate verification. Passwords are reported only as `Set (hidden)`, `Empty`, or `Not set`.
 
 ### Status Log controls
 - **Sort Order**: Use the sort button in the Status Log header to switch between **Ascending** and **Descending** order (default: Ascending). The icon changes to reflect the current order.

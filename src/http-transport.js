@@ -64,7 +64,7 @@ class HttpClientTransport {
    * @param {boolean} [opts.httpAllowUnverifiedTls=false] - Explicitly skip
    *   certificate verification (any host). Off by default.
    */
-  constructor({ ip, port, httpFormat = 'json', httpPath = '/', httpTls = true, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpAllowUnverifiedTls = false, onData = null, authToken, authBasic }) {
+  constructor({ ip, port, httpFormat = 'json', httpPath = '/', httpTls = true, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpAllowUnverifiedTls = false, onData = null, onLog = null, authToken, authBasic }) {
     this.ip = ip;
     this.port = port;
     this.httpFormat = httpFormat;
@@ -75,12 +75,23 @@ class HttpClientTransport {
     this.httpTlsKeyPath = httpTlsKeyPath;
     this.httpAllowUnverifiedTls = httpAllowUnverifiedTls === true;
     this.onData = onData;
+    this.onLog = typeof onLog === 'function' ? onLog : null;
     this.authToken = authToken || null;
     this.authBasic = authBasic || null; // { username, password }
     this._connected = false;
     this._agent = null;
     this._tlsInfo = '';
     this._sseReq = null;
+    // A subscription that has proven the endpoint is not an event stream stops
+    // for good. Retrying it would poll the endpoint forever and resend the
+    // Authorization header on every attempt.
+    this._sseSupported = true;
+    this._sseEstablished = false;
+    this._sseRetryTimer = null;
+    // Backoff for an established stream that dropped, and for a connection-level
+    // failure. These are internal pacing constants, not user-facing options.
+    this._sseReconnectDelayMs = 1000;
+    this._sseErrorRetryDelayMs = 2000;
   }
 
   async connect() {
@@ -102,6 +113,7 @@ class HttpClientTransport {
     const scheme = this.httpTls ? 'https' : 'http';
     // If onData is provided, subscribe to the server's SSE stream
     if (this.onData) {
+      this._sseSupported = true;
       this._startSseSubscription();
     }
     return {
@@ -114,7 +126,37 @@ class HttpClientTransport {
     };
   }
 
+  _log(level, message) {
+    if (this.onLog) this.onLog(level, message);
+  }
+
+  /**
+   * Schedules one re-subscription, unless the transport has disconnected or the
+   * endpoint has already proven it does not serve Server-Sent Events.
+   */
+  _scheduleSseRetry(delayMs) {
+    if (!this._connected || !this._sseSupported) return;
+    if (this._sseRetryTimer) clearTimeout(this._sseRetryTimer);
+    this._sseRetryTimer = setTimeout(() => {
+      this._sseRetryTimer = null;
+      if (this._connected && this._sseSupported) this._startSseSubscription();
+    }, delayMs);
+    if (typeof this._sseRetryTimer.unref === 'function') this._sseRetryTimer.unref();
+  }
+
+  /**
+   * Subscribes to the server's Server-Sent Events stream.
+   *
+   * The subscription only survives while the endpoint behaves like an event
+   * stream. A definitive non-SSE answer — any status other than 200, or a
+   * Content-Type that is not `text/event-stream` — ends the subscription for
+   * the life of the connection instead of re-polling the endpoint, so an
+   * endpoint that only accepts POST is asked exactly once and never receives
+   * the Authorization header repeatedly. An established stream that drops is a
+   * different case and still reconnects with a delay.
+   */
   _startSseSubscription() {
+    if (!this._sseSupported) return;
     const lib = this.httpTls ? https : http;
     const options = {
       hostname: this.ip,
@@ -124,7 +166,20 @@ class HttpClientTransport {
       agent: this._agent,
       headers: { 'Accept': 'text/event-stream', 'Cache-Control': 'no-cache' },
     };
+    this._applyAuthHeaders(options.headers);
     const req = lib.request(options, (res) => {
+      const contentType = String(res.headers['content-type'] || '');
+      if (res.statusCode !== 200 || !contentType.includes('text/event-stream')) {
+        // Definitive answer: this endpoint does not stream events.
+        this._sseSupported = false;
+        this._sseEstablished = false;
+        res.resume(); // drain so the socket can be reused or released
+        this._log('info', `[Transport] HTTP ${this.ip}:${this.port}${this.httpPath} answered the event-stream subscription with `
+          + `HTTP ${res.statusCode} ${contentType || 'no content type'}. Server-to-client streaming is off for this connection; `
+          + 'sending continues normally.');
+        return;
+      }
+      this._sseEstablished = true;
       let buffer = '';
       res.on('data', (chunk) => {
         buffer += chunk.toString();
@@ -149,22 +204,36 @@ class HttpClientTransport {
         }
       });
       res.on('end', () => {
-        // Reconnect if still connected
-        if (this._connected) {
-          setTimeout(() => { if (this._connected) this._startSseSubscription(); }, 1000);
-        }
+        // An established stream that dropped is reconnected; the paired
+        // Simulator-server/Logger-client setup depends on this.
+        this._sseEstablished = false;
+        this._log('debug', `[Transport] HTTP event stream from ${this.ip}:${this.port}${this.httpPath} ended. `
+          + `Re-subscribing in ${this._sseReconnectDelayMs}ms.`);
+        this._scheduleSseRetry(this._sseReconnectDelayMs);
       });
     });
     req.on('error', (err) => {
-      if (this._connected) {
-        setTimeout(() => { if (this._connected) this._startSseSubscription(); }, 2000);
-      }
+      // Connection-level failure, not an answer from the endpoint: the server
+      // may simply not be up yet, so this keeps its backoff.
+      this._sseEstablished = false;
+      this._log('debug', `[Transport] HTTP event-stream subscription to ${this.ip}:${this.port}${this.httpPath} `
+        + `failed: ${err.message}. Retrying in ${this._sseErrorRetryDelayMs}ms.`);
+      this._scheduleSseRetry(this._sseErrorRetryDelayMs);
     });
     req.end();
     this._sseReq = req;
   }
 
   isConnected() { return this._connected; }
+
+  _applyAuthHeaders(headers) {
+    if (this.authToken) {
+      headers.Authorization = `Bearer ${this.authToken}`;
+    } else if (this.authBasic) {
+      const encoded = Buffer.from(`${this.authBasic.username}:${this.authBasic.password}`).toString('base64');
+      headers.Authorization = `Basic ${encoded}`;
+    }
+  }
 
   async send(data) {
     if (!this._connected) throw new Error('HTTP client not connected.');
@@ -185,13 +254,7 @@ class HttpClientTransport {
         },
       };
 
-      // Add auth header if configured
-      if (this.authToken) {
-        options.headers['Authorization'] = `Bearer ${this.authToken}`;
-      } else if (this.authBasic) {
-        const encoded = Buffer.from(`${this.authBasic.username}:${this.authBasic.password}`).toString('base64');
-        options.headers['Authorization'] = `Basic ${encoded}`;
-      }
+      this._applyAuthHeaders(options.headers);
 
       const req = lib.request(options, (res) => {
         let body = '';
@@ -205,7 +268,12 @@ class HttpClientTransport {
         });
       });
 
-      req.on('error', (err) => reject(new Error(`HTTP request failed: ${err.message}`)));
+      req.on('error', (err) => {
+        // A failed request is a per-request failure, not a disconnect. Latching
+        // the transport to disconnected here would make every later send fail
+        // with "HTTP client not connected", even after the peer came back.
+        reject(new Error(`HTTP request failed: ${err.message}`));
+      });
       req.write(payload);
       req.end();
     });
@@ -213,6 +281,8 @@ class HttpClientTransport {
 
   async disconnect() {
     this._connected = false;
+    this._sseEstablished = false;
+    if (this._sseRetryTimer) { clearTimeout(this._sseRetryTimer); this._sseRetryTimer = null; }
     if (this._sseReq) { try { this._sseReq.destroy(); } catch (_) {} this._sseReq = null; }
     if (this._agent) { this._agent.destroy(); this._agent = null; }
   }
@@ -235,9 +305,10 @@ class HttpServerTransport {
    * @param {string} [opts.httpTlsCertPath]
    * @param {string} [opts.httpTlsKeyPath]
    * @param {function} [opts.onData] - Callback for received data
-   * @param {function} [opts.onClientConnected] - Callback when a client connects
+   * @param {function} [opts.onClientConnected] - Callback when an SSE watcher connects
+   * @param {function} [opts.onClientDisconnected] - Callback when an SSE watcher disconnects
    */
-  constructor({ ip, port, httpFormat = 'json', httpPath = '/', httpTls = true, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, onData = null, onClientConnected = null }) {
+  constructor({ ip, port, httpFormat = 'json', httpPath = '/', httpTls = true, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, onData = null, onClientConnected = null, onClientDisconnected = null }) {
     this.ip = ip;
     this.port = port;
     this.httpFormat = httpFormat;
@@ -248,6 +319,7 @@ class HttpServerTransport {
     this.httpTlsKeyPath = httpTlsKeyPath;
     this.onData = onData;
     this.onClientConnected = onClientConnected;
+    this.onClientDisconnected = onClientDisconnected;
     this.server = null;
     this._listening = false;
     this._clientCount = 0;
@@ -266,7 +338,12 @@ class HttpServerTransport {
         });
         res.write(':\n\n'); // SSE comment to confirm connection
         this._watcherResponses.add(res);
-        req.on('close', () => { this._watcherResponses.delete(res); });
+        if (this.onClientConnected) this.onClientConnected();
+        req.on('close', () => {
+          if (this._watcherResponses.delete(res) && this.onClientDisconnected) {
+            this.onClientDisconnected();
+          }
+        });
         return;
       }
 
@@ -280,7 +357,6 @@ class HttpServerTransport {
       // Accept data via POST
       if (req.method === 'POST' && req.url === this.httpPath) {
         this._clientCount++;
-        if (this.onClientConnected) this.onClientConnected();
         let body = '';
         req.on('data', (chunk) => { body += chunk; });
         req.on('end', () => {
@@ -315,6 +391,7 @@ class HttpServerTransport {
     if (this.httpTls) {
       const { serverOptions, tlsInfo } = buildHttpsServerOptions({
         useTls: true,
+        ip: this.ip,
         tlsCaPath: this.httpTlsCaPath,
         tlsCertPath: this.httpTlsCertPath,
         tlsKeyPath: this.httpTlsKeyPath,
@@ -406,4 +483,3 @@ module.exports = {
   HTTP_DEFAULT_PORT,
   HTTPS_DEFAULT_PORT,
 };
-

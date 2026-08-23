@@ -149,6 +149,13 @@ The optional `grpcHeaderPathKey` / `grpcHeaderPath` parameters inject a metadata
 header on every outgoing call. This is required when connecting to a real ArcGIS
 Velocity endpoint so the platform can route the call to the correct feed item.
 
+Disconnect always completes. It half-closes the streaming call, waits for the
+call to finish, and closes the channel. When the peer disappeared first, the
+pending call ends with an error such as `14 UNAVAILABLE: Connection dropped`;
+that is recorded as a teardown diagnostic in the log, the channel is still
+closed, and neither a headless run that already finished its replay nor the
+user interface is left reporting a connection that no longer exists.
+
 ### gRPC server (Simulator pushing data to observer clients)
 
 The simulator hosts a gRPC server that **pushes data to connected observer
@@ -285,29 +292,47 @@ electron . runMode=headless filename=./data.csv protocol=grpc mode=server ip=0.0
 
 ## UI usage
 
-When gRPC is selected as the connection type in the UI, a **▸ gRPC Options**
-section-divider row appears between the connection-type row and the IP/Port row.
-Click it to expand or collapse the protocol-specific controls. See [HTTP and
-HTTPS transport](http.md#ui-controls) for a description of the disclosure row UX
-pattern.
+When gRPC is selected in the **Mode** dropdown, a **gRPC Settings…** button
+appears below the **Connection** row. It opens the Protocol Settings dialog,
+which holds every gRPC-specific control, and it carries a concise configured
+state, such as `gRPC · defaults` or `gRPC · 2 changed · 1 warning`. Open it
+with the button or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on Windows
+and Linux. The dialog
+layout, its sections, and the Done, Revert changes, and Reset to preset actions
+are described in
+[Protocol settings and presets](connection-presets.md#the-protocol-settings-dialog).
 
-The following controls appear inside the expanded section:
+Host, port, and the connection mode stay in the panel, because they apply to
+every protocol.
+
+The dialog offers two sections for gRPC:
+
+**Basics**
 
 - **Serialization** - `Protobuf` (default), `Kryo`, or `Text`
 - **RPC type** - `Client Streaming` (default) or `Unary`. Selects the gRPC call pattern for sending data. Client Streaming opens a persistent stream for high-throughput ingestion. Unary sends each message as an independent request/response round-trip. See [Send Methods (RPC Types)](#send-methods-rpc-types) for details. Only applies in gRPC Client mode. **Locked while connected** (the streaming vs. unary choice is baked into the transport at connect time).
-- **Use TLS** - Checkbox to enable TLS (SSL) connections. When checked, additional certificate path fields appear inside **Advanced**.
-- **Advanced** - Collapsed disclosure holding the certificate paths and the verification option. Serialization, RPC type, header path, and TLS stay visible above it. See [Connection presets](connection-presets.md#progressive-disclosure).
-- **CA cert** - Path to a custom CA certificate file (PEM). Leave empty to use OS root certificates automatically. Inside **Advanced**.
-- **TLS cert** - Path to a client/server certificate file (PEM) for mutual TLS. Inside **Advanced**.
-- **TLS key** - Path to a private key file (PEM) for mutual TLS. Inside **Advanced**.
-- **Allow unverified** - Client-only warning checkbox inside **Advanced**, shown when TLS is enabled. Accepts an unverified server certificate for any host. Off by default; see [TLS and SSL security](tls.md#explicit-certificate-verification-bypass).
 - **Header path key** - gRPC endpoint header path key (default: `grpc-path`). Sent as gRPC metadata on every outgoing call. **Visible only in gRPC Client mode.**
 - **Header path** - gRPC endpoint header path value (default: `replace.with.dedicated.uid`). Sent as gRPC metadata on every outgoing call. **Visible only in gRPC Client mode.**
+
+**Security**
+
+- **Use TLS** - Checkbox to enable TLS (SSL) connections. When checked, the certificate path fields appear.
+- **CA cert** - Path to a custom CA certificate file (PEM). Leave empty to use OS root certificates automatically. Client mode only.
+- **TLS cert** - Path to a client/server certificate file (PEM) for mutual TLS.
+- **TLS key** - Path to a private key file (PEM) for mutual TLS.
+- **Allow unverified** - Client-only warning checkbox, shown when TLS is enabled. Accepts an unverified server certificate for any host. Off by default; see [TLS and SSL security](tls.md#explicit-certificate-verification-bypass).
+
+gRPC has no Advanced section, because every gRPC setting belongs to Basics or
+Security.
 
 The serialization and TLS controls are shown for both client and server modes.
 The header controls are shown only when **gRPC Client** is selected, since they
 have no effect in server mode (the server only receives incoming connections and
 never initiates outgoing calls).
+
+The current serialization, RPC type, header path, and TLS state are also
+reported by the [connection summary](connection-summary.md), which never shows a
+secret value.
 
 ### Tooltip reference
 
@@ -327,7 +352,7 @@ UI. These are set dynamically via `GRPC_SERIALIZATION_TOOLTIPS` and
 
 | Control | Tooltip |
 |---------|---------|
-| Advanced | Show or hide the advanced gRPC certificate and verification options. Serialization, RPC type, header path, and TLS stay visible above. |
+| gRPC Settings… | Open gRPC settings (Cmd+Shift+P / Ctrl+Shift+P).<br>---<br>Everything specific to gRPC is edited in the dialog: serialization, RPC type, header path, TLS, and certificates.<br>Configured: &lt;state&gt;.<br>Nothing is sent until you select Connect. |
 | Allow unverified | Warning: accept any gRPC server certificate<br>---<br>Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing. |
 
 #### RPC type tooltips
@@ -478,7 +503,8 @@ the product client connects.
 | Document | Purpose |
 |----------|---------|
 | [TLS and SSL security](tls.md) | Certificate types, trust stores, mutual TLS, and the TLS Trust Badge. |
-| [Connection presets](connection-presets.md) | Paired Simulator and Logger presets and the Essentials plus Advanced layout. |
+| [Protocol settings and presets](connection-presets.md) | The Protocol Settings dialog, its sections, and the paired Simulator and Logger presets. |
+| [Connection summary and protocol settings](connection-summary.md) | The read-only description of the current connection and its warnings. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
 | [HTTP and HTTPS transport](http.md) | HTTP and HTTPS modes, data formats, and request paths. |

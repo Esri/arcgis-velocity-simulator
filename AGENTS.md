@@ -62,6 +62,8 @@ These rules are durable: they apply to every documentation change, not just the 
 | `docs/developer-guide.md` | Repository structure, local development, testing, documentation checks, debugging, logging, and extension points. |
 | `docs/build-and-release.md` | Prerequisites, packaging, code signing, release commands, and the release checklist. |
 | `docs/keyboard-shortcuts.md`, `docs/offline-speech.md`, `docs/velocity-login.md` | Their feature surface end to end. |
+| `docs/connection-presets.md` | The connection panel layout, the Protocol Settings dialog and its sections, and the paired connection presets. |
+| `docs/connection-summary.md` | The connection summary: its surfaces, row order, warnings, secret handling, and effective URLs. |
 
 ### Placement
 
@@ -387,5 +389,109 @@ Internal differences are allowed where they do not surface to a user: the two ap
 - **Documentation.** The matching `docs/<protocol>.md`, `src/help.html` sections, and tooltip reference tables should describe the same behavior in both repositories, adjusted only for the direction of data flow.
 
 Invert only what genuinely differs by role. Where the Simulator sends, the Logger receives; where the Simulator names a destination, the Logger names a source; and where a control here reads "publish to", the Logger's equivalent reads "listen on". Everything else — naming, structure, limits, terminology, and honesty about limitations — should be the same in both places.
+
+### Protocol Settings dialog and Connection Summary parity
+
+The connection surface is shared between the ArcGIS Velocity Simulator and the
+ArcGIS Velocity Logger and must not drift. Both applications keep only the
+fields every protocol shares inline, and edit everything protocol-specific in an
+in-window native `<dialog id="protocol-settings-dialog">` nested inside the
+connection controls container. It is a `<dialog>` element, never an Electron
+`BrowserWindow`, so it renders in the top layer, traps focus natively, and still
+delivers `change` and `input` events to the delegated preset-modification
+listeners. No control is duplicated between the row and the dialog.
+
+Keep the following identical in both repositories.
+
+- **Element identifiers.** `protocol-settings-dialog`, `protocol-settings-btn`,
+  `protocol-settings-count`, `protocol-settings-title`,
+  `protocol-settings-subtitle`, `protocol-settings-close`,
+  `protocol-settings-readonly`, `protocol-settings-alert`,
+  `protocol-settings-tablist`, `protocol-settings-tab-<section>`,
+  `protocol-settings-panel-<section>`, `protocol-settings-empty`,
+  `protocol-settings-summary-rows`, `protocol-settings-done`,
+  `protocol-settings-revert`, `protocol-settings-reset`,
+  `connection-summary-card`, `connection-summary-rows`,
+  `connection-summary-show-all`, `connection-summary-copy`,
+  `connection-summary-status-btn`, and `connection-summary-status-label`.
+  Pre-existing protocol control ids are preserved unchanged, including
+  `grpc-advanced`, `http-advanced`, `ws-advanced`, and `xmpp-advanced`, which
+  identify the Advanced group of each protocol.
+- **Sections.** `basics`, `security`, `advanced`, and `summary`, offered only
+  when they hold something for the selected protocol and mode, with `tablist`,
+  `tab`, and `tabpanel` roles, a roving tab stop, Arrow keys, and `Home` and
+  `End`. Each protocol owns one
+  `.protocol-settings-group[data-protocol][data-section]` per section, and a new
+  protocol starts on its own first section rather than inheriting the previous
+  one.
+- **Control placement.** Format, path, serialization, RPC type, and the XMPP
+  conversation, domain, account, and room fields are Basics; TLS, certificate
+  paths, certificate verification, and remote binding are Security; the gRPC
+  endpoint header, the WebSocket subscription message, first-message handling,
+  and upgrade headers, and the XMPP timings are Advanced.
+- **Editing model.** Controls update renderer state immediately and reach the
+  network only on Connect. **Done** and `Esc` close and keep the edits,
+  **Revert changes** restores the snapshot taken when the dialog opened and is
+  enabled only while something still differs from it, and **Reset to preset** is
+  enabled only while the fields derive from a modified preset. Focus returns to
+  the opener.
+- **Locking.** Disconnected is editable; connecting and connected are read-only
+  with `protocol-settings-readonly` filled in; connected opens the read-only
+  Summary section. Locking is one scoped query over the dialog, never a
+  hand-maintained control list, and it also locks the shared preset, connection
+  type, host, and port. The XMPP server **Copy Client Settings** and **Include
+  password** actions stay available exactly while an XMPP Server is connected.
+- **Validation.** A failed Connect fills the assertive `protocol-settings-alert`
+  banner, opens the dialog on the section that owns the offending control,
+  reveals and focuses it, sets `aria-invalid`, and adds the banner id to
+  `aria-describedby` without discarding the tokens already there, and it still
+  writes the message to the status log. Clearing the error removes only the
+  banner's own token.
+- **Shortcuts.** `Cmd/Ctrl+Shift+P` opens or closes Protocol Settings and
+  `Cmd/Ctrl+Shift+I` opens the Connection Summary. Both surfaces funnel through
+  one `handleConnectionShortcut(name)` entry point in the renderer, so a menu
+  accelerator and the in-page key handler can never disagree.
+- **Summary generator.** `src/connection-summary.js` is a pure module with no
+  DOM access. `buildConnectionSummary(state)` drives the inline card, the
+  status-bar button, the read-only Summary section, and the configured-state
+  count. It covers all twelve protocol and mode combinations, sorts warnings
+  first with the certificate-verification bypass leading them, composes
+  effective HTTP and WebSocket URLs, and reports a secret only as
+  `Set (hidden)`, `Empty`, or `Not set`. Row objects carry `key`, `label`,
+  `value`, `group`, `kind`, `severity`, `secret`, `isDefault`, and `detail`;
+  groups are `Security`, `Connection`, `Protocol`, and `Session`; kinds are
+  `warning`, `state`, `endpoint`, `preset`, `security`, `setting`, and `secret`.
+  The WebSocket subscription message and upgrade headers are secrets in every
+  surface. A server with neither a certificate nor a key reports the automatic
+  self-signed pair, and only a half-configured pair raises a warning. The
+  certificate-verification row is reported whenever encryption applies. The
+  configured-state label always reports the changed count and appends any
+  warnings rather than replacing the count with them.
+- **Status-bar tooltip.** The status-bar button tooltip only says how to open
+  the summary; it never carries the summary itself.
+- **Tooltip utility.** `src/tooltip-utils.js` stays byte-identical in both
+  repositories. It owns `data-tooltip-trigger`, `data-tooltip-persist-scroll`,
+  the top-layer re-parenting that keeps a tooltip visible above a modal
+  `<dialog>`, and the additive `aria-describedby` handling that lets a tooltip
+  and a validation banner describe one control at the same time. Fix it there
+  rather than working around it in a renderer.
+
+Only these differences are allowed, and each one follows from the direction of
+data flow or from a control that only one application has.
+
+| Difference | Simulator | Logger |
+|---|---|---|
+| XMPP role row | `xmppDestination`, labelled Destination, reported for a direct conversation. | `xmppLocalJid`, labelled Receiving JID, reported for a direct conversation. |
+| Role wording | Publishing to for a client; Listening on for a server. | Receiving from for a client; Listening on for a server. |
+| Copy heading | `ArcGIS Velocity Simulator — connection summary`. | `ArcGIS Velocity Logger — connection summary`. |
+| Identity defaults | `xmppResource` and `xmppNickname` default to `velocity-simulator`. | `xmppResource` defaults to `velocity-logger`, `xmppNickname` to `logger`, and `xmppExternalUsername` to `velocity-client`. |
+| Host control id | The pre-existing host input is `ip-address`. | The pre-existing host input is `host`. |
+| Inline-only controls | File selection, the lines and interval rate fields, and the playback actions stay inline. | The log controls stay inline. |
+| Server identity output | None. | `xmpp-receiving-jid` reports the JID the running server receives on. |
+
+Anything else — element ids, section names, row keys, labels, defaults, tooltip
+text, warning wording, and shortcut assignments — stays the same. Adding a
+section, a footer action, a warning, or a summary row requires the same change
+in the sister repository in the same release.
 
 When a transport-level change cannot be mirrored immediately, say so explicitly in the pull request description and in the relevant `docs/<protocol>.md` limitations section, rather than leaving the two apps quietly incompatible.

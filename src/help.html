@@ -18,7 +18,9 @@
             <div class="help-section">
                 <h3>Overview</h3>
                 <p>Cross-platform desktop application for simulating data streams from CSV files over TCP, UDP, HTTP/HTTPS, WebSocket, gRPC, and XMPP protocols. Every protocol can run as a client or as a server, so the Simulator can either push data to a receiver such as an ArcGIS Velocity feed or an ArcGIS GeoEvent Server connector, or host an endpoint the receiver connects to. Features gesture and voice controls for hands-free operation.</p>
-                <p>The connection block starts with a <strong>Preset</strong> dropdown. Pick a paired Simulator and Logger preset to pre-fill every connection field for a local test, then review the values, select a file, and select <strong>Connect</strong> and <strong>Play</strong>. Each protocol shows its essentials directly under <strong>Protocol Options</strong> and keeps certificates, verification, timing, and metadata options one click away under <strong>Advanced</strong>.</p>
+                <p>The connection panel holds what every connection needs, in order: <strong>File</strong>, <strong>Preset</strong>, <strong>Mode</strong>, <strong>Connection</strong> (host and port), <strong>Protocol Settings…</strong>, the replay rate, and the connection actions. Pick a paired Simulator and Logger preset to pre-fill every connection field for a local test, then review the values, select a file, and select <strong>Connect</strong> and <strong>Play</strong>.</p>
+                <p>Everything specific to the selected protocol is edited in the <strong>Protocol Settings</strong> dialog (<kbd>Cmd+Shift+P</kbd> / <kbd>Ctrl+Shift+P</kbd>), grouped into <strong>Basics</strong>, <strong>Security</strong>, <strong>Advanced</strong>, and a read-only <strong>Summary</strong>. The button names the protocol and shows a configured state — <em>HTTP · defaults</em>, <em>HTTP · 2 changed</em>, or <em>HTTP · 2 changed · 1 warning</em>. Edits apply to the next connection; nothing is sent until you select <strong>Connect</strong>. <strong>Done</strong> and <kbd>Esc</kbd> keep the edits, <strong>Revert changes</strong> restores the values the dialog opened with, and <strong>Reset to preset</strong> reapplies a modified preset.</p>
+                <p>Below the panel, the <strong>Connection Summary</strong> card and the status-bar summary button (<kbd>Cmd+Shift+I</kbd> / <kbd>Ctrl+Shift+I</kbd>) describe what the current fields add up to, including the effective URL and warnings such as a disabled certificate verification. A password is never shown: it is reported only as <em>Set (hidden)</em>, <em>Empty</em>, or <em>Not set</em>.</p>
             </div>
 
             <div class="help-section">
@@ -28,7 +30,8 @@
                     <li>Optionally choose a <strong>Preset</strong> to pre-fill a paired local Simulator and Logger test</li>
                     <li>Choose protocol mode (TCP/UDP/HTTP/WebSocket/gRPC/XMPP Server/Client). Selecting XMPP uses port 5222 and the Client role unless you change them.</li>
                     <li>Set IP address and port</li>
-                    <li>For HTTP, WebSocket, gRPC, or XMPP: click the <strong>▸ Options</strong> section header to expand protocol-specific settings (format, TLS, paths, headers, or XMPP account and conversation settings)</li>
+                    <li>For HTTP, WebSocket, gRPC, or XMPP: select <strong>Protocol Settings…</strong> to open the dialog with the protocol-specific settings (format, TLS, paths, headers, or XMPP account and conversation settings)</li>
+                    <li>Review the <strong>Connection Summary</strong> card, which flags anything unsecure before you connect</li>
                     <li>Configure streaming rate</li>
                     <li>Connect and Play</li>
                 </ol>
@@ -64,12 +67,11 @@
             </div>
 
             <div class="help-section">
-                <h3>HTTP Options</h3>
-                <p>When HTTP is selected, click the <strong>▸ HTTP Options</strong> section header between the connection row and the IP/port row to reveal these controls:</p>
+                <h3>HTTP Settings</h3>
+                <p>When HTTP is selected, choose <strong>HTTP Settings…</strong> below the Connection row, or press <kbd>Cmd+Shift+P</kbd> / <kbd>Ctrl+Shift+P</kbd>, to open the dialog. <strong>Basics</strong> holds Format and HTTP path; <strong>Security</strong> holds the TLS and certificate controls. HTTP has no Advanced section.</p>
                 <ul>
                     <li><strong>Format:</strong> Controls the Content-Type header — JSON (<code>application/json</code>), Delimited/CSV (<code>text/plain</code>), Esri JSON (<code>application/json</code>), GeoJSON (<code>application/geo+json</code>), or XML (<code>application/xml</code>). Must match the format configured in the ArcGIS Velocity HTTP Receiver feed.</li>
                     <li><strong>Use TLS:</strong> Enable HTTPS (port 8443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key.</li>
-                    <li><strong>Advanced:</strong> Collapsed disclosure holding the CA, certificate, and key paths plus Allow unverified. Format, Use TLS, and HTTP path stay visible above it.</li>
                     <li><strong>CA cert:</strong> Custom CA certificate file (PEM). Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs.</li>
                     <li><strong>TLS cert:</strong> Client or server certificate file (PEM). Required for server-mode TLS; only needed in client mode for mutual TLS (mTLS).</li>
                     <li><strong>TLS key:</strong> Private key file (PEM). Required for server-mode TLS and client-side mTLS.</li>
@@ -79,12 +81,11 @@
             </div>
 
             <div class="help-section">
-                <h3>WebSocket Options</h3>
-                <p>When WebSocket is selected, click the <strong>▸ WebSocket Options</strong> section header to reveal these controls:</p>
+                <h3>WebSocket Settings</h3>
+                <p>When WebSocket is selected, choose <strong>WebSocket Settings…</strong> below the Connection row, or press <kbd>Cmd+Shift+P</kbd> / <kbd>Ctrl+Shift+P</kbd>, to open the dialog. <strong>Basics</strong> holds Format and WS path; <strong>Security</strong> holds the TLS and certificate controls; <strong>Advanced</strong> holds the subscription message, Ignore first message, and the custom headers.</p>
                 <ul>
                     <li><strong>Format:</strong> Controls the data format — JSON (<code>application/json</code>), Delimited/CSV (<code>text/plain</code>), Esri JSON (<code>application/json</code>), GeoJSON (<code>application/geo+json</code>), or XML (<code>application/xml</code>).</li>
                     <li><strong>Use TLS:</strong> Enable WSS (WebSocket Secure, port 8443 by default). Uses the OS certificate store automatically in client mode. Server mode requires a certificate and key.</li>
-                    <li><strong>Advanced:</strong> Collapsed disclosure holding the CA, certificate, and key paths, Allow unverified, the subscription message, Ignore first message, and the custom headers. Format, Use TLS, and WS path stay visible above it.</li>
                     <li><strong>CA cert:</strong> Custom CA certificate file (PEM). Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs.</li>
                     <li><strong>TLS cert:</strong> Client or server certificate file (PEM). Required for server-mode TLS; only needed in client mode for mutual TLS (mTLS).</li>
                     <li><strong>TLS key:</strong> Private key file (PEM). Required for server-mode TLS and client-side mTLS.</li>
@@ -97,27 +98,26 @@
             </div>
 
             <div class="help-section">
-                <h3>gRPC Options</h3>
-                <p>When gRPC is selected, click the <strong>▸ gRPC Options</strong> section header to reveal these controls:</p>
+                <h3>gRPC Settings</h3>
+                <p>When gRPC is selected, choose <strong>gRPC Settings…</strong> below the Connection row, or press <kbd>Cmd+Shift+P</kbd> / <kbd>Ctrl+Shift+P</kbd>, to open the dialog. <strong>Basics</strong> holds Serialization, RPC Type, and the header path; <strong>Security</strong> holds the TLS and certificate controls. gRPC has no Advanced section.</p>
                 <ul>
                     <li><strong>Serialization:</strong> Protobuf (default, external GrpcFeed protocol), Kryo (internal GrpcFeatureService, binary), or Text (internal GrpcFeatureService, UTF-8 CSV).</li>
                     <li><strong>RPC Type:</strong> Client Streaming (persistent stream, higher throughput) or Unary (individual request/response per message).</li>
                     <li><strong>Use TLS:</strong> Enable TLS for the gRPC connection. Uses the OS certificate store automatically.</li>
                     <li><strong>Header Path Key / Path:</strong> Custom gRPC metadata header for endpoint routing (client mode only).</li>
-                    <li><strong>Advanced:</strong> Collapsed disclosure holding the CA, certificate, and key paths plus Allow unverified. Serialization, RPC Type, header path, and Use TLS stay visible above it.</li>
                     <li><strong>Allow unverified:</strong> Client-only warning checkbox shown when TLS is enabled. Accepts an unverified gRPC server certificate for any host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Off by default.</li>
                 </ul>
             </div>
 
             <div class="help-section">
-                <h3>XMPP Options</h3>
-                <p>When XMPP is selected, click the <strong>▸ XMPP Options</strong> section header to reveal these controls. Only the controls that apply to the selected role and conversation type are shown.</p>
+                <h3>XMPP Settings</h3>
+                <p>When XMPP is selected, choose <strong>XMPP Settings…</strong> below the Connection row, or press <kbd>Cmd+Shift+P</kbd> / <kbd>Ctrl+Shift+P</kbd>, to open the dialog. <strong>Basics</strong> holds Conversation, Domain, the account fields, and the destination or room; <strong>Security</strong> holds STARTTLS, the certificate paths, Allow unverified, and Allow remote; <strong>Advanced</strong> holds the timing values. Only the controls that apply to the selected role and conversation type are shown.</p>
                 <ul>
                     <li><strong>Conversation:</strong> <em>Direct</em> (default) delivers each line as a one-to-one chat message to every destination JID. <em>Room (MUC)</em> broadcasts each line as an XEP-0045 groupchat message; every occupant receives it and the room echoes the message back to the sender.</li>
                     <li><strong>Domain:</strong> The XMPP domain served (server role) or authenticated against (client role). It is independent of the host in the Connection row, so a client can connect to an IP address while authenticating against the real domain. Rooms live under <code>conference.&lt;domain&gt;</code>.</li>
                     <li><strong>STARTTLS:</strong> <em>Required</em> (default) refuses to send a credential until the stream is encrypted. <em>Preferred</em> upgrades when the peer offers it. <em>Disabled</em> does not require encryption — the built-in server stops advertising STARTTLS, and as a client the Simulator still accepts an upgrade a third-party server insists on, so Disabled means "do not require TLS", not "refuse TLS".</li>
                     <li><strong>CA cert</strong> (client): Custom CA certificate file (PEM) used to verify the server certificate. Leave empty to use the OS certificate store.</li>
-                    <li><strong>Advanced:</strong> Collapsed disclosure holding the certificate paths, Allow unverified, Allow remote, and the timing values. Conversation, Domain, STARTTLS, and the account, destination, and room fields stay visible above it. Validation opens Advanced and focuses any missing required field.</li>
+                    <li><strong>Validation:</strong> No required field is hidden. If a connection attempt fails validation while the dialog is closed, the dialog opens on the section holding the offending control, reveals and focuses it, and names the problem in a banner as well as in the status log.</li>
                     <li><strong>Allow unverified</strong> (client): Skips certificate verification. The bypass applies to any host, not only localhost. STARTTLS still encrypts the stream, but the server identity is not checked. Off by default and styled as a warning.</li>
                     <li><strong>TLS cert / TLS key</strong> (server): Server certificate and matching private key (PEM) presented during STARTTLS. Leave both empty to use an automatic self-signed certificate.</li>
                     <li><strong>Allow remote</strong> (server): Allows the server to bind a non-loopback address such as <code>0.0.0.0</code>. Left off, nothing outside this machine can sign in.</li>

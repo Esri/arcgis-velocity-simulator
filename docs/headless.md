@@ -116,6 +116,13 @@ reference stay aligned.
 | `stdout` | `true`, `false` | `true` | No | `stdout=false` | Enable or disable console log output during headless runs. |
 | `waitForClient` | `true`, `false` | `false` | No | `waitForClient=true` | In server mode, wait for at least one recipient before advancing through the file. Ignored in client mode. |
 
+HTTP and WebSocket use the following protocol-specific settings. All are optional:
+
+| Transport | Parameters | Defaults / behavior |
+|---|---|---|
+| HTTP | `httpFormat`, `httpPath`, `httpTls`, `httpTlsCaPath`, `httpTlsCertPath`, `httpTlsKeyPath`, `httpAllowUnverifiedTls` | `delimited`, `/`, TLS on, system CA/no client identity, verification on. Formats are `delimited`, `json`, `esri-json`, `geo-json`, and `xml`. Client mode sends POST requests; server mode broadcasts to SSE watchers. |
+| WebSocket | `wsFormat`, `wsPath`, `wsTls`, `wsTlsCaPath`, `wsTlsCertPath`, `wsTlsKeyPath`, `wsAllowUnverifiedTls`, `wsSubscriptionMsg`, `wsIgnoreFirstMsg`, `wsHeaders` | `delimited`, `/`, TLS on, system CA/no client identity, verification on, no subscription, do not ignore the first message, and no custom headers. Client mode sends text frames; server mode broadcasts to connected sockets. |
+
 XMPP adds the following grouped settings; the full descriptions and cross-field
 requirements are in [Command-line reference](command-line.md):
 
@@ -178,6 +185,12 @@ npm run start:headless -- filename=./data.csv protocol=tcp mode=server ip=0.0.0.
 npm run start:headless -- filename=./data.csv protocol=udp mode=client ip=127.0.0.1 port=5565 startLine=100 endLine=200 maxLines=50 doneFile=./run.done.json logFile=./run.log runId=batch-100-200
 ```
 
+When the Simulator uses UDP server mode, it learns recipient endpoints from
+inbound datagrams. A paired Logger UDP client sends one
+`UDP Client connected` registration datagram on startup. Set
+`waitForClient=true` to keep the first replay record pending until that
+registration arrives.
+
 ### gRPC client with default header path
 
 ```bash
@@ -194,6 +207,38 @@ npm run start:headless -- filename=./data.csv protocol=grpc mode=client ip=127.0
 
 ```bash
 npm run start:headless -- filename=./data.csv protocol=grpc mode=server ip=0.0.0.0 port=50051 grpcSerialization=protobuf
+```
+
+### HTTP client POST replay
+
+```bash
+npm run start:headless -- filename=./data.csv protocol=http mode=client ip=127.0.0.1 port=8080 httpTls=false httpPath=/receiver/feed-id httpFormat=geo-json
+```
+
+For HTTPS, leave `httpTls=true` and optionally provide `httpTlsCaPath`,
+`httpTlsCertPath`, and `httpTlsKeyPath`. Use
+`httpAllowUnverifiedTls=true` only as an explicit client-side testing bypass.
+
+### HTTP server broadcasting to an SSE watcher
+
+```bash
+npm run start:headless -- filename=./data.csv protocol=http mode=server ip=0.0.0.0 port=8080 httpTls=false httpPath=/stream waitForClient=true
+```
+
+`waitForClient=true` waits for a `GET /stream` request whose
+`Accept` header includes `text/event-stream`; inbound POST requests are observed
+but are not persistent broadcast recipients.
+
+### WebSocket client with subscription and headers
+
+```bash
+npm run start:headless -- filename=./data.csv protocol=ws mode=client ip=127.0.0.1 port=8080 wsTls=false wsPath=/feed wsFormat=json wsSubscriptionMsg=subscribe:feed1 wsIgnoreFirstMsg=true 'wsHeaders={"X-Client":"simulator"}'
+```
+
+### WebSocket server waiting for a consumer
+
+```bash
+npm run start:headless -- filename=./data.csv protocol=ws mode=server ip=0.0.0.0 port=8080 wsTls=false wsPath=/feed waitForClient=true
 ```
 
 ### XMPP client publishing to destination JIDs
@@ -315,6 +360,7 @@ line range, and the completion timestamp.
 - Headless mode does not create the splash screen or the main application window.
 - In server mode, the simulation starts sending immediately by default without waiting for clients to connect. Data sent before any client connects is silently discarded.
 - `waitForClient=true` prevents file advancement while no server-side recipients are available.
+- For HTTP server mode, recipients are active SSE watchers. For WebSocket server mode, recipients are open WebSocket clients.
 - `connectWaitForServer=true` (client mode only) retries the outbound connection at `connectRetryIntervalMs` intervals until the server accepts it. If the server is stopped and restarted during a run, the simulator detects the lost connection and reconnects automatically without failing the run.
 - `connectTimeoutMs=0` means no deadline — the simulator will keep retrying indefinitely. Set a positive value (e.g. `connectTimeoutMs=60000`) to give up after a fixed period.
 - `onError=continue` skips failed sends and continues with the next line.

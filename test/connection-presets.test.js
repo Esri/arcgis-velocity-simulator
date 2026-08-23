@@ -270,6 +270,7 @@ async function withRenderer(run) {
     describeVelocityAuthType: (value) => value || 'not specified',
   };
   window.eval(fs.readFileSync(path.join(SRC, 'connection-presets.js'), 'utf8'));
+  window.eval(fs.readFileSync(path.join(SRC, 'connection-summary.js'), 'utf8'));
   window.eval(fs.readFileSync(path.join(SRC, 'renderer.js'), 'utf8'));
   await new Promise((resolve) => window.addEventListener('DOMContentLoaded', resolve, { once: true }));
   try {
@@ -339,11 +340,12 @@ function enableConnect(document) {
     assert.strictEqual(document.getElementById('file-path').textContent, 'No file selected');
   });
 
-  await uiTest('applying a preset opens the matching options area and reports status', async ({ document, window }) => {
+  await uiTest('applying a preset fills the matching options and reports status without opening the dialog', async ({ document, window }) => {
     const select = document.getElementById('connection-preset');
     select.value = 'local-xmpp-logger-server';
     select.dispatchEvent(new window.Event('change'));
-    assert.strictEqual(document.getElementById('extra-options-body').style.display, '');
+    // A preset only pre-fills; it never forces the modal open.
+    assert.strictEqual(document.getElementById('protocol-settings-dialog').open, false);
     assert.notStrictEqual(document.getElementById('xmpp-username-group').style.display, 'none');
     const status = document.getElementById('status-messages').textContent;
     assert.match(status, /Preset applied: Local XMPP — Logger Server/);
@@ -352,8 +354,9 @@ function enableConnect(document) {
 
     select.value = 'local-grpc-simulator-server';
     select.dispatchEvent(new window.Event('change'));
-    assert.strictEqual(document.getElementById('extra-options-body').style.display, '');
+    assert.strictEqual(document.getElementById('protocol-settings-dialog').open, false);
     assert.notStrictEqual(document.getElementById('grpc-serialization-group').style.display, 'none');
+    assert.match(document.getElementById('protocol-settings-count').textContent, /^gRPC · /);
   });
 
   await uiTest('editing a populated field switches the display to Custom (modified)', async ({ document, window }) => {
@@ -386,68 +389,85 @@ function enableConnect(document) {
     assert.strictEqual(port.value, '5565');
   });
 
-  await uiTest('progressive disclosure keeps advanced fields available but collapsed', async ({ document, window }) => {
-    ['grpc-advanced', 'http-advanced', 'ws-advanced', 'xmpp-advanced'].forEach((id) => {
-      const details = document.getElementById(id);
-      assert.ok(details, `${id} must exist`);
-      assert.strictEqual(details.tagName, 'DETAILS');
-      assert.strictEqual(details.open, false, `${id} starts collapsed`);
-      const summary = details.querySelector('summary');
-      assert.ok(summary.dataset.tooltip, `${id} summary needs a tooltip`);
-      assert.ok(summary.getAttribute('aria-label'), `${id} summary needs an aria-label`);
-    });
+  await uiTest('protocol settings sections keep every advanced field addressable', async ({ document, window }) => {
     // Advanced controls stay in the DOM and keep their ids.
     ['grpc-tls-ca-path', 'http-tls-key-path', 'ws-headers', 'xmpp-tls-ca-path', 'xmpp-connect-timeout']
       .forEach((id) => assert.ok(document.getElementById(id), `${id} must be preserved`));
+    // Each one lives inside a Protocol Settings section rather than an inline row.
+    const dialog = document.getElementById('protocol-settings-dialog');
+    ['ws-headers', 'xmpp-connect-timeout', 'http-tls-key-path'].forEach((id) => {
+      assert.ok(dialog.contains(document.getElementById(id)), `${id} belongs in the dialog`);
+    });
 
-    // Essentials stay visible for the selected protocol; advanced stays closed.
+    // Essentials stay visible for the selected protocol, and the rail names the
+    // sections that actually hold a control.
     const connectionType = document.getElementById('connection-type');
     connectionType.value = 'ws-client';
     connectionType.dispatchEvent(new window.Event('change'));
     assert.notStrictEqual(document.getElementById('ws-format-group').style.display, 'none');
     assert.notStrictEqual(document.getElementById('ws-path-group').style.display, 'none');
-    assert.strictEqual(document.getElementById('ws-advanced').open, false);
-    assert.notStrictEqual(document.getElementById('ws-advanced').style.display, 'none');
-    // A disclosure for another protocol is hidden entirely.
-    assert.strictEqual(document.getElementById('xmpp-advanced').style.display, 'none');
+    const visibleTabs = () => [...document.querySelectorAll('#protocol-settings-tablist [role="tab"]')]
+      .filter((tab) => !tab.hidden)
+      .map((tab) => tab.dataset.section);
+    assert.deepStrictEqual(visibleTabs(), ['basics', 'security', 'advanced', 'summary']);
+    // gRPC server has no advanced option, so no Advanced tab is shown for it.
+    connectionType.value = 'grpc-server';
+    connectionType.dispatchEvent(new window.Event('change'));
+    assert.deepStrictEqual(visibleTabs(), ['basics', 'security', 'summary']);
   });
 
-  await uiTest('a preset that enables a verification bypass reveals the control', async ({ document, window }) => {
+  await uiTest('a preset that enables a verification bypass lands Protocol Settings on Security', async ({ document, window }) => {
     const select = document.getElementById('connection-preset');
-    // The only preset that turns a bypass on must open the disclosure holding it,
-    // so a warning-level control is never enabled out of sight.
+    // The only preset that turns a bypass on must send the reviewer to the
+    // section holding it, so a warning-level control is never enabled out of
+    // sight.
     select.value = 'local-xmpp-logger-server';
     select.dispatchEvent(new window.Event('change'));
     assert.strictEqual(document.getElementById('xmpp-allow-unverified').checked, true);
-    assert.strictEqual(document.getElementById('xmpp-advanced').open, true);
+    assert.match(document.getElementById('status-messages').textContent,
+      /Certificate verification is turned off by this preset/);
+    document.getElementById('protocol-settings-btn').click();
+    assert.strictEqual(document.getElementById('protocol-settings-dialog').open, true);
+    const selected = document.querySelector('#protocol-settings-tablist [aria-selected="true"]');
+    assert.strictEqual(selected.dataset.section, 'security');
+    document.getElementById('protocol-settings-done').click();
 
-    // Applying a preset is deterministic: disclosures collapse again unless the
-    // new preset needs one open.
+    // Applying a preset is deterministic: the next preset starts from Basics.
     select.value = 'local-xmpp-simulator-server';
     select.dispatchEvent(new window.Event('change'));
     assert.strictEqual(document.getElementById('xmpp-allow-unverified').checked, false);
-    assert.strictEqual(document.getElementById('xmpp-advanced').open, false);
-
-    select.value = 'local-grpc-logger-server';
-    select.dispatchEvent(new window.Event('change'));
-    assert.strictEqual(document.getElementById('grpc-advanced').open, false);
+    document.getElementById('protocol-settings-btn').click();
+    assert.strictEqual(
+      document.querySelector('#protocol-settings-tablist [aria-selected="true"]').dataset.section,
+      'basics',
+    );
   });
 
-  await uiTest('validation reveals and focuses a control hidden behind Advanced', async ({ document, window, state }) => {
+  await uiTest('validation opens the dialog on the right section and focuses the control', async ({ document, window, state }) => {
     const connectionType = document.getElementById('connection-type');
     connectionType.value = 'xmpp-server';
     connectionType.dispatchEvent(new window.Event('change'));
     document.getElementById('xmpp-external-username').value = 'velocity-logger';
-    // A certificate without its key is invalid, and both live under Advanced.
+    // A certificate without its key is invalid, and both live under Security.
     document.getElementById('xmpp-tls-cert-path').value = './server.pem';
-    document.getElementById('xmpp-advanced').open = false;
+    assert.strictEqual(document.getElementById('protocol-settings-dialog').open, false);
 
     enableConnect(document).click();
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.strictEqual(state.connects.length, 0, 'an invalid pair must not connect');
-    assert.strictEqual(document.getElementById('xmpp-advanced').open, true);
+    assert.strictEqual(document.getElementById('protocol-settings-dialog').open, true);
+    assert.strictEqual(
+      document.querySelector('#protocol-settings-tablist [aria-selected="true"]').dataset.section,
+      'security',
+    );
     assert.strictEqual(document.activeElement.id, 'xmpp-tls-key-path');
-    assert.strictEqual(document.getElementById('extra-options-body').style.display, '');
+    assert.strictEqual(document.getElementById('xmpp-tls-key-path').getAttribute('aria-invalid'), 'true');
+    const alert = document.getElementById('protocol-settings-alert');
+    assert.strictEqual(alert.hidden, false);
+    assert.match(alert.textContent, /certificate and its private key/);
+    assert.ok(document.getElementById('xmpp-tls-key-path').getAttribute('aria-describedby').split(/\s+/).includes(alert.id));
+    // The status log keeps its record of the same failure.
+    assert.match(document.getElementById('status-messages').textContent, /certificate and its private key/);
   });
 
   await uiTest('an empty XMPP password still connects while a missing username does not', async ({ document, window, state }) => {

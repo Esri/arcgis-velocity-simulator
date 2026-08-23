@@ -1434,90 +1434,501 @@ body:not(.show-gestures) #live-gesture-received {
 }
 
 /* ========================================
-   EXTRA OPTIONS COLLAPSIBLE SECTION
-   — Section-divider disclosure pattern:
-     full-width hairline row, minimal height,
-     transparent background, fades in on hover.
+   PROTOCOL SETTINGS DIALOG
+   — Shared controls stay in the panel; everything specific to the selected
+     protocol is edited in an in-window native <dialog> that renders in the
+     top layer and traps focus.
    ======================================== */
 
-/* The row itself: full width, no indent, no extra margin */
-.extra-options-toggle-row {
+/* The opener row sits directly under Host and Port. */
+.protocol-settings-row {
   width: 100%;
-  margin: 2px 0 0;
+  margin: 4px 0 2px;
   padding: 0;
 }
 
-/* The button spans the entire row */
-.extra-options-toggle-btn {
+.protocol-settings-btn {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
   width: 100%;
-  padding: 0 4px;
-  height: 20px;
-  background: transparent;
+  padding: 4px 8px;
+  background: color-mix(in srgb, var(--text-color) 6%, transparent);
   color: var(--text-color);
-  border: none;
-  border-top: 1px solid var(--hr-bg);
-  border-bottom: 1px solid var(--hr-bg);
-  border-radius: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 0.72em;
+  font-size: 0.82em;
   font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0.55;
-  box-sizing: border-box;
-  transition: opacity 0.15s, background-color 0.15s;
   text-align: left;
+  box-sizing: border-box;
+  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.extra-options-toggle-btn:hover:not(:disabled) {
-  background-color: var(--hr-bg);
-  opacity: 0.9;
+.protocol-settings-btn:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--text-color) 12%, transparent);
+  border-color: var(--text-color);
   transform: none;
 }
 
-.extra-options-toggle-btn:focus-visible {
+.protocol-settings-btn:focus-visible {
   outline: 2px solid var(--button-primary-bg);
-  outline-offset: -2px;
+  outline-offset: 1px;
+}
+
+.protocol-settings-btn-icon {
+  flex: 0 0 auto;
   opacity: 0.85;
-}
-
-/* When expanded: remove bottom border so options flow as a continuous group */
-.extra-options-toggle-btn[aria-expanded="true"] {
-  border-bottom-color: transparent;
-  opacity: 0.75;
-}
-
-.extra-options-arrow {
-  display: inline-block;
-  flex-shrink: 0;
-  transition: transform 0.15s ease;
-  font-size: 0.85em;
   line-height: 1;
 }
 
-.extra-options-toggle-btn[aria-expanded="true"] .extra-options-arrow {
-  transform: rotate(90deg);
-}
-
-.extra-options-label {
+.protocol-settings-btn-label {
   flex: 1;
   min-width: 0;
-  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Expanded body: subtle left accent to show the rows belong to this section */
-.extra-options-body {
+.protocol-settings-count {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
+  font-size: 0.82em;
+  line-height: 1.5;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
+.protocol-settings-count[data-warning="true"] {
+  border-color: var(--button-warning-bg, #ffc107);
+  background: color-mix(in srgb, var(--button-warning-bg, #ffc107) 18%, transparent);
+  opacity: 1;
+}
+
+/* The dialog itself carries no padding, so a click on the element is a click
+   on the backdrop and can safely light-dismiss. */
+.protocol-settings-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: 80vh;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--container-bg, var(--status-bg, #2d2d2d));
+  color: var(--text-color);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42), 0 3px 10px rgba(0, 0, 0, 0.28);
+  font-family: var(--font-family);
+  overflow: hidden;
+}
+
+.protocol-settings-dialog[open] {
   display: flex;
   flex-direction: column;
-  border-left: 2px solid var(--hr-bg);
-  padding-left: 4px;
-  margin-bottom: 2px;
+  animation: protocol-settings-in 0.18s ease-out;
+}
+
+@keyframes protocol-settings-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.99); }
+  to { opacity: 1; transform: none; }
+}
+
+.protocol-settings-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(1.5px);
+}
+
+.protocol-settings-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--hr-bg);
+  background: inherit;
+}
+
+.protocol-settings-heading {
+  min-width: 0;
+}
+
+.protocol-settings-title {
+  margin: 0;
+  font-size: 1.02em;
+  font-weight: 600;
+  color: var(--header-color, var(--text-color));
+}
+
+.protocol-settings-subtitle {
+  margin: 3px 0 0;
+  font-size: 0.78em;
+  opacity: 0.75;
+}
+
+.protocol-settings-close {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-color);
+  cursor: pointer;
+  line-height: 1;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.protocol-settings-close:hover {
+  background: color-mix(in srgb, var(--text-color) 12%, transparent);
+  border-color: var(--border-color);
+  transform: none;
+}
+
+.protocol-settings-banner,
+.protocol-settings-alert {
+  margin: 10px 16px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-left-width: 3px;
+  border-radius: 6px;
+  font-size: 0.8em;
+  line-height: 1.45;
+}
+
+.protocol-settings-banner {
+  border-left-color: var(--button-info-bg, #17a2b8);
+  background: color-mix(in srgb, var(--button-info-bg, #17a2b8) 12%, transparent);
+}
+
+.protocol-settings-banner-readonly {
+  border-left-color: var(--button-success-bg, #28a745);
+  background: color-mix(in srgb, var(--button-success-bg, #28a745) 12%, transparent);
+}
+
+.protocol-settings-banner-error,
+.protocol-settings-alert {
+  border-left-color: var(--button-danger-bg, #dc3545);
+  background: color-mix(in srgb, var(--button-danger-bg, #dc3545) 14%, transparent);
+  color: var(--text-color);
+}
+
+.protocol-settings-banner[hidden],
+.protocol-settings-alert[hidden] {
+  display: none;
+}
+
+.protocol-settings-body {
+  display: flex;
+  align-items: stretch;
+  min-height: 0;
+  flex: 1;
+}
+
+/* Left rail on normal width; a top segmented control in compact mode. */
+.protocol-settings-tablist {
+  flex: 0 0 132px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px;
+  border-right: 1px solid var(--hr-bg);
+  overflow-y: auto;
+}
+
+.protocol-settings-tablist[hidden] {
+  display: none;
+}
+
+.protocol-settings-tab {
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: 0.82em;
+  text-align: left;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.protocol-settings-tab:hover {
+  background: color-mix(in srgb, var(--text-color) 10%, transparent);
+  transform: none;
+}
+
+.protocol-settings-tab:focus-visible {
+  outline: 2px solid var(--button-primary-bg);
+  outline-offset: 1px;
+}
+
+.protocol-settings-tab.active {
+  background: color-mix(in srgb, var(--button-primary-bg) 22%, transparent);
+  border-color: color-mix(in srgb, var(--button-primary-bg) 55%, transparent);
+  font-weight: 600;
+}
+
+.protocol-settings-panels {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 16px 16px;
+  overflow-y: auto;
+}
+
+.protocol-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.protocol-settings-panel[hidden] {
+  display: none;
+}
+
+/* One group per protocol and section. Only the selected protocol's groups are
+   shown, which is why locking and section availability are single queries. */
+.protocol-settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.protocol-settings-group:empty {
+  display: none;
+}
+
+.protocol-settings-empty {
+  margin: 0 0 10px;
+  font-size: 0.8em;
+  line-height: 1.5;
+  opacity: 0.75;
+}
+
+.protocol-settings-empty[hidden] {
+  display: none;
+}
+
+.protocol-settings-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--hr-bg);
+  background: inherit;
+}
+
+.protocol-settings-done,
+.protocol-settings-secondary {
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.82em;
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.protocol-settings-secondary {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+}
+
+.protocol-settings-secondary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text-color) 10%, transparent);
+  transform: none;
+}
+
+.protocol-settings-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.protocol-settings-done {
+  border: 1px solid var(--button-primary-bg);
+  background: var(--button-primary-bg);
+  color: var(--button-text, #fff);
+  font-weight: 600;
+}
+
+.protocol-settings-done:hover:not(:disabled) {
+  background: var(--button-hover, var(--button-primary-bg));
+  transform: none;
+}
+
+/* Read-only presentation while a connection owns the settings. */
+.protocol-settings-dialog[data-read-only="true"] .protocol-settings-panel {
+  opacity: 0.85;
+}
+
+.protocol-settings-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* The XMPP server actions stay available exactly while that server is
+   connected, so they sit outside the locked panels. */
+.protocol-settings-dialog .xmpp-actions {
+  margin: 0 16px;
+}
+
+/* ========================================
+   CONNECTION SUMMARY
+   — One generator drives the inline card, the status-bar chip, and the
+     read-only view inside Protocol Settings.
+   ======================================== */
+
+.connection-summary-card {
+  margin: 8px 0 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--button-info-bg, #17a2b8);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text-color) 4%, transparent);
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.connection-summary-card:focus-visible {
+  outline: 2px solid var(--button-primary-bg);
+  outline-offset: 2px;
+}
+
+.connection-summary-card[data-warning="true"] {
+  border-left-color: var(--button-warning-bg, #ffc107);
+}
+
+.connection-summary-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.connection-summary-card-title {
+  margin: 0;
+  font-size: 0.74em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.connection-summary-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.connection-summary-action {
+  padding: 2px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: 0.74em;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.connection-summary-action:hover {
+  background: color-mix(in srgb, var(--text-color) 10%, transparent);
+  transform: none;
+}
+
+.connection-summary-action[hidden] {
+  display: none;
+}
+
+.connection-summary-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+
+.connection-summary-row {
+  display: grid;
+  grid-template-columns: minmax(76px, 34%) minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: baseline;
+  font-size: 0.78em;
+  line-height: 1.5;
+}
+
+.connection-summary-label {
+  margin: 0;
+  opacity: 0.72;
+  overflow-wrap: anywhere;
+}
+
+.connection-summary-value {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  /* Values are selectable so a single endpoint or URL can be copied on its own. */
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.connection-summary-row[data-severity="warning"] .connection-summary-label,
+.connection-summary-row[data-severity="warning"] .connection-summary-value {
+  color: var(--button-warning-bg, #ffc107);
+  opacity: 1;
+}
+
+.connection-summary-warning-icon {
+  margin-right: 4px;
+}
+
+/* Status-bar chip: a real button, so click, Enter, Space, and touch all work. */
+.connection-summary-status-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 42ch;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--text-color) 6%, transparent);
+  color: var(--text-color);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.78em;
+  line-height: 1.6;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.connection-summary-status-btn:hover {
+  background: color-mix(in srgb, var(--text-color) 14%, transparent);
+  transform: none;
+}
+
+.connection-summary-status-btn:focus-visible {
+  outline: 2px solid var(--button-primary-bg);
+  outline-offset: 1px;
+}
+
+.connection-summary-status-btn[data-warning="true"] {
+  border-color: var(--button-warning-bg, #ffc107);
+  background: color-mix(in srgb, var(--button-warning-bg, #ffc107) 16%, transparent);
+}
+
+.connection-summary-status-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Preset picker: sits above Mode and keeps the connection block compact by
@@ -1545,48 +1956,6 @@ body:not(.show-gestures) #live-gesture-received {
   display: none;
 }
 
-/* Progressive disclosure: advanced protocol options stay one click away
-   instead of crowding the essentials rows. */
-.advanced-options {
-  margin: 2px 0;
-  min-width: 0;
-}
-
-.advanced-options > summary {
-  cursor: pointer;
-  white-space: nowrap;
-  display: inline-block;
-  padding: 2px 6px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  font-size: 0.85em;
-  list-style: none;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-
-.advanced-options > summary::-webkit-details-marker {
-  display: none;
-}
-
-.advanced-options > summary::before {
-  content: '⚙ ';
-  opacity: 0.8;
-}
-
-.advanced-options > summary:hover,
-.advanced-options > summary:focus-visible {
-  border-color: var(--text-color);
-  background-color: color-mix(in srgb, var(--text-color) 8%, transparent);
-}
-
-.advanced-options-body {
-  display: flex;
-  flex-direction: column;
-  padding: 4px 0 2px 6px;
-  border-left: 2px solid var(--hr-bg);
-  margin-top: 4px;
-}
-
 /* Explicit certificate-verification bypass is a warning-level control. */
 .unverified-tls-check {
   display: inline-flex;
@@ -1609,16 +1978,57 @@ body:not(.show-gestures) #live-gesture-received {
   flex-basis: auto;
 }
 
-/* Compact mode */
-body.compact .advanced-options > summary {
-  font-size: 0.7em;
-  padding: 1px 4px;
+/* Compact mode: the dialog uses the full window width, the rail becomes a top
+   segmented control, and the inline card gives way to the status-bar chip. */
+body.compact .protocol-settings-btn {
+  padding: 3px 6px;
+  font-size: 0.76em;
 }
 
-body.compact .extra-options-toggle-btn {
-  height: 18px;
-  font-size: 0.68em;
-  padding: 0 3px;
+body.compact .protocol-settings-dialog {
+  width: calc(100vw - 32px);
+  max-height: 80vh;
+}
+
+body.compact .protocol-settings-body {
+  flex-direction: column;
+}
+
+body.compact .protocol-settings-tablist {
+  flex: 0 0 auto;
+  flex-direction: row;
+  gap: 4px;
+  padding: 8px 12px;
+  border-right: none;
+  border-bottom: 1px solid var(--hr-bg);
+  overflow-x: auto;
+}
+
+body.compact .protocol-settings-tab {
+  flex: 1 1 auto;
+  text-align: center;
+  white-space: nowrap;
+}
+
+body.compact .protocol-settings-header {
+  padding: 10px 12px 8px;
+}
+
+body.compact .protocol-settings-panels {
+  padding: 10px 12px 12px;
+}
+
+body.compact .protocol-settings-footer {
+  padding: 8px 12px 10px;
+}
+
+body.compact .connection-summary-status-btn {
+  max-width: 24ch;
+  font-size: 0.72em;
+}
+
+body.compact .connection-summary-card {
+  display: none;
 }
 
 /* Custom tooltips (replaces unreliable native title tooltips) */
