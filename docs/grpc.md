@@ -293,9 +293,10 @@ electron . runMode=headless filename=./data.csv protocol=grpc mode=server ip=0.0
 ## UI usage
 
 When gRPC is selected in the **Mode** dropdown, a **gRPC Settings…** button
-appears below the **Connection** row. It opens the Protocol Settings dialog,
+appears in the compact **Setup** toolbar. It opens the Protocol Settings dialog,
 which holds every gRPC-specific control, and it carries a concise configured
-state, such as `gRPC · defaults` or `gRPC · 2 changed · 1 warning`. Open it
+state, such as `Defaults` or `2 changed`. The adjacent **Summary** action carries
+the warning count. Open Settings
 with the button or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on Windows
 and Linux. The dialog
 layout, its sections, and the Done, Revert changes, and Reset to preset actions
@@ -336,7 +337,7 @@ secret value.
 
 ### Tooltip reference
 
-The following tooltips appear when hovering over gRPC-related controls in the
+The following tooltips appear after a deliberate stationary hover over gRPC-related controls in the
 UI. These are set dynamically via `GRPC_SERIALIZATION_TOOLTIPS` and
 `GRPC_SEND_METHOD_TOOLTIPS` in `renderer.js`.
 

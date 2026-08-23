@@ -203,9 +203,9 @@ Inside the Command Line Interface dialog, you can also use `Ctrl+F` / `Cmd+F`
 See [Keyboard shortcuts](docs/keyboard-shortcuts.md) for complete list.
 
 ### Connection controls
-- **Panel**: File, **Preset**, **Mode**, **Connection** (host and port), **Protocol Settings…**, replay rate, and the connection actions.
-- **Protocol Settings…**: Opens an in-window dialog holding every setting of the selected protocol, grouped into Basics, Security, and Advanced. Shown for HTTP, WebSocket, gRPC, and XMPP. Edits apply to the next connection; nothing is sent until you select **Connect**.
-- **Connection Summary**: A read-only card below the panel and a status-bar chip describe what the current fields add up to, including warnings such as a disabled certificate verification. Passwords are reported only as `Set (hidden)`, `Empty`, or `Not set`.
+- **Panel**: File, a compact **Setup** toolbar (Preset, Settings, and Summary), **Mode**, **Connection** (host and port), replay rate, and the connection actions.
+- **Settings**: Opens an in-window Protocol Settings dialog holding every setting of the selected protocol, grouped into Basics, Security, and Advanced. Edits apply to the next connection; nothing is sent until you select **Connect**.
+- **Connection Summary**: The Setup and status-bar Summary buttons open every setting in a read-only dialog section. The panel remains compact unless a warning such as disabled certificate verification applies. Passwords are reported only as `Set (hidden)`, `Empty`, or `Not set`.
 
 ### Status Log controls
 - **Sort Order**: Use the sort button in the Status Log header to switch between **Ascending** and **Descending** order (default: Ascending). The icon changes to reflect the current order.

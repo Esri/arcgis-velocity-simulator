@@ -17,6 +17,9 @@
 (function () {
   const TOOLTIP_SELECTOR = '[data-tooltip], [title]';
   const IGNORED_TAGS = new Set(['HTML', 'HEAD', 'TITLE', 'META', 'LINK', 'SCRIPT', 'STYLE']);
+  const HOVER_INTENT_DELAY_MS = 900;
+  const HOVER_MOVE_TOLERANCE_PX = 4;
+  const INTERACTION_COOLDOWN_MS = 600;
   let tooltipEl;
   let iconEl;
   let textEl;
@@ -26,6 +29,8 @@
   let hideTimer;
   let activeTooltipText = '';
   let activeTooltipMode = '';
+  let hoverOrigin = null;
+  let lastInteractionAt = 0;
   let nativeTitleSuppressorInstalled = false;
   let originalSetAttribute;
   let originalRemoveAttribute;
@@ -36,6 +41,7 @@
     style.id = 'custom-tooltip-base-style';
     style.textContent = `
 .custom-tooltip{position:fixed;z-index:10000;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:9px;max-width:min(460px,calc(100vw - 20px));padding:10px 11px;border:1px solid var(--custom-tooltip-border,var(--border-color,#404040));border-left:4px solid var(--custom-tooltip-accent,var(--button-info-bg,var(--accent-color,#17a2b8)));border-radius:9px;background:color-mix(in srgb,var(--custom-tooltip-bg,var(--surface-color,var(--bg-secondary,var(--status-bg,#2d2d2d)))) 94%,#000 6%);color:var(--custom-tooltip-text,var(--text-color,var(--text-primary,#d4d4d4)));box-shadow:0 12px 32px rgba(0,0,0,.38),0 2px 8px rgba(0,0,0,.25);font-family:var(--font-family,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif);font-size:12px;line-height:1.42;pointer-events:none;opacity:0;transform:translateY(4px) scale(.98);transition:opacity .14s ease,transform .14s ease;user-select:text}.custom-tooltip.visible{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}.custom-tooltip-icon{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:999px;background:color-mix(in srgb,var(--custom-tooltip-accent,var(--button-info-bg,var(--accent-color,#17a2b8))) 16%,transparent);color:var(--custom-tooltip-accent,var(--button-info-bg,var(--accent-color,#17a2b8)));font-size:13px;line-height:1.2}.custom-tooltip-text{min-width:0;display:flex;flex-direction:column;gap:4px;overflow-wrap:anywhere;white-space:normal}.custom-tooltip-title{font-weight:700;color:var(--text-primary,var(--text-color,#f3f4f6));letter-spacing:.01em}.custom-tooltip-line{color:var(--text-color,var(--text-primary,#d4d4d4))}.custom-tooltip-row{display:grid;grid-template-columns:minmax(88px,max-content) minmax(0,1fr);column-gap:8px;align-items:start}.custom-tooltip-label{color:color-mix(in srgb,var(--custom-tooltip-accent,var(--accent-color,#17a2b8)) 72%,var(--text-color,#d4d4d4));font-weight:650}.custom-tooltip-value{min-width:0}.custom-tooltip-bullet{position:relative;padding-left:13px}.custom-tooltip-bullet::before{content:'•';position:absolute;left:2px;color:var(--custom-tooltip-accent,var(--accent-color,#17a2b8));font-weight:700}.custom-tooltip-separator{height:1px;margin:3px 0;background:color-mix(in srgb,var(--custom-tooltip-accent,var(--accent-color,#17a2b8)) 32%,transparent)}.custom-tooltip-copy{appearance:none;border:1px solid color-mix(in srgb,var(--custom-tooltip-accent,var(--accent-color,#17a2b8)) 36%,transparent);border-radius:6px;background:color-mix(in srgb,var(--custom-tooltip-accent,var(--accent-color,#17a2b8)) 12%,transparent);color:var(--text-color,var(--text-primary,#d4d4d4));cursor:pointer;font-size:11px;line-height:1;padding:4px 5px;opacity:.72;transition:opacity .12s ease,background-color .12s ease,border-color .12s ease}.custom-tooltip-copy:hover,.custom-tooltip-copy:focus{opacity:1;outline:none;background:color-mix(in srgb,var(--custom-tooltip-accent,var(--accent-color,#17a2b8)) 20%,transparent);border-color:color-mix(in srgb,var(--custom-tooltip-accent,var(--accent-color,#17a2b8)) 58%,transparent)}.custom-tooltip-copy.copied{--custom-tooltip-accent:var(--button-success-bg,var(--success-color,#28a745));opacity:1}.custom-tooltip-info{--custom-tooltip-accent:var(--button-info-bg,var(--accent-color,#17a2b8))}.custom-tooltip-auth{--custom-tooltip-accent:#14b8a6}.custom-tooltip-secure{--custom-tooltip-accent:#38bdf8}.custom-tooltip-success{--custom-tooltip-accent:var(--button-success-bg,var(--success-color,#28a745))}.custom-tooltip-warning{--custom-tooltip-accent:var(--button-warning-bg,#ffc107)}.custom-tooltip-error{--custom-tooltip-accent:var(--button-danger-bg,var(--error-color,#dc3545))}`;
+    style.textContent += '.custom-tooltip.visible{pointer-events:none}.custom-tooltip-copy{display:none}';
     document.head.appendChild(style);
   }
 
@@ -45,6 +51,14 @@
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n')
       .trim();
+  }
+
+  function hasAccessibleName(target) {
+    if (!target) return false;
+    if (target.getAttribute('aria-label') || target.getAttribute('aria-labelledby')) return true;
+    if (target.labels && target.labels.length) return true;
+    if (target.tagName === 'OPTION' || target.tagName === 'LABEL') return true;
+    return target.matches('button') && Boolean(target.textContent.trim());
   }
 
   function setCustomTooltipFromTitle(target, title, force = false) {
@@ -58,7 +72,7 @@
     if (force || !target.getAttribute('data-tooltip')) {
       (originalSetAttribute || Element.prototype.setAttribute).call(target, 'data-tooltip', title);
     }
-    if (!target.getAttribute('aria-label')) {
+    if (!hasAccessibleName(target)) {
       (originalSetAttribute || Element.prototype.setAttribute).call(target, 'aria-label', text.replace(/\n+/g, ' '));
     }
     if (originalRemoveAttribute) originalRemoveAttribute.call(target, 'title');
@@ -148,13 +162,6 @@
       event.stopPropagation();
       copyTooltipText();
     });
-    tooltipEl.addEventListener('mouseenter', () => clearTimeout(hideTimer));
-    tooltipEl.addEventListener('mouseleave', hideTooltip);
-    tooltipEl.addEventListener('focusout', (event) => {
-      if (!tooltipEl.contains(event.relatedTarget) && (!activeTarget || !activeTarget.contains(event.relatedTarget))) {
-        hideTooltip();
-      }
-    });
     tooltipEl.append(iconEl, textEl, copyButtonEl);
     document.body.appendChild(tooltipEl);
   }
@@ -193,7 +200,7 @@
         return;
       }
 
-      const rowMatch = value.match(/^([^:]{2,34}):\s*(.*)$/);
+      const rowMatch = value.match(/^([^:/]{2,34}):\s+(.+)$/);
       if (rowMatch) {
         const row = document.createElement('div');
         const label = document.createElement('span');
@@ -252,7 +259,7 @@
     if (!title) return;
     const existingTooltip = target.getAttribute('data-tooltip');
     if (!force && existingTooltip) {
-      if (!target.getAttribute('aria-label')) {
+      if (!hasAccessibleName(target)) {
         target.setAttribute('aria-label', normalizeTooltipText(existingTooltip).replace(/\n+/g, ' '));
       }
       if (originalRemoveAttribute) originalRemoveAttribute.call(target, 'title');
@@ -262,43 +269,16 @@
     setCustomTooltipFromTitle(target, title, force);
   }
 
-  function accessibleTextFor(target) {
-    const aria = target.getAttribute('aria-label');
-    if (aria) return aria;
-    const placeholder = target.getAttribute('placeholder');
-    if (placeholder) return placeholder;
-    const id = target.id;
-    if (id) {
-      const label = document.querySelector(`label[for="${CSS.escape(id)}"]`);
-      if (label && label.textContent.trim()) return label.textContent.trim();
-    }
-    if (target.tagName === 'LABEL' && target.textContent.trim()) return target.textContent.trim();
-    if (target.textContent && target.textContent.trim()) return target.textContent.trim();
-    return '';
-  }
-
-  function ensureTooltipFallback(target) {
-    if (!target || IGNORED_TAGS.has(target.tagName) || target.getAttribute('data-tooltip') || target.getAttribute('title')) return;
-    if (!target.matches('button, input, select, textarea, label')) return;
-    const text = accessibleTextFor(target);
-    if (!text) return;
-    target.setAttribute('data-tooltip', text);
-    if (!target.getAttribute('aria-label') && target.tagName !== 'LABEL') {
-      target.setAttribute('aria-label', text.replace(/\n+/g, ' '));
-    }
-  }
-
   function migrateAllTitles(root = document) {
     root.querySelectorAll('[data-tooltip][title]').forEach((target) => {
       const tooltip = target.getAttribute('data-tooltip');
-      if (!target.getAttribute('aria-label')) {
+      if (!hasAccessibleName(target)) {
         target.setAttribute('aria-label', normalizeTooltipText(tooltip).replace(/\n+/g, ' '));
       }
       if (originalRemoveAttribute) originalRemoveAttribute.call(target, 'title');
       else target.removeAttribute('title');
     });
     root.querySelectorAll('[title]').forEach(migrateTitle);
-    root.querySelectorAll('button, input, select, textarea, label').forEach(ensureTooltipFallback);
   }
 
   function getTooltipTarget(node) {
@@ -313,16 +293,13 @@
   }
 
   function supportsHoverTrigger(target) {
-    return getTooltipTrigger(target) !== 'click';
+    const trigger = getTooltipTrigger(target);
+    return trigger !== 'click' && trigger !== 'none';
   }
 
   function supportsClickTrigger(target) {
     const trigger = getTooltipTrigger(target);
     return trigger === 'click' || trigger === 'both';
-  }
-
-  function shouldPersistOnScroll(target) {
-    return target && String(target.getAttribute('data-tooltip-persist-scroll') || '').toLowerCase() === 'true';
   }
 
   function setTooltipContent(target) {
@@ -388,6 +365,16 @@
 
   function refreshActiveTooltip(target = activeTarget) {
     if (!tooltipEl || !activeTarget || target !== activeTarget) return;
+    if (activeTooltipMode === 'description') {
+      if (!normalizeTooltipText(activeTarget.getAttribute('data-tooltip'))) {
+        hideTooltip(true);
+        return;
+      }
+      setTooltipContent(activeTarget);
+      tooltipEl.classList.remove('visible');
+      tooltipEl.setAttribute('aria-hidden', 'false');
+      return;
+    }
     if (!tooltipEl.classList.contains('visible')) return;
     if (!normalizeTooltipText(activeTarget.getAttribute('data-tooltip'))) {
       hideTooltip();
@@ -397,9 +384,20 @@
     positionTooltip(activeTarget);
   }
 
+  function hasOpenModalDialog() {
+    return Boolean(document.querySelector('dialog[open]'));
+  }
+
+  function canUseHoverIntent(event) {
+    if (hasOpenModalDialog() || (event && event.pointerType === 'touch')) return false;
+    if (event && event.pointerType === 'mouse') return true;
+    return !window.matchMedia || window.matchMedia('(any-hover: hover) and (any-pointer: fine)').matches;
+  }
+
   function showTooltip(target, immediate = false, mode = 'hover') {
     clearTimeout(hideTimer);
     clearTimeout(showTimer);
+    if (!target || !target.isConnected || (mode === 'hover' && hasOpenModalDialog())) return;
     ensureTooltipElement();
     activeTarget = target;
     const render = () => {
@@ -411,21 +409,56 @@
       positionTooltip(activeTarget);
     };
     if (immediate) render();
-    else showTimer = setTimeout(render, 500);
+    else {
+      const cooldownRemaining = Math.max(0, INTERACTION_COOLDOWN_MS - (Date.now() - lastInteractionAt));
+      showTimer = setTimeout(render, Math.max(HOVER_INTENT_DELAY_MS, cooldownRemaining));
+    }
   }
 
-  function hideTooltip() {
+  function hideTooltip(immediate = false) {
     clearTimeout(showTimer);
-    hideTimer = setTimeout(() => {
+    const clear = () => {
       if (activeTarget) removeTooltipDescription(activeTarget);
       activeTarget = null;
+      hoverOrigin = null;
       activeTooltipText = '';
       activeTooltipMode = '';
       if (tooltipEl) {
         tooltipEl.classList.remove('visible');
         tooltipEl.setAttribute('aria-hidden', 'true');
       }
-    }, 80);
+    };
+    clearTimeout(hideTimer);
+    if (immediate) clear();
+    else hideTimer = setTimeout(clear, 80);
+  }
+
+  function suppressTooltipForInteraction() {
+    lastInteractionAt = Date.now();
+    const focusedTarget = getTooltipTarget(document.activeElement);
+    if (focusedTarget) describeFocusedTarget(focusedTarget);
+    else hideTooltip(true);
+  }
+
+  function describeFocusedTarget(target) {
+    if (!target) return;
+    hideTooltip(true);
+    ensureTooltipElement();
+    activeTarget = target;
+    activeTooltipMode = 'description';
+    setTooltipContent(target);
+    tooltipEl.classList.remove('visible');
+    tooltipEl.setAttribute('aria-hidden', 'false');
+  }
+
+  function armHoverIntent(target, event) {
+    if (!target || !supportsHoverTrigger(target) || !canUseHoverIntent(event)) return;
+    if (activeTarget && activeTarget !== target) hideTooltip(true);
+    hoverOrigin = {
+      x: Number(event.clientX) || 0,
+      y: Number(event.clientY) || 0,
+    };
+    showTooltip(target, false, 'hover');
   }
 
   function initCustomTooltips() {
@@ -434,31 +467,43 @@
     migrateAllTitles();
     ensureTooltipElement();
 
-    document.addEventListener('mouseover', (event) => {
+    document.addEventListener('pointerover', (event) => {
       const target = getTooltipTarget(event.target);
-      if (target && supportsHoverTrigger(target)) showTooltip(target, false, 'hover');
+      if (target === activeTarget && (showTimer || activeTooltipMode === 'hover')) return;
+      armHoverIntent(target, event);
     });
 
-    document.addEventListener('mouseout', (event) => {
+    document.addEventListener('pointermove', (event) => {
+      if (!activeTarget || !hoverOrigin) return;
+      const dx = (Number(event.clientX) || 0) - hoverOrigin.x;
+      const dy = (Number(event.clientY) || 0) - hoverOrigin.y;
+      if (Math.hypot(dx, dy) <= HOVER_MOVE_TOLERANCE_PX) return;
+      if (activeTooltipMode === 'hover') {
+        hideTooltip(true);
+        return;
+      }
+      armHoverIntent(activeTarget, event);
+    });
+
+    document.addEventListener('pointerout', (event) => {
       if (activeTarget && activeTooltipMode === 'click') return;
       if (activeTarget && !activeTarget.contains(event.relatedTarget) && (!tooltipEl || !tooltipEl.contains(event.relatedTarget))) hideTooltip();
     });
 
     document.addEventListener('focusin', (event) => {
-      const target = getTooltipTarget(event.target);
-      if (target && supportsHoverTrigger(target)) showTooltip(target, false, 'hover');
+      describeFocusedTarget(getTooltipTarget(event.target));
     });
 
     document.addEventListener('click', (event) => {
       if (tooltipEl && tooltipEl.contains(event.target)) return;
       const target = getTooltipTarget(event.target);
       if (!target || !supportsClickTrigger(target)) {
-        if (activeTarget && activeTooltipMode === 'click') hideTooltip();
+        if (activeTarget && activeTooltipMode === 'click') hideTooltip(true);
         return;
       }
       event.stopPropagation();
       if (activeTarget === target && activeTooltipMode === 'click' && tooltipEl && tooltipEl.classList.contains('visible')) {
-        hideTooltip();
+        hideTooltip(true);
         return;
       }
       showTooltip(target, true, 'click');
@@ -467,19 +512,19 @@
     document.addEventListener('focusout', (event) => {
       if (activeTarget && activeTooltipMode === 'click') return;
       if (tooltipEl && tooltipEl.contains(event.relatedTarget)) return;
-      hideTooltip();
+      hideTooltip(true);
     });
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') hideTooltip();
+      if (event.key === 'Escape') hideTooltip(true);
+      else suppressTooltipForInteraction();
+    });
+    ['pointerdown', 'input', 'change', 'wheel', 'dragstart'].forEach((eventName) => {
+      document.addEventListener(eventName, suppressTooltipForInteraction, true);
     });
     window.addEventListener('scroll', () => {
-      if (activeTarget && activeTooltipMode === 'click' && shouldPersistOnScroll(activeTarget)) {
-        positionTooltip(activeTarget);
-        return;
-      }
-      hideTooltip();
+      suppressTooltipForInteraction();
     }, true);
-    window.addEventListener('resize', hideTooltip);
+    window.addEventListener('resize', suppressTooltipForInteraction);
 
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
@@ -487,10 +532,13 @@
           migrateTitle(mutation.target, true);
           refreshActiveTooltip(mutation.target);
         } else if (mutation.type === 'attributes') {
+          if (mutation.attributeName === 'open' && mutation.target.matches('dialog[open]')) hideTooltip(true);
           refreshActiveTooltip(mutation.target);
         } else if (mutation.type === 'childList') {
+          if (activeTarget && !activeTarget.isConnected) hideTooltip(true);
           mutation.addedNodes.forEach((node) => {
             if (node.nodeType !== Node.ELEMENT_NODE) return;
+            if (!node.matches(TOOLTIP_SELECTOR) && !node.querySelector(TOOLTIP_SELECTOR)) return;
             migrateTitle(node);
             if (node.querySelectorAll) migrateAllTitles(node);
           });
@@ -501,7 +549,7 @@
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['title', 'data-tooltip', 'data-tooltip-icon', 'data-tooltip-kind', 'data-tooltip-trigger', 'data-tooltip-persist-scroll', 'aria-label'],
+      attributeFilter: ['title', 'open', 'data-tooltip', 'data-tooltip-icon', 'data-tooltip-kind', 'data-tooltip-trigger', 'data-tooltip-persist-scroll', 'aria-label'],
     });
   }
 
@@ -509,4 +557,3 @@
   installNativeTitleSuppressor();
   window.addEventListener('DOMContentLoaded', initCustomTooltips, { once: true });
 })();
-

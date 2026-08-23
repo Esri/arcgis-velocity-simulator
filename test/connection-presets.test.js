@@ -356,7 +356,7 @@ function enableConnect(document) {
     select.dispatchEvent(new window.Event('change'));
     assert.strictEqual(document.getElementById('protocol-settings-dialog').open, false);
     assert.notStrictEqual(document.getElementById('grpc-serialization-group').style.display, 'none');
-    assert.match(document.getElementById('protocol-settings-count').textContent, /^gRPC · /);
+    assert.match(document.getElementById('protocol-settings-count').textContent, /^\d+$/);
   });
 
   await uiTest('editing a populated field switches the display to Custom (modified)', async ({ document, window }) => {

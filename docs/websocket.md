@@ -127,10 +127,10 @@ Useful for authentication tokens or API keys required by the WebSocket endpoint.
 ## UI controls
 
 When WebSocket is selected in the **Mode** dropdown, a **WebSocket Settings…**
-button appears below the **Connection** row. It opens the Protocol Settings
+action appears in the compact **Setup** toolbar. It opens the Protocol Settings
 dialog, which holds every WebSocket-specific control, and it carries a concise
-configured state, such as `WebSocket · defaults` or
-`WebSocket · 2 changed · 1 warning`. Open it with the button or with
+configured state, such as `Defaults` or `2 changed`. The adjacent **Summary**
+action carries the warning count. Open Settings with the button or with
 `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on Windows and Linux.
 The dialog layout, its sections, and the Done, Revert changes, and Reset to
 preset actions are described in

@@ -66,9 +66,10 @@
             </button>
             <span id="file-path">No file selected</span>
           </div>
-          <div class="control-group aligned-group" id="connection-preset-group">
-            <label for="connection-preset" data-tooltip="Pre-fills the connection fields for a paired local Simulator and Logger test." data-tooltip-icon="🎚" data-tooltip-kind="info" aria-label="Connection preset">Preset:</label>
-            <select id="connection-preset" class="connection-preset-select" aria-label="Connection preset: Custom" data-tooltip="Custom&#10;Keeps the current connection fields exactly as they are. Choose a paired preset to pre-fill a local Simulator and Logger test." data-tooltip-icon="🎚" data-tooltip-kind="info">
+          <div class="control-group aligned-group connection-toolbar" id="connection-preset-group">
+            <label for="connection-preset" data-tooltip="Pre-fills the connection fields for a paired local Simulator and Logger test." data-tooltip-icon="🎚" data-tooltip-kind="info" aria-label="Connection setup">Setup:</label>
+            <div class="connection-toolbar-controls">
+              <select id="connection-preset" class="connection-preset-select" aria-label="Connection preset: Custom" data-tooltip="Custom&#10;Keeps the current connection fields exactly as they are. Choose a paired preset to pre-fill a local Simulator and Logger test." data-tooltip-icon="🎚" data-tooltip-kind="info">
               <option value="custom" selected title="Custom - keeps the current connection fields exactly as they are. Nothing is pre-filled or reset.">Custom</option>
               <optgroup label="Local TCP">
                 <option value="local-tcp-logger-server" title="Local TCP - Logger Server / Simulator Client. The Logger listens on TCP 127.0.0.1:5565 and the Simulator connects to it as a TCP client.">Local TCP — Logger Server / Simulator Client</option>
@@ -94,9 +95,23 @@
                 <option value="local-xmpp-logger-server" title="Local XMPP - Logger Server / Simulator Client. The Logger hosts the XMPP service and the Simulator signs in to 127.0.0.1:5222 as simulator on domain localhost with Direct conversation and Required STARTTLS, publishing to velocity-logger@localhost. The password is left intentionally empty and unverified TLS is allowed so the Logger self-signed certificate is accepted.">Local XMPP — Logger Server / Simulator Client</option>
                 <option value="local-xmpp-simulator-server" title="Local XMPP - Simulator Server / Logger Client. The Simulator hosts the in-process XMPP service on 127.0.0.1:5222 for domain localhost with Direct conversation, Required STARTTLS, and one external account named velocity-logger. The external password is left intentionally empty for relaxed local testing.">Local XMPP — Simulator Server / Logger Client</option>
               </optgroup>
-            </select>
-            <span id="connection-preset-state" class="connection-preset-state" role="status" aria-live="polite" hidden data-tooltip="These fields started from a preset and were edited. Select the preset again to restore its values." data-tooltip-icon="✎" data-tooltip-kind="info" aria-label="Preset modified">Modified</span>
+              </select>
+              <span id="connection-preset-state" class="connection-preset-state" role="status" aria-live="polite" hidden data-tooltip="These fields started from a preset and were edited. Select the preset again to restore its values." data-tooltip-icon="✎" data-tooltip-kind="info" aria-label="Preset modified">Modified</span>
+              <button id="protocol-settings-btn" class="connection-toolbar-action protocol-settings-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="protocol-settings-dialog" aria-label="Protocol Settings" data-tooltip="Protocol Settings (Cmd/Ctrl+Shift+P)&#10;---&#10;Open the settings for the selected protocol in a dialog with Basics, Security, and Advanced sections." data-tooltip-icon="⚙" data-tooltip-kind="info">
+                <span class="protocol-settings-btn-icon" aria-hidden="true">⚙</span>
+                <span class="protocol-settings-btn-label">Settings</span>
+                <span id="protocol-settings-count" class="protocol-settings-count" hidden></span>
+              </button>
+              <button id="connection-summary-show-all" type="button" class="connection-toolbar-action connection-summary-action" aria-haspopup="dialog" aria-controls="protocol-settings-dialog" aria-label="Open connection summary" data-tooltip="Open the full read-only connection summary (Cmd/Ctrl+Shift+I)." data-tooltip-icon="▤" data-tooltip-kind="info">
+                <span aria-hidden="true">▤</span>
+                <span class="connection-toolbar-action-label">Summary</span>
+                <span id="connection-summary-warning-count" class="connection-summary-warning-count" hidden aria-hidden="true"></span>
+              </button>
+            </div>
           </div>
+          <section id="connection-summary-card" class="connection-summary-alert" role="status" aria-live="polite" hidden>
+            <dl id="connection-summary-rows" class="connection-summary-rows"></dl>
+          </section>
           <div class="control-group aligned-group">
             <label for="connection-type">Mode:</label>
             <select id="connection-type">
@@ -119,14 +134,6 @@
             <input type="text" id="ip-address" value="127.0.0.1" title="IP Address">
             <input type="number" id="port" value="5565" title="Port">
           </div>
-          <!-- Protocol Settings opener. Everything protocol-specific is edited in the dialog. -->
-          <div class="control-group protocol-settings-row">
-            <button id="protocol-settings-btn" class="protocol-settings-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="protocol-settings-dialog" aria-label="Protocol Settings" data-tooltip="Protocol Settings (Cmd/Ctrl+Shift+P)&#10;---&#10;Open the settings for the selected protocol in a dialog with Basics, Security, and Advanced sections. Preset, connection type, host, and port stay in this row." data-tooltip-icon="⚙" data-tooltip-kind="info">
-              <span class="protocol-settings-btn-icon" aria-hidden="true">⚙</span>
-              <span class="protocol-settings-btn-label">Protocol Settings…</span>
-              <span id="protocol-settings-count" class="protocol-settings-count">TCP · no protocol settings</span>
-            </button>
-          </div>
           <!--
             Protocol Settings dialog. It lives inside .connection-controls-group so the
             delegated preset-modification listeners still see every edit, and it is a
@@ -144,10 +151,10 @@
             <div id="protocol-settings-alert" class="protocol-settings-banner protocol-settings-banner-error protocol-settings-alert" role="alert" aria-live="assertive" hidden></div>
             <div class="protocol-settings-body">
               <div id="protocol-settings-tablist" class="protocol-settings-tablist" role="tablist" aria-orientation="vertical" aria-label="Protocol settings sections">
-                <button id="protocol-settings-tab-basics" class="protocol-settings-tab" type="button" role="tab" data-section="basics" aria-controls="protocol-settings-panel-basics" aria-selected="true" tabindex="0" aria-label="Basics section" data-tooltip="Basics&#10;The settings this protocol needs before it can send data." data-tooltip-icon="◉" data-tooltip-kind="info" data-tooltip-trigger="both" data-tooltip-persist-scroll="true">Basics</button>
-                <button id="protocol-settings-tab-security" class="protocol-settings-tab" type="button" role="tab" data-section="security" aria-controls="protocol-settings-panel-security" aria-selected="false" tabindex="-1" aria-label="Security section" data-tooltip="Security&#10;TLS, certificate verification, and certificate paths for this protocol." data-tooltip-icon="🔒" data-tooltip-kind="secure" data-tooltip-trigger="both" data-tooltip-persist-scroll="true">Security</button>
-                <button id="protocol-settings-tab-advanced" class="protocol-settings-tab" type="button" role="tab" data-section="advanced" aria-controls="protocol-settings-panel-advanced" aria-selected="false" tabindex="-1" aria-label="Advanced section" data-tooltip="Advanced&#10;Optional settings that most connections leave at their defaults." data-tooltip-icon="⚙" data-tooltip-kind="info" data-tooltip-trigger="both" data-tooltip-persist-scroll="true">Advanced</button>
-                <button id="protocol-settings-tab-summary" class="protocol-settings-tab" type="button" role="tab" data-section="summary" aria-controls="protocol-settings-panel-summary" aria-selected="false" tabindex="-1" aria-label="Summary section" data-tooltip="Summary&#10;Every connection setting in one read-only list, with warnings first. Passwords are never shown." data-tooltip-icon="▤" data-tooltip-kind="info" data-tooltip-trigger="both" data-tooltip-persist-scroll="true">Summary</button>
+                <button id="protocol-settings-tab-basics" class="protocol-settings-tab" type="button" role="tab" data-section="basics" aria-controls="protocol-settings-panel-basics" aria-selected="true" tabindex="0" aria-label="Basics section" data-tooltip="Basics&#10;The settings this protocol needs before it can send data." data-tooltip-icon="◉" data-tooltip-kind="info">Basics</button>
+                <button id="protocol-settings-tab-security" class="protocol-settings-tab" type="button" role="tab" data-section="security" aria-controls="protocol-settings-panel-security" aria-selected="false" tabindex="-1" aria-label="Security section" data-tooltip="Security&#10;TLS, certificate verification, and certificate paths for this protocol." data-tooltip-icon="🔒" data-tooltip-kind="secure">Security</button>
+                <button id="protocol-settings-tab-advanced" class="protocol-settings-tab" type="button" role="tab" data-section="advanced" aria-controls="protocol-settings-panel-advanced" aria-selected="false" tabindex="-1" aria-label="Advanced section" data-tooltip="Advanced&#10;Optional settings that most connections leave at their defaults." data-tooltip-icon="⚙" data-tooltip-kind="info">Advanced</button>
+                <button id="protocol-settings-tab-summary" class="protocol-settings-tab" type="button" role="tab" data-section="summary" aria-controls="protocol-settings-panel-summary" aria-selected="false" tabindex="-1" aria-label="Summary section" data-tooltip="Summary&#10;Every connection setting in one read-only list, with warnings first. Passwords are never shown." data-tooltip-icon="▤" data-tooltip-kind="info">Summary</button>
               </div>
               <div class="protocol-settings-panels">
                 <div id="protocol-settings-panel-basics" class="protocol-settings-panel" role="tabpanel" tabindex="0" aria-labelledby="protocol-settings-tab-basics">
@@ -402,6 +409,9 @@
                 </div>
                 <div id="protocol-settings-panel-summary" class="protocol-settings-panel protocol-settings-summary" role="tabpanel" tabindex="0" aria-labelledby="protocol-settings-tab-summary" hidden>
                   <p id="protocol-settings-empty" class="protocol-settings-empty" hidden>TCP has no protocol settings. Connection type, host, and port stay in the connection row.</p>
+                  <div class="connection-summary-dialog-actions">
+                    <button id="connection-summary-copy" type="button" class="connection-summary-action" aria-label="Copy the connection summary" data-tooltip="Copy the connection summary as text. Passwords are never copied." data-tooltip-icon="⧉" data-tooltip-kind="info">Copy summary</button>
+                  </div>
                   <dl id="protocol-settings-summary-rows" class="connection-summary-rows"></dl>
                 </div>
               </div>
@@ -420,21 +430,6 @@
             </div>
           </dialog>
         </div>
-        <!--
-          Inline Connection Summary. It is rendered from the same generator as the
-          status-bar button and the read-only Summary section of Protocol Settings,
-          so the three surfaces can never disagree.
-        -->
-        <section id="connection-summary-card" class="connection-summary-card" tabindex="-1" aria-labelledby="connection-summary-card-title">
-          <div class="connection-summary-card-header">
-            <h2 id="connection-summary-card-title" class="connection-summary-card-title">Connection summary</h2>
-            <div class="connection-summary-card-actions">
-              <button id="connection-summary-show-all" type="button" class="connection-summary-action" aria-label="Show all connection settings" data-tooltip="Show every connection setting, with warnings first, in a read-only summary." data-tooltip-icon="▤" data-tooltip-kind="info">Show all</button>
-              <button id="connection-summary-copy" type="button" class="connection-summary-action" aria-label="Copy the connection summary" data-tooltip="Copy the connection summary as text. Passwords are never copied." data-tooltip-icon="⧉" data-tooltip-kind="info">Copy</button>
-            </div>
-          </div>
-          <dl id="connection-summary-rows" class="connection-summary-rows" aria-live="polite"></dl>
-        </section>
         <div class="control-group combined-input-group aligned-group">
           <label for="lines-per-interval">Lines / ms:</label>
           <input type="number" id="lines-per-interval" value="1" min="1" step="1" title="Lines count">
@@ -546,7 +541,7 @@
           <span id="auth-badge-content" class="tls-badge-content"></span>
         </span>
       </span>
-      <button id="connection-summary-status-btn" class="connection-summary-status-btn" type="button" aria-haspopup="dialog" aria-controls="protocol-settings-dialog" aria-label="Connection summary" data-tooltip="Connection summary&#10;---&#10;Select or press Enter to open the full read-only summary. Hovering only previews this line." data-tooltip-icon="▤" data-tooltip-kind="info">
+      <button id="connection-summary-status-btn" class="connection-summary-status-btn" type="button" aria-haspopup="dialog" aria-controls="protocol-settings-dialog" aria-label="Connection summary" data-tooltip="Open the full read-only connection summary (Cmd/Ctrl+Shift+I)." data-tooltip-icon="▤" data-tooltip-kind="info">
         <span id="connection-summary-status-label" class="connection-summary-status-label">TCP Server · 127.0.0.1:5565</span>
       </button>
     </div>

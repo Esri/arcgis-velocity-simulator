@@ -212,10 +212,11 @@ test('every protocol-specific control lives in the dialog exactly once', () => {
     });
 });
 
-test('the shared controls keep the documented inline order, with host and port above the opener', () => {
+test('the shared controls keep the compact setup toolbar before mode and connection', () => {
   const { document } = new JSDOM(indexHtml).window;
   const group = document.querySelector('.connection-controls-group');
-  const order = ['select-file', 'connection-preset', 'connection-type', 'ip-address', 'port', 'protocol-settings-btn'];
+  const order = ['select-file', 'connection-preset', 'protocol-settings-btn', 'connection-summary-show-all',
+    'connection-type', 'ip-address', 'port'];
   const positions = order.map((id) => {
     const element = document.getElementById(id);
     return [...group.querySelectorAll('*')].indexOf(element);
@@ -287,10 +288,11 @@ test('the stylesheet styles the dialog, its tabs, and the summary surfaces', () 
   assert.match(styleCss, /\.protocol-settings-tablist\s*\{/);
   assert.match(styleCss, /\.protocol-settings-footer\s*\{[^}]*position:\s*sticky/);
   assert.match(styleCss, /body\.compact \.protocol-settings-tablist\s*\{[\s\S]*flex-direction:\s*row/);
+  assert.match(styleCss, /\.connection-toolbar-controls\s*\{/);
+  assert.match(styleCss, /\.connection-summary-alert\s*\{/);
   assert.match(styleCss, /\.connection-summary-status-btn\s*\{/);
-  // The compact layout hides the inline card, which is why the summary
-  // shortcut opens the dialog there instead of focusing the card.
-  assert.match(styleCss, /body\.compact \.connection-summary-card\s*\{[^}]*display:\s*none/);
+  assert.match(styleCss, /body\.compact \.connection-toolbar > label\s*\{[^}]*width:\s*0/s);
+  assert.match(styleCss, /body\.compact \.connection-preset-state\s*\{[^}]*clip:\s*rect/s);
 });
 
 // The application menu owns Cmd/Ctrl+I for App Configuration and
@@ -497,7 +499,7 @@ test('both connection shortcuts are offered in the application and context menus
     assert.strictEqual(document.getElementById('grpc-tls').checked, false);
     assert.strictEqual(document.getElementById('connection-type').value, 'grpc-client');
     assert.match(document.getElementById('protocol-settings-title').textContent, /gRPC Client settings/);
-    assert.match(document.getElementById('protocol-settings-count').textContent, /^gRPC · \d+ changed( · \d+ warnings?)?$/);
+    assert.match(document.getElementById('protocol-settings-count').textContent, /^\d+$/);
     assert.strictEqual(state.connects.length, 0, 'a preset never connects');
 
     document.getElementById('protocol-settings-btn').click();
@@ -518,30 +520,36 @@ test('both connection shortcuts are offered in the application and context menus
   await uiTest('the chip counts protocol settings that differ from their defaults', async ({ document, select, check }) => {
     const chip = document.getElementById('protocol-settings-count');
     select('connection-type', 'tcp-client');
-    assert.strictEqual(chip.textContent, 'TCP · no protocol settings');
+    assert.strictEqual(chip.textContent, '');
+    assert.strictEqual(chip.hidden, true);
 
     select('connection-type', 'http-client');
-    assert.strictEqual(chip.textContent, 'HTTP · defaults');
+    assert.strictEqual(chip.textContent, '');
+    assert.strictEqual(chip.hidden, true);
     select('http-format', 'json');
-    assert.strictEqual(chip.textContent, 'HTTP · 1 changed');
-    // A warning is appended to the count, never substituted for it.
+    assert.strictEqual(chip.textContent, '1');
+    assert.strictEqual(chip.hidden, false);
     check('http-tls', false);
-    assert.strictEqual(chip.textContent, 'HTTP · 2 changed · 1 warning');
+    assert.strictEqual(chip.textContent, '2');
     assert.strictEqual(chip.dataset.warning, 'true', 'plaintext raises a warning on the chip');
+    assert.strictEqual(document.getElementById('connection-summary-warning-count').textContent, '⚠ 1');
   });
 
-  await uiTest('the inline card shows three rows with warnings first and copies redacted text', async ({ document, select, check, rows, state }) => {
+  await uiTest('the panel stays compact and shows only the highest-priority warning', async ({ document, select, check, rows, state }) => {
     select('connection-type', 'http-server');
-    assert.deepStrictEqual(rows('connection-summary-rows').map((row) => row.key), ['connection', 'endpoint', 'status']);
-    assert.strictEqual(rows('connection-summary-rows')[1].value, 'https://127.0.0.1:8443/');
+    assert.deepStrictEqual(rows('connection-summary-rows'), []);
+    assert.strictEqual(document.getElementById('connection-summary-card').hidden, true);
 
     select('connection-type', 'http-client');
     check('http-allow-unverified', true);
     const primary = rows('connection-summary-rows');
-    assert.strictEqual(primary[0].key, 'unverifiedCertificate');
+    assert.strictEqual(primary[0].key, 'warnings');
+    assert.match(primary[0].value, /Off for every host/);
     assert.strictEqual(primary[0].kind, 'warning');
     assert.strictEqual(document.getElementById('connection-summary-card').dataset.warning, 'true');
+    assert.strictEqual(document.getElementById('connection-summary-card').hidden, false);
 
+    document.getElementById('connection-summary-show-all').click();
     document.getElementById('connection-summary-copy').click();
     await new Promise((resolve) => setTimeout(resolve, 0));
     const copied = state.copied.pop();
@@ -588,7 +596,7 @@ test('both connection shortcuts are offered in the application and context menus
 
     const statusButton = document.getElementById('connection-summary-status-btn');
     assert.strictEqual(statusButton.getAttribute('aria-haspopup'), 'dialog');
-    assert.match(statusButton.dataset.tooltip, /Select or press Enter to open/);
+    assert.match(statusButton.dataset.tooltip, /Open the full read-only connection summary/);
     assert.strictEqual(document.getElementById('connection-summary-status-label').textContent, 'gRPC Client · 127.0.0.1:5565');
     statusButton.click();
     assert.strictEqual(document.getElementById('protocol-settings-dialog').open, true);
@@ -599,7 +607,7 @@ test('both connection shortcuts are offered in the application and context menus
     select('connection-type', 'ws-client');
     check('ws-tls', false);
     const tooltip = document.getElementById('connection-summary-status-btn').dataset.tooltip;
-    assert.match(tooltip, /Select or press Enter to open the full read-only summary/);
+    assert.strictEqual(tooltip, 'Open the full read-only connection summary (Cmd/Ctrl+Shift+I).');
     assert.doesNotMatch(tooltip, /Subscription message/, 'the tooltip never carries the summary itself');
   });
 
@@ -612,7 +620,10 @@ test('both connection shortcuts are offered in the application and context menus
     assert.strictEqual(dialog.open, false);
 
     key(document.body, 'I', { ctrlKey: true, shiftKey: true });
-    assert.strictEqual(document.activeElement.id, 'connection-summary-card');
+    assert.strictEqual(dialog.open, true);
+    assert.strictEqual(document.activeElement.id, 'protocol-settings-panel-summary');
+    key(document.body, 'Escape');
+    assert.strictEqual(dialog.open, false);
 
     // The shortcut still works while a connection field has focus.
     document.getElementById('ip-address').focus();
@@ -632,9 +643,7 @@ test('both connection shortcuts are offered in the application and context menus
     assert.strictEqual(dialog.open, true, 'Control is not the primary modifier on macOS');
   });
 
-  await uiTest('the summary shortcut opens the dialog when the inline card is hidden', async ({ document, key }) => {
-    // Compact view hides the inline summary card, so the shortcut has nothing
-    // to focus there and must open the read-only Summary section instead.
+  await uiTest('the summary shortcut opens the same dialog in full and compact views', async ({ document, key }) => {
     document.body.classList.add('compact');
     const dialog = document.getElementById('protocol-settings-dialog');
     key(document.body, 'I', { ctrlKey: true, shiftKey: true });
@@ -646,8 +655,7 @@ test('both connection shortcuts are offered in the application and context menus
     assert.ok(document.querySelectorAll('#protocol-settings-summary-rows .connection-summary-row').length > 0,
       'the Summary section is populated before it is shown');
 
-    // Closing hands focus to the status-bar summary button, the opener that
-    // stands in for the hidden card.
+    // Closing hands focus to the persistent status-bar summary button.
     key(document.body, 'Escape');
     assert.strictEqual(dialog.open, false);
     assert.strictEqual(document.activeElement.id, 'connection-summary-status-btn');
@@ -659,12 +667,12 @@ test('both connection shortcuts are offered in the application and context menus
     assert.strictEqual(dialog.open, true, 'the summary shortcut never closes the dialog');
     assert.strictEqual(document.activeElement.id, 'protocol-settings-panel-summary');
 
-    // Full view keeps focusing the inline card.
+    // Full view uses the same predictable disclosure.
     key(document.body, 'Escape');
     document.body.classList.remove('compact');
     key(document.body, 'I', { ctrlKey: true, shiftKey: true });
-    assert.strictEqual(document.activeElement.id, 'connection-summary-card');
-    assert.strictEqual(dialog.open, false);
+    assert.strictEqual(document.activeElement.id, 'protocol-settings-panel-summary');
+    assert.strictEqual(dialog.open, true);
   });
 
   await uiTest('the menu shortcuts reach the same handler as the key presses', async ({ document, state }) => {
@@ -675,7 +683,8 @@ test('both connection shortcuts are offered in the application and context menus
     shortcut('protocol-settings');
     assert.strictEqual(dialog.open, false);
     shortcut('connection-summary');
-    assert.strictEqual(document.activeElement.id, 'connection-summary-card');
+    assert.strictEqual(dialog.open, true);
+    assert.strictEqual(document.activeElement.id, 'protocol-settings-panel-summary');
   });
 
   await uiTest('a hidden connection row is revealed before the dialog opens', async ({ document, key }) => {

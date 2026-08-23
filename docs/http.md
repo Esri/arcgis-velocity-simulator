@@ -97,9 +97,10 @@ for the same path.
 ## UI controls
 
 When HTTP is selected in the **Mode** dropdown, a **HTTP Settings…** button
-appears below the **Connection** row. It opens the Protocol Settings dialog,
+appears in the compact **Setup** toolbar. It opens the Protocol Settings dialog,
 which holds every HTTP-specific control, and it carries a concise configured
-state, such as `HTTP · defaults` or `HTTP · 2 changed · 1 warning`. Open it
+state, such as `Defaults` or `2 changed`. The adjacent **Summary** action carries
+the warning count. Open Settings
 with the button or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on Windows
 and Linux. The dialog
 layout, its sections, and the Done, Revert changes, and Reset to preset actions
@@ -135,7 +136,7 @@ The current format, path, TLS state, and effective URL are also reported by the
 
 ## Tooltip reference
 
-The following tooltips appear when hovering over HTTP-related controls in the
+The following tooltips appear after a deliberate stationary hover over HTTP-related controls in the
 UI. These are also set dynamically via `HTTP_FORMAT_TOOLTIPS` and
 `CONNECTION_MODE_TOOLTIPS` in `renderer.js`.
 

@@ -29,27 +29,24 @@ the twelve paired presets, and the Custom and Custom (modified) states.
 The panel shows only what is true of every connection, in this order:
 
 1. **File** — the file to replay.
-2. **Preset** — the paired local preset, with the **Modified** badge beside it.
+2. **Setup** — the paired preset and **Modified** badge, plus compact
+   **Settings** and **Summary** actions.
 3. **Mode** — the connection type, which is the protocol and the role.
 4. **Connection** — the host and the port.
-5. **Protocol Settings…** — opens the dialog for the selected protocol.
-6. **Lines / ms** — the replay rate.
-7. **Connect**, **Disconnect**, **Play/Pause**, and **Step**.
+5. **Lines / ms** — the replay rate.
+6. **Connect**, **Disconnect**, **Play/Pause**, and **Step**.
 
-TCP and UDP have no settings of their own, so the **Protocol Settings…** button
-is shown only for HTTP, WebSocket, gRPC, and XMPP.
-
-Below the panel, the [Connection summary](connection-summary.md) card describes
-what the current fields add up to.
+TCP and UDP have no settings of their own. **Settings** remains available for
+the read-only Summary, while its count stays hidden. A compact warning alert
+appears only when the current values need attention.
 
 ## The Protocol Settings dialog
 
-**Protocol Settings…** opens an in-window dialog that holds every control
+**Settings** opens an in-window dialog that holds every control
 belonging to the selected protocol. The dialog title tracks the selection, for
 example `WebSocket Client settings`, and the button carries a concise configured
-state: `TCP · no protocol settings`, `HTTP · defaults`, `HTTP · 2 changed`, or
-`HTTP · 2 changed · 1 warning`. A warning is appended to the count, never
-substituted for it.
+state count when values differ from their defaults, such as `2`. The adjacent
+**Summary** action carries the warning count.
 
 Open it with the button or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on
 Windows and Linux.
@@ -88,7 +85,7 @@ network until you select **Connect**.
 | **Reset to preset** | Reapplies the preset the fields were modified from. It is enabled only while the fields derive from a modified preset. |
 | `Esc` | Closes the dialog and keeps the edits, exactly like **Done**. |
 
-Focus returns to the **Protocol Settings…** button when the dialog closes.
+Focus returns to the **Settings** button when the dialog closes.
 
 ### Connection state
 
@@ -106,8 +103,7 @@ No field required to connect is hidden. If validation fails while the dialog is
 closed, the dialog opens on the section holding the offending control, the
 control is revealed and focused, an assertive banner names the problem, and the
 same message is written to the status log. The banner is added to the control's
-`aria-describedby` rather than replacing it, so a hover tooltip and the banner
-can describe the control at the same time.
+`aria-describedby` rather than replacing existing descriptions.
 
 ## What a preset is
 
@@ -234,7 +230,8 @@ testing.
 |---|---|
 | Preset | Pre-fills the connection fields for a paired local Simulator and Logger test. Defaults to Custom. |
 | Modified badge | Appears after a populated field is edited; names the preset the fields started from. |
-| Protocol Settings… | Opens the dialog holding every setting of the selected protocol. Shown for HTTP, WebSocket, gRPC, and XMPP. Carries the configured state. |
+| Settings | Opens Protocol Settings and carries the configured state. |
+| Summary | Opens the read-only Summary section and carries the warning count. |
 | Section tabs | Basics, Security, and Advanced, offered only where the section holds a control. |
 | Done | Closes the dialog and keeps the edits. |
 | Revert changes | Restores the values the fields held when the dialog was opened. |
@@ -252,17 +249,18 @@ These strings are produced by `describeConnectionPreset()` in
 | Preset (applied) | `<label>` / `<preset summary>` / `Preset: pre-fills the connection fields for a paired local Simulator and Logger test. It only fills editable fields — it never connects, starts playback, selects a file, or saves a secret.` |
 | Preset (modified) | `Custom (modified)` / `These fields started from "<label>" and were edited. Select the preset again to restore its values.` / `Preset: pre-fills the connection fields for a paired local Simulator and Logger test. It only fills editable fields — it never connects, starts playback, selects a file, or saves a secret.` |
 | Modified badge | `Modified` / `These fields started from "<label>" and were edited. Select the preset again to restore its values.` |
-| Protocol Settings… | `Open <protocol> settings (Cmd+Shift+P / Ctrl+Shift+P).` / `Everything specific to <protocol> is edited in the dialog: <contents>.` / `Configured: <state>.` / `Nothing is sent until you select Connect.` |
-| Basics tab | `Basics: the settings that decide what is sent and where it is delivered.` |
-| Security tab | `Security: TLS, certificates, certificate verification, and who may connect.` |
-| Advanced tab | `Advanced: the settings most connections can leave at their defaults.` |
-| Close | `Close Protocol Settings and keep the current edits (Esc).` |
-| Done | `Close Protocol Settings and keep the current edits. Nothing is sent until you select Connect.` |
-| Revert changes | `Restore every field to the values it held when this dialog was opened.` |
-| Reset to preset | `Reset every field back to the preset these settings started from. It is available only while the fields still derive from a modified preset.` |
+| Settings | `Protocol Settings (Cmd/Ctrl+Shift+P)` / `Open the <mode> settings: <n> of <total> changed from their defaults.` |
+| Summary | `Open the full read-only connection summary (Cmd/Ctrl+Shift+I).` |
+| Basics tab | `Basics` / `The settings this protocol needs before it can send data.` |
+| Security tab | `Security` / `TLS, certificate verification, and certificate paths for this protocol.` |
+| Advanced tab | `Advanced` / `Optional settings that most connections leave at their defaults.` |
+| Summary tab | `Summary` / `Every connection setting in one read-only list, with warnings first. Passwords are never shown.` |
+| Close | `Close Protocol Settings and keep your edits (Esc)` |
+| Done | `Keep your edits and close Protocol Settings. Nothing connects until you select Connect.` |
+| Revert changes | `Restore the values this dialog opened with. Fields outside the dialog are untouched.` |
+| Reset to preset | `Restore every field of the preset these settings started from. Available only after a preset is applied and edited.` |
 
-The `<contents>` fragment of the **Protocol Settings…** tooltip names what the
-dialog holds for the selected protocol:
+Protocol Settings holds the following controls for each protocol:
 
 | Protocol | Contents |
 |---|---|

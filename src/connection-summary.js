@@ -351,6 +351,7 @@
     // Warnings are appended, never substituted, so a bypass never hides the
     // fact that other settings were changed too.
     const warningLabel = warnings === 0 ? '' : warnings === 1 ? '1 warning' : `${warnings} warnings`;
+    const shortLabel = applicable.length === 0 || count === 0 ? '' : String(count);
     return {
       protocol,
       protocolLabel: PROTOCOL_LABELS[protocol],
@@ -359,8 +360,26 @@
       hasSettings: applicable.length > 0,
       changedLabel,
       warningCount: warnings,
+      shortLabel,
       label: [`${PROTOCOL_LABELS[protocol]} · ${changedLabel}`, warningLabel].filter(Boolean).join(' · '),
     };
+  }
+
+  /**
+   * Condenses every warning into the single line shown beneath the compact
+   * connection toolbar.
+   */
+  function formatConnectionWarningLine(summary) {
+    const warnings = summary && Array.isArray(summary.warnings) ? summary.warnings : [];
+    if (warnings.length === 0) return null;
+    if (warnings.length === 1) {
+      const [only] = warnings;
+      return { count: 1, label: only.label, value: only.value, text: `${only.label}: ${only.value}` };
+    }
+    const label = `${warnings.length} warnings`;
+    const [first] = warnings;
+    const value = `${first.label}: ${first.value}`;
+    return { count: warnings.length, label, value, text: `${label}: ${value}` };
   }
 
   function row(key, label, value, options = {}) {
@@ -762,6 +781,7 @@
     formatEndpoint,
     buildConnectionUrl,
     countConfiguredProtocolSettings,
+    formatConnectionWarningLine,
     buildConnectionSummary,
     formatConnectionSummaryText,
     formatConnectionSummaryChip,

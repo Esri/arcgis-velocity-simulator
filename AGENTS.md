@@ -413,6 +413,7 @@ Keep the following identical in both repositories.
   `protocol-settings-revert`, `protocol-settings-reset`,
   `connection-summary-card`, `connection-summary-rows`,
   `connection-summary-show-all`, `connection-summary-copy`,
+  `connection-summary-warning-count`,
   `connection-summary-status-btn`, and `connection-summary-status-label`.
   Pre-existing protocol control ids are preserved unchanged, including
   `grpc-advanced`, `http-advanced`, `ws-advanced`, and `xmpp-advanced`, which
@@ -448,13 +449,18 @@ Keep the following identical in both repositories.
   writes the message to the status log. Clearing the error removes only the
   banner's own token.
 - **Shortcuts.** `Cmd/Ctrl+Shift+P` opens or closes Protocol Settings and
-  `Cmd/Ctrl+Shift+I` opens the Connection Summary. Both surfaces funnel through
+  `Cmd/Ctrl+Shift+I` opens its read-only Summary section. Both surfaces funnel through
   one `handleConnectionShortcut(name)` entry point in the renderer, so a menu
   accelerator and the in-page key handler can never disagree.
 - **Summary generator.** `src/connection-summary.js` is a pure module with no
-  DOM access. `buildConnectionSummary(state)` drives the inline card, the
-  status-bar button, the read-only Summary section, and the configured-state
-  count. It covers all twelve protocol and mode combinations, sorts warnings
+  DOM access. `buildConnectionSummary(state)` drives the warning-only alert,
+  toolbar and status-bar buttons, the read-only Summary section, and the
+  configured-state count. The permanent inline summary card is not restored:
+  details are opened on demand, while the highest-priority warning remains
+  visible beneath the toolbar. `formatConnectionWarningLine(summary)` returns
+  `null` when nothing is wrong and otherwise condenses the warning count and
+  highest-priority warning into the alert's single line. The generator covers
+  all twelve protocol and mode combinations, sorts warnings
   first with the certificate-verification bypass leading them, composes
   effective HTTP and WebSocket URLs, and reports a secret only as
   `Set (hidden)`, `Empty`, or `Not set`. Row objects carry `key`, `label`,
@@ -465,16 +471,22 @@ Keep the following identical in both repositories.
   surface. A server with neither a certificate nor a key reports the automatic
   self-signed pair, and only a half-configured pair raises a warning. The
   certificate-verification row is reported whenever encryption applies. The
-  configured-state label always reports the changed count and appends any
-  warnings rather than replacing the count with them.
+  Settings action reports the changed count through `settings.shortLabel`,
+  which is empty for defaults and otherwise contains the count alone. The
+  adjacent Summary action reports the warning count.
 - **Status-bar tooltip.** The status-bar button tooltip only says how to open
   the summary; it never carries the summary itself.
 - **Tooltip utility.** `src/tooltip-utils.js` stays byte-identical in both
-  repositories. It owns `data-tooltip-trigger`, `data-tooltip-persist-scroll`,
-  the top-layer re-parenting that keeps a tooltip visible above a modal
-  `<dialog>`, and the additive `aria-describedby` handling that lets a tooltip
-  and a validation banner describe one control at the same time. Fix it there
-  rather than working around it in a renderer.
+  repositories. It owns title migration, dynamic content, and additive
+  `aria-describedby`. Visual tooltips require roughly 900 ms of stationary
+  fine-pointer hover within a 4 px tolerance. Movement, pointer interaction,
+  keyboard input, form input, scrolling, dragging, resizing, target removal,
+  focus alone, and an open modal dialog suppress or dismiss them. The utility
+  never invents fallback tooltips from visible labels, select option text, or
+  placeholders. Focus associates the same content as a hidden accessible
+  description without opening a visual popup, and visible tooltips do not
+  intercept pointer input. Fix shared behavior there rather than working around
+  it in a renderer.
 
 Only these differences are allowed, and each one follows from the direction of
 data flow or from a control that only one application has.

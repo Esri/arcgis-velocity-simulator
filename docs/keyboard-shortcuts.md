@@ -50,7 +50,7 @@ for macOS (`Cmd`); both forms appear in every table.
 | `Ctrl+Delete` (Windows/Linux)<br>`Cmd+Delete` (macOS) | **Clear Status Log** | Clears the status/log area |
 | `Ctrl+Shift+O` (Windows/Linux)<br>`Cmd+Shift+O` (macOS) | **Toggle Status Log Sort Order** | Switch between Ascending and Descending order (default: Ascending) |
 | `Ctrl+Shift+P` (Windows/Linux)<br>`Cmd+Shift+P` (macOS) | **Protocol Settings...** | Opens the Protocol Settings dialog for the selected protocol, or closes it again. TCP and UDP have no protocol settings, so the status log says so instead. |
-| `Ctrl+Shift+I` (Windows/Linux)<br>`Cmd+Shift+I` (macOS) | **Connection Summary** | Opens the connection summary, expands every row, and moves focus to the summary card. In compact view, where the inline card is hidden, it opens the Summary section of Protocol Settings instead and returns focus to the status-bar summary button when that dialog closes |
+| `Ctrl+Shift+I` (Windows/Linux)<br>`Cmd+Shift+I` (macOS) | **Connection Summary** | Opens the Summary section of Protocol Settings at every window size and returns focus to the status-bar summary button when that dialog closes. |
 
 ## Standard text editing
 

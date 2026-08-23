@@ -1440,18 +1440,36 @@ body:not(.show-gestures) #live-gesture-received {
      top layer and traps focus.
    ======================================== */
 
-/* The opener row sits directly under Host and Port. */
-.protocol-settings-row {
-  width: 100%;
-  margin: 4px 0 2px;
-  padding: 0;
+/* Preset, settings, and summary share one stable row. */
+.connection-toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.connection-toolbar .connection-preset-select {
+  flex: 1 1 180px;
+  min-width: 80px;
+}
+
+.connection-toolbar-action {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.connection-toolbar .connection-summary-action {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.82em;
 }
 
 .protocol-settings-btn {
   display: flex;
   align-items: center;
   gap: 7px;
-  width: 100%;
   padding: 4px 8px;
   background: color-mix(in srgb, var(--text-color) 6%, transparent);
   color: var(--text-color);
@@ -1483,7 +1501,7 @@ body:not(.show-gestures) #live-gesture-received {
 }
 
 .protocol-settings-btn-label {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -1782,50 +1800,27 @@ body:not(.show-gestures) #live-gesture-received {
 
 /* ========================================
    CONNECTION SUMMARY
-   — One generator drives the inline card, the status-bar chip, and the
-     read-only view inside Protocol Settings.
+   — Details are on demand; only warnings consume panel space.
    ======================================== */
 
-.connection-summary-card {
-  margin: 8px 0 4px;
-  padding: 8px 10px;
-  border: 1px solid var(--border-color);
-  border-left: 3px solid var(--button-info-bg, #17a2b8);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--text-color) 4%, transparent);
-  transition: border-color 0.18s ease, background-color 0.18s ease;
+.connection-summary-alert {
+  margin: 0 0 5px 100px;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--button-warning-bg, #ffc107) 65%, var(--border-color));
+  border-left: 3px solid var(--button-warning-bg, #ffc107);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--button-warning-bg, #ffc107) 12%, transparent);
 }
 
-.connection-summary-card:focus-visible {
-  outline: 2px solid var(--button-primary-bg);
-  outline-offset: 2px;
+.connection-summary-alert[hidden] {
+  display: none;
 }
 
-.connection-summary-card[data-warning="true"] {
-  border-left-color: var(--button-warning-bg, #ffc107);
-}
-
-.connection-summary-card-header {
+.connection-summary-dialog-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 5px;
-}
-
-.connection-summary-card-title {
-  margin: 0;
-  font-size: 0.74em;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0.7;
-}
-
-.connection-summary-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  justify-content: flex-end;
+  margin-bottom: 8px;
 }
 
 .connection-summary-action {
@@ -1887,6 +1882,32 @@ body:not(.show-gestures) #live-gesture-received {
 
 .connection-summary-warning-icon {
   margin-right: 4px;
+}
+
+.connection-summary-alert .connection-summary-row {
+  grid-template-columns: minmax(88px, auto) minmax(0, 1fr);
+  font-size: 0.76em;
+  line-height: 1.35;
+}
+
+.connection-summary-alert .connection-summary-label,
+.connection-summary-alert .connection-summary-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connection-summary-warning-count {
+  padding: 0 5px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--button-warning-bg, #ffc107) 20%, transparent);
+  color: var(--button-warning-bg, #ffc107);
+  font-size: 0.8em;
+  line-height: 1.5;
+}
+
+.connection-summary-warning-count[hidden] {
+  display: none;
 }
 
 /* Status-bar chip: a real button, so click, Enter, Space, and touch all work. */
@@ -1985,6 +2006,42 @@ body.compact .protocol-settings-btn {
   font-size: 0.76em;
 }
 
+body.compact .connection-toolbar-controls {
+  gap: 4px;
+}
+
+body.compact .connection-toolbar > label {
+  flex-basis: 0;
+  width: 0;
+  margin-right: 0;
+  overflow: hidden;
+}
+
+body.compact .connection-toolbar-action-label,
+body.compact .protocol-settings-btn-label {
+  display: none;
+}
+
+body.compact .connection-preset-state {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+body.compact .protocol-settings-count {
+  display: none;
+}
+
+body.compact .connection-summary-alert {
+  margin-left: 0;
+}
+
 body.compact .protocol-settings-dialog {
   width: calc(100vw - 32px);
   max-height: 80vh;
@@ -2027,10 +2084,6 @@ body.compact .connection-summary-status-btn {
   font-size: 0.72em;
 }
 
-body.compact .connection-summary-card {
-  display: none;
-}
-
 /* Custom tooltips (replaces unreliable native title tooltips) */
 .custom-tooltip {
   position: fixed;
@@ -2060,7 +2113,7 @@ body.compact .connection-summary-card {
 .custom-tooltip.visible {
   opacity: 1;
   transform: translateY(0) scale(1);
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 .custom-tooltip-icon {
@@ -2124,6 +2177,7 @@ body.compact .connection-summary-card {
 }
 
 .custom-tooltip-copy {
+  display: none;
   appearance: none;
   border: 1px solid rgba(23, 162, 184, 0.34);
   border-radius: 6px;

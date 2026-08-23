@@ -51,8 +51,8 @@ Key modules:
 | `src/grpc-transport.js`, `src/http-transport.js`, `src/ws-transport.js`, `src/xmpp-transport.js` | Per-protocol client and server transports behind a common `connect`/`send`/`disconnect`/`isConnected`/`hasRecipients` shape. |
 | `src/xmpp-*.js` | XMPP protocol layers: constants, client core, server core, SASL, shared SCRAM-SHA-1 primitives, Multi-User Chat, accounts, and utilities. |
 | `src/connection-presets.js` | The twelve paired Simulator and Logger connection presets shared with the sister repository; loaded by the renderer and by the tests. See [Protocol settings and presets](connection-presets.md). |
-| `src/connection-summary.js` | The pure generator behind every read-only description of a connection: the inline card, the status-bar summary button, the read-only Summary section of Protocol Settings, and the configured-state count. No DOM access, so it runs unchanged in Node. See [Connection summary](connection-summary.md). |
-| `src/tls-utils.js`, `src/format-utils.js`, `src/tooltip-utils.js` | Shared TLS, payload formatting, and custom tooltip helpers used by every transport or view that needs them. `tls-utils.js` owns the single client certificate-verification decision (`resolveClientTlsVerification()`). `tooltip-utils.js` owns the custom tooltip, including `data-tooltip-trigger`, `data-tooltip-persist-scroll`, and the top-layer re-parenting that keeps a tooltip visible above a modal `<dialog>`. |
+| `src/connection-summary.js` | The pure generator behind every read-only description of a connection: the warning-only alert, toolbar and status-bar Summary buttons, the read-only Summary section, and the configured-state count. No DOM access, so it runs unchanged in Node. See [Connection summary](connection-summary.md). |
+| `src/tls-utils.js`, `src/format-utils.js`, `src/tooltip-utils.js` | Shared TLS, payload formatting, and custom tooltip helpers used by every transport or view that needs them. `tls-utils.js` owns the single client certificate-verification decision (`resolveClientTlsVerification()`). `tooltip-utils.js` owns title migration and the stationary pointer-intent behavior shared by every custom tooltip. |
 | `src/velocity-*.js` | ArcGIS Velocity sign-in, token handling, and the feed picker. |
 | `src/run-logger.js` | The `RunLogger` used for console and log-file output in both modes. |
 
@@ -144,7 +144,7 @@ The command must print `ok` and exit 0. See
 | Ignored parameters | `npm start -- port=6000 protocol=udp` | The interface launches and one warning per ignored parameter is logged. |
 | Headless session | `npm run start:headless -- filename=./data.csv` | The file streams and the process exits cleanly. |
 | Reference dialog | `F3` in the running application | The dialog lists every parameter; search, quick chips, active pills, sortable columns, copy, and export all respond. |
-| Tooltips | Hover or focus a new control | The custom tooltip appears with the expected icon, color, and wrapping. |
+| Tooltips | Hold the pointer nearly stationary over a new control | The custom tooltip appears after the intent delay with the expected icon, color, and wrapping; movement, interaction, focus alone, and modal dialogs do not open it. |
 
 ## Documentation checks
 

@@ -29,6 +29,7 @@ const {
   formatConnectionSummaryText,
   formatConnectionSummaryChip,
   countConfiguredProtocolSettings,
+  formatConnectionWarningLine,
   describeSecret,
   buildConnectionUrl,
   normalizePath,
@@ -315,18 +316,21 @@ test('the chip counts only protocol settings that differ from their defaults', (
   const tcp = countConfiguredProtocolSettings({ connectionType: 'tcp-server' });
   assert.strictEqual(tcp.hasSettings, false);
   assert.strictEqual(tcp.count, 0);
+  assert.strictEqual(tcp.shortLabel, '');
   assert.strictEqual(tcp.label, 'TCP · no protocol settings');
 
   const httpDefaults = countConfiguredProtocolSettings({
     connectionType: 'http-server', httpFormat: 'delimited', httpTls: true, httpPath: '/',
   });
   assert.strictEqual(httpDefaults.count, 0);
+  assert.strictEqual(httpDefaults.shortLabel, '');
   assert.strictEqual(httpDefaults.label, 'HTTP · defaults');
 
   const httpChanged = countConfiguredProtocolSettings({
     connectionType: 'http-server', httpFormat: 'json', httpTls: false, httpPath: '/feed',
   });
   assert.strictEqual(httpChanged.count, 3);
+  assert.strictEqual(httpChanged.shortLabel, '3');
   assert.strictEqual(httpChanged.label, 'HTTP · 3 changed');
 
   // A warning is appended to the count, never substituted for it, so a bypass
@@ -335,6 +339,7 @@ test('the chip counts only protocol settings that differ from their defaults', (
     connectionType: 'http-client', httpFormat: 'json', httpAllowUnverifiedTls: true,
   }, 1);
   assert.strictEqual(withWarning.count, 2);
+  assert.strictEqual(withWarning.shortLabel, '2');
   assert.strictEqual(withWarning.label, 'HTTP · 2 changed · 1 warning');
 
   // Client-only settings are not counted for a server, and the reverse.
@@ -347,6 +352,21 @@ test('the chip counts only protocol settings that differ from their defaults', (
   const muc = countConfiguredProtocolSettings({ connectionType: 'xmpp-client', xmppConversation: 'muc', xmppRoom: 'events@rooms' });
   assert.strictEqual(direct.count, 0);
   assert.strictEqual(muc.count, 2, 'the room and the non-default conversation both count');
+});
+
+test('the warning alert condenses the count and highest-priority warning', () => {
+  assert.strictEqual(formatConnectionWarningLine({ warnings: [] }), null);
+  assert.deepStrictEqual(formatConnectionWarningLine({
+    warnings: [
+      { label: 'Certificate verification', value: 'Off for every host' },
+      { label: 'Transport encryption', value: 'Off' },
+    ],
+  }), {
+    count: 2,
+    label: '2 warnings',
+    value: 'Certificate verification: Off for every host',
+    text: '2 warnings: Certificate verification: Off for every host',
+  });
 });
 
 test('the status-bar chip label carries the mode, endpoint, and a warning mark', () => {
