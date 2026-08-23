@@ -29,8 +29,7 @@ the twelve paired presets, and the Custom and Custom (modified) states.
 The panel shows only what is true of every connection, in this order:
 
 1. **File** — the file to replay.
-2. **Setup** — the paired preset and **Modified** badge, plus compact
-   **Settings** and **Summary** actions.
+2. **Setup** — the paired preset and **Modified** badge, plus **Settings**.
 3. **Mode** — the connection type, which is the protocol and the role.
 4. **Connection** — the host and the port.
 5. **Lines / ms** — the replay rate.
@@ -45,8 +44,8 @@ appears only when the current values need attention.
 **Settings** opens an in-window dialog that holds every control
 belonging to the selected protocol. The dialog title tracks the selection, for
 example `WebSocket Client settings`, and the button carries a concise configured
-state count when values differ from their defaults, such as `2`. The adjacent
-**Summary** action carries the warning count.
+state count when values differ from their defaults, such as `2`. Connection
+warnings remain visible beneath the toolbar.
 
 Open it with the button or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on
 Windows and Linux.
@@ -250,7 +249,6 @@ These strings are produced by `describeConnectionPreset()` in
 | Preset (modified) | `Custom (modified)` / `These fields started from "<label>" and were edited. Select the preset again to restore its values.` / `Preset: pre-fills the connection fields for a paired local Simulator and Logger test. It only fills editable fields — it never connects, starts playback, selects a file, or saves a secret.` |
 | Modified badge | `Modified` / `These fields started from "<label>" and were edited. Select the preset again to restore its values.` |
 | Settings | `Protocol Settings (Cmd/Ctrl+Shift+P)` / `Open the <mode> settings: <n> of <total> changed from their defaults.` |
-| Summary | `Open the full read-only connection summary (Cmd/Ctrl+Shift+I).` |
 | Basics tab | `Basics` / `The settings this protocol needs before it can send data.` |
 | Security tab | `Security` / `TLS, certificate verification, and certificate paths for this protocol.` |
 | Advanced tab | `Advanced` / `Optional settings that most connections leave at their defaults.` |

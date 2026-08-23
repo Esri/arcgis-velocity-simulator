@@ -776,8 +776,7 @@ function registerAppSpecificShortcuts() {
           break;
         case 'i':
         case 'I':
-          // Cmd/Ctrl+Shift+I belongs to the Connection Summary shortcut, so
-          // only the unshifted accelerator opens App Configuration. The key is
+          // Only the unshifted accelerator opens App Configuration. The key is
           // matched in both cases because a shifted key arrives uppercase.
           if ((input.control || input.meta) && !input.shift && !input.alt) {
             showConfigDialog();
@@ -897,15 +896,6 @@ function createMainMenu() {
           click: () => {
             if (mainWindow) {
               mainWindow.webContents.send('keyboard-shortcut', 'protocol-settings');
-            }
-          }
-        },
-        {
-          label: 'Connection Summary',
-          accelerator: 'CmdOrCtrl+Shift+I',
-          click: () => {
-            if (mainWindow) {
-              mainWindow.webContents.send('keyboard-shortcut', 'connection-summary');
             }
           }
         },
@@ -1920,13 +1910,6 @@ function buildContextMenu(isCompact) {
       accelerator: 'CmdOrCtrl+Shift+P',
       click: () => {
         if (mainWindow) mainWindow.webContents.send('keyboard-shortcut', 'protocol-settings');
-      }
-    },
-    {
-      label: 'Connection Summary',
-      accelerator: 'CmdOrCtrl+Shift+I',
-      click: () => {
-        if (mainWindow) mainWindow.webContents.send('keyboard-shortcut', 'connection-summary');
       }
     },
     { type: 'separator' },

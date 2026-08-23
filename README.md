@@ -27,7 +27,7 @@ lists all of them with their intended audience.
 | [Build and release](docs/build-and-release.md) | Prerequisites, local builds, platform packaging, code signing, and release commands. |
 | [Command-line reference](docs/command-line.md) | Every CLI parameter, help layout, default, and usage example. |
 | [Protocol settings and presets](docs/connection-presets.md) | The connection panel, the Protocol Settings dialog, and the twelve paired Simulator and Logger presets. |
-| [Connection summary and protocol settings](docs/connection-summary.md) | The Protocol Settings dialog, its sections, and the three connection summary surfaces. |
+| [Connection summary and protocol settings](docs/connection-summary.md) | The Protocol Settings dialog, its sections, warning alert, and read-only summary. |
 | [Configuration](docs/configuration.md) | Configuration file format, settings, themes, fonts, storage locations, and launch configuration samples. |
 | [Developer guide](docs/developer-guide.md) | Repository structure, local development, tests, documentation checks, debugging, logging, and extension points. |
 | [Headless mode](docs/headless.md) | No-UI replay: parameters, launch configuration workflow, output formats, and the done file. |
@@ -193,7 +193,6 @@ offline guide: [Offline speech recognition](docs/offline-speech.md).
 - `Ctrl+Shift+C` / `Cmd+Shift+C` - Connect
 - `Ctrl+D` / `Cmd+D` - Disconnect
 - `Ctrl+Shift+P` / `Cmd+Shift+P` - Protocol Settings
-- `Ctrl+Shift+I` / `Cmd+Shift+I` - Connection Summary
 - `Ctrl+T` / `Cmd+T` - Toggle View (Full/Compact)
 - `F1` - Help, `F2` - About, `F3` - Command Line Interface
 
@@ -203,9 +202,9 @@ Inside the Command Line Interface dialog, you can also use `Ctrl+F` / `Cmd+F`
 See [Keyboard shortcuts](docs/keyboard-shortcuts.md) for complete list.
 
 ### Connection controls
-- **Panel**: File, a compact **Setup** toolbar (Preset, Settings, and Summary), **Mode**, **Connection** (host and port), replay rate, and the connection actions.
+- **Panel**: File, a compact **Setup** toolbar (Preset and Settings), **Mode**, **Connection** (host and port), replay rate, and the connection actions.
 - **Settings**: Opens an in-window Protocol Settings dialog holding every setting of the selected protocol, grouped into Basics, Security, and Advanced. Edits apply to the next connection; nothing is sent until you select **Connect**.
-- **Connection Summary**: The Setup and status-bar Summary buttons open every setting in a read-only dialog section. The panel remains compact unless a warning such as disabled certificate verification applies. Passwords are reported only as `Set (hidden)`, `Empty`, or `Not set`.
+- **Connection Summary**: Open the Summary tab in Protocol Settings. The panel remains compact unless a warning such as disabled certificate verification applies. Passwords are reported only as `Set (hidden)`, `Empty`, or `Not set`.
 
 ### Status Log controls
 - **Sort Order**: Use the sort button in the Status Log header to switch between **Ascending** and **Descending** order (default: Ascending). The icon changes to reflect the current order.

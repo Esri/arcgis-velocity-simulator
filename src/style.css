@@ -48,7 +48,7 @@ body.compact .main-content {
 }
 
 body.compact .controls-wrapper {
-  max-height: 80vh;
+  max-height: calc(100vh - 32px);
   padding: 3px 2px;
   gap: 4px;
   box-sizing: border-box;
@@ -1460,12 +1460,6 @@ body:not(.show-gestures) #live-gesture-received {
   white-space: nowrap;
 }
 
-.connection-toolbar .connection-summary-action {
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 0.82em;
-}
-
 .protocol-settings-btn {
   display: flex;
   align-items: center;
@@ -1530,7 +1524,9 @@ body:not(.show-gestures) #live-gesture-received {
    on the backdrop and can safely light-dismiss. */
 .protocol-settings-dialog {
   width: min(560px, calc(100vw - 32px));
+  min-width: min(420px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
+  min-height: min(360px, calc(100vh - 32px));
   max-height: 80vh;
   padding: 0;
   border: 1px solid var(--border-color);
@@ -1540,6 +1536,7 @@ body:not(.show-gestures) #live-gesture-received {
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42), 0 3px 10px rgba(0, 0, 0, 0.28);
   font-family: var(--font-family);
   overflow: hidden;
+  resize: both;
 }
 
 .protocol-settings-dialog[open] {
@@ -1897,61 +1894,6 @@ body:not(.show-gestures) #live-gesture-received {
   white-space: nowrap;
 }
 
-.connection-summary-warning-count {
-  padding: 0 5px;
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--button-warning-bg, #ffc107) 20%, transparent);
-  color: var(--button-warning-bg, #ffc107);
-  font-size: 0.8em;
-  line-height: 1.5;
-}
-
-.connection-summary-warning-count[hidden] {
-  display: none;
-}
-
-/* Status-bar chip: a real button, so click, Enter, Space, and touch all work. */
-.connection-summary-status-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  max-width: 42ch;
-  margin-left: 8px;
-  padding: 1px 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--text-color) 6%, transparent);
-  color: var(--text-color);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.78em;
-  line-height: 1.6;
-  white-space: nowrap;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-
-.connection-summary-status-btn:hover {
-  background: color-mix(in srgb, var(--text-color) 14%, transparent);
-  transform: none;
-}
-
-.connection-summary-status-btn:focus-visible {
-  outline: 2px solid var(--button-primary-bg);
-  outline-offset: 1px;
-}
-
-.connection-summary-status-btn[data-warning="true"] {
-  border-color: var(--button-warning-bg, #ffc107);
-  background: color-mix(in srgb, var(--button-warning-bg, #ffc107) 16%, transparent);
-}
-
-.connection-summary-status-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 /* Preset picker: sits above Mode and keeps the connection block compact by
    naming a paired local Simulator/Logger test instead of a stack of fields. */
 .connection-preset-select {
@@ -2031,7 +1973,6 @@ body.compact .connection-toolbar > label {
   overflow: hidden;
 }
 
-body.compact .connection-toolbar-action-label,
 body.compact .protocol-settings-btn-label {
   display: none;
 }
@@ -2091,11 +2032,6 @@ body.compact .protocol-settings-panels {
 
 body.compact .protocol-settings-footer {
   padding: 8px 12px 10px;
-}
-
-body.compact .connection-summary-status-btn {
-  max-width: 24ch;
-  font-size: 0.72em;
 }
 
 /* Custom tooltips (replaces unreliable native title tooltips) */

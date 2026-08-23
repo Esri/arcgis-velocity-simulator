@@ -215,7 +215,7 @@ test('every protocol-specific control lives in the dialog exactly once', () => {
 test('the shared controls keep the compact setup toolbar before mode and connection', () => {
   const { document } = new JSDOM(indexHtml).window;
   const group = document.querySelector('.connection-controls-group');
-  const order = ['select-file', 'connection-preset', 'protocol-settings-btn', 'connection-summary-show-all',
+  const order = ['select-file', 'connection-preset', 'protocol-settings-btn',
     'connection-type', 'ip-address', 'port'];
   const positions = order.map((id) => {
     const element = document.getElementById(id);
@@ -287,18 +287,17 @@ test('the stylesheet styles the dialog, its tabs, and the summary surfaces', () 
   assert.match(styleCss, /\.protocol-settings-panel\[hidden\][\s\S]{0,120}display:\s*none/);
   assert.match(styleCss, /\.protocol-settings-tablist\s*\{/);
   assert.match(styleCss, /\.protocol-settings-footer\s*\{[^}]*position:\s*sticky/);
+  assert.match(styleCss, /\.protocol-settings-dialog\s*\{[^}]*resize:\s*both/s);
   assert.match(styleCss, /body\.compact \.protocol-settings-tablist\s*\{[\s\S]*flex-direction:\s*row/);
   assert.match(styleCss, /\.connection-toolbar-controls\s*\{/);
   assert.match(styleCss, /\.connection-summary-alert\s*\{/);
-  assert.match(styleCss, /\.connection-summary-status-btn\s*\{/);
   assert.match(styleCss, /body\.compact \.connection-toolbar > label\s*\{[^}]*width:\s*0/s);
   assert.match(styleCss, /body\.compact \.connection-preset-state\s*\{[^}]*clip:\s*rect/s);
 });
 
-// The application menu owns Cmd/Ctrl+I for App Configuration and
-// Cmd/Ctrl+Shift+I for the Connection Summary. A shifted key arrives uppercase,
-// so the pre-existing handler has to look at the modifier, not only the letter.
-test('Cmd/Ctrl+Shift+I is left to the Connection Summary, not App Configuration', () => {
+// A shifted key arrives uppercase, so the App Configuration handler must look
+// at the modifier rather than only the letter.
+test('Cmd/Ctrl+Shift+I does not open App Configuration', () => {
   const source = mainSource.match(/function registerAppSpecificShortcuts\(\)[\s\S]*?\n\}\n/);
   assert.ok(source, 'registerAppSpecificShortcuts must exist');
   const calls = { config: 0, help: 0, cli: 0 };
@@ -319,7 +318,7 @@ test('Cmd/Ctrl+Shift+I is left to the Connection Summary, not App Configuration'
     return event.prevented;
   };
 
-  // Regression: Cmd/Ctrl+Shift+I must reach the Connection Summary shortcut.
+  // Shift+I is intentionally unassigned.
   assert.strictEqual(press({ key: 'I', meta: true, shift: true }), false, 'Cmd+Shift+I must not be consumed');
   assert.strictEqual(press({ key: 'I', control: true, shift: true }), false, 'Ctrl+Shift+I must not be consumed');
   assert.strictEqual(calls.config, 0, 'App Configuration must not open on the shifted accelerator');
@@ -337,12 +336,10 @@ test('Cmd/Ctrl+Shift+I is left to the Connection Summary, not App Configuration'
   assert.strictEqual(calls.cli, 1);
 });
 
-test('both connection shortcuts are offered in the application and context menus', () => {
-  const menuEntries = mainSource.match(/accelerator: 'CmdOrCtrl\+Shift\+[PI]'/g) || [];
-  assert.strictEqual(menuEntries.filter((entry) => entry.includes('Shift+P')).length, 2);
-  assert.strictEqual(menuEntries.filter((entry) => entry.includes('Shift+I')).length, 2);
-  // Both surfaces funnel through the one renderer entry point.
-  assert.match(rendererSource, /function handleConnectionShortcut\(name\)/);
+test('Protocol Settings is the only connection-dialog shortcut in the application and context menus', () => {
+  assert.strictEqual((mainSource.match(/accelerator: 'CmdOrCtrl\+Shift\+P'/g) || []).length, 2);
+  assert.doesNotMatch(mainSource, /CmdOrCtrl\+Shift\+I/);
+  assert.match(rendererSource, /function handleConnectionShortcut\(\)/);
 });
 
 // ---------------------------------------------------------------------------
@@ -532,7 +529,6 @@ test('both connection shortcuts are offered in the application and context menus
     check('http-tls', false);
     assert.strictEqual(chip.textContent, '2');
     assert.strictEqual(chip.dataset.warning, 'true', 'plaintext raises a warning on the chip');
-    assert.strictEqual(document.getElementById('connection-summary-warning-count').textContent, '⚠ 1');
   });
 
   await uiTest('the panel stays compact and shows only the highest-priority warning', async ({ document, select, check, rows, state }) => {
@@ -549,7 +545,8 @@ test('both connection shortcuts are offered in the application and context menus
     assert.strictEqual(document.getElementById('connection-summary-card').dataset.warning, 'true');
     assert.strictEqual(document.getElementById('connection-summary-card').hidden, false);
 
-    document.getElementById('connection-summary-show-all').click();
+    document.getElementById('protocol-settings-btn').click();
+    document.getElementById('protocol-settings-tab-summary').click();
     document.getElementById('connection-summary-copy').click();
     await new Promise((resolve) => setTimeout(resolve, 0));
     const copied = state.copied.pop();
@@ -562,7 +559,8 @@ test('both connection shortcuts are offered in the application and context menus
     select('connection-type', 'xmpp-client');
     type('xmpp-username', 'simulator');
     type('xmpp-password', 'do-not-print-me');
-    document.getElementById('connection-summary-show-all').click();
+    document.getElementById('protocol-settings-btn').click();
+    document.getElementById('protocol-settings-tab-summary').click();
     const summaryRows = rows('protocol-settings-summary-rows');
     assert.strictEqual(summaryRows.find((row) => row.key === 'xmppPassword').value, 'Set (hidden)');
     document.getElementById('connection-summary-copy').click();
@@ -575,7 +573,8 @@ test('both connection shortcuts are offered in the application and context menus
     select('connection-type', 'ws-client');
     type('ws-headers', '{"Authorization":"do-not-print-me"}');
     type('ws-subscription-msg', '{"token":"do-not-print-me"}');
-    document.getElementById('connection-summary-show-all').click();
+    document.getElementById('protocol-settings-btn').click();
+    document.getElementById('protocol-settings-tab-summary').click();
     const summaryRows = rows('protocol-settings-summary-rows');
     assert.strictEqual(summaryRows.find((row) => row.key === 'wsHeaders').value, 'Set (hidden)');
     assert.strictEqual(summaryRows.find((row) => row.key === 'wsSubscriptionMessage').value, 'Set (hidden)');
@@ -586,32 +585,16 @@ test('both connection shortcuts are offered in the application and context menus
     assert.doesNotMatch(document.getElementById('protocol-settings-summary-rows').textContent, /do-not-print-me/);
   });
 
-  await uiTest('Show all and the status-bar button open the read-only summary section', async ({ document, select }) => {
+  await uiTest('the Summary tab opens the read-only summary section', async ({ document, select }) => {
     select('connection-type', 'grpc-client');
-    document.getElementById('connection-summary-show-all').click();
+    document.getElementById('protocol-settings-btn').click();
+    document.getElementById('protocol-settings-tab-summary').click();
     assert.strictEqual(document.getElementById('protocol-settings-dialog').open, true);
     assert.strictEqual(document.getElementById('protocol-settings-tab-summary').getAttribute('aria-selected'), 'true');
     assert.strictEqual(document.getElementById('protocol-settings-panel-summary').hidden, false);
-    document.getElementById('protocol-settings-done').click();
-
-    const statusButton = document.getElementById('connection-summary-status-btn');
-    assert.strictEqual(statusButton.getAttribute('aria-haspopup'), 'dialog');
-    assert.match(statusButton.dataset.tooltip, /Open the full read-only connection summary/);
-    assert.strictEqual(document.getElementById('connection-summary-status-label').textContent, 'gRPC Client · 127.0.0.1:5565');
-    statusButton.click();
-    assert.strictEqual(document.getElementById('protocol-settings-dialog').open, true);
-    assert.strictEqual(document.getElementById('protocol-settings-tab-summary').getAttribute('aria-selected'), 'true');
   });
 
-  await uiTest('the status-bar tooltip only says how to open the summary', async ({ document, select, check }) => {
-    select('connection-type', 'ws-client');
-    check('ws-tls', false);
-    const tooltip = document.getElementById('connection-summary-status-btn').dataset.tooltip;
-    assert.strictEqual(tooltip, 'Open the full read-only connection summary (Cmd/Ctrl+Shift+I).');
-    assert.doesNotMatch(tooltip, /Subscription message/, 'the tooltip never carries the summary itself');
-  });
-
-  await uiTest('keyboard shortcuts open Protocol Settings and the Connection Summary', async ({ document, key, window }) => {
+  await uiTest('the Protocol Settings shortcut is the only dialog shortcut', async ({ document, key, window }) => {
     // JSDOM reports a non-Mac platform, so the primary modifier is Ctrl here.
     const dialog = document.getElementById('protocol-settings-dialog');
     key(document.body, 'P', { ctrlKey: true, shiftKey: true });
@@ -620,17 +603,12 @@ test('both connection shortcuts are offered in the application and context menus
     assert.strictEqual(dialog.open, false);
 
     key(document.body, 'I', { ctrlKey: true, shiftKey: true });
-    assert.strictEqual(dialog.open, true);
-    assert.strictEqual(document.activeElement.id, 'protocol-settings-panel-summary');
-    key(document.body, 'Escape');
     assert.strictEqual(dialog.open, false);
 
     // The shortcut still works while a connection field has focus.
     document.getElementById('ip-address').focus();
     key(document.getElementById('ip-address'), 'P', { ctrlKey: true, shiftKey: true });
     assert.strictEqual(dialog.open, true);
-    key(document.getElementById('ip-address'), 'I', { ctrlKey: true, shiftKey: true });
-    assert.strictEqual(document.activeElement.id, 'protocol-settings-panel-summary');
     // Escape keeps the edits whatever holds focus.
     key(document.body, 'Escape');
     assert.strictEqual(dialog.open, false);
@@ -643,48 +621,13 @@ test('both connection shortcuts are offered in the application and context menus
     assert.strictEqual(dialog.open, true, 'Control is not the primary modifier on macOS');
   });
 
-  await uiTest('the summary shortcut opens the same dialog in full and compact views', async ({ document, key }) => {
-    document.body.classList.add('compact');
-    const dialog = document.getElementById('protocol-settings-dialog');
-    key(document.body, 'I', { ctrlKey: true, shiftKey: true });
-    assert.strictEqual(dialog.open, true, 'the dialog opens when the card is hidden');
-    assert.strictEqual(dialog.dataset.mode, 'edit');
-    assert.strictEqual(document.getElementById('protocol-settings-tab-summary').getAttribute('aria-selected'), 'true',
-      'it opens directly on the Summary section');
-    assert.strictEqual(document.activeElement.id, 'protocol-settings-panel-summary');
-    assert.ok(document.querySelectorAll('#protocol-settings-summary-rows .connection-summary-row').length > 0,
-      'the Summary section is populated before it is shown');
-
-    // Closing hands focus to the persistent status-bar summary button.
-    key(document.body, 'Escape');
-    assert.strictEqual(dialog.open, false);
-    assert.strictEqual(document.activeElement.id, 'connection-summary-status-btn');
-
-    // Pressing it again while the dialog is open only re-selects the section.
-    key(document.body, 'I', { ctrlKey: true, shiftKey: true });
-    assert.strictEqual(dialog.open, true);
-    key(document.body, 'I', { ctrlKey: true, shiftKey: true });
-    assert.strictEqual(dialog.open, true, 'the summary shortcut never closes the dialog');
-    assert.strictEqual(document.activeElement.id, 'protocol-settings-panel-summary');
-
-    // Full view uses the same predictable disclosure.
-    key(document.body, 'Escape');
-    document.body.classList.remove('compact');
-    key(document.body, 'I', { ctrlKey: true, shiftKey: true });
-    assert.strictEqual(document.activeElement.id, 'protocol-settings-panel-summary');
-    assert.strictEqual(dialog.open, true);
-  });
-
-  await uiTest('the menu shortcuts reach the same handler as the key presses', async ({ document, state }) => {
+  await uiTest('the menu shortcut reaches the same handler as the key press', async ({ document, state }) => {
     const shortcut = state.listeners.get('onKeyboardShortcut');
     const dialog = document.getElementById('protocol-settings-dialog');
     shortcut('protocol-settings');
     assert.strictEqual(dialog.open, true);
     shortcut('protocol-settings');
     assert.strictEqual(dialog.open, false);
-    shortcut('connection-summary');
-    assert.strictEqual(dialog.open, true);
-    assert.strictEqual(document.activeElement.id, 'protocol-settings-panel-summary');
   });
 
   await uiTest('a hidden connection row is revealed before the dialog opens', async ({ document, key }) => {

@@ -4,9 +4,9 @@
 
 ArcGIS Velocity Simulator keeps the shared connection fields inline and moves
 every protocol-specific control into a **Protocol Settings** dialog. A single
-connection summary is generated from those values and opened from the setup
-toolbar or status bar. Any warning stays visible in the panel without requiring
-hover or an extra click. This guide is for users
+connection summary is generated from those values and shown in the dialog's
+read-only Summary section. Any warning stays visible in the panel without
+requiring hover or an extra click. This guide is for users
 configuring a connection and for developers changing the settings surface; it
 assumes a running app.
 
@@ -33,7 +33,7 @@ The connection row holds only the fields that every protocol shares:
 
 | Inline | Moved into Protocol Settings |
 |---|---|
-| File selection, then the **Setup** toolbar: Preset, **Modified**, Settings, and Summary. | gRPC serialization, RPC type, and endpoint header. |
+| File selection, then the **Setup** toolbar: Preset, **Modified**, and Settings. | gRPC serialization, RPC type, and endpoint header. |
 | Connection type. | HTTP format and path. |
 | Host and Port. | WebSocket format, path, subscription message, **Skip 1st**, and headers. |
 | **Connect**, **Disconnect**, **Play/Pause**, and **Step**. | XMPP domain, conversation, account, destination, room, remote binding, and timing. |
@@ -55,8 +55,8 @@ differ from the documented defaults:
   documented default.
 - `2` — two settings differ from their documented defaults.
 
-The adjacent **Summary** action carries the warning count. Both badges stay
-current while disconnected, connecting, and connected. The dialog title tracks
+Connection warnings remain visible beneath the toolbar. The configured-state
+badge stays current while disconnected, connecting, and connected. The dialog title tracks
 the selected protocol and mode — for example
 `WebSocket Client settings` — and its subtitle states the composed endpoint,
 such as `Publishing to wss://example.com:9443/stream`.
@@ -151,18 +151,15 @@ certificate.
 
 ## The connection summary
 
-One generator, `src/connection-summary.js`, produces every summary surface, so
+One generator, `src/connection-summary.js`, produces both summary surfaces, so
 they can never disagree:
 
 | Surface | Shows | Opens |
 |---|---|---|
 | Warning alert | The warning count and highest-priority warning; hidden when no warning applies. | Beneath the Setup toolbar. |
-| Setup Summary button | A warning count when warnings apply. | The read-only Summary section. |
-| Status-bar summary button | `HTTP Server · https://127.0.0.1:8443/`, with a `⚠` mark when a warning applies. | In the status bar, left of the lines-sent counter. |
 | Read-only Summary section | Every row, warnings first, plus **Copy summary**. | Inside Protocol Settings. |
 
-None of these is hover-only. Both Summary controls are real buttons that open
-the full summary when selected or when `Enter` is pressed.
+Neither surface is hover-only. Open Protocol Settings and select its Summary tab.
 
 **Copy summary** places the summary on the clipboard as plain text. The copied text
 starts with
@@ -248,8 +245,8 @@ or an `Authorization` value. The summary reports exactly one of three strings:
 Warning rows are generated before every other row, and the highest-priority
 warning remains visible beneath the Setup toolbar. An explicit
 certificate-verification bypass always leads, because it applies to every host
-rather than only to loopback. The warning alert and toolbar actions switch to
-their warning style, and the status-bar entry gains a `⚠` mark. See
+rather than only to loopback. The warning alert and Settings chip switch to
+their warning style. See
 [TLS and SSL security](tls.md#explicit-certificate-verification-bypass).
 
 ## Keyboard
@@ -257,35 +254,31 @@ their warning style, and the status-bar entry gains a `⚠` mark. See
 | Action | macOS | Windows / Linux |
 |--------|-------|-----------------|
 | Open Protocol Settings | `Cmd+Shift+P` | `Ctrl+Shift+P` |
-| Open the connection summary | `Cmd+Shift+I` | `Ctrl+Shift+I` |
 | Move between sections | `←` `→` `↑` `↓` | `←` `→` `↑` `↓` |
 | First or last section | `Home` / `End` | `Home` / `End` |
 | Close and keep edits | `Escape` | `Escape` |
 
-Both shortcuts work while a connection field has focus and open the Summary
-section directly at every window size. Closing returns focus to the status-bar
-summary button.
+The Protocol Settings shortcut works while a connection field has focus.
+Select the Summary tab to inspect the effective connection.
+Drag the dialog's lower corner to resize it within the application window.
 
 ## UI controls
 
 | Control | Description |
 |---|---|
 | Settings | Opens Protocol Settings for the selected protocol. Carries the configured-state chip; compact view hides the chip. |
-| Summary | Opens the read-only Summary section and carries the warning count. |
 | Basics, Security, Advanced, Summary | Section tabs. Only sections with content for the selected protocol and mode are offered. |
 | Done | Closes the dialog and keeps the edits. |
 | Revert changes | Restores the values the dialog opened with. |
 | Reset to preset | Re-applies the preset the fields started from. |
 | Close (✕) | Same as Done. |
 | Copy summary | Copies the summary as text, with secrets redacted. |
-| Status-bar summary | Opens the read-only Summary section. |
 
 ## Tooltip reference
 
 These strings match `src/index.html` and `src/renderer.js` exactly. The Protocol
-Settings tooltip and the status-bar summary tooltip are rebuilt by
-`renderConnectionSummary()` as the connection changes; the values below show
-their structure.
+Settings tooltip is rebuilt by `renderConnectionSummary()` as the connection
+changes; the values below show its structure.
 
 Visual tooltips appear only after the pointer remains nearly stationary for
 about 900 ms. Moving, clicking, typing, scrolling, or dragging cancels them, and
@@ -295,7 +288,6 @@ controls still expose the same text as a non-visual accessible description.
 | Element | Tooltip |
 |---|---|
 | Settings | Protocol Settings (Cmd/Ctrl+Shift+P)<br>---<br>Open the &lt;mode&gt; settings: &lt;n&gt; of &lt;total&gt; changed from their defaults. |
-| Summary | Open the full read-only connection summary (Cmd/Ctrl+Shift+I). |
 | Basics | Basics<br>The settings this protocol needs before it can send data. |
 | Security | Security<br>TLS, certificate verification, and certificate paths for this protocol. |
 | Advanced | Advanced<br>Optional settings that most connections leave at their defaults. |
@@ -306,7 +298,6 @@ controls still expose the same text as a non-visual accessible description.
 | Reset to preset (available) | Restore every field of "&lt;preset label&gt;", the preset these settings started from. |
 | Reset to preset (unavailable) | Restore every field of the preset these settings started from. Available only after a preset is applied and edited. |
 | Copy summary | Copy the connection summary as text. Passwords are never copied. |
-| Status-bar summary | Open the full read-only connection summary (Cmd/Ctrl+Shift+I). |
 
 ## Related documentation
 

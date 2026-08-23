@@ -184,11 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Connection Summary surfaces ---
   const connectionSummaryCard = document.getElementById('connection-summary-card');
   const connectionSummaryRows = document.getElementById('connection-summary-rows');
-  const connectionSummaryShowAllBtn = document.getElementById('connection-summary-show-all');
   const connectionSummaryCopyBtn = document.getElementById('connection-summary-copy');
-  const connectionSummaryWarningCount = document.getElementById('connection-summary-warning-count');
-  const connectionSummaryStatusBtn = document.getElementById('connection-summary-status-btn');
-  const connectionSummaryStatusLabel = document.getElementById('connection-summary-status-label');
 
   const ipAddressInput = document.getElementById('ip-address');
   const portInput = document.getElementById('port');
@@ -1055,25 +1051,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   connectionTypeSelect.addEventListener('change', updateProtocolVisibility);
 
-  /**
-   * Single entry point for the two connection shortcuts, shared by the
-   * application menu accelerator and the in-page key handler, so both surfaces
-   * always do the same thing. An application menu accelerator consumes the key
-   * before the page sees it, so only one of the two ever runs per key press.
-   *
-   * @param {'protocol-settings'|'connection-summary'} name
-   */
-  function handleConnectionShortcut(name) {
-    if (name === 'protocol-settings') {
-      if (isProtocolSettingsOpen()) closeProtocolSettings();
-      else openProtocolSettings({ returnFocus: protocolSettingsBtn });
-      return;
-    }
-    focusConnectionSummary();
+  function handleConnectionShortcut() {
+    if (isProtocolSettingsOpen()) closeProtocolSettings();
+    else openProtocolSettings({ returnFocus: protocolSettingsBtn });
   }
 
-  // Protocol Settings and the Connection Summary stay reachable while a
-  // connection field has focus, because that is where they are needed.
+  // Protocol Settings stays reachable while a connection field has focus.
   document.addEventListener('keydown', (event) => {
     const isMac = navigator.platform.toUpperCase().includes('MAC');
     const hasPrimary = isMac ? event.metaKey : event.ctrlKey;
@@ -1081,10 +1064,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const shortcutKey = event.key.toLowerCase();
     if (shortcutKey === 'p') {
       event.preventDefault();
-      handleConnectionShortcut('protocol-settings');
-    } else if (shortcutKey === 'i') {
-      event.preventDefault();
-      handleConnectionShortcut('connection-summary');
+      handleConnectionShortcut();
     }
   });
 
@@ -1260,8 +1240,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // ------------------------------------------------------------------
   // Connection Summary
   //
-  // The warning alert, toolbar and status-bar buttons, read-only Summary
-  // section, and configured-state label all use connection-summary.js. Secrets
+  // The warning alert, read-only Summary section, and configured-state label
+  // all use connection-summary.js. Secrets
   // never reach them: a password is reported only as "Set (hidden)", "Empty",
   // or "Not set".
   // ------------------------------------------------------------------
@@ -1352,26 +1332,6 @@ document.addEventListener('DOMContentLoaded', () => {
       connectionSummaryCard.setAttribute('aria-label',
         warningLine ? `Connection warnings: ${warningLine.text}` : 'Connection warnings');
     }
-    if (connectionSummaryWarningCount) {
-      connectionSummaryWarningCount.hidden = summary.warnings.length === 0;
-      connectionSummaryWarningCount.textContent = summary.warnings.length ? `⚠ ${summary.warnings.length}` : '';
-    }
-    if (connectionSummaryShowAllBtn) {
-      connectionSummaryShowAllBtn.dataset.warning = summary.warnings.length ? 'true' : 'false';
-    }
-    if (connectionSummaryStatusLabel) {
-      connectionSummaryStatusLabel.textContent = connectionSummaryApi.formatConnectionSummaryChip(summary);
-    }
-    if (connectionSummaryStatusBtn) {
-      const tooltip = 'Open the full read-only connection summary (Cmd/Ctrl+Shift+I).';
-      connectionSummaryStatusBtn.dataset.tooltip = tooltip;
-      connectionSummaryStatusBtn.dataset.tooltipKind = summary.warnings.length ? 'warning' : 'info';
-      const warningText = summary.warnings.length
-        ? `. ${summary.warnings.length} connection ${summary.warnings.length === 1 ? 'warning' : 'warnings'}`
-        : '';
-      connectionSummaryStatusBtn.setAttribute('aria-label', `Open connection summary: ${summary.headline}${warningText}`);
-      connectionSummaryStatusBtn.dataset.warning = summary.warnings.length ? 'true' : 'false';
-    }
     if (protocolSettingsTitle) protocolSettingsTitle.textContent = summary.title;
     if (protocolSettingsSubtitle) protocolSettingsSubtitle.textContent = summary.headline;
     if (protocolSettingsCount) {
@@ -1385,25 +1345,6 @@ document.addEventListener('DOMContentLoaded', () => {
       protocolSettingsBtn.setAttribute('aria-label', `Protocol Settings for ${summary.connectionTypeLabel}: ${summary.settings.label}`);
     }
     return summary;
-  }
-
-  /**
-   * Opens the read-only summary, which is the Summary section of the dialog.
-   */
-  function focusConnectionSummary() {
-    if (isProtocolSettingsOpen()) {
-      activateProtocolSection('summary');
-      const panel = document.getElementById('protocol-settings-panel-summary');
-      if (panel && typeof panel.focus === 'function') panel.focus();
-      return;
-    }
-    openProtocolSettings({
-      section: 'summary',
-      focus: false,
-      returnFocus: connectionSummaryStatusBtn || connectionSummaryShowAllBtn || protocolSettingsBtn,
-    });
-    const panel = document.getElementById('protocol-settings-panel-summary');
-    if (panel && typeof panel.focus === 'function') panel.focus();
   }
 
   /** Copies the summary text. Redacted secrets are all it ever contains. */
@@ -1420,20 +1361,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  if (connectionSummaryShowAllBtn) {
-    connectionSummaryShowAllBtn.addEventListener('click', () => {
-      openProtocolSettings({ section: 'summary', returnFocus: connectionSummaryShowAllBtn });
-    });
-  }
   if (connectionSummaryCopyBtn) {
     connectionSummaryCopyBtn.addEventListener('click', copyConnectionSummary);
-  }
-  if (connectionSummaryStatusBtn) {
-    // A real button, so click, Enter, Space, and touch all activate it without
-    // any extra key handling.
-    connectionSummaryStatusBtn.addEventListener('click', () => {
-      openProtocolSettings({ section: 'summary', returnFocus: connectionSummaryStatusBtn });
-    });
   }
 
   // Any edit to a connection field refreshes every summary surface.
@@ -3384,10 +3313,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (toggleSortOrderButton) toggleSortOrderButton.click();
         break;
       case 'protocol-settings':
-        handleConnectionShortcut('protocol-settings');
-        break;
-      case 'connection-summary':
-        handleConnectionShortcut('connection-summary');
+        handleConnectionShortcut();
         break;
     }
   });

@@ -254,8 +254,8 @@ rejects the zero-length HMAC key produced by an empty password.
 When XMPP is selected in the **Mode** dropdown, an **XMPP Settings…** button
 appears in the compact **Setup** toolbar. It opens the Protocol Settings dialog,
 which holds every XMPP-specific control, and it carries a concise configured
-state, such as `Defaults` or `2 changed`. The adjacent **Summary** action carries
-the warning count. Open Settings
+state, such as `Defaults` or `2 changed`. Connection warnings remain visible
+beneath the toolbar. Open Settings
 with the button or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on Windows
 and Linux. The dialog
 layout, its sections, and the Done, Revert changes, and Reset to preset actions

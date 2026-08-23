@@ -3,8 +3,8 @@
  * Run with: node test/connection-summary.test.js
  *
  * The summary generator is pure: it turns connection field values into the
- * rows shown by the inline card, the status-bar button, and the read-only
- * Summary section of the Protocol Settings dialog.
+ * rows shown by the warning alert and the read-only Summary section of the
+ * Protocol Settings dialog.
  */
 
 const assert = require('assert');
@@ -27,7 +27,6 @@ console.log('connection-summary.test.js');
 const {
   buildConnectionSummary,
   formatConnectionSummaryText,
-  formatConnectionSummaryChip,
   countConfiguredProtocolSettings,
   formatConnectionWarningLine,
   describeSecret,
@@ -367,15 +366,6 @@ test('the warning alert condenses the count and highest-priority warning', () =>
     value: 'Certificate verification: Off for every host',
     text: '2 warnings: Certificate verification: Off for every host',
   });
-});
-
-test('the status-bar chip label carries the mode, endpoint, and a warning mark', () => {
-  const clean = buildConnectionSummary({ ...BASE, connectionType: 'http-server', port: 8443, httpTls: true });
-  assert.strictEqual(formatConnectionSummaryChip(clean), 'HTTP Server · https://127.0.0.1:8443/');
-  const risky = buildConnectionSummary({
-    ...BASE, connectionType: 'http-client', port: 8443, httpTls: true, httpAllowUnverifiedTls: true,
-  });
-  assert.strictEqual(formatConnectionSummaryChip(risky), 'HTTP Client · https://127.0.0.1:8443/ ⚠');
 });
 
 test('the copied text starts with the app, mode, and state, then every row', () => {

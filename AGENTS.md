@@ -420,16 +420,15 @@ Keep the following identical in both repositories.
   `protocol-settings-summary-rows`, `protocol-settings-done`,
   `protocol-settings-revert`, `protocol-settings-reset`,
   `connection-summary-card`, `connection-summary-rows`,
-  `connection-summary-show-all`, `connection-summary-copy`,
-  `connection-summary-warning-count`,
-  `connection-summary-status-btn`, and `connection-summary-status-label`.
+  and `connection-summary-copy`.
   Pre-existing protocol control ids are preserved unchanged, including
   `grpc-advanced`, `http-advanced`, `ws-advanced`, and `xmpp-advanced`, which
   identify the Advanced group of each protocol.
 - **Sections.** `basics`, `security`, `advanced`, and `summary`, offered only
   when they hold something for the selected protocol and mode, with `tablist`,
   `tab`, and `tabpanel` roles, a roving tab stop, Arrow keys, and `Home` and
-  `End`. Each protocol owns one
+  `End`. The dialog is resizable in both dimensions within viewport bounds.
+  Each protocol owns one
   `.protocol-settings-group[data-protocol][data-section]` per section, and a new
   protocol starts on its own first section rather than inheriting the previous
   one.
@@ -456,14 +455,13 @@ Keep the following identical in both repositories.
   `aria-describedby` without discarding the tokens already there, and it still
   writes the message to the status log. Clearing the error removes only the
   banner's own token.
-- **Shortcuts.** `Cmd/Ctrl+Shift+P` opens or closes Protocol Settings and
-  `Cmd/Ctrl+Shift+I` opens its read-only Summary section. Both surfaces funnel through
-  one `handleConnectionShortcut(name)` entry point in the renderer, so a menu
-  accelerator and the in-page key handler can never disagree.
+- **Shortcut.** `Cmd/Ctrl+Shift+P` opens or closes Protocol Settings through
+  `handleConnectionShortcut()` in the renderer. Summary is reached through the
+  dialog's Summary tab, not a separate button or shortcut.
 - **Summary generator.** `src/connection-summary.js` is a pure module with no
   DOM access. `buildConnectionSummary(state)` drives the warning-only alert,
-  toolbar and status-bar buttons, the read-only Summary section, and the
-  configured-state count. The permanent inline summary card is not restored:
+  warning-only alert, the read-only Summary section, and the configured-state
+  count. The permanent inline summary card is not restored:
   details are opened on demand, while the highest-priority warning remains
   visible beneath the toolbar. `formatConnectionWarningLine(summary)` returns
   `null` when nothing is wrong and otherwise condenses the warning count and
@@ -480,10 +478,8 @@ Keep the following identical in both repositories.
   self-signed pair, and only a half-configured pair raises a warning. The
   certificate-verification row is reported whenever encryption applies. The
   Settings action reports the changed count through `settings.shortLabel`,
-  which is empty for defaults and otherwise contains the count alone. The
-  adjacent Summary action reports the warning count.
-- **Status-bar tooltip.** The status-bar button tooltip only says how to open
-  the summary; it never carries the summary itself.
+  which is empty for defaults and otherwise contains the count alone. Summary
+  is part of the same dialog and has no separate connection-row action.
 - **Tooltip utility.** `src/tooltip-utils.js` stays byte-identical in both
   repositories. It owns title migration, dynamic content, and additive
   `aria-describedby`. Visual tooltips require roughly 900 ms of stationary
