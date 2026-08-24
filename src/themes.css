@@ -59,4 +59,48 @@
   --error-bg: #2d1b1b;
   --error-border: #553c3c;
   --error-text: #fc8181;
+  --link-color: #7befff;
+  --link-hover-color: #ffffff;
+  --link-visited-color: #8be6c5;
+  --link-active-color: #ffffff;
+  --link-focus-ring: #ffffff;
+  --focus-ring-color: var(--link-focus-ring);
+}
+
+/* Shared semantic palette.
+   A var() inside a custom property is substituted on the element the
+   declaration applies to, not where the property is finally used. The theme
+   files set the palette on body.<theme> for the main window and on
+   :root[data-theme="<theme>"] for secondary windows, so an alias declared
+   only on :root would resolve against the :root fallback above and stay dark
+   under a light theme. Declaring the alias on both elements lets it resolve
+   against whichever one the active theme reached. */
+:root,
+body {
+  --background-color: var(--bg-color);
+  --surface-color: var(--container-bg);
+  --primary-color: var(--header-color);
+  --accent-color: var(--version-color);
+  --button-border: var(--button-bg);
+  --button-hover-bg: var(--button-hover);
+  --button-hover-border: var(--button-hover);
+  --button-active-bg: var(--button-hover);
+
+  /* Reference views: Help and the Command Line Interface. */
+  --help-background: var(--bg-color);
+  --help-surface: var(--container-bg);
+  --help-raised: var(--log-bg);
+  --help-text: var(--text-color);
+  --help-muted: color-mix(in srgb, var(--text-color) 82%, transparent);
+  --help-border: var(--border-color);
+  --help-accent: var(--version-color);
+  --help-heading: var(--header-color);
+  --help-code-bg: var(--code-bg);
+  --help-shadow: color-mix(in srgb, var(--text-color) 14%, transparent);
+  --help-tint: color-mix(in srgb, var(--text-color) 8%, transparent);
+}
+
+:where(button, input, select, textarea, summary, [role="button"], a[href]):focus-visible {
+  outline: 2px solid var(--link-focus-ring);
+  outline-offset: 2px;
 }

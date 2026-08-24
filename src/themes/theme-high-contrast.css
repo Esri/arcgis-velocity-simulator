@@ -1,7 +1,7 @@
 /* High Contrast theme for ArcGIS Velocity Simulator */
 
 body.high-contrast,
-[data-theme="high-contrast"] {
+:root[data-theme="high-contrast"] {
   --bg-color: #000000;
   --text-color: #ffffff;
   --header-color: #ffffff;

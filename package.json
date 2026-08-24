@@ -35,6 +35,7 @@
     "test:renderer": "node test/renderer.test.js",
     "test:preload": "node test/preload.test.js",
     "test:about": "node test/about.test.js",
+    "test:theme-palette": "node test/theme-palette.test.js",
     "test:grpc": "node test/grpc-transport.test.js",
     "test:tls": "node test/tls-verification.test.js",
     "test:xmpp": "node test/xmpp-core.test.js",

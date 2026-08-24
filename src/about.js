@@ -28,14 +28,21 @@ document.addEventListener('DOMContentLoaded', () => {
     window.close();
   });
 
+  const applyTheme = (theme) => {
+    if (window.SecondaryWindowTheme) {
+      window.SecondaryWindowTheme.applyTheme(theme);
+    } else {
+      document.documentElement.dataset.theme = theme || 'dark';
+    }
+  };
+
+  if (window.api && window.api.onLoadSavedTheme) {
+    window.api.onLoadSavedTheme((theme) => applyTheme(theme));
+  }
+
   // Listen for the theme from the main process, apply it, and notify main
   window.api.onSetTheme((_event, theme) => {
-    if (theme) {
-      document.body.className = theme;
-    } else {
-      // Default to dark theme if none is provided
-      document.body.className = 'dark';
-    }
+    applyTheme(theme);
     // Notify the main process that the theme has been applied
     window.api.themeApplied();
   });

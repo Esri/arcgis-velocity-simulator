@@ -1,7 +1,7 @@
 /* Dark Gray theme for ArcGIS Velocity Simulator */
 
 body.dark-gray,
-[data-theme="dark-gray"] {
+:root[data-theme="dark-gray"] {
   --bg-color: #2c2c2c;
   --text-color: #f0f0f0;
   --header-color: #f0f0f0;

@@ -351,6 +351,42 @@ test('the dedicated preload exposes only the narrow allowlisted API', () => {
   assert.strictEqual(listeners.has('protocol-settings:state'), false);
 });
 
+test('the detached window applies theme metadata from main renderer sync', () => {
+  const html = fs.readFileSync(path.join(SRC, 'protocol-settings.html'), 'utf8');
+  const dom = new JSDOM(html, {
+    runScripts: 'dangerously',
+    url: `file://${path.join(SRC, 'protocol-settings.html')}`,
+    beforeParse(window) {
+      window.ProtocolSettingsMirror = require('../src/protocol-settings-mirror.js');
+      window.protocolSettingsClient = {
+        ready: () => {},
+        emit: () => {},
+        onState: (callback) => {
+          window._protocolSettingsStateCallback = callback;
+        },
+        onCommand: () => {},
+        requestClose: () => {},
+      };
+    },
+  });
+  dom.window.eval(fs.readFileSync(path.join(SRC, 'protocol-settings-window.js'), 'utf8'));
+  dom.window._protocolSettingsStateCallback({
+    meta: {
+      title: 'Protocol Settings — Light',
+      bodyClass: 'theme-light',
+      themeHref: './themes/theme-light.css',
+    },
+    patches: [],
+    entries: [],
+    ackRevision: 0,
+  });
+  assert.strictEqual(dom.window.document.body.className, 'theme-light protocol-settings-window');
+  assert.strictEqual(
+    dom.window.document.getElementById('current-theme-stylesheet').getAttribute('href'),
+    './themes/theme-light.css',
+  );
+});
+
 test('the DOM mirror preserves properties, attributes, text, and structural changes', () => {
   const mirror = require('../src/protocol-settings-mirror.js');
   const sourceDom = new JSDOM('<dialog id="source" data-read-only="true"><select id="format"><option value="csv">CSV</option><option value="json">JSON</option></select><input id="tls" type="checkbox"><button id="done">Done</button></dialog>');

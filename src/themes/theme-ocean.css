@@ -1,7 +1,7 @@
 /* Ocean theme - Deep blue/teal for ArcGIS Velocity Simulator */
 
 body.ocean,
-[data-theme="ocean"] {
+:root[data-theme="ocean"] {
   --bg-color: #0f172a;
   --text-color: #e2e8f0;
   --header-color: #e2e8f0;

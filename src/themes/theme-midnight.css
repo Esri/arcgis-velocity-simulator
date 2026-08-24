@@ -1,7 +1,7 @@
 /* Midnight theme - Ultra-dark with subtle blue accents for ArcGIS Velocity Simulator */
 
 body.midnight,
-[data-theme="midnight"] {
+:root[data-theme="midnight"] {
   --bg-color: #0a0a0a;
   --text-color: #e8e8e8;
   --header-color: #e8e8e8;

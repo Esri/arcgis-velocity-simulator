@@ -21,6 +21,18 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+  const applyTheme = (theme) => {
+    if (window.SecondaryWindowTheme) {
+      window.SecondaryWindowTheme.applyTheme(theme);
+    } else {
+      document.documentElement.dataset.theme = theme || 'dark';
+    }
+  };
+
+  if (window.velocityApi && window.velocityApi.onLoadSavedTheme) {
+    window.velocityApi.onLoadSavedTheme((theme) => applyTheme(theme));
+  }
+
   // ─── Element References ────────────────────────────────────────────────────
   const tabs = document.querySelectorAll('.auth-tab');
   const formPassword = document.getElementById('auth-form-password');
@@ -413,4 +425,3 @@ document.addEventListener('DOMContentLoaded', () => {
     statusBanner.classList.add('hidden');
   });
 });
-

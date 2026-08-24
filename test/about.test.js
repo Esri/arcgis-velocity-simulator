@@ -31,8 +31,17 @@ global.window.api = {
   onSetTheme: (callback) => {
     global.window.api._themeCallback = callback;
   },
+  onLoadSavedTheme: (callback) => {
+    global.window.api._savedThemeCallback = callback;
+  },
   themeApplied: () => {
     global.window.api._themeAppliedCalled = true;
+  }
+};
+
+global.window.SecondaryWindowTheme = {
+  applyTheme: (theme) => {
+    global.window.document.documentElement.dataset.theme = (theme && theme.trim()) || 'dark';
   }
 };
 
@@ -130,23 +139,23 @@ async function runAboutTests() {
     global.window.api._themeAppliedCalled = false;
     // Simulate theme event
     global.window.api._themeCallback(null, 'dark');
-    return document.body.className === 'dark' && global.window.api._themeAppliedCalled;
+    return document.documentElement.dataset.theme === 'dark' && global.window.api._themeAppliedCalled;
   });
   
   runTest('Theme application works with null theme (defaults to dark)', () => {
     global.window.api._themeAppliedCalled = false;
-    document.body.className = ''; // Reset
+    document.documentElement.dataset.theme = ''; // Reset
     // Simulate theme event with null
     global.window.api._themeCallback(null, null);
-    return document.body.className === 'dark' && global.window.api._themeAppliedCalled;
+    return document.documentElement.dataset.theme === 'dark' && global.window.api._themeAppliedCalled;
   });
   
   runTest('Theme application works with undefined theme (defaults to dark)', () => {
     global.window.api._themeAppliedCalled = false;
-    document.body.className = ''; // Reset
+    document.documentElement.dataset.theme = ''; // Reset
     // Simulate theme event with undefined
     global.window.api._themeCallback(null, undefined);
-    return document.body.className === 'dark' && global.window.api._themeAppliedCalled;
+    return document.documentElement.dataset.theme === 'dark' && global.window.api._themeAppliedCalled;
   });
   
   // Test 5: Multiple Theme Changes
@@ -158,7 +167,7 @@ async function runAboutTests() {
     for (const theme of themes) {
       global.window.api._themeAppliedCalled = false;
       global.window.api._themeCallback(null, theme);
-      if (document.body.className !== theme || !global.window.api._themeAppliedCalled) {
+      if (document.documentElement.dataset.theme !== theme || !global.window.api._themeAppliedCalled) {
         allWorked = false;
         break;
       }
@@ -171,19 +180,25 @@ async function runAboutTests() {
   console.log('\n--- Test 6: Edge Cases ---');
   runTest('Empty string theme defaults to dark', () => {
     global.window.api._themeAppliedCalled = false;
-    document.body.className = ''; // Reset
+    document.documentElement.dataset.theme = ''; // Reset
     global.window.api._themeCallback(null, '');
-    return document.body.className === 'dark' && global.window.api._themeAppliedCalled;
+    return document.documentElement.dataset.theme === 'dark' && global.window.api._themeAppliedCalled;
   });
   
   runTest('Whitespace-only theme defaults to dark', () => {
     global.window.api._themeAppliedCalled = false;
-    document.body.className = ''; // Reset
+    document.documentElement.dataset.theme = ''; // Reset
     const whitespaceTheme = '   ';
     // Simulate the theme handling logic that would trim whitespace
     const processedTheme = whitespaceTheme.trim() || 'dark';
     global.window.api._themeCallback(null, processedTheme);
-    return document.body.className === 'dark' && global.window.api._themeAppliedCalled;
+    return document.documentElement.dataset.theme === 'dark' && global.window.api._themeAppliedCalled;
+  });
+
+  runTest('Saved-theme callback updates the dialog without re-triggering themeApplied', () => {
+    global.window.api._themeAppliedCalled = false;
+    global.window.api._savedThemeCallback('system');
+    return document.documentElement.dataset.theme === 'system' && global.window.api._themeAppliedCalled === false;
   });
   
   // Test Summary

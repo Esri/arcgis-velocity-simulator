@@ -1,7 +1,7 @@
 /* Sunset theme - Warm orange/pink gradients for ArcGIS Velocity Simulator */
 
 body.sunset,
-[data-theme="sunset"] {
+:root[data-theme="sunset"] {
   --bg-color: #2c1b47;
   --text-color: #fde2e4;
   --header-color: #fde2e4;

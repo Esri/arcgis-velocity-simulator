@@ -18,6 +18,8 @@ const testSuites = [
   { file: 'preload.test.js', description: '🔗 Preload API Tests' },
   { file: 'about.test.js', description: '📄 About Dialog Tests' },
   { file: 'help.test.js', description: '❓ Help Dialog Tests' },
+  { file: 'secondary-window-theme.test.js', description: '🎨 Secondary Window Theme Tests' },
+  { file: 'theme-palette.test.js', description: '🎨 Theme Palette Contract Tests' },
   { file: 'simulation-engine.test.js', description: '🚀 Simulation Engine Tests' },
   { file: 'headless-runner.test.js', description: '🧪 Headless Runner Tests' },
   { file: 'transport-manager.test.js', description: '🔀 Transport Manager Tests' },

@@ -1,7 +1,7 @@
 /* Rose theme - Soft pink/purple for ArcGIS Velocity Simulator */
 
 body.rose,
-[data-theme="rose"] {
+:root[data-theme="rose"] {
   --bg-color: #fff1f2;
   --text-color: #831843;
   --header-color: #831843;
@@ -42,4 +42,10 @@ body.rose,
   --error-bg: #fef2f2;
   --error-border: #fecaca;
   --error-text: #dc2626;
-} 
+  --link-color: #9d174d;
+  --link-hover-color: #831843;
+  --link-visited-color: #6b21a8;
+  --link-active-color: #831843;
+  --link-focus-ring: #831843;
+  --focus-ring-color: var(--link-focus-ring);
+}

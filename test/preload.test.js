@@ -179,6 +179,7 @@ async function runPreloadTests() {
     onConnectionStatusChanged: (callback) => mockIpcRenderer.on('connection-status-changed', callback),
     onLoadFileOnStartup: (callback) => mockIpcRenderer.on('load-file-on-startup', callback),
     onSetTheme: (callback) => mockIpcRenderer.on('set-theme', callback),
+    onLoadSavedTheme: (callback) => mockIpcRenderer.on('load-saved-theme', callback),
     onSetCompactView: (callback) => mockIpcRenderer.on('set-compact-view', callback),
     
     // Additional functions
@@ -221,6 +222,7 @@ async function runPreloadTests() {
   runTest('onConnectionStatusChanged function exists', () => typeof global.window.api.onConnectionStatusChanged === 'function');
   runTest('onLoadFileOnStartup function exists', () => typeof global.window.api.onLoadFileOnStartup === 'function');
   runTest('onSetTheme function exists', () => typeof global.window.api.onSetTheme === 'function');
+  runTest('onLoadSavedTheme function exists', () => typeof global.window.api.onLoadSavedTheme === 'function');
   runTest('onSetCompactView function exists', () => typeof global.window.api.onSetCompactView === 'function');
   
   // Test 5: API Function Calls

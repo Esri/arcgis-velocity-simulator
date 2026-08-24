@@ -5,9 +5,11 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=760, initial-scale=1.0">
     <title>Command Line Interface - ArcGIS Velocity Simulator</title>
+    <script src="./secondary-window-theme.js"></script>
     <link rel="stylesheet" href="./themes.css">
     <link rel="stylesheet" href="./help.css">
     <link rel="stylesheet" href="./cli.css">
+    <link rel="stylesheet" href="./accessibility.css">
 </head>
 <body>
     <div class="help-container">
@@ -698,7 +700,14 @@
                 }
             });
 
-            document.body.className = new URLSearchParams(window.location.search).get('theme') || 'dark';
+            if (window.api && window.api.onLoadSavedTheme) {
+                window.api.onLoadSavedTheme((theme) => {
+                    if (window.SecondaryWindowTheme) window.SecondaryWindowTheme.applyTheme(theme);
+                });
+            }
+
+            const urlTheme = new URLSearchParams(window.location.search).get('theme');
+            if (window.SecondaryWindowTheme) window.SecondaryWindowTheme.applyTheme(urlTheme);
             window.electronAPI.send('cli-dialog-ready');
 
             function autoSizeTableWrapper() {
@@ -751,5 +760,3 @@
   <script src="tooltip-utils.js"></script>
 </body>
 </html>
-
-

@@ -1484,7 +1484,7 @@ body:not(.show-gestures) #live-gesture-received {
 }
 
 .protocol-settings-btn:focus-visible {
-  outline: 2px solid var(--button-primary-bg);
+  outline: 2px solid var(--link-focus-ring, var(--button-primary-bg));
   outline-offset: 1px;
 }
 
@@ -1678,7 +1678,7 @@ body:not(.show-gestures) #live-gesture-received {
 }
 
 .protocol-settings-tab:focus-visible {
-  outline: 2px solid var(--button-primary-bg);
+  outline: 2px solid var(--link-focus-ring, var(--button-primary-bg));
   outline-offset: 1px;
 }
 

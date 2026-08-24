@@ -37,6 +37,12 @@ const { EXIT_CODES, runHeadlessSession } = require(path.join(basePath, 'headless
 const { createProtocolSettingsWindowManager } = require(path.join(basePath, 'protocol-settings-window-manager.js'));
 const { createReferenceWindowManager } = require(path.join(basePath, 'reference-window-manager.js'));
 
+const SUPPORTED_THEMES = new Set([
+  'light', 'dark', 'dark-gray', 'light-gray', 'blue', 'green',
+  'high-contrast', 'color-blind', 'system', 'midnight', 'sunset',
+  'rose', 'rose-dark', 'ocean', 'mocha',
+]);
+
 function requestGracefulCliExit(exitCode) {
   process.exitCode = exitCode;
   app.once('will-quit', () => {
@@ -173,6 +179,35 @@ async function getReferenceWindowTheme() {
   } catch (error) {
     velocityLog('warn', `[Help] Could not read the current theme: ${error.message}`);
     return 'dark';
+  }
+}
+
+function broadcastThemeToOpenWindows(theme) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('load-saved-theme', theme);
+  }
+  if (aboutWindow && !aboutWindow.isDestroyed()) {
+    aboutWindow.webContents.send('load-saved-theme', theme);
+  }
+  const helpWindow = referenceWindowManager.getWindow('help');
+  if (helpWindow && !helpWindow.isDestroyed()) {
+    helpWindow.webContents.send('load-saved-theme', theme);
+  }
+  const commandLineWindow = referenceWindowManager.getWindow('commandLine');
+  if (commandLineWindow && !commandLineWindow.isDestroyed()) {
+    commandLineWindow.webContents.send('load-saved-theme', theme);
+  }
+  if (configWindow && !configWindow.isDestroyed()) {
+    configWindow.webContents.send('load-saved-theme', theme);
+  }
+  if (errorWindow && !errorWindow.isDestroyed()) {
+    errorWindow.webContents.send('load-saved-theme', theme);
+  }
+  if (launchConfigWindow && !launchConfigWindow.isDestroyed()) {
+    launchConfigWindow.webContents.send('load-saved-theme', theme);
+  }
+  if (velocityLoginWindow && !velocityLoginWindow.isDestroyed()) {
+    velocityLoginWindow.webContents.send('load-saved-theme', theme);
   }
 }
 
@@ -585,7 +620,7 @@ function createWindow() {
     mainWindow.webContents.send('set-compact-view', mainWindow.isCompact, position);
     
     // Send the saved theme to renderer
-    mainWindow.webContents.send('load-saved-theme', appConfig.theme);
+    broadcastThemeToOpenWindows(appConfig.theme);
     // Send the saved status area visibility to renderer
     mainWindow.webContents.send('load-status-area-visibility', appConfig.statusAreaVisible);
     // Send the saved font settings to renderer
@@ -966,7 +1001,7 @@ function createMainMenu() {
                     mainWindow.setBounds(dimensions);
                     mainWindow.webContents.send('set-compact-view', shouldBeCompact, dimensions.splitterPosition);
                   }
-                  mainWindow.webContents.send('load-saved-theme', appConfig.theme);
+                  broadcastThemeToOpenWindows(appConfig.theme);
                   mainWindow.webContents.send('load-status-area-visibility', appConfig.statusAreaVisible);
                 }
                 logStatus(`App configuration applied from ${filePaths[0]}`);
@@ -1224,9 +1259,33 @@ ipcMain.handle('get-full-view-dimensions', () => {
 
 // IPC: Save theme selection from renderer
 ipcMain.on('save-theme', (event, theme) => {
-  if (!appConfig) return;
+  if (!appConfig || !mainWindow || event.sender !== mainWindow.webContents
+      || !SUPPORTED_THEMES.has(theme)) return;
   appConfig.theme = theme;
   saveAppState();
+  if (aboutWindow && !aboutWindow.isDestroyed()) {
+    aboutWindow.webContents.send('load-saved-theme', theme);
+  }
+  const helpWindow = referenceWindowManager.getWindow('help');
+  if (helpWindow && !helpWindow.isDestroyed()) {
+    helpWindow.webContents.send('load-saved-theme', theme);
+  }
+  const commandLineWindow = referenceWindowManager.getWindow('commandLine');
+  if (commandLineWindow && !commandLineWindow.isDestroyed()) {
+    commandLineWindow.webContents.send('load-saved-theme', theme);
+  }
+  if (configWindow && !configWindow.isDestroyed()) {
+    configWindow.webContents.send('load-saved-theme', theme);
+  }
+  if (errorWindow && !errorWindow.isDestroyed()) {
+    errorWindow.webContents.send('load-saved-theme', theme);
+  }
+  if (launchConfigWindow && !launchConfigWindow.isDestroyed()) {
+    launchConfigWindow.webContents.send('load-saved-theme', theme);
+  }
+  if (velocityLoginWindow && !velocityLoginWindow.isDestroyed()) {
+    velocityLoginWindow.webContents.send('load-saved-theme', theme);
+  }
 });
 
 ipcMain.on('save-status-area-visibility', (event, isVisible) => {
@@ -1343,7 +1402,7 @@ function applyConfigToWindow(config) {
     mainWindow.webContents.send('set-compact-view', shouldBeCompact, dimensions.splitterPosition);
     
     // Apply all UI settings to the renderer process
-    mainWindow.webContents.send('load-saved-theme', config.theme);
+    broadcastThemeToOpenWindows(config.theme);
     mainWindow.webContents.send('load-status-area-visibility', config.statusAreaVisible);
     mainWindow.webContents.send('set-font-size', config.font.size);
     mainWindow.webContents.send('set-font-family', config.font.family);
@@ -2731,7 +2790,7 @@ async function showVelocityLoginDialog() {
     y: loginDialogSaved.y || undefined,
     parent: mainWindow,
     modal: process.platform !== 'darwin',
-    show: true,
+    show: false,
     resizable: true,
     minimizable: false,
     maximizable: false,
@@ -2747,12 +2806,18 @@ async function showVelocityLoginDialog() {
 
   velocityLoginWindow.setMenuBarVisibility(false);
   velocityLoginWindow.setMenu(null);
-  velocityLoginWindow.loadFile(path.join(basePath, 'velocity-login.html'));
+  velocityLoginWindow.once('ready-to-show', () => {
+    if (velocityLoginWindow && !velocityLoginWindow.isDestroyed()) {
+      velocityLoginWindow.show();
+      velocityLoginWindow.focus();
+    }
+  });
+  velocityLoginWindow.loadFile(path.join(basePath, 'velocity-login.html'), {
+    query: { theme: currentTheme || appConfig.theme },
+  });
 
   velocityLoginWindow.webContents.on('did-finish-load', () => {
-    if (currentTheme) {
-      velocityLoginWindow.webContents.executeJavaScript(`document.documentElement.setAttribute('data-theme', '${currentTheme}');`);
-    }
+    velocityLoginWindow.webContents.send('load-saved-theme', currentTheme || appConfig.theme);
   });
 
   const saveLoginDialogBounds = () => {

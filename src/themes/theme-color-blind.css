@@ -1,7 +1,7 @@
 /* Color Blind theme for ArcGIS Velocity Simulator */
 
 body.color-blind,
-[data-theme="color-blind"] {
+:root[data-theme="color-blind"] {
   --bg-color: #002b4d;
   --text-color: #f0f5f9;
   --header-color: #f0f5f9;

@@ -31,5 +31,5 @@ contextBridge.exposeInMainWorld('velocityApi', {
   getStoredCredentials: () => ipcRenderer.invoke('velocity:get-stored-credentials'),
   storeCredentials: (creds) => ipcRenderer.invoke('velocity:store-credentials', creds),
   hideWindow: () => ipcRenderer.send('velocity:hide-login'),
+  onLoadSavedTheme: (callback) => ipcRenderer.on('load-saved-theme', (_event, theme) => callback(theme)),
 });
-

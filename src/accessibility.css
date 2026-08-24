@@ -1,0 +1,74 @@
+/**
+ * Shared link and focus styles for dialogs and reference views.
+ */
+
+:where(button, input, select, textarea, summary, [role="button"], a[href]):focus-visible {
+  outline: 2px solid var(--link-focus-ring);
+  outline-offset: 2px;
+}
+
+a[href] {
+  color: var(--link-color);
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.14em;
+}
+
+a[href]:visited {
+  color: var(--link-visited-color);
+}
+
+a[href]:hover {
+  color: var(--link-hover-color);
+  text-decoration-thickness: 2px;
+}
+
+a[href]:active {
+  color: var(--link-active-color);
+}
+
+.help-toc a {
+  color: var(--help-muted);
+  text-decoration: none;
+}
+
+.help-toc a:hover,
+.help-toc a:focus-visible,
+.help-toc a.is-active {
+  color: var(--help-text);
+  text-decoration: underline;
+}
+
+.help-toc a:visited {
+  color: var(--help-muted);
+}
+
+.help-search:focus-visible,
+.help-search-clear:focus-visible,
+.help-close:focus-visible,
+.help-toc a:focus-visible,
+.help-content a[href]:focus-visible,
+.help-search-input:focus-visible,
+.help-nav-link:focus-visible,
+.cli-filter-input:focus-visible,
+.cli-format-select:focus-visible,
+.cli-clear-filters:focus-visible,
+.cli-toolbar-action:focus-visible,
+.cli-filter-chip:focus-visible,
+.cli-active-filter-pill.is-removable:focus-visible,
+.sortable-column:focus-visible,
+.cli-copy-button:focus-visible,
+.form-row input[type="text"]:focus-visible,
+.form-row input[type="password"]:focus-visible,
+.form-row select:focus-visible,
+.auth-tab:focus-visible,
+.password-toggle:focus-visible,
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-token-only:focus-visible,
+.protocol-settings-btn:focus-visible,
+.protocol-settings-tab:focus-visible {
+  outline: 2px solid var(--link-focus-ring);
+  outline-offset: 2px;
+}

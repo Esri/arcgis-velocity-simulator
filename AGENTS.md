@@ -15,6 +15,25 @@ This file provides rules and guidance for AI coding agents (e.g. GitHub Copilot,
   this same repository cannot be performed safely in one checkout. Parallel
   work in separate repositories should use each repository's existing checkout.
 
+## Model and delegation efficiency
+
+- Use the smallest, fastest model that reliably fits the task and risk. Use
+  mini or fast models for focused searches, CSS or docs edits, straightforward
+  tests, and mechanical parity changes.
+- Reserve larger or higher-effort models for architecture, security-critical
+  work, ambiguous cross-cutting changes, and difficult debugging.
+- Do work directly when it fits in about 2-5 tool calls; delegate only
+  substantial independent scopes.
+- Split work by repository or non-overlapping workstream, never duplicate
+  investigation, and run independent agents or tools in parallel while
+  respecting dependencies.
+- Give agents complete standalone prompts and explicit done criteria. Prefer
+  synchronous agents unless real independent work can continue in parallel.
+- Reuse existing agents for follow-ups. Stop exploration once sufficient
+  evidence exists.
+- Centralize final parity review and targeted validation, and optimize total
+  wall time and token use without sacrificing correctness.
+
 ## Copyright Headers
 
 **Every new JavaScript file** added to this repository **must** begin with the following copyright header:

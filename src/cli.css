@@ -23,19 +23,19 @@
     flex: 1 1 260px;
     min-width: 200px;
     padding: 6px 8px;
-    border: 1px solid var(--border-color, #444);
+    border: 1px solid var(--help-border);
     border-radius: 4px;
-    background: var(--surface-color, #1e1e1e);
-    color: var(--text-color, #eaeaea);
+    background: var(--help-raised);
+    color: var(--help-text);
     font-size: 13px;
 }
 
 .cli-clear-filters,
 .cli-toolbar-action {
     padding: 6px 10px;
-    border: 1px solid var(--button-border, #555);
-    background: var(--button-bg, #2a2a2a);
-    color: var(--button-text, #eaeaea);
+    border: 1px solid var(--button-border);
+    background: var(--button-bg);
+    color: var(--button-text);
     border-radius: 4px;
     cursor: pointer;
     font-size: 12px;
@@ -49,15 +49,15 @@
 
 .cli-clear-filters:hover:not(:disabled),
 .cli-toolbar-action:hover:not(:disabled) {
-    background: var(--button-hover-bg, #3a3a3a);
+    background: var(--button-hover-bg);
 }
 
 .cli-format-select {
     padding: 5px 6px;
-    border: 1px solid var(--border-color, #444);
+    border: 1px solid var(--help-border);
     border-radius: 4px;
-    background: var(--surface-color, #1e1e1e);
-    color: var(--text-color, #eaeaea);
+    background: var(--help-raised);
+    color: var(--help-text);
     font-size: 12px;
 }
 
@@ -86,9 +86,9 @@
 
 .cli-filter-chip {
     padding: 4px 10px;
-    border: 1px solid var(--button-border, #555);
+    border: 1px solid var(--button-border);
     background: transparent;
-    color: var(--text-color, #eaeaea);
+    color: var(--help-text);
     border-radius: 999px;
     cursor: pointer;
     font-size: 12px;
@@ -98,8 +98,8 @@
 }
 
 .cli-filter-chip.is-active {
-    background: var(--button-bg, #2a2a2a);
-    border-color: var(--accent-color, #4c9eff);
+    background: var(--button-bg);
+    border-color: var(--help-accent);
 }
 
 .cli-filter-chip-count {
@@ -107,7 +107,7 @@
     margin-left: 0;
     opacity: 0.7;
     font-size: 10px;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--help-tint);
     padding: 1px 6px;
     border-radius: 999px;
 }
@@ -124,21 +124,21 @@
     display: inline-flex;
     align-items: center;
     padding: 3px 8px;
-    border: 1px solid var(--border-color, #444);
+    border: 1px solid var(--help-border);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-color, #eaeaea);
+    background: var(--help-tint);
+    color: var(--help-text);
     font-size: 11px;
     cursor: default;
 }
 
 .cli-active-filter-pill.is-removable {
     cursor: pointer;
-    border-color: var(--accent-color, #4c9eff);
+    border-color: var(--help-accent);
 }
 
 .cli-active-filter-pill.is-removable:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background: color-mix(in srgb, var(--help-text) 14%, transparent);
 }
 
 .cli-reference-panels {
@@ -150,10 +150,10 @@
 
 .cli-reference-panel {
     flex: 1 1 320px;
-    border: 1px solid var(--border-color, #444);
+    border: 1px solid var(--help-border);
     border-radius: 4px;
     padding: 6px 10px;
-    background: var(--surface-color, #1e1e1e);
+    background: var(--help-raised);
 }
 
 .cli-reference-panel summary {
@@ -181,7 +181,7 @@
     position: relative;
     overflow: auto;
     resize: vertical;
-    border: 1px solid var(--border-color, #444);
+    border: 1px solid var(--help-border);
     border-radius: 4px;
     margin: 8px 0;
     min-height: 120px;
@@ -191,8 +191,8 @@
 
 .cli-reference-table-wrapper:hover,
 .cli-reference-table-wrapper:focus-within {
-    border-color: var(--accent-color, #4c9eff);
-    box-shadow: 0 0 0 1px rgba(76, 158, 255, 0.2);
+    border-color: var(--help-accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--help-accent) 30%, transparent);
 }
 
 .cli-reference-table-wrapper::after {
@@ -205,7 +205,7 @@
     pointer-events: none;
     opacity: 0.55;
     background:
-        linear-gradient(135deg, transparent 0 46%, var(--border-color, #777) 46% 54%, transparent 54% 64%, var(--border-color, #777) 64% 72%, transparent 72% 82%, var(--border-color, #777) 82% 90%, transparent 90% 100%);
+        linear-gradient(135deg, transparent 0 46%, var(--help-border) 46% 54%, transparent 54% 64%, var(--help-border) 64% 72%, transparent 72% 82%, var(--help-border) 82% 90%, transparent 90% 100%);
 }
 
 .cli-table-resize-meta {
@@ -245,7 +245,7 @@
     padding: 6px 8px;
     text-align: left;
     vertical-align: top;
-    border-bottom: 1px solid var(--border-color, #333);
+    border-bottom: 1px solid var(--help-border);
     word-wrap: break-word;
     overflow-wrap: break-word;
 }
@@ -253,7 +253,7 @@
 .cli-reference-table code {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 11px;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--help-code-bg);
     padding: 1px 4px;
     border-radius: 3px;
     word-break: break-all;
@@ -305,7 +305,7 @@
 .cli-examples-list code {
     flex: 1 1 auto;
     padding: 4px 6px;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--help-code-bg);
     border-radius: 3px;
     font-size: 11px;
     word-break: break-all;
@@ -313,16 +313,16 @@
 
 .cli-copy-button {
     padding: 3px 8px;
-    border: 1px solid var(--button-border, #555);
-    background: var(--button-bg, #2a2a2a);
-    color: var(--button-text, #eaeaea);
+    border: 1px solid var(--button-border);
+    background: var(--button-bg);
+    color: var(--button-text);
     border-radius: 3px;
     cursor: pointer;
     font-size: 11px;
 }
 
 .cli-copy-button:hover {
-    background: var(--button-hover-bg, #3a3a3a);
+    background: var(--button-hover-bg);
 }
 
 .cli-copy-status {

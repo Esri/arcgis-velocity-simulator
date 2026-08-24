@@ -125,6 +125,7 @@ node test/config.test.js     # a single suite directly
 | `npm run test:renderer` | `renderer.test.js` | User interface logic, DOM manipulation, and state changes. |
 | `npm run test:preload` | `preload.test.js` | The inter-process bridge and channel validation. |
 | `npm run test:about` | `about.test.js` | About dialog rendering and version display. |
+| `npm run test:theme-palette` | `theme-palette.test.js` | The theme token cascade for every built-in theme: semantic alias resolution on `html` and `body`, Help and Command Line Interface surface contrast, and the ban on hard-coded palette overrides. |
 | `npm run test:grpc` | `grpc-transport.test.js` | Protobuf, Kryo, and Text serialization; client sends; server `Watch` pushes; disconnect and header paths; and teardown after the peer disappears. |
 | `npm run test:http` | `http-transport.test.js` | HTTP client and server lifecycles, POST delivery, recovery after a transient request failure, and the Server-Sent Events subscription rules. |
 | `npm run test:ws` | `ws-transport.test.js` | WebSocket client and server lifecycles, subscription messages, bounded teardown with a connected client, immediate rebinding on the same port, and bind-conflict reporting. |
@@ -265,7 +266,7 @@ The packaged application writes its logs to:
 | The application exits immediately on launch. | Trace the startup sequence with `npm run debug-main-brk`. |
 | The debugger will not attach. | The inspector port is busy. Check with `lsof -i :9229` and stop the stale Electron inspector process by its process ID. |
 | A transport cannot bind or connect. | The port is in use. Check with `lsof -i :<port>` or `netstat -an \| grep <port>`. |
-| A theme does not apply. | Run `npm run debug-renderer` and inspect the CSS custom properties on `body` in the Elements tab; the theme class is applied in `renderer.js`. |
+| A theme does not apply. | Run `npm run debug-renderer` and inspect the CSS custom properties on both `html` and `body` in the Elements tab; the theme class is applied in `renderer.js` and the `data-theme` attribute in `renderer.js` and `secondary-window-theme.js`. |
 | A file will not load. | Run `npm run debug-renderer` and read the Console tab, which logs the file name, size, line count, and CSV parse errors. |
 | Gesture or voice control does nothing. | Camera or microphone permission is missing. In the renderer console, run `navigator.mediaDevices.getUserMedia({ video: true }).then(() => console.log('ok')).catch(console.error);`. |
 | Memory or frame-rate problems. | Profile the renderer with the DevTools Performance tab, or log `process.memoryUsage().rss` periodically from the main process. |
@@ -303,15 +304,53 @@ The packaged application writes its logs to:
 
 ### Adding a theme
 
-1. Create `src/themes/theme-<name>.css` following the structure of an existing theme file, defining the same CSS custom properties for `body.theme-name` and `[data-theme="theme-name"]`.
+1. Create `src/themes/theme-<name>.css` following the structure of an existing theme file, defining the same CSS custom properties for `body.<name>` and `:root[data-theme="<name>"]`.
 2. Add an `@import` for it in `src/themes.css`, which also holds the dark-theme fallback in `:root`.
 3. Add the menu entry in `src/main.js` and include the name in the theme class-removal pattern in `src/renderer.js`.
 4. List the theme in [Configuration](configuration.md).
+
+The root selector must be `:root[data-theme="<name>"]`, not a bare
+`[data-theme="<name>"]`. Both have the same specificity as the `:root`
+fallback that `src/themes.css` declares after its `@import` rules, so a bare
+attribute selector loses the tie on source order and the document root keeps
+the dark fallback palette.
 
 Special cases already in the tree: `theme-light.css` also defines `:root`
 fallbacks, `theme-system.css` uses `prefers-color-scheme` media queries, and
 `theme-high-contrast.css` adds extra rules to keep button contrast accessible.
 If a theme file fails to load, the dark fallback keeps the application usable.
+
+### Using the shared semantic palette
+
+`src/themes.css` declares the semantic aliases every view paints with —
+`--background-color`, `--surface-color`, `--primary-color`, `--accent-color`,
+the `--button-*` aliases, and the `--help-*` tokens used by Help and the
+Command Line Interface. It declares them on `:root, body`, and a view must
+consume them rather than redeclare them.
+
+A `var()` inside a custom property is substituted on the element the
+declaration applies to, not on the element that finally uses the property. The
+main window sets the palette with a `body` class, so an alias declared only on
+`:root` resolves against the `:root` fallback and stays dark under a light
+theme while the surrounding text still reads the light theme's `--text-color`.
+Declaring the alias on both elements lets it resolve against whichever one the
+active theme reached.
+
+The rules for a view stylesheet:
+
+- Do not declare a shared token in a `:root` or `html` rule; add it to the
+  `:root, body` block in `src/themes.css` so every window shares one
+  definition.
+- Do not hard-code a color in `color`, `background`, `background-color`, or a
+  border color, and do not use a literal color as a `var()` fallback. Both
+  pin the view to one theme.
+- Set the theme on the document root as well as `body`. `src/renderer.js` and
+  `src/secondary-window-theme.js` both do this, and the secondary-window
+  helper appends its theme stylesheet last so the fallback palette cannot
+  override it.
+
+`npm run test:theme-palette` resolves this cascade the way a browser does and
+checks the contrast of the resulting Help surfaces for every built-in theme.
 
 ## Validation checklist
 

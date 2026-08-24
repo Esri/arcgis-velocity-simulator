@@ -11,10 +11,21 @@ const helpHtmlPath = path.resolve(__dirname, '../src/help.html');
 const cliHtmlPath = path.resolve(__dirname, '../src/cli.html');
 const helpCssPath = path.resolve(__dirname, '../src/help.css');
 const cliCssPath = path.resolve(__dirname, '../src/cli.css');
+const accessibilityCssPath = path.resolve(__dirname, '../src/accessibility.css');
+const themesCssPath = path.resolve(__dirname, '../src/themes.css');
 const helpHtml = fs.readFileSync(helpHtmlPath, 'utf-8');
 const cliHtml = fs.readFileSync(cliHtmlPath, 'utf-8');
 const helpCss = fs.readFileSync(helpCssPath, 'utf-8');
 const cliCss = fs.readFileSync(cliCssPath, 'utf-8');
+const accessibilityCss = fs.readFileSync(accessibilityCssPath, 'utf-8');
+const themesCss = fs.readFileSync(themesCssPath, 'utf-8');
+const aboutHtml = fs.readFileSync(path.resolve(__dirname, '../src/about.html'), 'utf-8');
+const configHtml = fs.readFileSync(path.resolve(__dirname, '../src/config.html'), 'utf-8');
+const errorHtml = fs.readFileSync(path.resolve(__dirname, '../src/error.html'), 'utf-8');
+const launchConfigHtml = fs.readFileSync(path.resolve(__dirname, '../src/launch-config.html'), 'utf-8');
+const velocityLoginHtml = fs.readFileSync(path.resolve(__dirname, '../src/velocity-login.html'), 'utf-8');
+const protocolSettingsHtml = fs.readFileSync(path.resolve(__dirname, '../src/protocol-settings.html'), 'utf-8');
+const indexHtml = fs.readFileSync(path.resolve(__dirname, '../src/index.html'), 'utf-8');
 
 const mockCliReference = {
   overview: [
@@ -99,11 +110,19 @@ function createDialogDom(html, { includeCliApi = false } = {}) {
               },
             }
           : {}),
+        onLoadSavedTheme: (callback) => {
+          window.api._savedThemeCallback = callback;
+        },
         onSetTheme: (callback) => {
           window.api._themeCallback = callback;
         },
         themeApplied: () => {
           window.api._themeAppliedCalled = true;
+        },
+      };
+      window.SecondaryWindowTheme = {
+        applyTheme: (theme) => {
+          window.document.documentElement.dataset.theme = (theme && String(theme).trim()) || 'dark';
         },
       };
       window.electronAPI = {
@@ -183,8 +202,12 @@ async function runHelpTests() {
   runTest('Keyboard shortcuts table no longer lists the CLI filter shortcut inside Help', () => !document.querySelector('.shortcuts-table')?.textContent.includes('Focus CLI Filter'));
   runTest('Close button exists in Help dialog', () => document.getElementById('close-button') !== null);
   runTest('Help applies the theme query and signals readiness', () =>
-    document.body.className === 'dark' &&
+    document.documentElement.dataset.theme === 'dark' &&
     global.window._electronMessages?.includes('help-dialog-ready'));
+  runTest('Help updates live when the saved theme changes', () => {
+    global.window.api._savedThemeCallback('system');
+    return document.documentElement.dataset.theme === 'system';
+  });
   runTest('Help close button requests native dialog closure', () => {
     global.window._electronMessages = [];
     document.getElementById('close-button').click();
@@ -235,6 +258,21 @@ async function runHelpTests() {
   runTest('CLI dialog title is rendered', () => document.querySelector('.help-title')?.textContent.includes('Command Line Interface'));
   runTest('CLI reference table body exists', () => document.getElementById('cli-reference-body') !== null);
   runTest('CLI reference rows are rendered', () => document.querySelectorAll('#cli-reference-body tr').length === mockCliReference.parameters.length);
+  runTest('Shared accessibility stylesheet defines semantic link and focus tokens', () =>
+    themesCss.includes('--link-color') &&
+    themesCss.includes('--link-hover-color') &&
+    themesCss.includes('--link-visited-color') &&
+    themesCss.includes('--link-active-color') &&
+    themesCss.includes('--link-focus-ring') &&
+    themesCss.includes('--focus-ring-color') &&
+    accessibilityCss.includes(':where(button, input, select, textarea, summary, [role="button"], a[href]):focus-visible') &&
+    accessibilityCss.includes('var(--link-focus-ring)') &&
+    accessibilityCss.includes('.protocol-settings-btn:focus-visible') &&
+    accessibilityCss.includes('a[href]:visited') &&
+    accessibilityCss.includes('.help-toc a.is-active'));
+  runTest('Relevant dialogs load the shared accessibility stylesheet', () =>
+    [aboutHtml, configHtml, errorHtml, helpHtml, indexHtml, launchConfigHtml, protocolSettingsHtml, velocityLoginHtml, cliHtml]
+      .every((html) => html.includes('accessibility.css')));
   runTest('CLI reference includes parameter names and defaults', () => {
     const bodyText = document.getElementById('cli-reference-body').textContent;
     return bodyText.includes('runMode') && bodyText.includes('ui') && bodyText.includes('filename') && bodyText.includes('protocol');
@@ -578,7 +616,11 @@ async function runHelpTests() {
     return global.window._electronMessages.includes('close-dialog');
   });
   runTest('CLI applies the theme query and signals readiness', () =>
-    document.body.className === 'dark' && cliHtml.includes("window.electronAPI.send('cli-dialog-ready')"));
+    document.documentElement.dataset.theme === 'dark' && cliHtml.includes("window.electronAPI.send('cli-dialog-ready')"));
+  runTest('CLI updates live when the saved theme changes', () => {
+    global.window.api._savedThemeCallback('blue');
+    return document.documentElement.dataset.theme === 'blue';
+  });
 
   console.log('\n--- Test 5: Escape key closes the Command Line Interface dialog ---');
   await runAsyncTest('Escape key closes the CLI dialog', async () => {

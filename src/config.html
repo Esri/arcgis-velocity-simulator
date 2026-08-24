@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Configuration</title>
+  <script src="secondary-window-theme.js"></script>
   <link rel="stylesheet" href="themes.css">
   <style>
     html {
@@ -97,6 +98,7 @@
       opacity: 1;
     }
   </style>
+  <link rel="stylesheet" href="accessibility.css">
 </head>
 <body>
   <div class="config-path" id="configPath">
@@ -116,12 +118,24 @@
   <script>
     let configData = null;
 
+    const applyTheme = (theme) => {
+      if (window.SecondaryWindowTheme) {
+        window.SecondaryWindowTheme.applyTheme(theme);
+      } else {
+        document.documentElement.dataset.theme = theme || 'light';
+      }
+    };
+
+    if (window.api && window.api.onLoadSavedTheme) {
+      window.api.onLoadSavedTheme((theme) => applyTheme(theme));
+    }
+
     // Listen for config data from main process
     window.electronAPI.onLoadConfigData((data) => {
       configData = data;
       
       // Apply theme
-      document.body.className = data.theme || 'light';
+      applyTheme(data.theme);
       
       // Notify main process that theme has been applied
       window.api.configThemeApplied();

@@ -1,7 +1,7 @@
 /* Green theme for ArcGIS Velocity Simulator */
 
 body.green,
-[data-theme="green"] {
+:root[data-theme="green"] {
   --bg-color: #1e3c32;
   --text-color: #d4f0e4;
   --header-color: #d4f0e4;

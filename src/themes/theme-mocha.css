@@ -1,7 +1,7 @@
 /* Mocha theme - Warm brown/coffee for ArcGIS Velocity Simulator */
 
 body.mocha,
-[data-theme="mocha"] {
+:root[data-theme="mocha"] {
   --bg-color: #4e342e;
   --text-color: #d7ccc8;
   --header-color: #d7ccc8;

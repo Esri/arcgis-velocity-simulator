@@ -3,7 +3,7 @@
 /* Dark mode preference */
 @media (prefers-color-scheme: dark) {
   body.system,
-  [data-theme="system"] {
+  :root[data-theme="system"] {
     --bg-color: #1e1e1e;
     --text-color: #d4d4d4;
     --header-color: #ffffff;
@@ -43,13 +43,19 @@
     --error-bg: #2d1b1b;
     --error-border: #553c3c;
     --error-text: #fc8181;
+    --link-color: #7befff;
+    --link-hover-color: #ffffff;
+    --link-visited-color: #8be6c5;
+    --link-active-color: #ffffff;
+    --link-focus-ring: #ffffff;
+    --focus-ring-color: var(--link-focus-ring);
   }
 }
 
 /* Light mode preference */
 @media (prefers-color-scheme: light) {
   body.system,
-  [data-theme="system"] {
+  :root[data-theme="system"] {
     --bg-color: #ffffff;
     --text-color: #333333;
     --header-color: #333333;
@@ -89,5 +95,11 @@
     --error-bg: #fff5f5;
     --error-border: #fed7d7;
     --error-text: #c53030;
+    --link-color: #0056b3;
+    --link-hover-color: #003d82;
+    --link-visited-color: #6f42c1;
+    --link-active-color: #003d82;
+    --link-focus-ring: #003d82;
+    --focus-ring-color: var(--link-focus-ring);
   }
-} 
+}

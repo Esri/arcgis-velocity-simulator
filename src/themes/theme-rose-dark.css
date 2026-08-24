@@ -1,7 +1,7 @@
 /* Rose Dark theme - Dark variant of rose theme for ArcGIS Velocity Simulator */
 
 body.rose-dark,
-[data-theme="rose-dark"] {
+:root[data-theme="rose-dark"] {
   --bg-color: #4c1d95;
   --text-color: #f5d7ff;
   --header-color: #f5d7ff;

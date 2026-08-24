@@ -2087,8 +2087,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (theme === 'system') {
       const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       document.body.classList.add(systemTheme);
+      document.documentElement.setAttribute('data-theme', systemTheme);
     } else {
       document.body.classList.add(theme);
+      document.documentElement.setAttribute('data-theme', theme);
     }
     
     localStorage.setItem('theme', theme);
@@ -2096,6 +2098,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isInitializing && window.api && window.api.saveTheme) {
       window.api.saveTheme(theme);
     }
+
+    scheduleProtocolSettingsSync();
   }
 
     // Listen for changes in the OS's color scheme and re-apply the theme if it's set to 'system'.
@@ -2917,6 +2921,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (savedTheme) {
         themeSelect.value = savedTheme;
         applyTheme(savedTheme);
+        scheduleProtocolSettingsSync();
       }
       // Mark initialization as complete after theme is loaded
       isInitializing = false;

@@ -5,8 +5,10 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Help - ArcGIS Velocity Simulator</title>
+    <script src="./secondary-window-theme.js"></script>
     <link rel="stylesheet" href="./themes.css">
     <link rel="stylesheet" href="./help.css">
+    <link rel="stylesheet" href="./accessibility.css">
 </head>
 <body>
     <div class="help-container">
@@ -139,8 +141,16 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            if (window.api && window.api.onLoadSavedTheme) {
+                window.api.onLoadSavedTheme((theme) => {
+                    if (window.SecondaryWindowTheme) window.SecondaryWindowTheme.applyTheme(theme);
+                });
+            }
+
             const params = new URLSearchParams(window.location.search);
-            document.body.className = params.get('theme') || 'dark';
+            if (window.SecondaryWindowTheme) {
+                window.SecondaryWindowTheme.applyTheme(params.get('theme'));
+            }
 
             const searchInput = document.getElementById('help-search');
             const clearSearchButton = document.getElementById('help-search-clear');

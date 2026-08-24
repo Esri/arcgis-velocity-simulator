@@ -1,7 +1,7 @@
 /* Light Gray theme for ArcGIS Velocity Simulator */
 
 body.light-gray,
-[data-theme="light-gray"] {
+:root[data-theme="light-gray"] {
   --bg-color: #e0e0e0;
   --text-color: #212121;
   --header-color: #212121;
@@ -42,4 +42,10 @@ body.light-gray,
   --error-bg: #ffebee;
   --error-border: #ffcdd2;
   --error-text: #c62828;
-} 
+  --link-color: #0056b3;
+  --link-hover-color: #003d82;
+  --link-visited-color: #6f42c1;
+  --link-active-color: #003d82;
+  --link-focus-ring: #003d82;
+  --focus-ring-color: var(--link-focus-ring);
+}

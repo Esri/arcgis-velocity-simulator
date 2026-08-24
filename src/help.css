@@ -9,16 +9,10 @@
     box-sizing: border-box;
 }
 
-:root {
-    --background-color: var(--bg-color);
-    --surface-color: var(--container-bg);
-    --primary-color: var(--header-color);
-    --accent-color: var(--version-color);
-    --button-border: var(--button-bg);
-    --button-hover-bg: var(--button-hover);
-    --button-hover-border: var(--button-hover);
-    --button-active-bg: var(--button-hover);
-}
+/* The semantic palette (--background-color, --surface-color, --help-*, ...)
+   is owned by themes.css so every window resolves it from the same tokens.
+   Declaring it here on :root would re-resolve it against the <html> fallback
+   palette and pin these views to the dark theme. */
 
 html,
 body {
@@ -330,7 +324,7 @@ body {
 }
 
 .cli-filter-chip.is-active .cli-filter-chip-count {
-    background-color: rgba(255, 255, 255, 0.22);
+    background-color: color-mix(in srgb, currentColor 22%, transparent);
     color: inherit;
 }
 
@@ -531,11 +525,11 @@ body {
 }
 
 kbd {
-    background-color: var(--border-color);
+    background-color: var(--help-raised);
     border-radius: 3px;
-    border: 1px solid var(--border-color);
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2), 0 2px 0 0 rgba(255, 255, 255, 0.7) inset;
-    color: var(--text-color);
+    border: 1px solid var(--help-border);
+    box-shadow: 0 1px 1px var(--help-shadow), 0 2px 0 0 var(--help-tint) inset;
+    color: var(--help-text);
     display: inline-block;
     font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
     font-size: 0.85em;
@@ -686,18 +680,8 @@ kbd {
     }
 }
 
-/* Shared Help workspace layout. Keep this block aligned with Velocity Logger. */
-:root {
-    --help-background: var(--background-color, var(--bg-color, #1e1e1e));
-    --help-surface: var(--surface-color, var(--container-bg, #252526));
-    --help-raised: var(--container-bg, var(--bg-color, #2d2d30));
-    --help-text: var(--text-color, #f0f0f0);
-    --help-muted: color-mix(in srgb, var(--help-text) 68%, transparent);
-    --help-border: var(--border-color, #454545);
-    --help-accent: var(--accent-color, var(--version-color, #4da3ff));
-    --help-heading: var(--primary-color, var(--header-color, var(--help-text)));
-}
-
+/* Shared Help workspace layout. Keep this block aligned with Velocity Logger.
+   The --help-* palette itself lives in themes.css; only layout belongs here. */
 .help-container {
     display: flex;
     flex-direction: column;
@@ -780,9 +764,9 @@ kbd {
 .help-search-clear,
 .help-close {
     padding: 9px 14px;
-    color: var(--button-text, #fff);
-    background: var(--button-bg, var(--help-accent));
-    border: 1px solid var(--button-border, var(--button-bg, var(--help-accent)));
+    color: var(--button-text);
+    background: var(--button-bg);
+    border: 1px solid var(--button-border);
     border-radius: 6px;
     font: inherit;
     font-size: 0.9rem;
@@ -808,8 +792,8 @@ kbd {
 }
 
 .help-close:hover {
-    background: var(--button-hover-bg, var(--button-hover, var(--help-accent)));
-    border-color: var(--button-hover-border, var(--button-hover, var(--help-accent)));
+    background: var(--button-hover-bg);
+    border-color: var(--button-hover-border);
 }
 
 .help-workspace {
@@ -1113,10 +1097,9 @@ kbd {
 .help-subtitle {
     max-width: 680px;
     margin: 7px 0 0;
-    color: var(--details-color, var(--text-color));
+    color: var(--help-muted);
     font-size: 0.95rem;
     line-height: 1.45;
-    opacity: 0.86;
 }
 
 .help-search {
@@ -1182,11 +1165,10 @@ kbd {
 
 .help-nav-title {
     margin: 0 0 8px 8px;
-    color: var(--details-color, var(--text-color));
+    color: var(--help-muted);
     font-size: 0.76rem;
     font-weight: 700;
     letter-spacing: 0.06em;
-    opacity: 0.8;
     text-transform: uppercase;
 }
 
@@ -1287,9 +1269,8 @@ kbd {
 }
 
 .help-footer-hint {
-    color: var(--details-color, var(--text-color));
+    color: var(--help-muted);
     font-size: 0.84rem;
-    opacity: 0.82;
 }
 
 @media (max-width: 840px) {
