@@ -41,6 +41,7 @@ const https = require('https');
 const WebSocket = require('ws');
 const { buildHttpsAgentOptions, buildHttpsServerOptions, formatTlsCertSummary, getSystemRootCertificates } = require('./tls-utils');
 const { DATA_FORMATS, VALID_DATA_FORMATS, FORMAT_CONTENT_TYPES, DEFAULT_FORMAT } = require('./format-utils');
+const { formatNetworkAuthority } = require('./network-address-utils');
 
 /**
  * Default ports for WebSocket modes (same as HTTP — WebSocket upgrades from HTTP).
@@ -154,6 +155,7 @@ function createWsClientTransport(opts) {
     wsIgnoreFirstMsg = false,
     wsHeaders,
     authToken,
+    authQueryToken,
     authBasic,
     onData,
     onStateChange,
@@ -167,7 +169,23 @@ function createWsClientTransport(opts) {
     async connect() {
       const scheme = wsTls ? 'wss' : 'ws';
       const pathNorm = wsPath.startsWith('/') ? wsPath : `/${wsPath}`;
-      const url = `${scheme}://${ip}:${port}${pathNorm}`;
+      const url = `${scheme}://${formatNetworkAuthority(ip, port)}${pathNorm}`;
+      let connectionUrl = url;
+      if (authQueryToken) {
+        if (!wsTls) throw new Error('A stream token cannot be sent over an unsecure WebSocket connection.');
+        const credentialUrl = new URL(url);
+        credentialUrl.searchParams.set('token', authQueryToken);
+        connectionUrl = credentialUrl.href;
+      }
+      const safeError = (error) => {
+        if (!authQueryToken) return error;
+        const message = String(error.message || error)
+          .split(connectionUrl).join(url)
+          .replace(/([?&]token=)[^&\s]*/gi, '$1[hidden]')
+          .split(encodeURIComponent(authQueryToken)).join('[hidden]')
+          .split(authQueryToken).join('[hidden]');
+        return new Error(message);
+      };
 
       const wsOpts = {};
       let clientTlsInfo = 'tls=off (unsecure)';
@@ -205,9 +223,9 @@ function createWsClientTransport(opts) {
 
       return new Promise((resolve, reject) => {
         try {
-          ws = new WebSocket(url, wsOpts);
+          ws = new WebSocket(connectionUrl, wsOpts);
         } catch (err) {
-          return reject(err);
+          return reject(safeError(err));
         }
 
         const onOpen = () => {
@@ -217,7 +235,8 @@ function createWsClientTransport(opts) {
           cleanup();
           ws.on('error', (error) => {
             connected = false;
-            if (onStateChange) onStateChange('error', { message: error.message, error });
+            const safe = safeError(error);
+            if (onStateChange) onStateChange('error', { message: safe.message, error: safe });
           });
 
           // Send subscription message if provided
@@ -239,7 +258,7 @@ function createWsClientTransport(opts) {
                 wsFormat,
                 tls: wsTls ? 'on (WSS)' : 'off (WS)',
                 contentType: FORMAT_CONTENT_TYPES[wsFormat] || 'text/plain',
-                remote: `${ip}:${port}`,
+                remote: formatNetworkAuthority(ip, port),
               });
             });
           }
@@ -258,7 +277,8 @@ function createWsClientTransport(opts) {
         };
 
         const onError = (err) => {
-          if (onStateChange) onStateChange('error', { message: err.message, error: err });
+          const safe = safeError(err);
+          if (onStateChange) onStateChange('error', { message: safe.message, error: safe });
           cleanup();
           // Enrich HTTP-upgrade errors with status code, URL, and actionable hints
           const res = err && err.response;
@@ -276,10 +296,11 @@ function createWsClientTransport(opts) {
             const enriched = new Error(
               `WebSocket upgrade failed: HTTP ${status}${statusText ? ' ' + statusText : ''} for ${url}${hint}`
             );
-            enriched.response = res;
-            return reject(enriched);
+            const safeEnriched = safeError(enriched);
+            safeEnriched.response = authQueryToken ? { statusCode: res.statusCode } : res;
+            return reject(safeEnriched);
           }
-          reject(err);
+          reject(safe);
         };
 
         const cleanup = () => {
@@ -443,7 +464,7 @@ function createWsServerTransport(opts) {
             mode: 'server',
             wsFormat,
             address: { address: addr.address, port: addr.port },
-            url: `${scheme}://${addr.address}:${addr.port}${pathNorm}`,
+            url: `${scheme}://${formatNetworkAuthority(addr.address, addr.port)}${pathNorm}`,
             contentType: FORMAT_CONTENT_TYPES[wsFormat] || 'text/plain',
             tlsInfo,
           });

@@ -18,10 +18,11 @@ assert.strictEqual(shouldSendVelocityTokenByDefault({ feedType: 'websocket', aut
 assert.strictEqual(shouldSendVelocityTokenByDefault({ feedType: 'http-receiver', authType: 'basic' }), false);
 assert.strictEqual(shouldSendVelocityTokenByDefault({ feedType: 'http-receiver', authType: 'none' }), false);
 assert.strictEqual(shouldSendVelocityTokenByDefault({ feedType: 'tcp', authType: '' }), false);
+assert.strictEqual(shouldSendVelocityTokenByDefault({ outputType: 'stream-lyr-new', authType: 'token' }), true);
+assert.strictEqual(shouldSendVelocityTokenByDefault({ outputType: 'stream-lyr-new', authType: 'none' }), false);
 
 assert.strictEqual(describeVelocityAuthType('arcgis'), 'ArcGIS token');
 assert.strictEqual(describeVelocityAuthType('basic'), 'Basic auth (token not used)');
 assert.strictEqual(describeVelocityAuthType('none'), 'No auth required');
 
 console.log('velocity-auth-utils tests passed');
-

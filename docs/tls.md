@@ -641,9 +641,22 @@ operating system certificate store. This ensures enterprise and internal CAs
 
 | Platform | Source | Method used by the app |
 |----------|--------|------------------------|
-| **macOS** | System and SystemRoot keychains | `security find-certificate -a -p` |
+| **macOS** | System, SystemRoot, and configured user keychains | `security find-certificate -a -p`. |
 | **Linux** | System PEM bundle | Reads `/etc/ssl/certs/ca-certificates.crt`, `/etc/pki/tls/certs/ca-bundle.crt`, or `/etc/ssl/ca-bundle.pem` (first found). |
 | **Windows** | `LocalMachine\Root` and `CurrentUser\Root` stores | PowerShell `Get-ChildItem Cert:\` exported as PEM. |
+
+Portal sign-in, Velocity server discovery, and management REST requests use
+this same merged trust store. Certificate-chain and hostname verification stay
+enabled; transport-specific CA-file and verification-bypass options do not
+change sign-in trust. Only public certificates are read, not saved passwords or
+private keys.
+
+Install your organization's CA through the operating system's certificate
+management process, then restart the application to reload its cached trust
+roots. On Linux, the equivalent is the distribution's system CA bundle; the
+private CA must be included in that bundle. If the OS store cannot be loaded,
+Node.js bundled roots remain available, but a privately issued certificate can
+still fail verification.
 
 The merged set is deduplicated before use. The connection log shows the cert
 breakdown on connect:
@@ -827,6 +840,7 @@ electron . protocol=ws mode=server port=8443 useTls=true \
 | Document | Purpose |
 |----------|---------|
 | [Connection presets](connection-presets.md) | Paired Simulator and Logger presets, including the only preset that enables a verification bypass. |
+| [Velocity REST API connections](velocity-rest-api.md) | Portal sign-in endpoints, public URL contexts, and server discovery. |
 | [gRPC transport](grpc.md) | gRPC modes, serialization formats, and metadata. |
 | [HTTP and HTTPS transport](http.md) | HTTP and HTTPS modes, data formats, and request paths. |
 | [WebSocket transport](websocket.md) | WebSocket modes, formats, subscription messages, and custom headers. |

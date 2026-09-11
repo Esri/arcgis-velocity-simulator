@@ -1,0 +1,87 @@
+/* Dialog adapters share the semantic pairs in button-palette.css. */
+.button-container button[id],
+.about-container button.close-btn,
+.help-container button.help-close,
+.help-container button.cli-toolbar-action,
+.help-container button.cli-clear-filters,
+.help-container button.cli-copy-button,
+.help-container button.cli-filter-chip.is-active,
+.protocol-settings-dialog button.protocol-settings-done,
+.protocol-settings-dialog button.xmpp-copy-settings-btn {
+  background: var(--dialog-button-bg);
+  color: var(--dialog-button-text);
+  border-color: var(--dialog-button-bg);
+}
+
+.button-container button[id]:hover:not(:disabled),
+.button-container button[id]:active:not(:disabled),
+.about-container button.close-btn:hover:not(:disabled),
+.about-container button.close-btn:active:not(:disabled),
+.help-container button.help-close:hover:not(:disabled),
+.help-container button.help-close:active:not(:disabled),
+.help-container button.cli-toolbar-action:hover:not(:disabled),
+.help-container button.cli-toolbar-action:active:not(:disabled),
+.help-container button.cli-clear-filters:hover:not(:disabled),
+.help-container button.cli-clear-filters:active:not(:disabled),
+.help-container button.cli-copy-button:hover:not(:disabled),
+.help-container button.cli-copy-button:active:not(:disabled),
+.help-container button.cli-filter-chip.is-active:hover:not(:disabled),
+.help-container button.cli-filter-chip.is-active:active:not(:disabled),
+.protocol-settings-dialog button.protocol-settings-done:hover:not(:disabled),
+.protocol-settings-dialog button.protocol-settings-done:active:not(:disabled),
+.protocol-settings-dialog button.xmpp-copy-settings-btn:hover:not(:disabled),
+.protocol-settings-dialog button.xmpp-copy-settings-btn:active:not(:disabled) {
+  background: var(--dialog-button-hover-bg);
+  color: var(--dialog-button-hover-text);
+  border-color: var(--dialog-button-hover-bg);
+}
+
+/* Neutral actions keep their existing surfaces, including in High Contrast. */
+.help-container button.help-search-clear,
+.help-container button.help-clear-search,
+.help-container button.cli-filter-chip:not(.is-active),
+.help-container button.cli-active-filter-pill,
+.protocol-settings-dialog button.protocol-settings-close,
+.protocol-settings-dialog button.protocol-settings-tab,
+.protocol-settings-dialog button.protocol-settings-secondary,
+.protocol-settings-dialog button.connection-summary-action {
+  color: var(--text-color);
+}
+
+.help-container button.sortable-column {
+  color: inherit;
+}
+
+.protocol-settings-dialog button.protocol-settings-close:hover:not(:disabled),
+.protocol-settings-dialog button.protocol-settings-tab:hover:not(:disabled),
+.protocol-settings-dialog button.protocol-settings-secondary:hover:not(:disabled),
+.protocol-settings-dialog button.connection-summary-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text-color) 10%, transparent);
+  color: var(--text-color);
+}
+
+.help-container .cli-filter-chip .cli-filter-chip-count {
+  opacity: 1;
+  color: inherit;
+}
+
+.help-container .cli-filter-chip.is-active .cli-filter-chip-count,
+.help-container .cli-filter-chip:disabled .cli-filter-chip-count {
+  background: transparent;
+}
+
+:is(.button-container, .about-container, .help-container, .protocol-settings-dialog, .velocity-login-dialog) button[class],
+:is(.button-container, .about-container, .help-container, .protocol-settings-dialog, .velocity-login-dialog) button[id] {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+:is(.button-container, .about-container, .help-container, .protocol-settings-dialog, .velocity-login-dialog) button[class]:disabled,
+:is(.button-container, .about-container, .help-container, .protocol-settings-dialog, .velocity-login-dialog) button[id]:disabled {
+  background: var(--dialog-button-disabled-bg);
+  color: var(--dialog-button-disabled-text);
+  border: 1px dashed var(--dialog-button-disabled-text);
+  opacity: 1;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}

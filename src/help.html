@@ -97,9 +97,11 @@
 
                 <section class="help-section">
                     <h3>Connect to ArcGIS Velocity</h3>
-                    <p>Select the ArcGIS Velocity sign-in control to browse feeds and apply supported connection settings. Applying a feed fills the connection mode, host, port, path, TLS, and format when those values are available. Stored passwords and feed secrets are never recovered.</p>
+                    <p>Select the ArcGIS Velocity sign-in control to browse feeds and apply supported connection settings. The shared <strong>Velocity endpoint</strong> section offers <strong>Automatic</strong> discovery or a <strong>Custom public URL</strong>. <strong>Detect again</strong> previews discovery; <strong>Apply URL</strong> validates the selected address with the current Portal session and reloads feeds.</p>
+                    <p>If the Portal has multiple Velocity servers, <strong>All Velocity servers</strong> aggregates their feeds by default. Each result identifies its source server, and partial failures do not hide healthy results. Select one <strong>Server</strong> to edit its custom URL; each override belongs only to that Portal and server.</p>
+                    <p>Pending endpoint edits block feed application, and changing the Portal requires sign-in again. While disconnected, <strong>Apply</strong> fills validated connection settings without connecting or starting playback. WebSocket feeds are outbound sources, not publishing destinations. Stored passwords and feed secrets are never recovered.</p>
                     <p>After you apply a supported feed, the Simulator can attach its token to supported gRPC metadata, HTTP headers, and WebSocket upgrade headers. The token is refreshed before it expires and is never displayed in the interface.</p>
-                    <p>See the <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/velocity-login.md" target="_blank" rel="noreferrer">ArcGIS Velocity sign-in guide</a> for feed selection and authentication details.</p>
+                    <p>See the <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/velocity-login.md" target="_blank" rel="noreferrer">ArcGIS Velocity sign-in guide</a> for controls, exact tooltips, feed selection, and authentication, and the <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/velocity-rest-api.md" target="_blank" rel="noreferrer">Velocity REST API guide</a> for public addresses, discovery, and resource paths.</p>
                 </section>
 
                 <section class="help-section">

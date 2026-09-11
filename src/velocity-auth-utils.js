@@ -28,7 +28,7 @@
     root.VelocityAuthUtils = api;
   }
 })(typeof window !== 'undefined' ? window : globalThis, function () {
-  const TOKEN_CAPABLE_TYPES = new Set(['grpc', 'http', 'http-receiver', 'websocket']);
+  const TOKEN_CAPABLE_TYPES = new Set(['grpc', 'http', 'http-receiver', 'websocket', 'stream-lyr-new']);
   const TOKEN_AUTH_TYPES = new Set(['arcgis', 'bearer', 'oauth', 'token']);
   const NON_TOKEN_AUTH_TYPES = new Set(['basic', 'none', 'noauth', 'no-auth', 'anonymous']);
 
@@ -76,4 +76,3 @@
     describeVelocityAuthType,
   };
 });
-

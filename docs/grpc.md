@@ -149,6 +149,12 @@ The optional `grpcHeaderPathKey` / `grpcHeaderPath` parameters inject a metadata
 header on every outgoing call. This is required when connecting to a real ArcGIS
 Velocity endpoint so the platform can route the call to the correct feed item.
 
+Applying a gRPC feed from the Velocity sign-in dialog preserves its advertised
+authority, explicit port, and routing metadata. A secure authority without a
+port uses 443. The public REST context, such as `/velocity`, is not a prefix
+for gRPC methods. See [ArcGIS Velocity REST API](velocity-rest-api.md) for the
+distinction between management and data endpoints.
+
 Disconnect always completes. It half-closes the streaming call, waits for the
 call to finish, and closes the channel. When the peer disappeared first, the
 pending call ends with an error such as `14 UNAVAILABLE: Connection dropped`;

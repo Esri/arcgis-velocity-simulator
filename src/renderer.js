@@ -2631,70 +2631,34 @@ document.addEventListener('DOMContentLoaded', () => {
   // When a feed is applied from the login dialog, auto-populate the UI
   window.api.onFeedApplied((item) => {
     if (!item) return;
-    updateAuthFromVelocityItem(item);
+    if (isConnected || isConnecting) {
+      logStatus('⚠ Disconnect before applying Velocity connection settings.');
+      return;
+    }
 
     // Token-only mode: authenticate without changing connection settings
     if (item.tokenOnly) {
+      updateAuthFromVelocityItem(item);
       logStatus('🔑 Velocity token applied — using your own connection settings');
       return;
     }
 
-    const type = item.feedType || '';
-
-    // Map feed type to connection mode
-    if (type === 'grpc') {
-      connectionTypeSelect.value = 'grpc-client';
-      connectionTypeSelect.dispatchEvent(new Event('change'));
-      // Parse URL for host
-      if (item.url) {
-        ipAddressInput.value = item.url.replace(/^https?:\/\//, '').split(':')[0].split('/')[0];
-        portInput.value = '443';
-      }
-      if (item.headerPath) {
-        grpcHeaderPathInput.value = item.headerPath;
-      }
-      // Enable TLS for gRPC Velocity feeds
-      if (grpcTlsCheckbox) grpcTlsCheckbox.checked = true;
-      if (grpcTlsCheckbox) grpcTlsCheckbox.dispatchEvent(new Event('change'));
-    } else if (type === 'http-receiver') {
-      connectionTypeSelect.value = 'http-client';
-      connectionTypeSelect.dispatchEvent(new Event('change'));
-      if (item.url) {
-        try {
-          const u = new URL(item.url);
-          ipAddressInput.value = u.hostname;
-          portInput.value = u.port || (u.protocol === 'https:' ? '443' : '80');
-          if (httpPathInput) httpPathInput.value = u.pathname || '/';
-          if (httpTlsCheckbox) httpTlsCheckbox.checked = u.protocol === 'https:';
-        } catch (_) {
-          ipAddressInput.value = item.url;
-        }
-      }
-      // Set format if available
-      if (item.format && httpFormatSelect) {
-        const fmtMap = { 'delimited': 'delimited', 'json': 'json', 'geojson': 'geo-json', 'esrijson': 'esri-json', 'xml': 'xml' };
-        const mapped = fmtMap[item.format.toLowerCase()] || 'delimited';
-        httpFormatSelect.value = mapped;
-      }
-    } else if (type === 'websocket') {
-      connectionTypeSelect.value = 'ws-client';
-      connectionTypeSelect.dispatchEvent(new Event('change'));
-      if (item.url) {
-        try {
-          const u = new URL(item.url);
-          ipAddressInput.value = u.hostname;
-          portInput.value = u.port || (u.protocol === 'wss:' ? '443' : '80');
-          if (wsPathInput) wsPathInput.value = u.pathname || '/';
-          if (wsTlsCheckbox) wsTlsCheckbox.checked = u.protocol === 'wss:';
-        } catch (_) {
-          ipAddressInput.value = item.url;
-        }
-      }
-      if (item.format && wsFormatSelect) {
-        const fmtMap = { 'delimited': 'delimited', 'json': 'json', 'geojson': 'geo-json', 'esrijson': 'esri-json', 'xml': 'xml' };
-        wsFormatSelect.value = fmtMap[item.format.toLowerCase()] || 'delimited';
-      }
+    let options;
+    try {
+      options = window.VelocityConnectionOptions.buildVelocityConnectionOptions(item);
+    } catch (error) {
+      logStatus(`⚠ Feed not applied: ${error.message}`);
+      return;
     }
+    connectionTypeSelect.value = options.connectionType;
+    connectionTypeSelect.dispatchEvent(new Event('change'));
+    Object.entries(options).forEach(([field, value]) => {
+      if (field === 'connectionType' || field === 'port') return;
+      setPresetControlValue(field === 'ip' ? 'host' : field, value);
+    });
+    setPresetControlValue('port', options.port);
+    markConnectionFieldsModified();
+    updateAuthFromVelocityItem(item);
 
     // A feed fills the same fields the panel and the dialog show, so every
     // read-only surface is refreshed with it.

@@ -16,6 +16,8 @@
 @import url('./themes/theme-rose-dark.css');
 @import url('./themes/theme-sunset.css');
 @import url('./themes/theme-system.css');
+@import url('./button-palette.css');
+@import url('./dialog-buttons.css');
 
 /* Default theme fallback - Dark theme is the default */
 :root {

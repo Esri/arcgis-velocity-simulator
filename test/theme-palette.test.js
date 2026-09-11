@@ -18,6 +18,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { JSDOM } = require('jsdom');
 
 const SRC = path.resolve(__dirname, '../src');
 const THEMES_DIR = path.join(SRC, 'themes');
@@ -304,11 +305,12 @@ function parseColorMix(body) {
   const total = firstWeight + secondWeight || 1;
   const wa = firstWeight / total;
   const wb = secondWeight / total;
+  const alpha = firstColor.a * wa + secondColor.a * wb;
+  const channel = name => alpha
+    ? (firstColor[name] * firstColor.a * wa + secondColor[name] * secondColor.a * wb) / alpha : 0;
   return {
-    r: firstColor.r * wa + secondColor.r * wb,
-    g: firstColor.g * wa + secondColor.g * wb,
-    b: firstColor.b * wa + secondColor.b * wb,
-    a: firstColor.a * wa + secondColor.a * wb,
+    r: channel('r'), g: channel('g'), b: channel('b'),
+    a: alpha * Math.min(total, 1),
   };
 }
 
@@ -347,6 +349,223 @@ function contrastRatio(foreground, background) {
   const a = relativeLuminance(foreground);
   const b = relativeLuminance(background);
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
+function controlSpecificity(selector) {
+  let remainder = selector;
+  let score = 0;
+  let match;
+  while ((match = /:(where|is|not|has)\(/.exec(remainder))) {
+    const start = match.index + match[0].length;
+    let depth = 1;
+    let end = start;
+    while (end < remainder.length && depth) {
+      if (remainder[end] === '(') depth++;
+      if (remainder[end] === ')') depth--;
+      end++;
+    }
+    if (match[1] !== 'where') score += Math.max(...splitTopLevel(remainder.slice(start, end - 1)).map(controlSpecificity));
+    remainder = remainder.slice(0, match.index) + remainder.slice(end);
+  }
+  return score + specificity(remainder);
+}
+
+function resolveDialogControlColors(element, rules, palette, parent) {
+  const declarations = new Map();
+  rules.forEach((rule, order) => {
+    splitTopLevel(rule.selector).forEach(selector => {
+      if (selector.includes('::')) return;
+      const stateSelector = selector.replace(/:(hover|focus-visible|focus|active)\b/g, '[data-contrast-$1]');
+      if (!element.matches(stateSelector)) return;
+      const weight = controlSpecificity(selector) * 1000000 + order;
+      rule.declarations.forEach(({ property, value }) => {
+        const canonical = property === 'background' ? 'background-color' : property;
+        if (!['color', 'background-color', 'background-image', 'opacity'].includes(canonical)) return;
+        const previous = declarations.get(canonical);
+        if (!previous || weight >= previous.weight) declarations.set(canonical, { value, weight });
+        if (property === 'background') {
+          const image = declarations.get('background-image');
+          if (!image || weight >= image.weight) declarations.set('background-image', { value: 'none', weight });
+        }
+      });
+    });
+  });
+  parseDeclarations(element.getAttribute('style') || '').forEach(({ property, value }) => {
+    const canonical = property === 'background' ? 'background-color' : property;
+    if (['color', 'background-color', 'background-image', 'opacity'].includes(canonical)) declarations.set(canonical, { value, weight: Infinity });
+    if (property === 'background') declarations.set('background-image', { value: 'none', weight: Infinity });
+  });
+  const value = property => {
+    const declaration = declarations.get(property);
+    return declaration ? computeProperties({ '--measurement': declaration.value }, palette)['--measurement'] : undefined;
+  };
+  const foregroundValue = value('color');
+  const color = !foregroundValue || ['inherit', 'currentColor'].includes(foregroundValue) ? parent.color : parseColor(foregroundValue);
+  const backgroundValue = value('background-color');
+  const currentColor = `rgba(${color.r},${color.g},${color.b},${color.a})`;
+  const backgroundColor = backgroundValue === 'inherit' ? parent.backgroundColor
+    : parseColor(!backgroundValue || backgroundValue === 'none' ? 'transparent' : backgroundValue.replace(/currentColor/g, currentColor));
+  const background = composite(backgroundColor, parent.background);
+  const opacity = value('opacity') === undefined ? 1 : Number(value('opacity'));
+  return {
+    color,
+    backgroundColor,
+    backgroundImage: value('background-image') || 'none',
+    opacity,
+    background: composite({ ...background, a: opacity }, parent.background),
+    foreground: composite({ ...composite(color, background), a: opacity }, parent.background),
+    hasOwnColor: declarations.has('color'),
+  };
+}
+
+const DIALOG_VIEWS = [
+  { name: 'Main window', file: 'index.html', main: true },
+  { name: 'Main window compact', file: 'index.html', main: true, compact: true },
+  { name: 'Velocity Login', file: 'velocity-login.html' },
+  { name: 'App Config', file: 'config.html' },
+  { name: 'Launch Config', file: 'launch-config.html' },
+  { name: 'Error', file: 'error.html' },
+  { name: 'About', file: 'about.html' },
+  { name: 'Help', file: 'help.html' },
+  { name: 'CLI', file: 'cli.html' },
+  { name: 'Protocol Settings embedded', file: 'index.html', selector: '#protocol-settings-dialog' },
+  { name: 'Protocol Settings detached', file: 'protocol-settings.html', selector: '#protocol-settings-dialog' },
+];
+
+function measureDialogButtons(view, theme, colorScheme) {
+  const html = fs.readFileSync(path.join(SRC, view.file), 'utf8');
+  const dom = new JSDOM(html);
+  const document = dom.window.document;
+  const effectiveTheme = theme === 'system' && ['index.html', 'protocol-settings.html'].includes(view.file) ? colorScheme : theme;
+  document.documentElement.dataset.theme = effectiveTheme;
+  document.body.classList.add(effectiveTheme);
+  document.body.classList.toggle('compact', Boolean(view.compact));
+  if (view.main) {
+    const count = document.getElementById('protocol-settings-count');
+    count.hidden = false;
+    count.textContent = '12';
+  }
+  if (view.file === 'velocity-login.html') {
+    const fixtures = document.createElement('div');
+    fixtures.innerHTML = '<button class="btn-outline">Outline</button><button class="btn-icon btn-icon-toggle">Icon toggle</button><button class="btn-toggle-text">Text toggle</button>';
+    document.querySelector('.velocity-login-dialog').appendChild(fixtures);
+  }
+  if (view.file === 'cli.html') {
+    const fixtures = document.createElement('div');
+    fixtures.innerHTML = '<button class="cli-copy-button">Copy example</button><button class="cli-active-filter-pill is-removable">Remove filter</button>';
+    document.querySelector('.help-container').appendChild(fixtures);
+  }
+  if (view.file === 'protocol-settings.html') {
+    const main = new JSDOM(fs.readFileSync(path.join(SRC, 'index.html'), 'utf8'));
+    document.getElementById('protocol-settings-root').innerHTML = main.window.document.getElementById('protocol-settings-dialog').outerHTML;
+    main.window.close();
+  }
+  const sheets = [...document.querySelectorAll('link[rel="stylesheet"]')].map(link => link.getAttribute('href').replace(/^\.\//, ''));
+  const lastThemeSheet = view.file === 'index.html' ? [] : [`themes/theme-${effectiveTheme}.css`];
+  sheets.push(...lastThemeSheet);
+  const palette = resolveTheme(sheets, effectiveTheme, colorScheme).body;
+  const rules = [...document.querySelectorAll('link[rel="stylesheet"], style')].flatMap(node => (
+    node.tagName === 'STYLE' ? parseRules(node.textContent) : loadSheet(node.getAttribute('href').replace(/^\.\//, ''))
+  )).concat(lastThemeSheet.flatMap(loadSheet)).filter(rule => (
+    mediaApplies(rule.media, colorScheme)
+      && rule.declarations.some(({ property }) => ['color', 'background', 'background-color', 'background-image', 'opacity'].includes(property))
+  ));
+  const cache = new Map();
+  const canvas = {
+    color: parseColor(palette['--text-color']), background: parseColor(palette['--bg-color']),
+    backgroundColor: parseColor('transparent'), opacity: 1,
+  };
+  function ancestorColors(element) {
+    if (!element) return canvas;
+    if (!cache.has(element)) cache.set(element, resolveDialogControlColors(element, rules, palette, ancestorColors(element.parentElement)));
+    return cache.get(element);
+  }
+  const states = [
+    { name: 'normal' }, { name: 'hover', hover: true }, { name: 'focus', focus: true },
+    { name: 'hover + focus', hover: true, focus: true }, { name: 'pressed', active: true },
+    { name: 'pressed + hover', active: true, hover: true }, { name: 'pressed + focus', active: true, focus: true },
+    { name: 'disabled', disabled: true }, { name: 'disabled hover', disabled: true, hover: true },
+    { name: 'disabled focus', disabled: true, focus: true },
+  ];
+  const measurements = [];
+  const root = view.selector ? document.querySelector(view.selector) : document;
+  if (view.selector) root.setAttribute('open', '');
+  const presentations = view.selector ? [false, true] : [false];
+  const controls = [...root.querySelectorAll(view.main ? 'button, [role="button"]' : 'button')]
+    .filter(button => !view.main || !button.closest('.protocol-settings-dialog'));
+  const buttonCases = presentations.flatMap(readOnly => controls.map(button => ({ button, readOnly })));
+  for (const { button, readOnly } of buttonCases) {
+    if (view.selector && root.dataset.readOnly !== String(readOnly)) {
+      root.dataset.readOnly = String(readOnly);
+      cache.clear();
+    }
+    const viewName = `${view.name}${readOnly ? ' read-only' : ''}`;
+    let ancestorOpacity = 1;
+    for (let parent = button.parentElement; parent; parent = parent.parentElement) ancestorOpacity *= ancestorColors(parent).opacity;
+    const activeStates = button.matches('.scope-btn, .auth-tab, .btn-icon-toggle, .btn-toggle-text, .protocol-settings-tab, .cli-filter-chip, .control-button, .tls-badge, #play-pause')
+      ? [false, true] : [button.classList.contains('active')];
+    const banners = button.classList.contains('status-banner-dismiss') ? ['info', 'success', 'error', 'warning']
+      : button.id === 'auth-badge' ? ['off', 'on', 'warning', 'error']
+        : button.id === 'protocol-settings-btn' ? ['count', 'warning'] : [''];
+    for (const banner of banners) {
+      if (button.id === 'auth-badge') {
+        button.dataset.authState = banner;
+      } else if (button.id === 'protocol-settings-btn') {
+        document.getElementById('protocol-settings-count').dataset.warning = String(banner === 'warning');
+      } else if (banner) {
+        button.parentElement.className = `status-banner ${banner}`;
+        cache.delete(button.parentElement);
+      }
+      for (const selected of activeStates) {
+        const activeClass = button.matches('.cli-filter-chip') ? 'is-active'
+          : button.matches('.tls-badge') ? 'pinned'
+            : button.id === 'play-pause' ? 'is-playing' : 'active';
+        if (button.hasAttribute('data-enabled')) button.dataset.enabled = String(selected);
+        else button.classList.toggle(activeClass, selected);
+        for (const state of states) {
+          if (!button.matches('button') && state.disabled) continue;
+          button.disabled = Boolean(state.disabled);
+          for (const pseudo of ['hover', 'focus-visible', 'focus', 'active']) {
+            button.toggleAttribute(`data-contrast-${pseudo}`, Boolean(pseudo.startsWith('focus') ? state.focus : state[pseudo]));
+          }
+          const paint = resolveDialogControlColors(button, rules, palette, ancestorColors(button.parentElement));
+          if (paint.backgroundImage !== 'none') throw new Error(`${button.id || button.className} ${state.name} has an image or gradient background that needs rendered contrast measurement`);
+          if (button.matches('button') && !paint.hasOwnColor) throw new Error(`${button.id || button.className} has no explicit foreground`);
+          if (view.main) {
+            const role = ({
+              connect: 'success', disconnect: 'danger', 'play-pause': 'primary',
+              'send-manual': 'warning', 'select-file': 'info', 'clear-status': 'info',
+            })[button.id] || (button.matches('.control-button') ? (selected ? 'toggle' : 'info') : '');
+            if (role) {
+              const token = state.disabled ? '--action-button-disabled-' : `--action-${role}-${state.hover ? 'hover-' : ''}`;
+              const expectedText = parseColor(palette[`${token}text`]);
+              const expectedBackground = parseColor(palette[`${token}bg`]);
+              if (['r', 'g', 'b', 'a'].some(channel => (
+                paint.color[channel] !== expectedText[channel] || paint.backgroundColor[channel] !== expectedBackground[channel]
+              ))) throw new Error(`${button.id} ${state.name} does not use its ${role} role's paired colors`);
+            }
+          }
+          measurements.push({
+            name: `${viewName}: ${button.id || button.className}${selected ? ' selected' : ''}${banner ? ` ${banner}` : ''} ${state.name}`,
+            ratio: contrastRatio(paint.foreground, paint.background), disabled: Boolean(state.disabled),
+            state: state.name, opacity: paint.opacity * ancestorOpacity,
+          });
+          for (const child of button.querySelectorAll('*')) {
+            if (child.closest('.tls-badge-popover')) continue;
+            if (![...child.childNodes].some(node => node.nodeType === 3 && node.textContent.trim())) continue;
+            const childPaint = resolveDialogControlColors(child, rules, palette, paint);
+            measurements.push({
+              name: `${viewName}: ${button.id || button.className}${selected ? ' selected' : ''}${banner ? ` ${banner}` : ''} child ${child.className} ${state.name}`,
+              ratio: contrastRatio(childPaint.foreground, childPaint.background), disabled: Boolean(state.disabled),
+              state: state.name, opacity: paint.opacity * childPaint.opacity * ancestorOpacity,
+            });
+          }
+        }
+      }
+    }
+  }
+  dom.window.close();
+  return measurements;
 }
 
 /* ------------------------------------------------------------------ */
@@ -579,6 +798,62 @@ function runThemePaletteTests() {
     const source = fs.readFileSync(path.join(SRC, 'renderer.js'), 'utf-8');
     return /documentElement\.setAttribute\('data-theme'/.test(source);
   });
+
+  console.log('\n--- Test 10: Button background cascade safeguards ---');
+  runTest('a background-color override cannot hide an active gradient from the contrast check', () => {
+    const dom = new JSDOM('<button class="active" disabled>Action</button>');
+    const button = dom.window.document.querySelector('button');
+    const rules = parseRules('button.active { background-image: linear-gradient(white, black); } button:disabled { color: white; background-color: black; }');
+    const parent = { color: parseColor('white'), background: parseColor('black'), backgroundColor: parseColor('black') };
+    const layered = resolveDialogControlColors(button, rules, {}, parent);
+    const cleared = resolveDialogControlColors(button, rules.concat(parseRules('button:disabled { background: black; }')), {}, parent);
+    dom.window.close();
+    return layered.backgroundImage.startsWith('linear-gradient(') && cleared.backgroundImage === 'none';
+  });
+
+  console.log('\n--- Test 11: Shared semantic button pairs ---');
+  themeCases().forEach(({ theme, colorScheme, label }) => {
+    runTest(`${label}: every semantic role has a readable normal and hover pair`, () => {
+      const palette = resolveTheme(['themes.css', 'style.css'], theme, colorScheme).body;
+      for (const role of ['button', 'primary', 'success', 'danger', 'warning', 'info', 'toggle']) {
+        for (const state of role === 'button' ? ['', 'hover-', 'disabled-'] : ['', 'hover-']) {
+          const keys = [`--action-${role}-${state}text`, `--action-${role}-${state}bg`];
+          if (keys.some(key => !palette[key])) return `Missing ${role} ${state} pair`;
+          const colors = keys.map(key => parseColor(palette[key]));
+          if (colors.some(color => color.a !== 1)) return `${role} ${state} pair is not opaque`;
+          const ratio = contrastRatio(...colors);
+          if (ratio < 4.5) return `${role} ${state || 'normal'}: ${ratio.toFixed(3)}:1`;
+        }
+      }
+      return true;
+    });
+  });
+
+  console.log('\n--- Test 12: Window and dialog button contrast in every interactive state ---');
+  let lowestDialogContrast = { ratio: Infinity, name: '' };
+  let lowestDisabledContrast = { ratio: Infinity, name: '' };
+  const stateMinimums = new Map();
+  let dialogMeasurements = 0;
+  themeCases().forEach(({ theme, colorScheme, label }) => {
+    DIALOG_VIEWS.forEach(view => {
+      runTest(`${label}: ${view.name} button states retain 4.5:1 contrast`, () => {
+        const measurements = measureDialogButtons(view, theme, colorScheme);
+        if (!measurements.length) return 'No buttons were measured.';
+        dialogMeasurements += measurements.length;
+        for (const measurement of measurements) {
+          if (measurement.ratio < lowestDialogContrast.ratio) lowestDialogContrast = { ...measurement, name: `${label}: ${measurement.name}` };
+          if (measurement.disabled && measurement.ratio < lowestDisabledContrast.ratio) lowestDisabledContrast = { ...measurement, name: `${label}: ${measurement.name}` };
+          stateMinimums.set(measurement.state, Math.min(stateMinimums.get(measurement.state) || Infinity, measurement.ratio));
+        }
+        const failures = measurements.filter(measurement => measurement.ratio < 4.5 || measurement.opacity !== 1);
+        return failures.length === 0 || failures.map(measurement => (
+          `${measurement.name}: ${measurement.ratio.toFixed(3)}:1, opacity ${measurement.opacity}`
+        )).slice(0, 12).join(' | ');
+      });
+    });
+  });
+  console.log(`Dialog contrast: ${dialogMeasurements} measurements across ${DIALOG_VIEWS.length} surfaces and ${themeCases().length} theme configurations; minimum ${lowestDialogContrast.ratio.toFixed(3)}:1 (${lowestDialogContrast.name}); disabled minimum ${lowestDisabledContrast.ratio.toFixed(3)}:1 (${lowestDisabledContrast.name}).`);
+  console.log(`State minimums: ${[...stateMinimums].map(([state, ratio]) => `${state} ${ratio.toFixed(3)}:1`).join('; ')}.`);
 
   console.log('\n=== Test Results ===');
   console.log(`✅ Passed: ${passed}`);

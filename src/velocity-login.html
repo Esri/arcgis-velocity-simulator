@@ -14,48 +14,75 @@
     <div class="dialog-body">
       <h2>Sign In to ArcGIS Velocity</h2>
 
+      <div class="form-row portal-row">
+        <label for="portal-url" title="ArcGIS Enterprise or ArcGIS Online portal URL">Portal URL:</label>
+        <input type="text" id="portal-url" value="https://velocitydemo.maps.arcgis.com" title="ArcGIS Enterprise or ArcGIS Online portal URL" spellcheck="false">
+      </div>
+
       <div class="auth-tabs">
         <button class="auth-tab active" data-tab="password" title="Sign in with ArcGIS username and password">Username / Password</button>
-        <button class="auth-tab" data-tab="oauth" title="Sign in with OAuth 2.0 client credentials (supported for HTTP Poller feeds only)">OAuth 2.0</button>
+        <button class="auth-tab" data-tab="oauth" title="Sign in with OAuth 2.0 client credentials; resource access depends on the application permissions">OAuth 2.0</button>
       </div>
 
       <div class="auth-form" id="auth-form-password">
         <div class="form-row">
-          <label for="portal-url">Portal URL:</label>
-          <input type="text" id="portal-url" value="https://velocitydemo.maps.arcgis.com" title="ArcGIS Enterprise or ArcGIS Online portal URL" spellcheck="false">
-        </div>
-        <div class="form-row">
-          <label for="username">Username:</label>
+          <label for="username" title="ArcGIS account username">Username:</label>
           <input type="text" id="username" placeholder="Enter username" title="ArcGIS account username" spellcheck="false" autocomplete="username">
         </div>
         <div class="form-row">
-          <label for="password">Password:</label>
+          <label for="password" title="ArcGIS account password (press Enter to sign in)">Password:</label>
           <div class="password-wrapper">
             <input type="password" id="password" placeholder="Enter password" title="ArcGIS account password (press Enter to sign in)" autocomplete="current-password">
             <button type="button" class="password-toggle" id="toggle-password" title="Show password"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg></button>
           </div>
         </div>
-        <div class="form-row checkbox-row">
-          <label><input type="checkbox" id="remember-me" title="Remember portal URL and username for next session"> Remember me</label>
-        </div>
       </div>
 
       <div class="auth-form hidden" id="auth-form-oauth">
         <div class="form-row">
-          <label for="oauth-portal-url">Portal URL:</label>
-          <input type="text" id="oauth-portal-url" value="https://velocitydemo.maps.arcgis.com" title="ArcGIS Enterprise or ArcGIS Online portal URL" spellcheck="false">
-        </div>
-        <div class="form-row">
-          <label for="client-id">Client ID:</label>
+          <label for="client-id" title="OAuth 2.0 application Client ID">Client ID:</label>
           <input type="text" id="client-id" placeholder="Enter Client ID" title="OAuth 2.0 application Client ID" spellcheck="false">
         </div>
         <div class="form-row">
-          <label for="client-secret">Client Secret:</label>
+          <label for="client-secret" title="OAuth 2.0 application Client Secret (press Enter to sign in)">Client Secret:</label>
           <div class="password-wrapper">
             <input type="password" id="client-secret" placeholder="Enter Client Secret" title="OAuth 2.0 application Client Secret (press Enter to sign in)">
             <button type="button" class="password-toggle" id="toggle-client-secret" title="Show client secret"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg></button>
           </div>
         </div>
+      </div>
+
+      <details id="velocity-endpoint" class="endpoint-section">
+        <summary data-tooltip="Choose the public Velocity API address used to browse resources" aria-label="Choose the public Velocity API address used to browse resources">Velocity endpoint</summary>
+        <div class="form-row velocity-server-row hidden" id="velocity-server-row">
+          <label for="velocity-server-select" title="Browse all Velocity servers or select one server to edit its public API URL">Server:</label>
+          <select id="velocity-server-select" data-tooltip="Browse all Velocity servers or select one server to edit its public API URL" aria-label="Velocity server">
+            <option value="all" title="Browse resources from all Velocity servers">All Velocity servers</option>
+          </select>
+        </div>
+        <ul id="velocity-server-status" class="velocity-server-status hidden" aria-label="Velocity server endpoints"></ul>
+        <fieldset class="endpoint-modes">
+          <legend>Endpoint selection</legend>
+          <label title="Use the public API address found through Portal discovery"><input type="radio" name="endpoint-mode" id="endpoint-automatic" value="automatic" checked data-tooltip="Use the public API address found through Portal discovery" aria-label="Automatic endpoint discovery"> Automatic</label>
+          <label title="Use a complete public API base instead of the detected address"><input type="radio" name="endpoint-mode" id="endpoint-custom" value="custom" data-tooltip="Use a complete public API base instead of the detected address" aria-label="Custom public URL"> Custom public URL</label>
+        </fieldset>
+        <div class="form-row">
+          <label for="public-api-url" title="Complete HTTPS API base, including the public context and optional port; no resource suffix, credentials, query, or fragment">Public API URL:</label>
+          <input type="text" id="public-api-url" placeholder="https://velocity.example.com/velocity" spellcheck="false" disabled data-tooltip="Complete HTTPS API base, including the public context and optional port; no resource suffix, credentials, query, or fragment" aria-label="Public API URL">
+        </div>
+        <dl class="endpoint-addresses" id="endpoint-current-addresses">
+          <dt>Detected URL</dt><dd id="detected-url">Not detected</dd>
+          <dt>Effective URL</dt><dd id="effective-url">Not applied</dd>
+        </dl>
+        <ul id="velocity-server-errors" class="velocity-server-errors hidden" aria-label="Velocity server request errors" aria-live="polite"></ul>
+        <p id="endpoint-status" role="status" aria-live="polite">Sign in to resolve the endpoint.</p>
+        <div class="endpoint-actions">
+          <button id="detect-endpoint-btn" class="btn-secondary" disabled data-tooltip="Refresh discovery without changing the custom URL or active browsing endpoint" aria-label="Detect again">Detect again</button>
+          <button id="apply-endpoint-btn" class="btn-secondary" disabled data-tooltip="Validate and apply the endpoint selection with the current Portal session, then reload the list" aria-label="Apply URL">Apply URL</button>
+        </div>
+      </details>
+      <div class="form-row checkbox-row">
+        <label title="Remember the Portal URL, username, server selection, and each server's endpoint preferences; never save passwords or tokens"><input type="checkbox" id="remember-me" title="Remember the Portal URL, username, server selection, and each server's endpoint preferences; never save passwords or tokens"> Remember me</label>
       </div>
 
       <div class="sign-in-row">
@@ -84,15 +111,15 @@
 
         <div class="picker-fields">
           <div class="form-row">
-            <label for="item-type-select">Type:</label>
+            <label for="item-type-select" title="Filter by feed type. Types marked with a warning are not yet supported by the Simulator.">Type:</label>
             <select id="item-type-select" title="Filter by feed type. Types marked with a warning are not yet supported by the Simulator.">
-              <option value="">All Types</option>
+              <option value="" title="Show all feed types">All Types</option>
             </select>
           </div>
           <div class="form-row">
-            <label for="item-select">Feed:</label>
+            <label for="item-select" title="Select a feed to view its details and apply connection settings.">Feed:</label>
             <select id="item-select" title="Select a feed to view its details and apply connection settings.">
-              <option value="">-- Select --</option>
+              <option value="" title="Select a feed to view its details">-- Select --</option>
             </select>
           </div>
         </div>
@@ -101,6 +128,7 @@
           <table class="info-table">
             <tr><th>Label</th><td id="info-label">--</td></tr>
             <tr><th>ID</th><td id="info-id">--</td></tr>
+            <tr><th>Server</th><td id="info-server">--</td></tr>
             <tr><th>Type</th><td><span id="info-type-badge" class="type-badge"></span><span id="info-type">--</span></td></tr>
             <tr><th>URL / Host</th><td id="info-url">--</td></tr>
             <tr><th>Auth Type</th><td id="info-auth">--</td></tr>
@@ -129,6 +157,8 @@
   </div>
 
   <script src="tooltip-utils.js"></script>
+  <script src="velocity-connection-options.js"></script>
+  <script src="velocity-endpoint-ui.js"></script>
   <script src="velocity-login-renderer.js"></script>
 </body>
 </html>

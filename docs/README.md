@@ -28,6 +28,7 @@ documentation samples rather than runtime configuration.
 | 🎙️ | [Offline speech recognition](offline-speech.md) | Local voice control: setup, supported commands, frequency analysis internals, and troubleshooting. | Users and developers |
 | 🔒 | [TLS and SSL security](tls.md) | Certificate types, operating system trust stores, mutual TLS, automatic self-signed certificates, and the TLS Trust Badge. | Users and developers |
 | 🔑 | [ArcGIS Velocity sign-in and feed picker](velocity-login.md) | ArcGIS Velocity sign-in, feed browsing, token-based authentication, and auto-configuration. | Users |
+| 🌐 | [ArcGIS Velocity REST API](velocity-rest-api.md) | Endpoint discovery and overrides, public URL contexts, REST resources, and data endpoints. | Users and developers |
 | 🔗 | [WebSocket transport](websocket.md) | Client and server modes, formats, TLS, subscription messages, and custom headers. | Users and developers |
 | 💬 | [XMPP transport](xmpp.md) | Client and server roles, Direct and Room conversations, STARTTLS policies, accounts and JID rules, and explicit limitations. | Users and developers |
 

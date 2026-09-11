@@ -342,8 +342,8 @@ h1 {
 }
 
 .control-button {
-  background-color: var(--button-info-bg);
-  color: var(--button-info-text-color, var(--button-text));
+  background-color: var(--action-info-bg);
+  color: var(--action-info-text);
   padding: 6px; /* Uniform padding for a square look */
   display: flex; /* Center the icon */
   align-items: center;
@@ -351,11 +351,12 @@ h1 {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .control-button:hover:not(:disabled) {
-  background-color: var(--button-hover);
+  background-color: var(--action-info-hover-bg);
+  color: var(--action-info-hover-text);
   transform: translateY(-1px);
 }
 
@@ -363,9 +364,16 @@ h1 {
   transform: translateY(0);
 }
 
-.control-button.active {
-  background-color: var(--button-toggle-on-bg);
-  color: var(--button-toggle-on-text, var(--button-text));
+.control-button.active:not(:disabled),
+.control-button[data-enabled="true"]:not(:disabled) {
+  background-color: var(--action-toggle-bg);
+  color: var(--action-toggle-text);
+}
+
+.control-button.active:hover:not(:disabled),
+.control-button[data-enabled="true"]:hover:not(:disabled) {
+  background-color: var(--action-toggle-hover-bg);
+  color: var(--action-toggle-hover-text);
 }
 
 #toggle-loop-button {
@@ -373,11 +381,10 @@ h1 {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 #toggle-loop-button:hover:not(:disabled) {
-  background-color: var(--button-hover);
   transform: translateY(-1px);
 }
 
@@ -651,13 +658,15 @@ button {
   padding: 8px 12px;
   border: none;
   border-radius: 4px;
-  color: var(--button-text);
+  background-color: var(--action-button-bg);
+  color: var(--action-button-text);
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 button:hover:not(:disabled) {
-  background-color: var(--button-hover);
+  background-color: var(--action-button-hover-bg);
+  color: var(--action-button-hover-text);
   transform: translateY(-1px);
 }
 
@@ -665,18 +674,60 @@ button:active:not(:disabled) {
   transform: translateY(0);
 }
 
-button:disabled {
-  background-color: var(--button-disabled-bg);
+button:disabled[disabled] {
+  background-color: var(--action-button-disabled-bg);
+  color: var(--action-button-disabled-text);
+  outline: 1px dashed var(--action-button-disabled-text);
+  outline-offset: -2px;
   cursor: not-allowed;
-  opacity: 0.6;
+  opacity: 1;
+  box-shadow: none;
+  transform: none;
 }
 
 /* Specific button colors */
-#select-file { background-color: var(--button-info-bg); }
-#connect { background-color: var(--button-success-bg); }
-#disconnect { background-color: var(--button-danger-bg); }
-#play-pause { background-color: var(--button-primary-bg); }
-#send-manual { background-color: var(--button-warning-bg); color: var(--button-warning-text); }
+#select-file:not(:disabled),
+#clear-status:not(:disabled) {
+  background-color: var(--action-info-bg);
+  color: var(--action-info-text);
+}
+#select-file:hover:not(:disabled),
+#clear-status:hover:not(:disabled) {
+  background-color: var(--action-info-hover-bg);
+  color: var(--action-info-hover-text);
+}
+#connect:not(:disabled) {
+  background-color: var(--action-success-bg);
+  color: var(--action-success-text);
+}
+#connect:hover:not(:disabled) {
+  background-color: var(--action-success-hover-bg);
+  color: var(--action-success-hover-text);
+}
+#disconnect:not(:disabled) {
+  background-color: var(--action-danger-bg);
+  color: var(--action-danger-text);
+}
+#disconnect:hover:not(:disabled) {
+  background-color: var(--action-danger-hover-bg);
+  color: var(--action-danger-hover-text);
+}
+#play-pause:not(:disabled) {
+  background-color: var(--action-primary-bg);
+  color: var(--action-primary-text);
+}
+#play-pause:hover:not(:disabled) {
+  background-color: var(--action-primary-hover-bg);
+  color: var(--action-primary-hover-text);
+}
+#send-manual:not(:disabled) {
+  background-color: var(--action-warning-bg);
+  color: var(--action-warning-text);
+}
+#send-manual:hover:not(:disabled) {
+  background-color: var(--action-warning-hover-bg);
+  color: var(--action-warning-hover-text);
+}
 
 .action-buttons {
   justify-content: space-around;
@@ -798,18 +849,7 @@ body.status-area-disabled #resizer:hover {
   font-size: 1.2em;
 }
 
-/* Toggle state styling for the mic and geture logging and reporting buttons */
-#toggle-gesture-logging[data-enabled="true"],
-#toggle-mic-logging[data-enabled="true"],
-#toggle-gesture-report[data-enabled="true"],
-#toggle-status-log[data-enabled="true"],
-#toggle-connection-controls[data-enabled="true"] {
-  background-color: var(--button-toggle-on-bg);
-  color: var(--button-toggle-on-text, var(--button-text));
-}
-
 #clear-status {
-  background-color: var(--button-info-bg);
   padding: 6px; /* Uniform padding */
   display: flex; /* Center the icon */
   align-items: center;
@@ -817,11 +857,10 @@ body.status-area-disabled #resizer:hover {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 #clear-status:hover:not(:disabled) {
-  background-color: var(--button-hover);
   transform: translateY(-1px);
 }
 
@@ -1466,7 +1505,6 @@ body:not(.show-gestures) #live-gesture-received {
   gap: 7px;
   padding: 4px 8px;
   background: color-mix(in srgb, var(--text-color) 6%, transparent);
-  color: var(--text-color);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
@@ -1474,7 +1512,11 @@ body:not(.show-gestures) #live-gesture-received {
   font-weight: 500;
   text-align: left;
   box-sizing: border-box;
-  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.connection-toolbar-controls button.protocol-settings-btn {
+  color: var(--text-color);
 }
 
 .protocol-settings-btn:hover:not(:disabled) {
@@ -1490,7 +1532,6 @@ body:not(.show-gestures) #live-gesture-received {
 
 .protocol-settings-btn-icon {
   flex: 0 0 auto;
-  opacity: 0.85;
   line-height: 1;
 }
 
@@ -1511,13 +1552,16 @@ body:not(.show-gestures) #live-gesture-received {
   font-size: 0.82em;
   line-height: 1.5;
   white-space: nowrap;
-  opacity: 0.9;
 }
 
 .protocol-settings-count[data-warning="true"] {
   border-color: var(--button-warning-bg, #ffc107);
-  background: color-mix(in srgb, var(--button-warning-bg, #ffc107) 18%, transparent);
+  background: color-mix(in srgb, var(--button-warning-bg, #ffc107) 6%, transparent);
   opacity: 1;
+}
+
+.protocol-settings-btn:disabled .protocol-settings-count {
+  background: transparent;
 }
 
 /* The dialog itself carries no padding, so a click on the element is a click
@@ -1761,26 +1805,13 @@ body:not(.show-gestures) #live-gesture-received {
   transform: none;
 }
 
-.protocol-settings-secondary:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 .protocol-settings-done {
-  border: 1px solid var(--button-primary-bg);
-  background: var(--button-primary-bg);
-  color: var(--button-text, #fff);
+  border: 1px solid var(--dialog-button-bg);
   font-weight: 600;
 }
 
 .protocol-settings-done:hover:not(:disabled) {
-  background: var(--button-hover, var(--button-primary-bg));
   transform: none;
-}
-
-/* Read-only presentation while a connection owns the settings. */
-.protocol-settings-dialog[data-read-only="true"] .protocol-settings-panel {
-  opacity: 0.85;
 }
 
 .protocol-settings-summary {

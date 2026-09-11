@@ -1,0 +1,142 @@
+/* Semantic button pairs are resolved on the element that owns the theme. */
+:root,
+body {
+  --action-button-bg: var(--button-bg);
+  --action-button-text: var(--button-text);
+  --action-button-hover-bg: var(--button-hover);
+  --action-button-hover-text: var(--button-text);
+  --action-button-disabled-bg: var(--button-disabled-bg);
+  --action-button-disabled-text: var(--text-color);
+
+  --action-primary-bg: var(--button-primary-bg);
+  --action-primary-text: var(--button-text);
+  --action-primary-hover-bg: var(--action-button-hover-bg);
+  --action-primary-hover-text: var(--action-button-hover-text);
+  --action-success-bg: var(--button-success-bg);
+  --action-success-text: var(--button-text);
+  --action-success-hover-bg: var(--action-success-bg);
+  --action-success-hover-text: var(--action-success-text);
+  --action-danger-bg: var(--button-danger-bg);
+  --action-danger-text: var(--button-text);
+  --action-danger-hover-bg: var(--action-danger-bg);
+  --action-danger-hover-text: var(--action-danger-text);
+  --action-warning-bg: var(--button-warning-bg);
+  --action-warning-text: var(--button-warning-text);
+  --action-warning-hover-bg: var(--action-warning-bg);
+  --action-warning-hover-text: var(--action-warning-text);
+  --action-info-bg: var(--button-info-bg);
+  --action-info-text: var(--button-info-text-color, var(--button-text));
+  --action-info-hover-bg: var(--action-button-hover-bg);
+  --action-info-hover-text: var(--action-button-hover-text);
+  --action-toggle-bg: var(--button-toggle-on-bg);
+  --action-toggle-text: var(--button-toggle-on-text);
+  --action-toggle-hover-bg: var(--action-toggle-bg);
+  --action-toggle-hover-text: var(--action-toggle-text);
+
+  --dialog-button-bg: var(--action-button-bg);
+  --dialog-button-text: var(--action-button-text);
+  --dialog-button-hover-bg: var(--action-button-hover-bg);
+  --dialog-button-hover-text: var(--action-button-hover-text);
+  --dialog-button-disabled-bg: var(--action-button-disabled-bg);
+  --dialog-button-disabled-text: var(--action-button-disabled-text);
+}
+
+body.blue,
+:root[data-theme="blue"] body {
+  --action-button-hover-text: var(--text-color);
+}
+
+body.color-blind,
+:root[data-theme="color-blind"] body {
+  --action-toggle-text: var(--button-text);
+}
+
+body.dark,
+body.light,
+:root[data-theme="dark"] body,
+:root[data-theme="light"] body {
+  --action-success-text: var(--button-warning-text);
+  --action-info-text: var(--button-warning-text);
+  --action-toggle-text: var(--button-warning-text);
+}
+
+body.light,
+:root[data-theme="light"] body {
+  --action-primary-text: var(--header-color);
+}
+
+body.dark-gray,
+:root[data-theme="dark-gray"] body {
+  --action-button-hover-bg: color-mix(in srgb, var(--button-bg) 85%, var(--bg-color));
+  --action-success-text: var(--bg-color);
+  --action-danger-bg: color-mix(in srgb, var(--button-danger-bg) 75%, var(--bg-color));
+  --action-info-bg: color-mix(in srgb, var(--button-info-bg) 65%, var(--bg-color));
+  --action-toggle-text: var(--bg-color);
+}
+
+body.green,
+:root[data-theme="green"] body {
+  --action-button-bg: var(--button-hover);
+  --action-button-hover-bg: color-mix(in srgb, var(--button-hover) 85%, var(--bg-color));
+  --action-primary-bg: var(--button-hover);
+  --action-success-bg: var(--button-hover);
+  --action-info-bg: color-mix(in srgb, var(--button-info-bg) 65%, var(--bg-color));
+  --action-toggle-bg: var(--button-hover);
+}
+
+body.midnight,
+:root[data-theme="midnight"] body {
+  --action-warning-text: var(--bg-color);
+  --action-toggle-text: var(--bg-color);
+}
+
+body.ocean,
+:root[data-theme="ocean"] body {
+  --action-button-text: var(--bg-color);
+  --action-button-hover-bg: color-mix(in srgb, var(--button-hover) 90%, var(--bg-color));
+  --action-button-hover-text: var(--text-color);
+  --action-primary-text: var(--bg-color);
+  --action-success-text: var(--bg-color);
+  --action-danger-text: var(--bg-color);
+  --action-info-text: var(--bg-color);
+  --action-toggle-text: var(--bg-color);
+}
+
+body.rose,
+:root[data-theme="rose"] body {
+  --action-button-bg: var(--button-hover);
+  --action-button-text: var(--bg-color);
+  --action-button-hover-bg: color-mix(in srgb, var(--button-hover) 85%, var(--button-text));
+  --action-button-hover-text: var(--bg-color);
+  --action-primary-bg: var(--button-hover);
+  --action-primary-text: var(--bg-color);
+  --action-danger-bg: color-mix(in srgb, var(--button-danger-bg) 85%, var(--bg-color));
+  --action-info-text: var(--button-text);
+  --action-toggle-bg: var(--button-hover);
+  --action-toggle-text: var(--bg-color);
+}
+
+body.rose-dark,
+:root[data-theme="rose-dark"] body {
+  --action-primary-text: var(--button-warning-text);
+  --action-success-text: var(--button-warning-text);
+  --action-danger-text: var(--button-warning-text);
+}
+
+@media (prefers-color-scheme: dark) {
+  body.system,
+  :root[data-theme="system"] body {
+    --action-success-text: var(--button-warning-text);
+    --action-info-text: var(--button-warning-text);
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  body.system,
+  :root[data-theme="system"] body {
+    --action-success-bg: color-mix(in srgb, var(--button-success-bg) 85%, var(--button-text));
+    --action-success-text: var(--text-color);
+    --action-info-bg: color-mix(in srgb, var(--button-info-bg) 85%, var(--button-text));
+    --action-info-text: var(--text-color);
+  }
+}

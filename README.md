@@ -37,6 +37,7 @@ lists all of them with their intended audience.
 | [XMPP transport](docs/xmpp.md) | Client and server roles, Direct and Room conversations, STARTTLS policies, accounts, and explicit limitations. |
 | [TLS and SSL security](docs/tls.md) | Certificate formats, operating system trust stores, mutual TLS, self-signed certificates, and the TLS Trust Badge. |
 | [ArcGIS Velocity sign-in and feed picker](docs/velocity-login.md) | ArcGIS Velocity sign-in, feed picker, token-based authentication, and auto-configuration. |
+| [ArcGIS Velocity REST API](docs/velocity-rest-api.md) | Endpoint discovery and overrides, public URL contexts, REST resources, and data endpoints. |
 | [Keyboard shortcuts](docs/keyboard-shortcuts.md) | Every keyboard shortcut and the context menu reference. |
 | [Offline speech recognition](docs/offline-speech.md) | Local voice control: setup, supported commands, and troubleshooting. |
 

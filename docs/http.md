@@ -94,6 +94,12 @@ like `/receiver/<feed-id>`). For a focused local ArcGIS Velocity or ArcGIS
 GeoEvent Server receiver, `/` is sufficient only when that product is configured
 for the same path.
 
+Applying a receiver from the Velocity sign-in dialog preserves its advertised
+host, explicit port, path, and required non-secret query. HTTPS uses 443 when
+the advertised URL omits a port; this does not change the local server default.
+The management API context is not substituted into the receiver address.
+See [ArcGIS Velocity REST API](velocity-rest-api.md) for public URL selection.
+
 ## UI controls
 
 When HTTP is selected in the **Mode** dropdown, a **HTTP Settings…** button

@@ -15,6 +15,13 @@ The Simulator uses two separate configuration systems:
 App Config controls how the application _looks_. Launch Config controls what the
 application _does_.
 
+Velocity sign-in preferences are separate from both systems. **Remember me**
+stores the Portal identity and Portal-specific endpoint choices in
+`velocity-credentials.json`, not in App Config or Launch Config. See
+[Credential storage](velocity-login.md#credential-storage) for the saved
+fields and [ArcGIS Velocity REST API](velocity-rest-api.md) for endpoint
+discovery and override workflows.
+
 | Aspect | App Config | Launch Config |
 |--------|-----------|---------------|
 | **File** | `config.json` (platform data dir) | `launch-config*.json` (any path). |
@@ -420,6 +427,8 @@ cp ~/.config/arcgis-velocity-simulator/config.json ~/Desktop/backup.json
 
 | Document | Purpose |
 |----------|---------|
+| [ArcGIS Velocity REST API](velocity-rest-api.md) | Public API URL selection, contexts, and endpoint discovery. |
+| [ArcGIS Velocity sign-in and feed picker](velocity-login.md) | Sign-in controls and separately stored endpoint preferences. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Connection presets](connection-presets.md) | Paired Simulator and Logger field presets and the Essentials plus Advanced layout. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |

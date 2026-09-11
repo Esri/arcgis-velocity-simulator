@@ -157,13 +157,30 @@ const { createGrpcClientTransport, createGrpcServerTransport } = require(path.jo
 const { createHttpClientTransport, createHttpServerTransport, FORMAT_CONTENT_TYPES } = require(path.join(basePath, 'http-transport.js'));
 const { createWsClientTransport, createWsServerTransport } = require(path.join(basePath, 'ws-transport.js'));
 const { createXmppClientTransport, createXmppServerTransport, formatClientSettings } = require(path.join(basePath, 'xmpp-transport.js'));
-const { generateToken, generateOAuthToken, getVelocityApiUrl, listFeeds, getFeedDetails, TokenManager } = require(path.join(basePath, 'velocity-api.js'));
+const { listFeeds, getFeedDetails, TokenManager } = require(path.join(basePath, 'velocity-api.js'));
+const { VelocitySession } = require(path.join(basePath, 'velocity-session.js'));
+const { VelocityCatalog } = require(path.join(basePath, 'velocity-catalog.js'));
+const { buildVelocityConnectionOptions } = require(path.join(basePath, 'velocity-connection-options.js'));
+const { readVelocityPreferences, updateVelocityPreferences } = require(path.join(basePath, 'velocity-preferences.js'));
 const { shouldSendVelocityTokenByDefault } = require(path.join(basePath, 'velocity-auth-utils.js'));
-const velocityTokenManager = new TokenManager();
+const velocityApiOptions = { onLog: (level, message) => velocityLog(level, message) };
+const velocityTokenManager = new TokenManager(velocityApiOptions);
+const velocitySession = new VelocitySession({ tokenManager: velocityTokenManager, ...velocityApiOptions });
+const velocityCatalog = new VelocityCatalog({
+  session: velocitySession,
+  listItems: (context, token, adminScope) => listFeeds(context, token, adminScope, velocityApiOptions),
+  getItemDetails: (context, id, token) => getFeedDetails(context, id, token, velocityApiOptions),
+  validateItem: buildVelocityConnectionOptions,
+});
 let velocitySendAuthToken = false;
+let velocityAppliedRevision = null;
+let velocityTransportRevision = null;
+let velocityConnectionBusy = false;
+let velocityLoginPending = false;
 
 function getVelocityAuthTokenForConnection() {
-  return velocitySendAuthToken && velocityTokenManager.isAuthenticated ? velocityTokenManager.token : null;
+  return velocitySendAuthToken && velocityTokenManager.isAuthenticated
+    && velocityAppliedRevision === velocitySession.state.authRevision ? velocityTokenManager.token : null;
 }
 
 const documentationUrlPrefix = 'https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/';
@@ -211,7 +228,10 @@ function broadcastThemeToOpenWindows(theme) {
   }
 }
 
-function hotSwapVelocityAuthToken() {
+function hotSwapVelocityAuthToken({ allowDisable = false } = {}) {
+  const explicitDisable = allowDisable && !velocitySendAuthToken;
+  if (!explicitDisable && (velocityLoginPending || (velocityConnectionBusy
+      && velocityTransportRevision !== velocitySession.state.authRevision))) return;
   const token = getVelocityAuthTokenForConnection();
   if (grpcTransport && grpcTransport.authToken !== undefined) {
     grpcTransport.authToken = token;
@@ -230,6 +250,9 @@ function sendVelocityTokenState(reason = 'updated') {
       expires: velocityTokenManager.expires || 0,
       reason,
     });
+  }
+  if (velocityLoginWindow && !velocityLoginWindow.isDestroyed()) {
+    velocityLoginWindow.webContents.send('velocity:session-state', velocitySession.state);
   }
 }
 
@@ -1236,6 +1259,7 @@ app.on('ready', async () => {
 });
 
 app.on('before-quit', () => {
+  velocitySession.logout();
   // Ensure cleanup happens before app quits
   cleanupConnections();
   // Unregister all global shortcuts
@@ -1486,6 +1510,11 @@ const logStatus = (message) => {
  * @param {string} message - A descriptive message about the status change.
  */
 const emitConnectionStatus = (status, message) => {
+  if (status === 'connected' || status === 'connecting') velocityConnectionBusy = true;
+  if (status === 'disconnected') {
+    velocityConnectionBusy = false;
+    velocityTransportRevision = null;
+  }
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('connection-status-changed', status, message);
   }
@@ -2335,7 +2364,7 @@ ipcMain.handle('connect', (event, options) => {
     wsFormat, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsPath,
     wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders, wsAllowUnverifiedTls,
   } = options;
-  if (connection) {
+  if (connection || grpcTransport || httpTransport || wsTransport || xmppTransport || velocityConnectionBusy) {
     logStatus('Error: A connection is already active.');
     return { success: false, error: 'Connection already active' };
   }
@@ -2344,6 +2373,12 @@ ipcMain.handle('connect', (event, options) => {
   if (!protocol || !mode) {
     logStatus('Error: Protocol and mode are required.');
     return { success: false, error: 'Invalid parameters' };
+  }
+
+  if (!['tcp', 'udp', 'grpc', 'http', 'ws', 'xmpp'].includes(protocol)
+      || !['client', 'server'].includes(mode)) {
+    logStatus('Error: A supported protocol and client or server mode are required.');
+    return { success: false, error: 'Unsupported protocol or mode' };
   }
 
   if (!port || port < 1 || port > 65535) {
@@ -2356,6 +2391,8 @@ ipcMain.handle('connect', (event, options) => {
     return { success: false, error: 'IP address required' };
   }
 
+  velocityConnectionBusy = true;
+  velocityTransportRevision = velocityAppliedRevision;
   try {
     if (protocol === 'tcp') {
       if (mode === 'server') {
@@ -2846,109 +2883,123 @@ async function showVelocityLoginDialog() {
 }
 
 // Hide the login dialog without destroying it (preserves all state)
-ipcMain.on('velocity:hide-login', () => {
+ipcMain.on('velocity:hide-login', (event) => {
+  if (!velocityLoginWindow || event.sender !== velocityLoginWindow.webContents) return;
   if (velocityLoginWindow && !velocityLoginWindow.isDestroyed()) {
     velocityLoginWindow.hide();
   }
 });
 
 // Open the Velocity login dialog from the renderer
-ipcMain.on('velocity:open-login', () => {
+ipcMain.on('velocity:open-login', (event) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) return;
   showVelocityLoginDialog();
 });
 
-// Login with username/password
-ipcMain.handle('velocity:login', async (event, { portalUrl, username, password }) => {
-  velocityLog('info', `[Auth] Sign-in attempt (password) to ${portalUrl} as "${username}"`);
-  try {
-    velocitySendAuthToken = false;
-    const tokenResult = await generateToken(portalUrl, username, password);
-    const velocityUrl = await getVelocityApiUrl(portalUrl, tokenResult.token);
-    // Start the token manager session
-    await velocityTokenManager.loginWithPassword(portalUrl, username, password);
-    velocityLog('info', `[Auth] Sign-in successful. Velocity URL: ${velocityUrl}`);
-    velocityLog('debug', `[Auth] Token: ${tokenResult.token}`);
-    return { token: tokenResult.token, expires: tokenResult.expires, velocityUrl };
-  } catch (err) {
-    velocityLog('error', `[Auth] Sign-in failed: ${err.message}`);
-    return { error: err.message };
-  }
-});
-
-// Login with OAuth 2.0
-ipcMain.handle('velocity:login-oauth', async (event, { portalUrl, clientId, clientSecret }) => {
-  velocityLog('info', `[Auth] OAuth sign-in attempt to ${portalUrl} with client "${clientId}"`);
-  try {
-    velocitySendAuthToken = false;
-    const tokenResult = await generateOAuthToken(portalUrl, clientId, clientSecret);
-    const velocityUrl = await getVelocityApiUrl(portalUrl, tokenResult.token);
-    await velocityTokenManager.loginWithOAuth(portalUrl, clientId, clientSecret);
-    velocityLog('info', `[Auth] OAuth sign-in successful. Velocity URL: ${velocityUrl}`);
-    velocityLog('debug', `[Auth] Token: ${tokenResult.token}`);
-    return { token: tokenResult.token, expires: tokenResult.expires, velocityUrl };
-  } catch (err) {
-    velocityLog('error', `[Auth] OAuth sign-in failed: ${err.message}`);
-    return { error: err.message };
-  }
-});
-
-// List feeds (for feed picker)
-ipcMain.handle('velocity:list-items', async (event, { velocityUrl, token, adminScope }) => {
-  velocityLog('info', `[API] Listing feeds from ${velocityUrl} (scope: ${adminScope ? 'org' : 'my'})`);
-  try {
-    const results = await listFeeds(velocityUrl, token, adminScope);
-    velocityLog('info', `[API] Listed ${Array.isArray(results) ? results.length : 0} feed(s)`);
-    return results;
-  } catch (err) {
-    velocityLog('error', `[API] List feeds failed: ${err.message}`);
-    return { error: err.message };
-  }
-});
-
-// Get details for a single feed
-ipcMain.handle('velocity:get-item-details', async (event, { velocityUrl, feedId, token }) => {
-  try {
-    return await getFeedDetails(velocityUrl, feedId, token);
-  } catch (err) {
-    return { error: err.message };
-  }
-});
-
-// Store credentials (portal URL + username only)
-ipcMain.handle('velocity:store-credentials', async (event, creds) => {
-  try {
-    fs.writeFileSync(velocityCredsFile, JSON.stringify(creds, null, 2));
-    return { success: true };
-  } catch (err) {
-    return { error: err.message };
-  }
-});
-
-// Retrieve stored credentials
-ipcMain.handle('velocity:get-stored-credentials', async () => {
-  try {
-    if (fs.existsSync(velocityCredsFile)) {
-      return JSON.parse(fs.readFileSync(velocityCredsFile, 'utf8'));
+function handleVelocityRequest(channel, operation) {
+  ipcMain.handle(channel, async (event, params = {}) => {
+    try {
+      if (!velocityLoginWindow || velocityLoginWindow.isDestroyed()
+          || event.sender !== velocityLoginWindow.webContents) {
+        throw new Error('Open the Velocity sign-in dialog to perform this action.');
+      }
+      if (!params || typeof params !== 'object' || Array.isArray(params)) {
+        throw new Error('Invalid Velocity request.');
+      }
+      velocityLog('info', `[API] ${channel} started.`);
+      const result = await operation(params);
+      velocityLog('info', `[API] ${channel} completed.`);
+      return result;
+    } catch (error) {
+      velocityLog('error', `[API] ${channel} failed: ${error.message}`);
+      return { error: error.message };
     }
-    return null;
-  } catch (err) {
-    return null;
-  }
-});
+  });
+}
 
-// Apply a selected feed — forward to main renderer
-ipcMain.on('velocity:apply-item', (event, item) => {
+async function loginVelocity(params, authMode) {
+  if (velocityLoginPending) throw new Error('A Velocity sign-in is already in progress.');
+  const preferences = loadVelocityPreferences();
+  velocityLoginPending = true;
+  try {
+    velocityCatalog.clear();
+    velocitySendAuthToken = false;
+    velocityAppliedRevision = null;
+    const state = await velocitySession.login({
+      ...params, authMode, endpointProfiles: preferences ? preferences.endpointProfiles : {},
+    });
+    sendVelocityTokenState('sign-in');
+    return state;
+  } finally {
+    velocityLoginPending = false;
+  }
+}
+
+handleVelocityRequest('velocity:login', params => loginVelocity(params, 'password'));
+handleVelocityRequest('velocity:login-oauth', params => loginVelocity(params, 'oauth'));
+handleVelocityRequest('velocity:get-session-state', () => velocitySession.state);
+handleVelocityRequest('velocity:detect-endpoint', () => velocitySession.detect());
+handleVelocityRequest('velocity:select-server', (params) => {
+  const state = velocitySession.selectServer(params.serverId);
+  velocityCatalog.clear();
+  return state;
+});
+handleVelocityRequest('velocity:apply-endpoint', async (params) => {
+  const current = velocitySession.state;
+  const serverId = params.serverId || current.selectedServerId || 'all';
+  if (serverId === 'all' && Array.isArray(current.servers) && current.servers.length > 1) {
+    throw new Error('Select one Velocity server before applying a public API URL.');
+  }
+  velocityCatalog.clear();
+  const state = await velocitySession.setEndpoint(params);
+  sendVelocityTokenState('endpoint-applied');
+  return state;
+});
+handleVelocityRequest('velocity:list-items', params => velocityCatalog.list(params));
+handleVelocityRequest('velocity:get-item-details', params => velocityCatalog.details(params));
+
+function loadVelocityPreferences() {
+  if (!fs.existsSync(velocityCredsFile)) return null;
+  return readVelocityPreferences(JSON.parse(fs.readFileSync(velocityCredsFile, 'utf8')));
+}
+
+handleVelocityRequest('velocity:store-credentials', (params) => {
+  const saved = updateVelocityPreferences(
+    params.rememberMe === true ? loadVelocityPreferences() : null, params,
+  );
+  if (saved) {
+    fs.writeFileSync(velocityCredsFile, JSON.stringify(saved, null, 2), { mode: 0o600 });
+  } else if (fs.existsSync(velocityCredsFile)) {
+    fs.unlinkSync(velocityCredsFile);
+  }
+  return { success: true };
+});
+handleVelocityRequest('velocity:get-stored-credentials', loadVelocityPreferences);
+
+handleVelocityRequest('velocity:apply-item', async (params) => {
+  if (velocityConnectionBusy) throw new Error('Disconnect before applying Velocity connection settings.');
+  let item;
+  if (params.tokenOnly === true) {
+    if (!velocityTokenManager.isAuthenticated) throw new Error('Sign in before applying a Velocity token.');
+    item = { tokenOnly: true, authType: 'token' };
+  } else {
+    item = await velocityCatalog.selected(params);
+  }
+  if (velocityConnectionBusy) throw new Error('Disconnect before applying Velocity connection settings.');
+  if (!mainWindow || mainWindow.isDestroyed()) throw new Error('The main window is not available.');
+  velocityAppliedRevision = velocitySession.state.authRevision;
   velocitySendAuthToken = shouldSendVelocityTokenByDefault(item);
   hotSwapVelocityAuthToken();
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('velocity:feed-applied', item);
-  }
+  mainWindow.webContents.send('velocity:feed-applied', item);
   sendVelocityTokenState('item-applied');
+  return { success: true };
 });
 
 ipcMain.on('velocity:set-token-sending', (event, enabled) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) return;
   velocitySendAuthToken = !!enabled;
-  hotSwapVelocityAuthToken();
+  if (!velocityConnectionBusy && velocitySendAuthToken) velocityAppliedRevision = velocitySession.state.authRevision;
+  hotSwapVelocityAuthToken({ allowDisable: true });
   sendVelocityTokenState('user-toggle');
 });
 
@@ -2962,7 +3013,9 @@ velocityTokenManager.on('refreshed', () => {
 });
 
 velocityTokenManager.on('error', (err) => {
+  velocityLog('error', `[Token] Refresh failed: ${err.message}`);
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('velocity:token-error', err.message);
   }
+  sendVelocityTokenState('refresh-error');
 });

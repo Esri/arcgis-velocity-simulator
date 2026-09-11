@@ -58,12 +58,22 @@ Key modules:
 | `src/protocol-settings-window.js`, `src/protocol-settings-preload.js` | The detached window's controller and its narrowly scoped preload — state in, edits out, nothing else. Byte-identical in the Logger. |
 | `src/reference-window-manager.js` | The shared Help and Command Line Interface window manager: secure native workspace options, focus-on-reopen, ready-channel sender validation, debounced bounds persistence, and shutdown cleanup. Byte-identical in the Logger. |
 | `src/tls-utils.js`, `src/format-utils.js`, `src/tooltip-utils.js` | Shared TLS, payload formatting, and custom tooltip helpers used by every transport or view that needs them. `tls-utils.js` owns the single client certificate-verification decision (`resolveClientTlsVerification()`). `tooltip-utils.js` owns title migration and the stationary pointer-intent behavior shared by every custom tooltip. |
-| `src/velocity-*.js` | ArcGIS Velocity sign-in, token handling, and the feed picker. |
+| `src/velocity-rest-client.js`, `src/velocity-endpoints.js`, `src/velocity-session.js` | Main-process ArcGIS Velocity requests, authentication, public API base resolution, and server-specific session state. |
+| `src/velocity-api.js`, `src/velocity-catalog.js` | Feed parsing and a main-owned catalog of source-qualified selections. |
+| `src/velocity-endpoint-ui.js`, `src/velocity-login-*.js` | Shared endpoint controls and the sign-in dialog's context-isolated bridge and feed picker. |
+| `src/velocity-preferences.js`, `src/velocity-connection-options.js` | Non-secret preference allowlisting and validation before applying connection fields. |
+| `src/network-address-utils.js` | Shared IPv4, DNS, and bracketed IPv6 authority formatting for gRPC and WebSocket transports. |
 | `src/run-logger.js` | The `RunLogger` used for console and log-file output in both modes. |
 
 Shared logic belongs in a shared module. When behavior is needed by more than
 one transport or view, extract it — `src/tls-utils.js` and `src/format-utils.js`
 are the reference examples.
+
+Velocity credentials and tokens stay in the main process. Picker requests carry
+a source-qualified item identifier and session revision, not an arbitrary API
+URL or a token. Keep endpoint controls shared with the Logger and keep
+feed-specific parsing separate from its analytic-output parsing. The user
+workflow belongs in [Velocity REST API connections](velocity-rest-api.md).
 
 ## Local development
 
@@ -114,6 +124,13 @@ npm test                     # every suite through test/run-all-tests.js
 node test/config.test.js     # a single suite directly
 ```
 
+The `velocity-*.test.js` suites use synthetic responses to exercise discovery,
+partial server results, stale requests, token refresh, preferences, IPC, and
+connection application without contacting a live Portal. Never add real
+credentials, access tokens, or deployment addresses to fixtures. Run the two
+applications' full suites sequentially because transport tests can bind the
+same local ports.
+
 | Command | Suite | Covers |
 |---------|-------|--------|
 | `npm run test:config` | `config.test.js` | Configuration file input and output, defaults, error handling, and the XMPP launch configuration mappings. |
@@ -125,7 +142,7 @@ node test/config.test.js     # a single suite directly
 | `npm run test:renderer` | `renderer.test.js` | User interface logic, DOM manipulation, and state changes. |
 | `npm run test:preload` | `preload.test.js` | The inter-process bridge and channel validation. |
 | `npm run test:about` | `about.test.js` | About dialog rendering and version display. |
-| `npm run test:theme-palette` | `theme-palette.test.js` | The theme token cascade for every built-in theme: semantic alias resolution on `html` and `body`, Help and Command Line Interface surface contrast, and the ban on hard-coded palette overrides. |
+| `npm run test:theme-palette` | `theme-palette.test.js` | The theme token cascade, reference-view surface contrast, window and dialog button contrast in every state, and the ban on hard-coded palette overrides in reference views. |
 | `npm run test:grpc` | `grpc-transport.test.js` | Protobuf, Kryo, and Text serialization; client sends; server `Watch` pushes; disconnect and header paths; and teardown after the peer disappears. |
 | `npm run test:http` | `http-transport.test.js` | HTTP client and server lifecycles, POST delivery, recovery after a transient request failure, and the Server-Sent Events subscription rules. |
 | `npm run test:ws` | `ws-transport.test.js` | WebSocket client and server lifecycles, subscription messages, bounded teardown with a connected client, immediate rebinding on the same port, and bind-conflict reporting. |
@@ -339,8 +356,8 @@ active theme reached.
 The rules for a view stylesheet:
 
 - Do not declare a shared token in a `:root` or `html` rule; add it to the
-  `:root, body` block in `src/themes.css` so every window shares one
-  definition.
+  `:root, body` block in `src/themes.css`, or `src/button-palette.css` for
+  button pairs, so every window shares one definition.
 - Do not hard-code a color in `color`, `background`, `background-color`, or a
   border color, and do not use a literal color as a `var()` fallback. Both
   pin the view to one theme.
@@ -351,6 +368,30 @@ The rules for a view stylesheet:
 
 `npm run test:theme-palette` resolves this cascade the way a browser does and
 checks the contrast of the resulting Help surfaces for every built-in theme.
+It also resolves button selectors against the markup and stylesheet order of
+the main window, Velocity Login, App Config, Launch Config, Error, About, Help,
+Command Line Interface, and embedded and detached Protocol Settings.
+Measurements include foreground/background compositing, inline styles, nested
+count badges, and opacity. Enabled and disabled button text must meet **4.5:1**
+contrast in normal, hover, focus, and pressed states, including both System
+appearances, compact mode, active toggles, and read-only Protocol Settings.
+The numeric check rejects surviving button images or gradients rather than
+treating them as solid backgrounds; those require rendered contrast measurements.
+
+`src/button-palette.css`, imported by `src/themes.css`, owns the shared
+`--action-button-*` default and disabled pairs and the primary, success, danger,
+warning, info, and toggle roles. Each role has its own background and text
+tokens, including a hover pair: for example, `--action-info-bg`,
+`--action-info-text`, `--action-info-hover-bg`, and `--action-info-hover-text`.
+The palette derives safe variants from existing theme colors while retaining
+the roles' distinct hues. Normal and hover foregrounds are not interchangeable.
+
+`src/dialog-buttons.css` applies the shared pairs to dialog controls through
+the `--dialog-button-*` aliases; `src/style.css` applies semantic roles to
+main-window controls. Reuse these pairs instead of assuming white text works
+on an accent. Disabled controls stay opaque and use a dashed border or inset
+outline rather than dimmed text. Native operating-system dialogs retain their
+system styling.
 
 ## Validation checklist
 
@@ -372,5 +413,6 @@ Run before opening a pull request:
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
 | [Configuration](configuration.md) | App Config and Launch Config settings, themes, storage locations, and reset steps. |
+| [Velocity REST API connections](velocity-rest-api.md) | Public API bases, server discovery, and source-aware connection selection. |
 | [Protocol settings and presets](connection-presets.md) | The connection panel, Protocol Settings, and the paired presets. |
 | [Connection summary and protocol settings](connection-summary.md) | The summary generator, its surfaces, and how to add a row. |

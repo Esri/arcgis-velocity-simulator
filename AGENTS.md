@@ -81,6 +81,7 @@ These rules are durable: they apply to every documentation change, not just the 
 | `docs/developer-guide.md` | Repository structure, local development, testing, documentation checks, debugging, logging, and extension points. |
 | `docs/build-and-release.md` | Prerequisites, packaging, code signing, release commands, and the release checklist. |
 | `docs/keyboard-shortcuts.md`, `docs/offline-speech.md`, `docs/velocity-login.md` | Their feature surface end to end. |
+| `docs/velocity-rest-api.md` | Endpoint discovery and override workflows, public URL contexts, REST resource meanings, and the distinction between management and data endpoints. |
 | `docs/connection-presets.md` | The connection panel layout, the Protocol Settings dialog and its sections, and the paired connection presets. |
 | `docs/connection-summary.md` | The connection summary: its surfaces, row order, warnings, secret handling, and effective URLs. |
 

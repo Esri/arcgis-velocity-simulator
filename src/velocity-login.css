@@ -1,6 +1,15 @@
 /* velocity-login.css — Polished dialog styling (VS Code / GitHub Desktop inspired) */
 
 body {
+  --bg-primary: var(--bg-color);
+  --bg-secondary: var(--input-bg);
+  --bg-tertiary: var(--path-bg);
+  --text-primary: var(--text-color);
+  --text-secondary: var(--text-color);
+  --login-button-bg: var(--dialog-button-bg);
+  --login-button-text: var(--dialog-button-text);
+  --login-button-hover-bg: var(--dialog-button-hover-bg);
+  --login-button-hover-text: var(--dialog-button-hover-text);
   margin: 0;
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -53,7 +62,7 @@ h3 {
   border-bottom: 1px solid var(--border-color, #3a3a3a);
 }
 
-.auth-tab {
+.velocity-login-dialog .auth-tab {
   flex: 1;
   padding: 9px 12px;
   border: none;
@@ -64,15 +73,15 @@ h3 {
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  transition: color 0.15s, border-color 0.15s;
+  transition: border-color 0.15s;
 }
 
-.auth-tab:hover {
+.auth-tab:hover:not(:disabled) {
   color: var(--text-primary, #e0e0e0);
 }
 
 .auth-tab.active {
-  color: var(--accent-color, #4da6ff);
+  color: var(--text-primary);
   border-bottom-color: var(--accent-color, #4da6ff);
 }
 
@@ -151,6 +160,53 @@ h3 {
   justify-content: flex-end;
 }
 
+.portal-row { margin-bottom: 16px; }
+.form-row input { min-width: 0; }
+.endpoint-section {
+  margin: 18px 0 12px;
+  padding: 12px;
+  border: 1px solid var(--border-color, #3a3a3a);
+  border-radius: 6px;
+}
+.endpoint-section summary { cursor: pointer; font-weight: 600; }
+.endpoint-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  border: 0;
+  padding: 12px 0;
+  margin: 0;
+}
+.endpoint-modes legend {
+  padding-top: 12px;
+  color: var(--text-secondary, #bbb);
+}
+.endpoint-modes label { display: flex; align-items: center; gap: 4px; }
+.endpoint-addresses { display: grid; grid-template-columns: auto 1fr; gap: 8px; }
+.endpoint-addresses dt { color: var(--text-secondary, #bbb); }
+.endpoint-addresses dd { margin: 0; overflow-wrap: anywhere; }
+#endpoint-status { color: var(--text-secondary, #bbb); overflow-wrap: anywhere; }
+#endpoint-status.error { color: var(--error-color, #f48771); }
+.endpoint-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.velocity-server-row { margin-top: 14px; }
+.velocity-server-status,
+.velocity-server-errors { list-style: none; padding: 0; margin: 12px 0; }
+.velocity-server-status li {
+  display: grid;
+  gap: 5px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color, #3a3a3a);
+  overflow-wrap: anywhere;
+}
+.velocity-server-status .server-endpoint { color: var(--text-secondary, #bbb); }
+.velocity-server-status .server-error,
+.velocity-server-errors { color: var(--error-color, #f48771); overflow-wrap: anywhere; }
+.velocity-server-errors li + li { margin-top: 6px; }
+.status-banner.warning {
+  border-color: var(--warning-color, #d9a441);
+  color: var(--text-primary, #e0e0e0);
+  background: color-mix(in srgb, var(--warning-color, #d9a441) 12%, var(--bg-primary, #1e1e1e));
+}
 .checkbox-row label {
   min-width: unset;
   text-align: left;
@@ -175,15 +231,15 @@ h3 {
   padding-right: 32px;
 }
 
-.password-toggle {
+.velocity-login-dialog .password-toggle {
   position: absolute;
   right: 6px;
-  background: none;
+  background: var(--bg-secondary);
   border: none;
   cursor: pointer;
   padding: 4px;
-  opacity: 0.5;
-  transition: opacity 0.15s;
+  opacity: 1;
+  transition: box-shadow 0.15s;
   line-height: 0;
   color: var(--text-secondary, #999);
   display: flex;
@@ -191,8 +247,8 @@ h3 {
   justify-content: center;
 }
 
-.password-toggle:hover {
-  opacity: 1;
+.password-toggle:hover:not(:disabled) {
+  color: var(--text-primary);
 }
 
 /* ─── Sign In Row ─── */
@@ -222,57 +278,50 @@ h3 {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, opacity 0.15s, box-shadow 0.15s;
+  transition: box-shadow 0.15s;
   display: inline-flex;
   align-items: center;
   box-sizing: border-box;
 }
 
-.btn-primary {
-  background: var(--accent-color, #4da6ff);
-  color: #fff;
+.velocity-login-dialog .btn-primary {
+  background: var(--login-button-bg);
+  color: var(--login-button-text);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover, #3a8fd9);
+  background: var(--login-button-hover-bg);
+  color: var(--login-button-hover-text);
   box-shadow: 0 1px 4px rgba(0,0,0,0.2);
 }
 
-.btn-primary:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
+.velocity-login-dialog .btn-secondary {
   background: var(--bg-secondary, #2d2d2d);
   color: var(--text-primary, #e0e0e0);
   border: 1px solid var(--border-color, #3a3a3a);
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background: var(--bg-tertiary, #3a3a3a);
   box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 }
 
-.btn-token-only {
+.velocity-login-dialog .btn-token-only,
+.velocity-login-dialog .btn-outline {
   background: transparent;
-  color: var(--accent-color, #4fc3f7);
-  border: 1px solid var(--accent-color, #4fc3f7);
+  color: var(--text-primary);
+  border: 1px solid var(--login-button-bg);
   font-size: 12px;
   padding: 6px 14px;
   border-radius: 4px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: box-shadow 0.15s;
 }
 
-.btn-token-only:hover:not(:disabled) {
-  background: var(--accent-color, #4fc3f7);
-  color: var(--bg-primary, #1e1e1e);
-}
-
-.btn-token-only:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+.btn-token-only:hover:not(:disabled),
+.btn-outline:hover:not(:disabled) {
+  background: var(--login-button-hover-bg);
+  color: var(--login-button-hover-text);
 }
 
 .btn-token-only.hidden {
@@ -318,7 +367,7 @@ h3 {
   box-sizing: border-box;
 }
 
-.scope-btn {
+.velocity-login-dialog .scope-btn {
   background: none;
   border: none;
   color: var(--text-secondary, #999);
@@ -326,7 +375,7 @@ h3 {
   font-size: 11px;
   font-weight: 500;
   padding: 0 10px;
-  transition: background 0.15s, color 0.15s;
+  transition: box-shadow 0.15s;
   white-space: nowrap;
   height: 100%;
   display: inline-flex;
@@ -338,17 +387,22 @@ h3 {
   border-right: 1px solid var(--border-color, #3a3a3a);
 }
 
-.scope-btn:hover:not(.active) {
+.scope-btn:hover:not(.active):not(:disabled) {
   background: var(--bg-secondary, #262626);
   color: var(--text-primary, #e0e0e0);
 }
 
 .scope-btn.active {
-  background: var(--accent-color, #4da6ff);
-  color: #fff;
+  background: var(--login-button-bg);
+  color: var(--login-button-text);
 }
 
-.btn-icon {
+.scope-btn.active:hover:not(:disabled) {
+  background: var(--login-button-hover-bg);
+  color: var(--login-button-hover-text);
+}
+
+.velocity-login-dialog .btn-icon {
   background: none;
   border: 1px solid var(--border-color, #3a3a3a);
   border-radius: 4px;
@@ -359,12 +413,12 @@ h3 {
   justify-content: center;
   height: 30px;
   padding: 0 8px;
-  transition: color 0.15s, border-color 0.15s, transform 0.2s;
+  transition: border-color 0.15s, transform 0.2s;
   line-height: 0;
   box-sizing: border-box;
 }
 
-.btn-icon:hover {
+.btn-icon:hover:not(:disabled) {
   color: var(--text-primary, #e0e0e0);
   border-color: var(--accent-color, #4da6ff);
   transform: rotate(30deg);
@@ -375,18 +429,19 @@ h3 {
 }
 
 .btn-icon-toggle.active {
-  background: var(--accent-color, #4da6ff);
-  border-color: var(--accent-color, #4da6ff);
-  color: #fff;
+  background: var(--login-button-bg);
+  border-color: var(--login-button-bg);
+  color: var(--login-button-text);
 }
 
-.btn-icon-toggle.active:hover {
-  background: var(--accent-hover, #3a8fd9);
+.btn-icon-toggle.active:hover:not(:disabled) {
+  background: var(--login-button-hover-bg);
+  color: var(--login-button-hover-text);
 }
 
 /* ─── Text-label toggle button (Show/Hide Unsupported) ─── */
 
-.btn-toggle-text {
+.velocity-login-dialog .btn-toggle-text {
   background: none;
   border: 1px solid var(--border-color, #3a3a3a);
   border-radius: 4px;
@@ -396,22 +451,22 @@ h3 {
   font-weight: 500;
   height: 24px;
   padding: 0 9px;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: border-color 0.15s;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
   box-sizing: border-box;
 }
 
-.btn-toggle-text:hover {
+.btn-toggle-text:hover:not(:disabled) {
   color: var(--text-primary, #e0e0e0);
   border-color: var(--accent-color, #4da6ff);
 }
 
 .btn-toggle-text.active {
-  background: rgba(77, 166, 255, 0.12);
-  border-color: var(--accent-color, #4da6ff);
-  color: var(--accent-color, #4da6ff);
+  background: var(--bg-secondary);
+  border-color: var(--login-button-bg);
+  color: var(--text-primary);
 }
 
 /* ─── Type badge in info panel ─── */
@@ -538,19 +593,19 @@ h3 {
   min-width: 0;
 }
 
-.status-banner-dismiss {
+.velocity-login-dialog .status-banner-dismiss {
   flex-shrink: 0;
   background: none;
   border: none;
-  color: inherit;
+  color: var(--text-primary);
   font-size: 16px;
   cursor: pointer;
   padding: 0 2px;
-  opacity: 0.7;
+  opacity: 1;
   line-height: 1;
 }
 
-.status-banner-dismiss:hover {
+.status-banner-dismiss:hover:not(:disabled) {
   opacity: 1;
 }
 
@@ -610,4 +665,3 @@ h3 {
 .custom-tooltip-success { --custom-tooltip-accent: #66cc66; }
 .custom-tooltip-warning { --custom-tooltip-accent: #f5a623; }
 .custom-tooltip-error { --custom-tooltip-accent: #ff6b6b; }
-

@@ -1,0 +1,21 @@
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const { formatNetworkAuthority } = require('../src/network-address-utils');
+const { buildVelocityConnectionOptions } = require('../src/velocity-connection-options');
+
+assert.strictEqual(formatNetworkAuthority('localhost', 443), 'localhost:443');
+assert.strictEqual(formatNetworkAuthority('127.0.0.1', 5565), '127.0.0.1:5565');
+assert.strictEqual(formatNetworkAuthority('::1', 443), '[::1]:443');
+assert.strictEqual(formatNetworkAuthority('[2001:db8::1]', 7443), '[2001:db8::1]:7443');
+assert.strictEqual(formatNetworkAuthority('::', 0), '[::]:0');
+assert.throws(() => formatNetworkAuthority('', 443), /host/);
+const grpc = buildVelocityConnectionOptions({ outputType: 'grpc', url: 'https://[2001:db8::1]:7443', headerPath: 'routing' });
+assert.strictEqual(grpc.ip, '2001:db8::1');
+assert.strictEqual(formatNetworkAuthority(grpc.ip, grpc.port), '[2001:db8::1]:7443');
+const http = buildVelocityConnectionOptions({ outputType: 'http', url: 'https://[2001:db8::1]/data' });
+assert.strictEqual(http.ip, '2001:db8::1');
+const source = fs.readFileSync(path.join(__dirname, '../src/grpc-transport.js'), 'utf8');
+assert.strictEqual((source.match(/const address = formatNetworkAuthority\(this\.ip, this\.port\);/g) || []).length, 4);
+assert.ok(!source.includes("this.ip + ':' + this.port"));
+console.log('network-address-utils tests passed');

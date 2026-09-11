@@ -15,6 +15,7 @@ const errorHtml = fs.readFileSync(path.resolve(__dirname, '../src/error.html'), 
 const launchConfigHtml = fs.readFileSync(path.resolve(__dirname, '../src/launch-config.html'), 'utf-8');
 const velocityLoginHtml = fs.readFileSync(path.resolve(__dirname, '../src/velocity-login.html'), 'utf-8');
 const velocityLoginScript = fs.readFileSync(path.resolve(__dirname, '../src/velocity-login-renderer.js'), 'utf-8');
+const velocityEndpointScript = fs.readFileSync(path.resolve(__dirname, '../src/velocity-endpoint-ui.js'), 'utf-8');
 
 function createDom(html, url, setup) {
   return new JSDOM(html, {
@@ -36,6 +37,7 @@ function createLoginDom() {
       window.eval(helperSource);
       window.velocityApi = {
         getStoredCredentials: () => Promise.resolve(null),
+        getSessionState: () => Promise.resolve({ authenticated: false }),
         login: () => Promise.resolve({ success: true }),
         loginOAuth: () => Promise.resolve({ success: true }),
         listItems: () => Promise.resolve([]),
@@ -49,6 +51,7 @@ function createLoginDom() {
       };
     },
   });
+  dom.window.eval(velocityEndpointScript);
   dom.window.eval(velocityLoginScript);
   dom.window.document.dispatchEvent(new dom.window.Event('DOMContentLoaded'));
   return dom;

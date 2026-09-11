@@ -100,6 +100,13 @@ and port.
 - **Server mode**: Only WebSocket upgrade requests matching this path exactly are accepted.
 - **Client mode**: This path is used in the outgoing connection URL. For example, `wss://velocity.example.com:8443/feed/stream-id`.
 
+Keep the path and any required non-secret query supplied by the WebSocket
+service; do not derive them from a management API URL. A Velocity WebSocket
+feed connects outward to a source, so it is not a receiver that the Simulator
+can publish to as another client. Use an explicitly configured server
+workflow for that direction. See
+[ArcGIS Velocity REST API](velocity-rest-api.md#data-endpoints).
+
 ## Subscription message
 
 An optional message sent to the WebSocket server immediately after the
