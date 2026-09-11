@@ -9,7 +9,7 @@ const SIGN_SCRIPT_ENV = 'VELOCITY_SIGN_SCRIPT';
 const SIGN_SHARE_DIR_ENV = 'VELOCITY_SIGN_SHARE_DIR';
 const SIGN_PRODUCT_NAMES_ENV = 'VELOCITY_SIGN_PRODUCT_NAMES';
 const SIGN_TIMEOUT_MINUTES_ENV = 'VELOCITY_SIGN_TIMEOUT_MINUTES';
-const DEFAULT_EXTERNAL_SIGN_TIMEOUT_MINUTES = 20;
+const DEFAULT_EXTERNAL_SIGN_TIMEOUT_MINUTES = 60;
 const WINDOWS_SIGN_HOOK_PATH = './scripts/windows-sign-hook.js';
 const EXTERNAL_WINDOWS_SIGNING_CONFIG_ARGS = [
   `--config.win.signtoolOptions.sign=${WINDOWS_SIGN_HOOK_PATH}`,
@@ -203,4 +203,3 @@ module.exports = {
   resolveSignScriptPath,
   withExternalWindowsSigningConfigArgs,
 };
-

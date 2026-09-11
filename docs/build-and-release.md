@@ -295,7 +295,7 @@ or from a release:
 |--------|-----------|---------------------|
 | `--sign-script <path>` | Optional | The external script to run. Absolute, relative, and `~` paths are resolved to an absolute path before use. If it is omitted or cannot be found or read, the build logs a warning and falls back to the current electron-builder signing or unsigned behavior. |
 | `--sign-share-dir <UNC>` | Optional | `--share-dir <UNC>`. |
-| `--sign-timeout-minutes <minutes>` | Optional | `--timeout-minutes <minutes>`. Default `20`; must be a positive whole number. |
+| `--sign-timeout-minutes <minutes>` | Optional | `--timeout-minutes <minutes>`. Default `60`; must be a positive whole number. |
 | `--sign-product-names <names>` | Optional | `--product-names <names>`. Defaults to `ArcGIS Velocity Simulator`; use comma-separated names for multiple source directories. |
 
 When a usable script is supplied, the Windows build installs a path-aware
@@ -315,6 +315,19 @@ signed by this script. Running `./scripts/release.sh --dry-run` with a valid
 `--sign-script` invokes the external script in its own dry-run mode, without
 `--run`, against existing signable files under `dist/win-unpacked` and `dist/`.
 
+Before each platform build, the wrapper removes existing artifacts for that
+platform. The final Windows signing hook also rejects any Simulator artifact
+whose filename version differs from `package.json`, so a platform-only retry
+cannot submit stale installers or portable executables.
+
+The current Esri signing script mounts SMB shares on macOS with soft,
+no-cache semantics and transfers files with visible `rsync` progress. In an
+interactive terminal, the wrapper refreshes that progress in place on one
+line; redirected logs retain each update as a separate line. Each transfer
+uses a `.partial-<pid>` name, verifies the byte size, and atomically renames
+the file before submitting or replacing an artifact. Shared staging cleanup
+fails closed if stale files cannot be removed.
+
 External signing invocations are serialized by a cross-process lock at
 `${TMPDIR}/arcgis-velocity-external-sign.lock` (or the platform temporary-file
 equivalent). Because the lock is held only around each invocation,
@@ -324,8 +337,8 @@ while guaranteeing that one signing job runs at a time.
 Signing output streams live inside the nested signing log. The script runs with
 stdin closed so interactive prompts fail visibly instead of hanging the build,
 and each signing process is watched by a timeout of the configured
-`--sign-timeout-minutes` value plus a five-minute buffer — 25 minutes with the
-default 20-minute script timeout.
+`--sign-timeout-minutes` value plus a five-minute buffer — 65 minutes with the
+default 60-minute script timeout.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -359,7 +372,7 @@ notes.
 | `--install-prereqs`, `--install-deps` | Auto-install missing build and release prerequisites before anything else. Combine with `--dry-run` to preview the plan. Signing tools and signing variables are never auto-installed. |
 | `--sign-script <path>` | Path to an external Windows signing script; see [External Windows signing script](#external-windows-signing-script). |
 | `--sign-share-dir <UNC>` | Signing share passed to the external script as `--share-dir <UNC>`. Only used with `--sign-script`. |
-| `--sign-timeout-minutes <minutes>` | External signing timeout passed as `--timeout-minutes <minutes>`. Default `20`. |
+| `--sign-timeout-minutes <minutes>` | External signing timeout passed as `--timeout-minutes <minutes>`. Default `60`. |
 | `--sign-product-names <names>` | External signing product names passed as `--product-names <names>`. Defaults to `ArcGIS Velocity Simulator`. |
 | `--list` | List published GitHub releases as a **TAG · DATE · STATUS · URL** table, plus the local `package.json` version. Requires an authenticated `gh`. |
 | `--limit <n>` | Maximum number of releases shown by `--list`. Default `10`. |

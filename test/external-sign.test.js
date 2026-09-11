@@ -16,9 +16,14 @@ const {
 } = require('../scripts/sign-options');
 const externalSign = require('../scripts/external-sign');
 const windowsSignHook = require('../scripts/windows-sign-hook');
+const {
+  assertCurrentVersionArtifacts,
+  cleanTargetArtifacts,
+} = require('../scripts/artifact-version-utils');
 
 const {
   buildSignCommand,
+  createNestedOutputWriter,
   getArtifactSigningPlan,
   getExistingArtifactSigningPlan,
   getOfficialProductName,
@@ -209,7 +214,7 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
   assert.deepStrictEqual(command.args, [
     '/opt/sign/sign.sh',
     '--run',
-    '--timeout-minutes', '20',
+    '--timeout-minutes', '60',
     '--source-dirs', '/repo/dist/win-unpacked',
     '--product-names', 'ArcGIS Velocity Simulator',
     '--share-dir', '\\\\storm\\upload\\DigitalSign\\Velocity',
@@ -230,7 +235,7 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
   assert.deepStrictEqual(command.args, [
     '/opt/sign/sign.sh',
     '--dry-run',
-    '--timeout-minutes', '20',
+    '--timeout-minutes', '60',
     '--source-dirs', '/repo/dist/win-unpacked',
     '--product-names', 'ArcGIS Velocity Simulator',
     '--file-mask', '*.exe;*.msi;*.msp',
@@ -255,7 +260,7 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
   const redacted = redactSignArgs([
     '/opt/sign/sign.sh',
     '--run',
-    '--timeout-minutes', '20',
+    '--timeout-minutes', '60',
     '--source-dirs', '/repo/dist/win-unpacked',
     '--product-names', 'ArcGIS Velocity Simulator',
     '--share-dir', '\\\\storm\\upload\\DigitalSign\\Velocity',
@@ -267,9 +272,9 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
     '--smb-pass', 'p@ssw0rd',
   ]);
 
-  // Non-sensitive args are preserved verbatim so we can see --timeout-minutes 20.
+  // Non-sensitive args are preserved verbatim so we can see --timeout-minutes 60.
   assert.ok(redacted.includes('--timeout-minutes'));
-  assert.strictEqual(redacted[redacted.indexOf('--timeout-minutes') + 1], '20');
+  assert.strictEqual(redacted[redacted.indexOf('--timeout-minutes') + 1], '60');
   assert.ok(redacted.includes('--source-dirs'));
   assert.ok(redacted.includes('--share-dir'));
   assert.ok(redacted.includes('*.exe;*.msi;*.msp'));
@@ -283,6 +288,36 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
   assert.strictEqual(redacted[redacted.indexOf('-jt') + 1], '<redacted>');
   assert.strictEqual(redacted[redacted.indexOf('-je') + 1], '<redacted>');
   assert.ok(redacted.includes('--jenkins-api-token=<redacted>'));
+})();
+
+(function testNestedOutputKeepsCarriageReturnProgressOnOneInteractiveLine() {
+  const lines = [];
+  const raw = [];
+  const writer = createNestedOutputWriter(
+    (line) => lines.push(line),
+    { interactive: true, writeRaw: (value) => raw.push(value) }
+  );
+
+  writer.write('file.exe\n  1024 1%\r  2048 2%\r');
+  writer.write('  4096 4%\ncomplete\n');
+  writer.flush();
+
+  assert.deepStrictEqual(lines, ['file.exe', '  4096 4%', 'complete']);
+  assert.strictEqual(raw.filter((value) => value.startsWith('\r')).length, 2);
+  assert.strictEqual(raw.filter((value) => value === '\n').length, 1);
+})();
+
+(function testNestedOutputKeepsProgressAsLinesWhenNotInteractive() {
+  const lines = [];
+  const writer = createNestedOutputWriter(
+    (line) => lines.push(line),
+    { interactive: false, writeRaw: () => assert.fail('non-interactive output must not write raw progress') }
+  );
+
+  writer.write('  1024 1%\r  2048 2%\n');
+  writer.flush();
+
+  assert.deepStrictEqual(lines, ['  1024 1%', '  2048 2%']);
 })();
 
 (function testWatchdogTimeoutFollowsSignTimeoutWithBuffer() {
@@ -306,15 +341,48 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
 (function testArtifactSigningPlanUsesOnlyBuiltSignableFiles() {
   const plan = getArtifactSigningPlan({
     artifactPaths: [
-      path.join('/repo/dist', 'arcgis-velocity-simulator-1.0.2-setup.exe'),
-      path.join('/repo/dist', 'arcgis-velocity-simulator-1.0.2-portable.exe'),
-      path.join('/repo/dist', 'arcgis-velocity-simulator-1.0.2-win.zip'),
-      path.join('/repo/dist', 'arcgis-velocity-simulator-1.0.2-linux.AppImage'),
+      path.join('/repo/dist', 'arcgis-velocity-simulator-1.0.5-setup.exe'),
+      path.join('/repo/dist', 'arcgis-velocity-simulator-1.0.5-portable.exe'),
+      path.join('/repo/dist', 'arcgis-velocity-simulator-1.0.5-win.zip'),
+      path.join('/repo/dist', 'arcgis-velocity-simulator-1.0.5-linux.AppImage'),
     ],
   });
 
   assert.deepStrictEqual(plan.sourceDirs, ['/repo/dist']);
-  assert.strictEqual(plan.fileMask, 'arcgis-velocity-simulator-1.0.2-setup.exe;arcgis-velocity-simulator-1.0.2-portable.exe');
+  assert.strictEqual(plan.fileMask, 'arcgis-velocity-simulator-1.0.5-setup.exe;arcgis-velocity-simulator-1.0.5-portable.exe');
+})();
+
+(function testArtifactSigningRejectsStaleVersions() {
+  assert.throws(
+    () => getArtifactSigningPlan({
+      artifactPaths: [path.join('/repo/dist', 'arcgis-velocity-simulator-1.1.0-setup.exe')],
+    }),
+    /Refusing stale-version artifacts; expected 1\.0\.5/
+  );
+  assert.doesNotThrow(() => assertCurrentVersionArtifacts([
+    path.join('/repo/dist', 'arcgis-velocity-simulator-1.0.5-portable.exe'),
+  ]));
+})();
+
+(function testTargetCleanupRemovesOnlyRequestedPlatformArtifacts() {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'velocity-simulator-artifact-clean-test-'));
+  try {
+    fs.writeFileSync(path.join(repoDir, 'package.json'), JSON.stringify({
+      name: 'arcgis-velocity-simulator',
+      version: '1.0.5',
+    }));
+    const distDir = path.join(repoDir, 'dist');
+    fs.mkdirSync(distDir);
+    fs.writeFileSync(path.join(distDir, 'arcgis-velocity-simulator-1.1.0-setup.exe'), 'old');
+    fs.writeFileSync(path.join(distDir, 'arcgis-velocity-simulator-1.0.5-portable.exe'), 'current');
+    fs.writeFileSync(path.join(distDir, 'arcgis-velocity-simulator-1.0.5-mac.zip'), 'mac');
+
+    const removed = cleanTargetArtifacts(repoDir, ['--win'], () => {});
+    assert.strictEqual(removed.length, 2);
+    assert.strictEqual(fs.existsSync(path.join(distDir, 'arcgis-velocity-simulator-1.0.5-mac.zip')), true);
+  } finally {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+  }
 })();
 
 (function testExistingArtifactSigningPlanAndSignableFileDetection() {
@@ -499,4 +567,3 @@ async function testRunSignProcessPrintsHeartbeatWhileQuiet() {
   console.error(error.stack || error.message);
   process.exit(1);
 });
-

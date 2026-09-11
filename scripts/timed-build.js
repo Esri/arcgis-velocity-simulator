@@ -8,6 +8,7 @@
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { ensureGnuArPath } = require('./binutils-path');
+const { cleanTargetArtifacts } = require('./artifact-version-utils');
 const { buildSignEnv, describeSignOptions, parseSignOptions, withExternalWindowsSigningConfigArgs } = require('./sign-options');
 let parsed;
 try {
@@ -27,6 +28,7 @@ function isWindowsBuildStep(stepArgs) {
 const bin = path.join(__dirname, '..', 'node_modules', '.bin', 'electron-builder');
 const windowsBuildStep = isWindowsBuildStep(parsed.passthroughArgs);
 const args = withExternalWindowsSigningConfigArgs(parsed.passthroughArgs, baseEnv, parsed, { disableBuiltInWindowsSigning: windowsBuildStep });
+cleanTargetArtifacts(path.join(__dirname, '..'), args);
 const startMs = Date.now();
 const startTime = new Date().toLocaleTimeString();
 console.log('\n\u23f1  Build started at ' + startTime);

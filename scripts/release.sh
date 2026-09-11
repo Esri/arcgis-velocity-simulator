@@ -98,7 +98,7 @@ ${BOLD}${WHITE}OPTIONS${RESET}
 
   ${BOLD}--sign-timeout-minutes <minutes>${RESET}
         External signing script timeout passed to ${BOLD}sign.sh${RESET} as ${BOLD}--timeout-minutes${RESET}.
-        Default: ${BOLD}20${RESET}. Must be a positive whole number of minutes.
+        Default: ${BOLD}60${RESET}. Must be a positive whole number of minutes.
 
   ${BOLD}--sign-progress-interval-ms <ms>${RESET}
         How long the external signing process must be silent before a "Still waiting"
@@ -550,7 +550,7 @@ if [[ -n "$SIGN_SCRIPT" ]]; then
   echo -e "${BOLD}${CYAN}  ⓘ   SIGN-SCRIPT — external Windows signing requested: ${SIGN_SCRIPT}${RESET}"
   [[ -n "$SIGN_SHARE_DIR" ]] && echo -e "${BOLD}${CYAN}      SIGN-SHARE — ${SIGN_SHARE_DIR}${RESET}"
   [[ -n "$SIGN_PRODUCT_NAMES" ]] && echo -e "${BOLD}${CYAN}      SIGN-PRODUCT-NAMES — ${SIGN_PRODUCT_NAMES}${RESET}"
-  echo -e "${BOLD}${CYAN}      SIGN-TIMEOUT — sign.sh --timeout-minutes ${SIGN_TIMEOUT_MINUTES:-20}${RESET}"
+  echo -e "${BOLD}${CYAN}      SIGN-TIMEOUT — sign.sh --timeout-minutes ${SIGN_TIMEOUT_MINUTES:-60}${RESET}"
 fi
 echo -e "${BOLD}${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 
@@ -694,7 +694,7 @@ else
   info "Running: npm run ${BUILD_SCRIPT}"
   if [[ -n "$SIGN_SCRIPT" ]]; then
     export VELOCITY_SIGN_SCRIPT="$SIGN_SCRIPT"
-    export VELOCITY_SIGN_TIMEOUT_MINUTES="${SIGN_TIMEOUT_MINUTES:-20}"
+    export VELOCITY_SIGN_TIMEOUT_MINUTES="${SIGN_TIMEOUT_MINUTES:-60}"
     [[ -n "$SIGN_SHARE_DIR" ]] && export VELOCITY_SIGN_SHARE_DIR="$SIGN_SHARE_DIR" || unset VELOCITY_SIGN_SHARE_DIR
     [[ -n "$SIGN_PRODUCT_NAMES" ]] && export VELOCITY_SIGN_PRODUCT_NAMES="$SIGN_PRODUCT_NAMES" || unset VELOCITY_SIGN_PRODUCT_NAMES
     [[ -n "$SIGN_PROGRESS_INTERVAL_MS" ]] && export VELOCITY_SIGN_PROGRESS_INTERVAL_MS="$SIGN_PROGRESS_INTERVAL_MS" || unset VELOCITY_SIGN_PROGRESS_INTERVAL_MS
@@ -913,4 +913,3 @@ echo -e "  ${DIM}Commit  :${RESET}  ${GIT_HASH}"
 echo -e "  ${DIM}Assets  :${RESET}  ${#ASSETS[@]} files uploaded"
 echo -e "  ${DIM}Total   :${RESET}  $(elapsed)"
 echo ""
-

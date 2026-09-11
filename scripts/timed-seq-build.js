@@ -17,6 +17,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawnSync } = require('child_process');
 const { ensureGnuArPath } = require('./binutils-path');
+const { cleanTargetArtifacts } = require('./artifact-version-utils');
 const { buildSignEnv, describeSignOptions, parseSignOptions, withExternalWindowsSigningConfigArgs } = require('./sign-options');
 
 const bin = path.join(__dirname, '..', 'node_modules', '.bin', 'electron-builder');
@@ -119,6 +120,7 @@ for (const def of stepDefs) {
   stepArgs = withExternalWindowsSigningConfigArgs(stepArgs, baseChildEnv, parsedSignOptions, { disableBuiltInWindowsSigning: windowsBuildStep });
 
   cleanUnpacked();
+  cleanTargetArtifacts(path.join(__dirname, '..'), stepArgs);
 
   const stepStart = Date.now();
   const stepStartTime = new Date().toLocaleTimeString();

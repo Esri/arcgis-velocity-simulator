@@ -13,6 +13,7 @@ const {
   resolveSignScriptPath,
 } = require('./sign-options');
 const { acquireSignLock, getLockDir } = require('./sign-lock');
+const { assertCurrentVersionArtifacts } = require('./artifact-version-utils');
 
 const DEFAULT_FILE_MASK = '*.exe;*.msi;*.msp';
 const SIGNABLE_ARTIFACT_RE = /\.(exe|msi|msp)$/i;
@@ -84,6 +85,10 @@ function signBoxLine(message = '') {
   console.log(`${BOLD}${CYAN}  │${RESET}  ${message}`);
 }
 
+function formatNestedProgress(message) {
+  return `${BOLD}${CYAN}  │${RESET}  ${message}`;
+}
+
 function signBoxEnd(message = 'External Windows signing complete', color = GREEN) {
   console.log(`${BOLD}${CYAN}  └─ ${color}${message}${RESET}${BOLD}${CYAN} ───────────────────────────${RESET}`);
 }
@@ -132,16 +137,42 @@ function getExternalSignTimeoutMinutes() {
   return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : DEFAULT_EXTERNAL_SIGN_TIMEOUT_MINUTES;
 }
 
-function createNestedOutputWriter(writeLine = signBoxLine) {
+function createNestedOutputWriter(
+  writeLine = signBoxLine,
+  {
+    interactive = Boolean(process.stdout.isTTY),
+    writeRaw = (value) => process.stdout.write(value),
+  } = {}
+) {
   let buffer = '';
+  let progressActive = false;
+
+  function finishProgress() {
+    if (!progressActive) return;
+    writeRaw('\n');
+    progressActive = false;
+  }
+
   return {
     write(chunk) {
-      buffer += String(chunk || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-      lines.forEach((line) => writeLine(line));
+      buffer += String(chunk || '').replace(/\r\n/g, '\n');
+      let delimiterIndex = buffer.search(/[\r\n]/);
+      while (delimiterIndex >= 0) {
+        const line = buffer.slice(0, delimiterIndex);
+        const delimiter = buffer[delimiterIndex];
+        buffer = buffer.slice(delimiterIndex + 1);
+        if (delimiter === '\r' && interactive) {
+          writeRaw(`\r\x1b[2K${formatNestedProgress(line)}`);
+          progressActive = true;
+        } else {
+          finishProgress();
+          writeLine(line);
+        }
+        delimiterIndex = buffer.search(/[\r\n]/);
+      }
     },
     flush() {
+      finishProgress();
       if (buffer) {
         writeLine(buffer);
         buffer = '';
@@ -407,6 +438,7 @@ function getArtifactSigningPlan(context) {
   const artifactPaths = Array.isArray(context.artifactPaths) ? context.artifactPaths : [];
   const signableArtifacts = artifactPaths.filter((artifactPath) => SIGNABLE_ARTIFACT_RE.test(artifactPath));
   if (signableArtifacts.length === 0) return null;
+  assertCurrentVersionArtifacts(signableArtifacts);
 
   const sourceDirs = unique(signableArtifacts.map((artifactPath) => path.dirname(artifactPath)));
   const fileMask = unique(signableArtifacts.map((artifactPath) => escapeMaskName(path.basename(artifactPath)))).join(';') || DEFAULT_FILE_MASK;
@@ -528,6 +560,7 @@ async function externalSign(context) {
 module.exports = externalSign;
 module.exports._private = {
   buildSignCommand,
+  createNestedOutputWriter,
   getSignScriptStatus,
   getExistingArtifactSigningPlan,
   getArtifactSigningPlan,
@@ -546,4 +579,3 @@ if (require.main === module) {
     });
   }
 }
-
