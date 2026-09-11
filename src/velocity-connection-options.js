@@ -55,9 +55,46 @@
     return mapped;
   }
 
+  function socketFormat(value) {
+    const mapped = format(value);
+    if (mapped === 'xml') throw new Error('XML is not supported for TCP or UDP payloads.');
+    return mapped;
+  }
+
+  function endpointHost(value) {
+    const url = endpointUrl(value, ['https:', 'http:']);
+    return host(url);
+  }
+
+  function socketHost(value, label) {
+    if (typeof value !== 'string' || !value.trim()) throw new Error(`${label} host is missing.`);
+    const text = value.trim();
+    if (/[\s/?#@\\]/.test(text)) throw new Error(`${label} host is invalid.`);
+    if (text.includes(':') || text.startsWith('[') || text.endsWith(']')) {
+      const authority = text.startsWith('[') && text.endsWith(']') ? text : `[${text}]`;
+      let url;
+      try { url = new URL(`http://${authority}`); } catch (_) { throw new Error(`${label} host is invalid.`); }
+      if (url.port || !url.hostname.startsWith('[') || !url.hostname.endsWith(']')) {
+        throw new Error(`${label} host is invalid.`);
+      }
+      return host(url);
+    }
+    if (!/^[a-z0-9._~-]+$/i.test(text) || text.startsWith('.') || text.endsWith('.')) {
+      throw new Error(`${label} host is invalid.`);
+    }
+    return text;
+  }
+
+  function socketPort(value, label) {
+    const port = Number(value);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      throw new Error(`${label} port must be between 1 and 65535.`);
+    }
+    return port;
+  }
+
   function buildVelocityConnectionOptions(item) {
     if (!item || typeof item !== 'object') throw new Error('Select a data endpoint before applying settings.');
-    if (item.feedType === 'websocket') throw new Error('A WebSocket feed is an outbound source, not a receiver the Simulator can publish to.');
     const type = item.feedType || item.outputType;
     const isStream = !item.feedType && item.connectionType === 'ws-client' && (!type || type === 'stream-layer');
     if (type === 'grpc') {
@@ -82,12 +119,40 @@
         grpcTls: tls, grpcSerialization: 'protobuf', grpcHeaderPathKey: headerPathKey, grpcHeaderPath: headerPath,
       };
     }
-    if (type === 'http-receiver' || (!item.feedType && type === 'http')) {
+    if (type === 'http-receiver') {
       const url = endpointUrl(item.url, ['http:', 'https:']);
       const tls = url.protocol === 'https:';
       return {
         connectionType: 'http-client', ip: host(url), port: Number(url.port || (tls ? 443 : 80)),
         httpTls: tls, httpPath: `${url.pathname}${url.search}`, httpFormat: format(item.format),
+      };
+    }
+    if (!item.feedType && type === 'http') {
+      const url = endpointUrl(item.url, ['http:', 'https:']);
+      const tls = url.protocol === 'https:';
+      return {
+        connectionType: 'http-server', ip: host(url), port: Number(url.port || (tls ? 443 : 80)),
+        httpTls: tls, httpPath: `${url.pathname}${url.search}`, httpFormat: format(item.format),
+      };
+    }
+    if (item.feedType === 'http-poller') {
+      if (String(item.httpMethod || 'GET').toUpperCase() !== 'GET') {
+        throw new Error('Only GET-based HTTP Poller feeds can use the Simulator HTTP server.');
+      }
+      const url = endpointUrl(item.url, ['http:', 'https:']);
+      const tls = url.protocol === 'https:';
+      return {
+        connectionType: 'http-server', ip: host(url), port: Number(url.port || (tls ? 443 : 80)),
+        httpTls: tls, httpPath: `${url.pathname}${url.search}`,
+        httpFormat: format(item.format), httpPolling: true,
+      };
+    }
+    if (item.feedType === 'websocket') {
+      const url = endpointUrl(item.url, ['ws:', 'wss:']);
+      const tls = url.protocol === 'wss:';
+      return {
+        connectionType: 'ws-server', ip: host(url), port: Number(url.port || (tls ? 443 : 80)),
+        wsTls: tls, wsPath: url.pathname, wsFormat: format(item.format),
       };
     }
     if ((!item.feedType && type === 'websocket') || isStream) {
@@ -96,6 +161,23 @@
       return {
         connectionType: 'ws-client', ip: host(url), port: Number(url.port || (tls ? 443 : 80)),
         wsTls: tls, wsPath: `${url.pathname}${url.search}`, wsFormat: format(item.format),
+      };
+    }
+    if (['tcp', 'tcp-client', 'tcp-server', 'udp-client', 'udp-server'].includes(type)) {
+      const protocol = type.startsWith('udp') ? 'udp' : 'tcp';
+      const connectorServer = type.endsWith('-server');
+      const configuredHost = connectorServer
+        ? endpointHost(item.serverApiUrl)
+        : socketHost(item.host, protocol.toUpperCase());
+      if (protocol === 'udp' && configuredHost.includes(':')) {
+        throw new Error('UDP automatic configuration currently requires an IPv4 host.');
+      }
+      const port = socketPort(item.port, protocol.toUpperCase());
+      return {
+        connectionType: `${protocol}-${connectorServer ? 'client' : 'server'}`,
+        ip: configuredHost,
+        port,
+        [`${protocol}Format`]: socketFormat(item.format),
       };
     }
     throw new Error('This item does not advertise a supported data endpoint.');

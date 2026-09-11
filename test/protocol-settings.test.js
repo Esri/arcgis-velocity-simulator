@@ -456,7 +456,10 @@ test('Protocol Settings is the only connection-dialog shortcut in the applicatio
       'TCP offers payload format and CSV conversion settings',
     );
     assert.strictEqual(document.getElementById('protocol-settings-empty').hidden, true);
+    assert.strictEqual(document.getElementById('tcp-advanced').hidden, false);
+    assert.strictEqual(document.getElementById('udp-advanced').hidden, true);
     assert.strictEqual(document.getElementById('tcp-format').value, 'delimited');
+    assert.strictEqual(document.getElementById('tcp-format-group').style.display, '');
     assert.strictEqual(document.getElementById('tcp-x-field-group').style.display, 'none');
     select('tcp-format', 'geo-json');
     assert.strictEqual(document.getElementById('tcp-x-field-group').style.display, '');
@@ -472,8 +475,8 @@ test('Protocol Settings is the only connection-dialog shortcut in the applicatio
     select('connection-type', 'http-server');
     assert.deepStrictEqual(
       tabState().filter((tab) => !tab.hidden).map((tab) => tab.section),
-      ['basics', 'security', 'summary'],
-      'HTTP has no Advanced settings',
+      ['basics', 'security', 'advanced', 'summary'],
+      'HTTP Server offers GET polling in Advanced',
     );
     assert.strictEqual(document.getElementById('protocol-settings-empty').hidden, true);
 

@@ -263,7 +263,7 @@ function resolveTheme(sheets, theme, colorScheme, options = {}) {
 /* ------------------------------------------------------------------ */
 
 function parseColor(input) {
-  const value = String(input == null ? '' : input).trim();
+  const value = String(input == null ? '' : input).trim().replace(/\s+/g, ' ');
   if (!value || value === 'transparent') return { r: 0, g: 0, b: 0, a: 0 };
   const mix = /^color-mix\(\s*in\s+srgb\s*,\s*(.+)\s*\)$/i.exec(value);
   if (mix) return parseColorMix(mix[1]);
@@ -812,6 +812,16 @@ function runThemePaletteTests() {
   });
 
   console.log('\n--- Test 11: Shared semantic button pairs ---');
+  runTest('disabled buttons use subtle solid borders without dashed outlines', () => {
+    const style = fs.readFileSync(path.join(SRC, 'style.css'), 'utf-8');
+    const dialogs = fs.readFileSync(path.join(SRC, 'dialog-buttons.css'), 'utf-8');
+    const palette = fs.readFileSync(path.join(SRC, 'button-palette.css'), 'utf-8');
+    return palette.includes('--action-button-disabled-border:')
+      && palette.includes('--dialog-button-disabled-border:')
+      && /button:disabled\[disabled\][\s\S]*border:\s*1px solid var\(--action-button-disabled-border\)/.test(style)
+      && /button\[id\]:disabled[\s\S]*border:\s*1px solid var\(--dialog-button-disabled-border\)/.test(dialogs)
+      && !/disabled[^{]*\{[^}]*dashed/s.test(`${style}\n${dialogs}`);
+  });
   themeCases().forEach(({ theme, colorScheme, label }) => {
     runTest(`${label}: every semantic role has a readable normal and hover pair`, () => {
       const palette = resolveTheme(['themes.css', 'style.css'], theme, colorScheme).body;
@@ -825,6 +835,13 @@ function runThemePaletteTests() {
           if (ratio < 4.5) return `${role} ${state || 'normal'}: ${ratio.toFixed(3)}:1`;
         }
       }
+      const disabledBackground = parseColor(palette['--action-button-disabled-bg']);
+      const disabledText = parseColor(palette['--action-button-disabled-text']);
+      const disabledBorder = parseColor(palette['--action-button-disabled-border']);
+      const textRatio = contrastRatio(disabledText, disabledBackground);
+      const borderRatio = contrastRatio(disabledBorder, disabledBackground);
+      if (borderRatio < 1.1) return `disabled border is imperceptible: ${borderRatio.toFixed(3)}:1`;
+      if (borderRatio >= textRatio) return `disabled border competes with text: ${borderRatio.toFixed(3)}:1`;
       return true;
     });
   });

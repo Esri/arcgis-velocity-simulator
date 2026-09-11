@@ -172,6 +172,7 @@
     ]),
     http: Object.freeze([
       { field: 'httpFormat', defaultValue: 'delimited' },
+      { field: 'httpPolling', defaultValue: false, serverOnly: true },
       { field: 'httpTls', defaultValue: true },
       { field: 'httpPath', defaultValue: '/' },
       { field: 'httpTlsCaPath', defaultValue: '' },
@@ -625,6 +626,11 @@
         isDefault: (formatValue || 'delimited') === 'delimited',
       }));
       rows.push(row('path', 'Path', pathValue, { isDefault: pathValue === '/' }));
+      if (protocol === 'http' && mode === 'server') {
+        rows.push(row('httpPolling', 'GET polling', describeToggle(state.httpPolling), {
+          isDefault: !isTruthy(state.httpPolling),
+        }));
+      }
       if (protocol === 'ws') {
         // The subscription message and the upgrade headers are documented
         // carriers of tokens and Authorization values, so only their presence

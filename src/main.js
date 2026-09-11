@@ -1649,6 +1649,7 @@ async function getCurrentLaunchConfig() {
         grpcSendMethod: getVal('grpc-send-method') || 'stream',
         grpcSerialization: getVal('grpc-serialization') || 'protobuf',
         httpFormat: getVal('http-format') || 'delimited',
+        httpPolling: getChecked('http-polling'),
         httpPath: getVal('http-path') || '/',
         httpTls: getChecked('http-tls'),
         httpTlsCaPath: getVal('http-tls-ca-path') || null,
@@ -1721,6 +1722,7 @@ async function getCurrentLaunchConfig() {
       grpcSendMethod: s.grpcSendMethod,
       grpcSerialization: s.grpcSerialization,
       httpFormat: s.httpFormat,
+      httpPolling: s.httpPolling,
       httpPath: s.httpPath,
       httpTls: s.httpTls,
       httpTlsCaPath: s.httpTlsCaPath,
@@ -2415,7 +2417,7 @@ ipcMain.handle('connect', (event, options) => {
     protocol, mode, ip, port, tcpFormat = 'delimited', udpFormat = 'delimited',
     grpcSerialization, grpcSendMethod, headerPathKey, headerPath,
     useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls,
-    httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, httpAllowUnverifiedTls,
+    httpFormat, httpPolling, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, httpAllowUnverifiedTls,
     wsFormat, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsPath,
     wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders, wsAllowUnverifiedTls,
   } = options;
@@ -2579,7 +2581,7 @@ ipcMain.handle('connect', (event, options) => {
           emitConnectionStatus('disconnected', `HTTP Client error: ${err.message}`);
         });
       } else { // HTTP Server
-        httpTransport = createHttpServerTransport({ ip, port, httpFormat, httpPath, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath });
+        httpTransport = createHttpServerTransport({ ip, port, httpFormat, httpPath, httpPolling, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath });
         httpTransport.connect().then((result) => {
           connection = httpTransport;
           const contentType = FORMAT_CONTENT_TYPES[httpFormat] || 'text/plain';

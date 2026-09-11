@@ -13,6 +13,7 @@
     "grpcSerialization": "protobuf",
     "httpAllowUnverifiedTls": false,
     "httpFormat": "delimited",
+    "httpPolling": false,
     "httpPath": "/",
     "httpTls": true,
     "ip": "0.0.0.0",

@@ -683,8 +683,8 @@ button:active:not(:disabled) {
 button:disabled[disabled] {
   background-color: var(--action-button-disabled-bg);
   color: var(--action-button-disabled-text);
-  outline: 1px dashed var(--action-button-disabled-text);
-  outline-offset: -2px;
+  border: 1px solid var(--action-button-disabled-border);
+  outline: none;
   cursor: not-allowed;
   opacity: 1;
   box-shadow: none;
@@ -1763,8 +1763,65 @@ body:not(.show-gestures) #live-gesture-received {
   gap: 2px;
 }
 
+.protocol-settings-group[hidden] {
+  display: none;
+}
+
 .protocol-settings-group:empty {
   display: none;
+}
+
+.payload-format-row,
+.payload-conversion-group {
+  width: min(100%, 760px);
+}
+
+.payload-format-row,
+.payload-conversion-group .control-group {
+  display: grid;
+  grid-template-columns: minmax(150px, 190px) minmax(220px, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.payload-format-row > label,
+.payload-conversion-group .control-group > label {
+  width: auto;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.payload-conversion-group {
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--container-bg) 82%, transparent);
+}
+
+.payload-conversion-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 4px;
+}
+
+.payload-conversion-intro strong {
+  color: var(--header-color);
+  font-size: 0.95em;
+}
+
+.payload-conversion-intro span {
+  color: var(--text-color);
+  font-size: 0.78em;
+  line-height: 1.45;
+  opacity: 0.78;
+}
+
+.payload-conversion-group input[type="checkbox"] {
+  justify-self: start;
+  width: 18px;
+  height: 18px;
 }
 
 .protocol-settings-empty {

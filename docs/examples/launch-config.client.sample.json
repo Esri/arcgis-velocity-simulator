@@ -13,6 +13,7 @@
     "connectTimeoutMs": 0,
     "connectWaitForServer": false,
     "httpFormat": "delimited",
+    "httpPolling": false,
     "httpPath": "/",
     "httpTls": true,
     "ip": "127.0.0.1",

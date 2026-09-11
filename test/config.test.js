@@ -162,6 +162,11 @@ async function runConfigTests() {
       const sample = JSON.parse(fs.readFileSync(path.join(__dirname, '../docs/examples', name), 'utf8'));
       return socketPayloadKeys.every((key) => Object.hasOwn(sample.connection, key));
     }));
+  runTest('Every launch-config sample includes HTTP Poller mode disabled by default', () =>
+    sampleNames.every((name) => {
+      const sample = JSON.parse(fs.readFileSync(path.join(__dirname, '../docs/examples', name), 'utf8'));
+      return sample.connection.httpPolling === false;
+    }));
   runTest('Every launch-config sample includes the complete XMPP mapping', () =>
     sampleNames.every((name) => {
       const sample = JSON.parse(fs.readFileSync(path.join(__dirname, '../docs/examples', name), 'utf8'));

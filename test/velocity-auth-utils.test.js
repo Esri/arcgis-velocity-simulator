@@ -15,6 +15,15 @@ assert.strictEqual(shouldSendVelocityTokenByDefault({ tokenOnly: true, authType:
 assert.strictEqual(shouldSendVelocityTokenByDefault({ feedType: 'grpc', authType: 'arcgis' }), true);
 assert.strictEqual(shouldSendVelocityTokenByDefault({ feedType: 'http-receiver', authType: 'token' }), true);
 assert.strictEqual(shouldSendVelocityTokenByDefault({ feedType: 'websocket', authType: '' }), true);
+assert.strictEqual(shouldSendVelocityTokenByDefault({
+  feedType: 'websocket',
+  authType: 'token',
+  connectionOptions: { connectionType: 'ws-server' },
+}), false);
+assert.strictEqual(shouldSendVelocityTokenByDefault({
+  outputType: 'http',
+  connectionOptions: { connectionType: 'http-server' },
+}), false);
 assert.strictEqual(shouldSendVelocityTokenByDefault({ feedType: 'http-receiver', authType: 'basic' }), false);
 assert.strictEqual(shouldSendVelocityTokenByDefault({ feedType: 'http-receiver', authType: 'none' }), false);
 assert.strictEqual(shouldSendVelocityTokenByDefault({ feedType: 'tcp', authType: '' }), false);

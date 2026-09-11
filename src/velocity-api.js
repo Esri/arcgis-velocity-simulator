@@ -24,7 +24,10 @@ const {
 const { discoverVelocityEndpoint, discoverVelocityServers } = require('./velocity-session');
 const { buildVelocityConnectionOptions } = require('./velocity-connection-options');
 
-const SUPPORTED_FEED_TYPES = new Set(['grpc', 'http-receiver']);
+const SUPPORTED_FEED_TYPES = new Set([
+  'grpc', 'http-receiver', 'http-poller', 'websocket',
+  'tcp', 'tcp-client', 'tcp-server', 'udp-client', 'udp-server',
+]);
 
 async function getVelocityApiUrl(portalUrl, token, options = {}) {
   return (await discoverVelocityEndpoint(portalUrl, token, options)).apiBaseUrl;
@@ -108,7 +111,8 @@ function parseItem(item, direction) {
   const properties = isRecord(definition.properties) ? definition.properties : {};
   const transformation = isRecord(definition.schemaTransformation) ? definition.schemaTransformation : {};
   const schema = transformation[direction === 'feed' ? 'inputSchema' : 'outputSchema'];
-  const supportedTypes = direction === 'feed' ? SUPPORTED_FEED_TYPES : new Set(['grpc', 'http', 'websocket', 'tcp']);
+  const supportedTypes = direction === 'feed' ? SUPPORTED_FEED_TYPES
+    : new Set(['grpc', 'http', 'websocket', 'tcp', 'tcp-client', 'tcp-server', 'udp-client', 'udp-server']);
   const parsed = {
     label: text(container.label),
     id: text(container.id),
@@ -122,9 +126,10 @@ function parseItem(item, direction) {
     parsed.headerPath = text(properties['grpc.headerPath']);
     parsed.headerPathKey = text(properties['grpc.headerPathKey']) || 'grpc-path';
     parsed.authType = text(properties['grpc.authenticationType']);
-  } else if (['http-receiver', 'http', 'websocket'].includes(name)) {
+  } else if (['http-receiver', 'http-poller', 'http', 'websocket'].includes(name)) {
     parsed.url = safeDataUrl(properties[`${name}.url`]);
     parsed.authType = text(properties[`${name}.${name === 'http-receiver' ? 'httpAuthenticationType' : 'authenticationType'}`]);
+    if (name === 'http-poller') parsed.httpMethod = text(properties['http-poller.httpMethod']) || 'GET';
   } else if (['mqtt', 'kinetic'].includes(name)) {
     for (const key of ['host', 'port', 'topic', 'username', 'qos']) {
       const value = properties[`${name}.${key}`];
@@ -135,12 +140,26 @@ function parseItem(item, direction) {
     parsed.endpoint = safeDataUrl(properties[`${name}.endpoint`]);
     parsed.entityPath = text(properties[`${name}.${name === 'azure-event-hub' ? 'entityPath' : 'topicName'}`]);
     parsed.sharedAccessKeyName = text(properties[`${name}.sharedAccessKeyName`]);
-  } else if (['tcp', 'udp'].includes(name)) {
-    parsed.host = text(properties[`${name}.host`]);
-    parsed.port = typeof properties[`${name}.port`] === 'number' ? properties[`${name}.port`] : text(properties[`${name}.port`]);
+  } else if (['tcp', 'tcp-client', 'tcp-server', 'udp-client', 'udp-server'].includes(name)) {
+    parsed.host = text(properties[`${name}.hostname`] ?? properties[`${name}.host`]);
+    parsed.port = typeof properties[`${name}.port`] === 'number'
+      ? properties[`${name}.port`] : text(properties[`${name}.port`]);
+    const formatPrefix = text(definition.formatName).toLowerCase();
+    if (formatPrefix) {
+      parsed.xField = text(properties[`${formatPrefix}.xField`]);
+      parsed.yField = text(properties[`${formatPrefix}.yField`]);
+    }
+    if (!Number.isInteger(Number(parsed.port)) || Number(parsed.port) < 1 || Number(parsed.port) > 65535) {
+      parsed.supported = false;
+      parsed.reason = 'This feed does not advertise a valid TCP or UDP port.';
+    } else if (!name.endsWith('-server') && !parsed.host) {
+      parsed.supported = false;
+      parsed.reason = 'This feed does not advertise the host used by its client connection.';
+    }
   }
-  if (direction === 'feed' && name === 'websocket') {
-    parsed.reason = 'A WebSocket feed connects to an outbound source; it is not a receiver the Simulator can publish to.';
+  if (direction === 'feed' && name === 'http-poller' && parsed.httpMethod.toUpperCase() !== 'GET') {
+    parsed.supported = false;
+    parsed.reason = 'Only GET-based HTTP Poller feeds can use the Simulator HTTP server.';
   } else if (parsed.supported && Object.hasOwn(parsed, 'url') && !parsed.url) {
     parsed.supported = false;
     parsed.reason = 'This item has no valid public data URL, or its URL contains embedded credentials. Configure the connection manually.';

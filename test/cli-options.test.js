@@ -263,6 +263,11 @@ async function runCliOptionsTests() {
   runTest('CLI reference documents both socket format options', () =>
     socketParameters.some(parameter => parameter.name === 'tcpFormat')
       && socketParameters.some(parameter => parameter.name === 'udpFormat'));
+  runTest('HTTP polling is parsed for UI and headless workflows', () =>
+    parseCommandLineArgs(createArgv(['httpPolling=true'])).ui.presets.httpPolling === true
+      && parseCommandLineArgs(createArgv([
+        'runMode=headless', 'filename=./data.csv', 'protocol=http', 'httpPolling=true',
+      ])).headless.httpPolling === true);
 
   console.log('\n--- Test 8: gRPC header path CLI options ---');
   const grpcHeaderResult = parseCommandLineArgs(createArgv([

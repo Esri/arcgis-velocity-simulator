@@ -13,7 +13,7 @@ authorized to access Velocity.
 - [Workflow](#workflow)
 - [Authentication](#authentication)
 - [OAuth 2.0](#oauth-20)
-- [Unsupported feed types](#unsupported-feed-types)
+- [Supported and unsupported feed types](#supported-and-unsupported-feed-types)
 - [Feed type reference](#feed-type-reference)
 - [Scope toggle](#scope-toggle)
 - [Dialog size persistence](#dialog-size-persistence)
@@ -93,12 +93,15 @@ tab. The application's permissions and the deployment determine which
 resources its token can access. Signing in does not grant feed access or
 change an unsupported source into a receiver.
 
-## Unsupported feed types
+## Supported and unsupported feed types
 
 Unsupported types have a **⚠** prefix and muted styling. **Apply** is disabled
 for these items. **Supported** is the default filter; **All** includes
 unsupported types. A WebSocket feed connects outward to a source, so it is
-not a receiver the Simulator can publish to as another client.
+paired with the Simulator's WebSocket Server role. A GET-based HTTP Poller is
+paired with HTTP Server polling mode. TCP and UDP connector roles are inverted:
+a Velocity server connector selects a Simulator client, while a Velocity
+client connector selects a Simulator server.
 If the list contains only unsupported sources, the status reports the actual
 total and prompts you to choose **All** beside **Supported**; an empty
 supported filter does not mean that the servers returned no feeds.
@@ -116,11 +119,14 @@ icon and a color:
 |---|---|---|---|
 | ⬡ | `grpc` — gRPC | `#7c4dff` | Yes. |
 | ■ | `http-receiver` — HTTP Receiver | `#0097a7` | Yes. |
-| ◆ | `websocket` — WebSocket | `#00897b` | No; outbound source. |
+| ↻ | `http-poller` — HTTP Poller | `#00838f` | Yes, for GET requests. |
+| ◆ | `websocket` — WebSocket | `#00897b` | Yes, as a Simulator WebSocket Server. |
 | ◎ | `mqtt` — MQTT | `#f57c00` | No. |
 | ▲ | `kafka` — Kafka | `#e53935` | No. |
-| ◗ | `tcp` — TCP | `#546e7a` | No. |
-| ◖ | `udp` — UDP | `#78909c` | No. |
+| ◗ | `tcp`, `tcp-client` — TCP client | `#546e7a` | Yes, as a Simulator TCP Server. |
+| ◗ | `tcp-server` — TCP server | `#455a64` | Yes, as a Simulator TCP Client. |
+| ◖ | `udp-client` — UDP client | `#78909c` | Yes, as a Simulator UDP Server. |
+| ◖ | `udp-server` — UDP server | `#607d8b` | Yes, as a Simulator UDP Client. |
 | ❖ | `azure-event-hub` — Azure Event Hub | `#0078d4` | No. |
 | ❖ | `azure-service-bus` — Azure Service Bus | `#0062ad` | No. |
 | ◉ | `kinetic` — Kinetic | `#43a047` | No. |

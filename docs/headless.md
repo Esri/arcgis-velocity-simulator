@@ -124,7 +124,7 @@ Transports use the following protocol-specific settings. All are optional:
 |---|---|---|
 | TCP | `tcpFormat`, `tcpInputHasHeader`, `tcpXField`, `tcpYField`, `tcpWkid` | Delimited, no header row, no geometry mapping, WKID 4326. TCP publishes newline-separated logical payloads. |
 | UDP | `udpFormat`, `udpInputHasHeader`, `udpXField`, `udpYField`, `udpWkid` | Delimited, no header row, no geometry mapping, WKID 4326. UDP publishes one complete payload per datagram, with a 65,507-byte UTF-8 maximum. |
-| HTTP | `httpFormat`, `httpPath`, `httpTls`, `httpTlsCaPath`, `httpTlsCertPath`, `httpTlsKeyPath`, `httpAllowUnverifiedTls` | `delimited`, `/`, TLS on, system CA/no client identity, verification on. Formats are `delimited`, `json`, `esri-json`, `geo-json`, and `xml`. Client mode sends POST requests; server mode broadcasts to SSE watchers. |
+| HTTP | `httpFormat`, `httpPolling`, `httpPath`, `httpTls`, `httpTlsCaPath`, `httpTlsCertPath`, `httpTlsKeyPath`, `httpAllowUnverifiedTls` | `delimited`, polling off, `/`, TLS on, system CA/no client identity, verification on. Formats are `delimited`, `json`, `esri-json`, `geo-json`, and `xml`. Client mode sends POST requests; server mode broadcasts to SSE watchers or serves the latest payload to GET-based pollers. |
 | WebSocket | `wsFormat`, `wsPath`, `wsTls`, `wsTlsCaPath`, `wsTlsCertPath`, `wsTlsKeyPath`, `wsAllowUnverifiedTls`, `wsSubscriptionMsg`, `wsIgnoreFirstMsg`, `wsHeaders` | `delimited`, `/`, TLS on, system CA/no client identity, verification on, no subscription, do not ignore the first message, and no custom headers. Client mode sends text frames; server mode broadcasts to connected sockets. |
 
 XMPP adds the following grouped settings; the full descriptions and cross-field

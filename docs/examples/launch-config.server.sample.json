@@ -5,6 +5,7 @@
     "_comment": "Server mode binds to a local address/port. Set waitForClient=true to wait for clients before advancing through the file.",
     "connectTimeoutMs": 30000,
     "httpFormat": "delimited",
+    "httpPolling": false,
     "httpPath": "/",
     "httpTls": true,
     "ip": "0.0.0.0",

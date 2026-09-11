@@ -300,6 +300,7 @@ class HttpServerTransport {
    * @param {number} opts.port - Listen port
    * @param {string} [opts.httpFormat='json'] - Expected data format
    * @param {string} [opts.httpPath='/'] - Endpoint path
+   * @param {boolean} [opts.httpPolling=false] - Serve the latest replay payload to ordinary GET requests
    * @param {boolean} [opts.httpTls=true] - Use HTTPS
    * @param {string} [opts.httpTlsCaPath]
    * @param {string} [opts.httpTlsCertPath]
@@ -308,11 +309,12 @@ class HttpServerTransport {
    * @param {function} [opts.onClientConnected] - Callback when an SSE watcher connects
    * @param {function} [opts.onClientDisconnected] - Callback when an SSE watcher disconnects
    */
-  constructor({ ip, port, httpFormat = 'json', httpPath = '/', httpTls = true, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, onData = null, onClientConnected = null, onClientDisconnected = null }) {
+  constructor({ ip, port, httpFormat = 'json', httpPath = '/', httpPolling = false, httpTls = true, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, onData = null, onClientConnected = null, onClientDisconnected = null }) {
     this.ip = ip;
     this.port = port;
     this.httpFormat = httpFormat;
     this.httpPath = httpPath.startsWith('/') ? httpPath : `/${httpPath}`;
+    this.httpPolling = httpPolling === true;
     this.httpTls = httpTls;
     this.httpTlsCaPath = httpTlsCaPath;
     this.httpTlsCertPath = httpTlsCertPath;
@@ -324,6 +326,7 @@ class HttpServerTransport {
     this._listening = false;
     this._clientCount = 0;
     this._watcherResponses = new Set();
+    this._latestPayload = null;
     this._tlsInfo = '';
   }
 
@@ -344,6 +347,20 @@ class HttpServerTransport {
             this.onClientDisconnected();
           }
         });
+        return;
+      }
+
+      if (req.method === 'GET' && req.url === this.httpPath && this.httpPolling) {
+        res.setHeader('Cache-Control', 'no-store');
+        if (this._latestPayload === null) {
+          res.writeHead(204);
+          res.end();
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': FORMAT_CONTENT_TYPES[this.httpFormat] || 'text/plain',
+        });
+        res.end(this._latestPayload);
         return;
       }
 
@@ -417,6 +434,7 @@ class HttpServerTransport {
           httpFormat: this.httpFormat,
           address: { address: boundAddress.address, port: boundAddress.port },
           contentType: FORMAT_CONTENT_TYPES[this.httpFormat] || 'text/plain',
+          httpPolling: this.httpPolling,
           tlsInfo: this._tlsInfo,
         });
       });
@@ -424,11 +442,13 @@ class HttpServerTransport {
   }
 
   isConnected() { return this._listening; }
-  hasRecipients() { return this._watcherResponses.size > 0; }
+  hasRecipients() { return this.httpPolling || this._watcherResponses.size > 0; }
 
   async send(data) {
+    if (this.httpPolling) this._latestPayload = typeof data === 'string' ? data : JSON.stringify(data);
     // In server mode, "send" broadcasts to any SSE watchers
     if (this._watcherResponses.size === 0) {
+      if (this.httpPolling) return { delivered: true, recipients: 1 };
       return { delivered: false, recipients: 0, reason: 'no-watchers' };
     }
     const dead = [];
@@ -442,6 +462,7 @@ class HttpServerTransport {
   async disconnect() {
     for (const watcher of this._watcherResponses) { try { watcher.end(); } catch (_) {} }
     this._watcherResponses.clear();
+    this._latestPayload = null;
     if (this.server) {
       return new Promise((resolve) => {
         this.server.close(() => {

@@ -240,10 +240,35 @@ console.log('\n--- Test 4: HTTP Client connect/disconnect (unsecure) ---');
   await watcher.disconnect();
   await pairedServer.disconnect();
 
+  console.log('\n--- Test 10: HTTP Poller mode serves the latest replay payload ---');
+  const pollingServer = createHttpServerTransport({
+    ip: '127.0.0.1', port: 0, httpFormat: 'json', httpPath: '/poll?site=one',
+    httpPolling: true, httpTls: false,
+  });
+  const pollingResult = await pollingServer.connect();
+  const get = () => new Promise((resolve, reject) => {
+    require('http').get({
+      hostname: '127.0.0.1',
+      port: pollingResult.address.port,
+      path: '/poll?site=one',
+    }, response => {
+      let body = '';
+      response.on('data', chunk => { body += chunk; });
+      response.on('end', () => resolve({ status: response.statusCode, type: response.headers['content-type'], body }));
+    }).on('error', reject);
+  });
+  assert(pollingServer.hasRecipients() === true, 'polling mode can accept replay data before the first GET');
+  assert((await get()).status === 204, 'polling mode returns 204 before a replay payload is available');
+  assert((await pollingServer.send('{"id":1}')).delivered === true, 'polling mode stores replay payloads without SSE watchers');
+  const polled = await get();
+  assert(polled.status === 200, 'polling mode returns the latest replay payload');
+  assert(polled.type === 'application/json', 'polling mode uses the selected payload content type');
+  assert(polled.body === '{"id":1}', 'polling mode preserves the latest payload');
+  await pollingServer.disconnect();
+
   console.log(`\n=== Test Results ===`);
   console.log(`✅ Passed: ${passed}`);
   console.log(`❌ Failed: ${failed}`);
   console.log(`📊 Total: ${passed + failed}`);
   if (failed > 0) process.exit(1);
 })();
-

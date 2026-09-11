@@ -128,6 +128,7 @@ const CLI_OPTION_KEYS = new Set([
   'tlsKeyPath',
   'allowUnverifiedTls',
   'httpFormat',
+  'httpPolling',
   'httpTls',
   'httpPath',
   'httpTlsCaPath',
@@ -217,6 +218,7 @@ const APP_DEFAULTS = {
   tlsKeyPath: null,
   allowUnverifiedTls: false,
   httpFormat: 'delimited',
+  httpPolling: false,
   httpTls: true,
   httpPath: '/',
   httpTlsCaPath: null,
@@ -809,6 +811,14 @@ const CLI_PARAMETER_DEFINITIONS = [
     example: 'httpFormat=json',
     requiredInHeadless: 'No',
     purpose: 'HTTP data format controlling the Content-Type header. "json" (application/json), "delimited" (text/plain, CSV), "esri-json" (application/json), "geo-json" (application/geo+json), or "xml" (application/xml). Only applies when protocol=http.',
+  },
+  {
+    key: 'httpPolling',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.httpPolling,
+    options: ['true', 'false'],
+    example: 'httpPolling=true',
+    requiredInHeadless: 'No',
+    purpose: 'Serve the latest replay payload to ordinary GET requests in HTTP server mode. Use for a GET-based ArcGIS Velocity HTTP Poller feed. Default false.',
   },
   {
     key: 'httpPath',
@@ -1985,7 +1995,7 @@ function validateHeadlessOptions(values, errors, warnings) {
       options[key] = format;
     }
   }
-  for (const key of ['tcpInputHasHeader', 'udpInputHasHeader']) {
+  for (const key of ['tcpInputHasHeader', 'udpInputHasHeader', 'httpPolling']) {
     if (normalized[key] !== undefined) options[key] = parseBoolean(normalized[key], key, errors);
   }
   for (const key of ['tcpXField', 'tcpYField', 'udpXField', 'udpYField']) {
@@ -2050,7 +2060,7 @@ function validateHeadlessOptions(values, errors, warnings) {
   if (normalized.tlsKeyPath !== undefined && normalized.tlsKeyPath !== '') {
     options.tlsKeyPath = resolvePathValue(normalized.tlsKeyPath);
   }
-  ['allowUnverifiedTls', 'httpAllowUnverifiedTls', 'wsAllowUnverifiedTls'].forEach((key) => {
+  ['allowUnverifiedTls', 'httpAllowUnverifiedTls', 'wsAllowUnverifiedTls', 'httpPolling'].forEach((key) => {
     if (normalized[key] !== undefined) options[key] = parseBoolean(normalized[key], key, errors);
   });
 
@@ -2522,7 +2532,7 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
         mergedValues[key] = format;
       }
     }
-    for (const key of ['tcpInputHasHeader', 'udpInputHasHeader']) {
+    for (const key of ['tcpInputHasHeader', 'udpInputHasHeader', 'httpPolling']) {
       if (mergedValues[key] !== undefined) mergedValues[key] = parseBoolean(mergedValues[key], key, errors);
     }
     for (const key of ['tcpWkid', 'udpWkid']) {
@@ -2550,7 +2560,7 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
       'grpcSerialization', 'grpcSendMethod',
       'grpcHeaderPath', 'grpcHeaderPathKey', 'useTls', 'tlsCaPath', 'tlsCertPath', 'tlsKeyPath',
       'allowUnverifiedTls', 'httpAllowUnverifiedTls', 'wsAllowUnverifiedTls',
-      'httpFormat', 'httpTls', 'httpPath', 'httpTlsCaPath', 'httpTlsCertPath', 'httpTlsKeyPath',
+      'httpFormat', 'httpPolling', 'httpTls', 'httpPath', 'httpTlsCaPath', 'httpTlsCertPath', 'httpTlsKeyPath',
       'wsFormat', 'wsTls', 'wsPath', 'wsTlsCaPath', 'wsTlsCertPath', 'wsTlsKeyPath',
       'wsSubscriptionMsg', 'wsIgnoreFirstMsg', 'wsHeaders',
       'xmppDomain', 'xmppTlsPolicy', 'xmppTlsCaPath', 'xmppTlsCertPath', 'xmppTlsKeyPath',
@@ -2685,6 +2695,7 @@ function formatExplainOutput(cliOptions) {
       ['useTls', presets && presets.useTls !== undefined ? presets.useTls : `(default: ${d.useTls})`],
       ['allowUnverifiedTls', presets && presets.allowUnverifiedTls !== undefined ? presets.allowUnverifiedTls : `(default: ${d.allowUnverifiedTls})`],
       ['httpFormat', (presets && presets.httpFormat) || `(default: ${d.httpFormat})`],
+      ['httpPolling', presets && presets.httpPolling !== undefined ? presets.httpPolling : `(default: ${d.httpPolling})`],
       ['httpTls', presets && presets.httpTls !== undefined ? presets.httpTls : `(default: ${d.httpTls})`],
       ['httpPath', (presets && presets.httpPath) || `(default: ${d.httpPath})`],
       ['httpAllowUnverifiedTls', presets && presets.httpAllowUnverifiedTls !== undefined ? presets.httpAllowUnverifiedTls : `(default: ${d.httpAllowUnverifiedTls})`],
@@ -2770,6 +2781,7 @@ function formatExplainOutput(cliOptions) {
       ['udpXField', h.udpXField || '(not set)'],
       ['udpYField', h.udpYField || '(not set)'],
       ['udpWkid', h.udpWkid],
+      ['httpPolling', h.httpPolling],
       ['linesPerInterval', h.linesPerInterval],
       ['intervalMs', `${h.intervalMs}ms`],
       ['loop', h.loop],

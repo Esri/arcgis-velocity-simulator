@@ -20,6 +20,7 @@ concepts live in the [TLS and SSL security](tls.md) guide.
 - [TLS (HTTPS)](#tls-https)
 - [Default ports](#default-ports)
 - [HTTP path](#http-path)
+- [GET polling](#get-polling)
 - [UI controls](#ui-controls)
 - [Tooltip reference](#tooltip-reference)
 - [CLI parameters](#cli-parameters)
@@ -86,7 +87,7 @@ is toggled, as long as the user hasn't manually entered a custom port.
 The HTTP Path field (default `/`) specifies the URL path appended after the host
 and port in the request URL.
 
-- **Server mode**: The server only accepts POST requests whose URL matches this path exactly. All other paths return a `404 Not Found` response. GET requests to this path return a health-check JSON response with the current format and client count.
+- **Server mode**: POST requests must match this path exactly. With GET polling enabled, ordinary GET requests at the same path receive the latest replay payload; otherwise GET returns status or opens Server-Sent Events.
 - **Client mode**: This path is used in the outgoing POST request URL. For example, if the host is `velocity.example.com`, the port is `8443`, and the path is `/receiver/feed-id`, the full URL becomes `https://velocity.example.com:8443/receiver/feed-id`.
 
 When connecting to an ArcGIS Velocity HTTP Receiver endpoint, set this to the
@@ -100,6 +101,16 @@ host, explicit port, path, and required non-secret query. HTTPS uses 443 when
 the advertised URL omits a port; this does not change the local server default.
 The management API context is not substituted into the receiver address.
 See [ArcGIS Velocity REST API](velocity-rest-api.md) for public URL selection.
+
+## GET polling
+
+Enable **GET polling** in HTTP Server mode when an ArcGIS Velocity HTTP Poller
+feed requests the Simulator. Playback stores the latest replay payload, and an
+ordinary GET at the exact HTTP path returns it using the selected content type.
+Before playback provides a payload, the server returns HTTP 204.
+
+Server-Sent Event clients still subscribe with `Accept: text/event-stream`.
+GET polling is off by default, preserving existing HTTP Server behavior.
 
 ## UI controls
 
@@ -117,7 +128,8 @@ are described in
 Host, port, and the connection mode stay in the panel, because they apply to
 every protocol.
 
-Protocol Settings offers two sections for HTTP:
+Protocol Settings offers Basics and Security for both roles. HTTP Server also
+offers Advanced:
 
 **Basics**
 
@@ -132,8 +144,11 @@ Protocol Settings offers two sections for HTTP:
 - **TLS key** - Path to the private key file (PEM). Required for server-mode TLS and client-side mTLS.
 - **Allow unverified** - Client-only warning checkbox, shown when TLS is enabled. Accepts an unverified server certificate for any host. Off by default; see [TLS and SSL security](tls.md#explicit-certificate-verification-bypass).
 
-HTTP has no Advanced section, because every HTTP setting belongs to Basics or
-Security.
+**Advanced**
+
+- **GET polling** - In HTTP Server mode, returns the latest replay payload to
+  ordinary GET requests at the configured path. Use it for a GET-based HTTP
+  Poller feed.
 
 **Mode** stays in the panel and offers `HTTP Client` and `HTTP Server`. Hovering
 over each option shows a description of that connection mode.
@@ -175,6 +190,7 @@ UI. These are also set dynamically via `HTTP_FORMAT_TOOLTIPS` and
 | HTTP Settings… | Open HTTP settings (Cmd+Shift+P / Ctrl+Shift+P).<br>---<br>Everything specific to HTTP is edited in the dialog: format, HTTP path, TLS, and certificates.<br>Configured: &lt;state&gt;.<br>Nothing is sent until you select Connect. |
 | Allow unverified | Warning: accept any HTTPS server certificate<br>---<br>Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing. |
 | HTTP path | HTTP endpoint URL path appended after the host:port (e.g. /receiver/feed-id). In server mode, only POST requests matching this path are accepted; all others return 404. In client mode, this path is used in the outgoing POST request URL. Default is /. |
+| GET polling | Serve the latest replay payload to GET requests at the configured HTTP path.<br>---<br>Off: GET requests provide status or Server-Sent Events.<br>On: each ordinary GET receives the latest replay payload using the selected format.<br>Default is off. |
 
 ### TLS Trust Badge
 
@@ -201,6 +217,7 @@ formats, OS trust store behaviour, and setup guides.
 | `protocol=http` | Use HTTP transport. | - |
 | `mode=client\|server` | Send POST requests as a client, or host POST/SSE endpoints as a server. | `server` |
 | `httpFormat=<format>` | Content type format: `delimited`, `json`, `esri-json`, `geo-json`, or `xml`. | `delimited` |
+| `httpPolling=true\|false` | HTTP Server: serve the latest replay payload to ordinary GET requests. | `false` |
 | `httpPath=<path>` | Exact POST, health-check, and SSE endpoint path. A missing leading slash is added. | `/` |
 | `httpTls=true\|false` | Use HTTPS when true or unsecure HTTP when false. | `true` |
 | `httpTlsCaPath=<path>` | Custom CA certificate PEM; otherwise use system/Node trust in client mode. | `(none)` |

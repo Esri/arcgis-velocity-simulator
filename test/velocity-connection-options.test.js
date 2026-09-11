@@ -38,7 +38,10 @@ test('Logger output and safe Stream Layer mappings share the same helper', () =>
   };
   assert.deepStrictEqual(build({ outputType: 'websocket', url: 'wss://[2001:db8::2]/stream/subscribe?filter=all', format: 'json' }), expected);
   assert.deepStrictEqual(build({ connectionType: 'ws-client', outputType: 'stream-layer', url: 'wss://[2001:db8::2]/stream/subscribe?filter=all', format: 'json' }), expected);
-  assert.strictEqual(build({ outputType: 'http', url: 'http://receiver.example.com' }).httpTls, false);
+  assert.deepStrictEqual(build({ outputType: 'http', url: 'http://receiver.example.com/events', format: 'json' }), {
+    connectionType: 'http-server', ip: 'receiver.example.com', port: 80,
+    httpTls: false, httpPath: '/events', httpFormat: 'json',
+  });
   assert.strictEqual(build({ outputType: 'grpc', url: 'receiver.example.com:50051' }).port, 50051);
 });
 
@@ -47,8 +50,77 @@ test('missing or invalid endpoints fail without fallback', () => {
     assert.throws(() => build({ feedType: 'http-receiver', url }), undefined, url);
   }
   assert.throws(() => build({ feedType: 'http-receiver', url: 'https://receiver.example.com', format: 'unknown' }), /format/);
-  assert.throws(() => build({ feedType: 'websocket', url: 'wss://receiver.example.com' }), /outbound source/);
+  assert.strictEqual(build({ feedType: 'websocket', url: 'wss://receiver.example.com' }).connectionType, 'ws-server');
   assert.throws(() => build({ feedType: 'mqtt', url: 'https://receiver.example.com' }), /supported/);
+});
+
+test('TCP and UDP connector roles are inverted for feeds and outputs', () => {
+  assert.deepStrictEqual(build({
+    feedType: 'udp-server', serverApiUrl: 'https://velocity.example.com:7143/arcgis',
+    port: 17009, format: 'json',
+  }), {
+    connectionType: 'udp-client', ip: 'velocity.example.com', port: 17009, udpFormat: 'json',
+  });
+  assert.deepStrictEqual(build({
+    feedType: 'udp-client', host: 'logger.example.com', port: 17012, format: 'geo-json',
+  }), {
+    connectionType: 'udp-server', ip: 'logger.example.com', port: 17012, udpFormat: 'geo-json',
+  });
+  assert.deepStrictEqual(build({
+    feedType: 'tcp-server', serverApiUrl: 'https://velocity.example.com/arcgis',
+    port: '17011', format: 'delimited',
+  }), {
+    connectionType: 'tcp-client', ip: 'velocity.example.com', port: 17011, tcpFormat: 'delimited',
+  });
+  assert.deepStrictEqual(build({
+    outputType: 'tcp-client', host: 'logger.example.com', port: 17013, format: 'esri-json',
+  }), {
+    connectionType: 'tcp-server', ip: 'logger.example.com', port: 17013, tcpFormat: 'esri-json',
+  });
+  assert.deepStrictEqual(build({
+    outputType: 'tcp-server', serverApiUrl: 'https://velocity.example.com:7143/arcgis',
+    port: 17011, format: 'json',
+  }), {
+    connectionType: 'tcp-client', ip: 'velocity.example.com', port: 17011, tcpFormat: 'json',
+  });
+  assert.throws(() => build({
+    outputType: 'tcp-server', port: 17011, format: 'json',
+  }), /data endpoint is missing/);
+  assert.throws(() => build({
+    outputType: 'tcp-client', host: 'destination.example.com:9010', port: 17011, format: 'json',
+  }), /host is invalid/);
+  assert.throws(() => build({
+    outputType: 'tcp-client', host: '[not-an-ipv6-address]', port: 17011, format: 'json',
+  }), /host is invalid/);
+  assert.strictEqual(build({
+    outputType: 'tcp-client', host: '2001:db8::1', port: 17011, format: 'json',
+  }).ip, '2001:db8::1');
+  assert.strictEqual(build({
+    outputType: 'tcp-client', host: '[2001:db8::2]', port: 17011, format: 'json',
+  }).ip, '2001:db8::2');
+  assert.throws(() => build({
+    feedType: 'udp-server', serverApiUrl: 'https://[2001:db8::1]/arcgis',
+    port: 17009, format: 'json',
+  }), /IPv4/);
+});
+
+test('HTTP Poller and WebSocket feeds map to Simulator server roles', () => {
+  assert.deepStrictEqual(build({
+    feedType: 'http-poller', httpMethod: 'GET',
+    url: 'https://simulator.example.com:8443/events?site=one', format: 'json',
+  }), {
+    connectionType: 'http-server', ip: 'simulator.example.com', port: 8443,
+    httpTls: true, httpPath: '/events?site=one', httpFormat: 'json', httpPolling: true,
+  });
+  assert.deepStrictEqual(build({
+    feedType: 'websocket', url: 'wss://simulator.example.com:9443/stream?tenant=demo', format: 'geo-json',
+  }), {
+    connectionType: 'ws-server', ip: 'simulator.example.com', port: 9443,
+    wsTls: true, wsPath: '/stream', wsFormat: 'geo-json',
+  });
+  assert.throws(() => build({
+    feedType: 'http-poller', httpMethod: 'POST', url: 'https://simulator.example.com/events',
+  }), /GET-based/);
 });
 
 test('credentials and fragments cannot enter saved transport fields', () => {

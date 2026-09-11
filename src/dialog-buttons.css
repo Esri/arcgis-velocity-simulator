@@ -79,7 +79,8 @@
 :is(.button-container, .about-container, .help-container, .protocol-settings-dialog, .velocity-login-dialog) button[id]:disabled {
   background: var(--dialog-button-disabled-bg);
   color: var(--dialog-button-disabled-text);
-  border: 1px dashed var(--dialog-button-disabled-text);
+  border: 1px solid var(--dialog-button-disabled-border);
+  outline: none;
   opacity: 1;
   box-shadow: none;
   transform: none;

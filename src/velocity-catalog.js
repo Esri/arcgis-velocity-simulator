@@ -54,6 +54,7 @@ class VelocityCatalog {
           id: JSON.stringify([server.id, item.id]),
           serverId: server.id,
           serverName: server.label,
+          serverApiUrl: context.apiBaseUrl,
         };
       });
     }, { serverId });
@@ -87,7 +88,8 @@ class VelocityCatalog {
     }
     if (!item || item.id !== selected.feedId) throw new Error('Velocity returned details for a different item.');
     const qualified = {
-      ...item, id, feedId: selected.feedId, serverId: selected.serverId, serverName: selected.serverName,
+      ...item, id, feedId: selected.feedId, serverId: selected.serverId,
+      serverName: selected.serverName, serverApiUrl: selected.serverApiUrl,
     };
     this.items.set(id, qualified);
     return qualified;
@@ -98,8 +100,8 @@ class VelocityCatalog {
     if (!item.supported) {
       throw new Error(item.unsupportedReason || item.reason || 'This item cannot be applied automatically.');
     }
-    this.validateItem(item);
-    return item;
+    const connectionOptions = this.validateItem(item);
+    return { ...item, connectionOptions };
   }
 }
 

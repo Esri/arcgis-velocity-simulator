@@ -42,6 +42,8 @@
 
   function isTokenCapableItem(item) {
     if (item && item.tokenOnly) return true;
+    const connectionType = item && item.connectionOptions && item.connectionOptions.connectionType;
+    if (typeof connectionType === 'string' && connectionType.endsWith('-server')) return false;
     return TOKEN_CAPABLE_TYPES.has(getVelocityItemType(item));
   }
 

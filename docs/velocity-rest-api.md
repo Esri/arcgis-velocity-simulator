@@ -244,8 +244,10 @@ port. A non-root path on a gRPC URL is rejected rather than used as an RPC
 prefix. The management context is not substituted into data endpoints.
 URLs with embedded credentials, fragments, or credential query parameters
 are rejected instead of saving temporary credentials in connection fields.
-An outbound WebSocket source is not a receiver the Simulator can publish
-to as another client, so WebSocket feeds are not applicable here.
+A WebSocket feed connects outward, so applying it selects **WebSocket Server**
+for the feed to connect to. A GET-based HTTP Poller selects **HTTP Server**
+with GET polling enabled. TCP and UDP feed roles are inverted so the Simulator
+uses the complementary client or server role.
 
 Review the populated settings in
 [Protocol settings and presets](connection-presets.md) before connecting.

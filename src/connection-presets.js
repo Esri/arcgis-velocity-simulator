@@ -100,6 +100,7 @@
     grpcAllowUnverifiedTls: { elementId: 'grpc-allow-unverified', kind: 'checked' },
 
     httpFormat: { elementId: 'http-format', kind: 'value' },
+    httpPolling: { elementId: 'http-polling', kind: 'checked' },
     httpTls: { elementId: 'http-tls', kind: 'checked' },
     httpPath: { elementId: 'http-path', kind: 'value' },
     httpTlsCaPath: { elementId: 'http-tls-ca-path', kind: 'value' },
@@ -174,6 +175,7 @@
     grpcAllowUnverifiedTls: false,
 
     httpFormat: 'delimited',
+    httpPolling: false,
     httpTls: true,
     httpPath: '/',
     httpTlsCaPath: '',

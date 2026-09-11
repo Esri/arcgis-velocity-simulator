@@ -116,6 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const httpPathInput = document.getElementById('http-path');
   const httpAllowUnverifiedGroup = document.getElementById('http-allow-unverified-group');
   const httpAllowUnverifiedCheckbox = document.getElementById('http-allow-unverified');
+  const httpPollingGroup = document.getElementById('http-polling-group');
+  const httpPollingCheckbox = document.getElementById('http-polling');
   const wsFormatSelect = document.getElementById('ws-format');
   const wsFormatGroup = document.getElementById('ws-format-group');
   const wsTlsCheckbox = document.getElementById('ws-tls');
@@ -506,9 +508,16 @@ document.addEventListener('DOMContentLoaded', () => {
     renderConnectionSummary();
   }
 
+  function updateProtocolGroupVisibility(protocol = getSelectedProtocol()) {
+    protocolSettingsDialog.querySelectorAll('.protocol-settings-group[data-protocol]').forEach((group) => {
+      group.hidden = group.dataset.protocol !== protocol;
+    });
+  }
+
   // Show/hide protocol-specific controls based on connection type
   connectionTypeSelect.addEventListener('change', () => {
     const val = connectionTypeSelect.value;
+    updateProtocolGroupVisibility(val.split('-')[0]);
     const isTcp = val.startsWith('tcp');
     const isUdp = val.startsWith('udp');
     const isGrpc = val.startsWith('grpc');
@@ -539,6 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
     httpTlsCertGroup.style.display = showHttpTlsCerts ? '' : 'none';
     httpTlsKeyGroup.style.display = showHttpTlsCerts ? '' : 'none';
     httpPathGroup.style.display = isHttp ? '' : 'none';
+    httpPollingGroup.style.display = val === 'http-server' ? '' : 'none';
 
     // WebSocket controls
     wsFormatGroup.style.display = isWs ? '' : 'none';
@@ -1329,6 +1339,11 @@ document.addEventListener('DOMContentLoaded', () => {
    * sections are offered, the read-only rules, and every summary surface.
    */
   function updateProtocolVisibility() {
+    const selectedProtocol = getSelectedProtocol();
+    updateProtocolGroupVisibility(selectedProtocol);
+    tcpFormatGroup.style.display = selectedProtocol === 'tcp' ? '' : 'none';
+    udpFormatGroup.style.display = selectedProtocol === 'udp' ? '' : 'none';
+    updateSocketConversionVisibility();
     updateProtocolSettingsMode();
     renderConnectionSummary();
   }
@@ -2247,6 +2262,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const httpTlsCertPath = document.getElementById('http-tls-cert-path').value || undefined;
     const httpTlsKeyPath = document.getElementById('http-tls-key-path').value || undefined;
     const httpPath = httpPathInput.value || '/';
+    const httpPolling = Boolean(httpPollingCheckbox && httpPollingCheckbox.checked);
     const httpAllowUnverifiedTls = isClientMode && Boolean(httpAllowUnverifiedCheckbox && httpAllowUnverifiedCheckbox.checked);
     // WebSocket-specific params
     const wsFormat = wsFormatSelect.value;
@@ -2273,7 +2289,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const socketFormatLabel = protocol === 'tcp' ? ` [${tcpPayload.format}]`
       : protocol === 'udp' ? ` [${udpPayload.format}]` : '';
     const httpLabel = protocol === 'http'
-      ? ` [${httpFormat}] ${httpTls ? (httpAllowUnverifiedTls ? 'tls=on (unverified)' : 'tls=on') : 'tls=off'} path=${httpPath}`
+      ? ` [${httpFormat}] ${httpTls ? (httpAllowUnverifiedTls ? 'tls=on (unverified)' : 'tls=on') : 'tls=off'} path=${httpPath}${httpPolling && mode === 'server' ? ' GET-polling' : ''}`
       : '';
     const wsLabel = protocol === 'ws' ? ` [${wsFormat}] ${wsTls ? 'wss' : 'ws'} path=${wsPath}` : '';
     const xmppLabel = protocol === 'xmpp' ? describeXmppConnectIntent(xmppOptions) : '';
@@ -2293,7 +2309,7 @@ document.addEventListener('DOMContentLoaded', () => {
       udpWkid: udpPayload.wkid,
       grpcSerialization: serialization, grpcSendMethod, headerPathKey, headerPath,
       useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls,
-      httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, httpAllowUnverifiedTls,
+      httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, httpPolling, httpAllowUnverifiedTls,
       wsFormat, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsPath, wsSubscriptionMsg,
       wsIgnoreFirstMsg, wsHeaders, wsAllowUnverifiedTls, ...xmppOptions,
     });
@@ -2755,7 +2771,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let options;
     try {
-      options = window.VelocityConnectionOptions.buildVelocityConnectionOptions(item);
+      options = item.connectionOptions
+        || window.VelocityConnectionOptions.buildVelocityConnectionOptions(item);
     } catch (error) {
       logStatus(`⚠ Feed not applied: ${error.message}`);
       return;
@@ -2912,6 +2929,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (presets.httpFormat !== undefined && httpFormatSelect) {
         httpFormatSelect.value = presets.httpFormat;
         httpFormatSelect.dispatchEvent(new Event('change'));
+      }
+      if (presets.httpPolling !== undefined && httpPollingCheckbox) {
+        httpPollingCheckbox.checked = presets.httpPolling === true || presets.httpPolling === 'true';
       }
       if (presets.httpTls !== undefined && httpTlsCheckbox) {
         httpTlsCheckbox.checked = presets.httpTls === true || presets.httpTls === 'true';

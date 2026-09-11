@@ -158,7 +158,7 @@
               <div class="protocol-settings-panels">
                 <div id="protocol-settings-panel-basics" class="protocol-settings-panel" role="tabpanel" tabindex="0" aria-labelledby="protocol-settings-tab-basics">
                   <div class="protocol-settings-group" data-protocol="tcp" data-section="basics">
-                    <div class="control-group aligned-group" id="tcp-format-group" style="display: none;">
+                    <div class="control-group aligned-group payload-format-row" id="tcp-format-group" style="display: none;">
                       <label for="tcp-format" data-tooltip="TCP payload format. The Simulator converts each logical record from the loaded CSV file before sending it. Delimited (CSV) preserves the existing comma-delimited workflow." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="TCP payload format">Format:</label>
                       <select id="tcp-format" data-tooltip="TCP payload format. The Simulator converts each logical record from the loaded CSV file before sending it. Delimited (CSV) preserves the existing comma-delimited workflow." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="TCP payload format">
                         <option value="delimited" selected title="Delimited (CSV) - send each logical CSV record as UTF-8 text terminated by a newline. This is the default and preserves existing replay behavior.">Delimited (CSV)</option>
@@ -169,7 +169,7 @@
                     </div>
                   </div>
                   <div class="protocol-settings-group" data-protocol="udp" data-section="basics">
-                    <div class="control-group aligned-group" id="udp-format-group" style="display: none;">
+                    <div class="control-group aligned-group payload-format-row" id="udp-format-group" style="display: none;">
                       <label for="udp-format" data-tooltip="UDP payload format. Each converted CSV record is sent as one complete UTF-8 datagram and must fit within 65,507 bytes." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="UDP payload format">Format:</label>
                       <select id="udp-format" data-tooltip="UDP payload format. Each converted CSV record is sent as one complete UTF-8 datagram and must fit within 65,507 bytes." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="UDP payload format">
                         <option value="delimited" selected title="Delimited (CSV) - send each logical CSV record as one UTF-8 datagram. This is the default and preserves existing replay behavior.">Delimited (CSV)</option>
@@ -385,7 +385,11 @@
                   </div>
                 </div>
                 <div id="protocol-settings-panel-advanced" class="protocol-settings-panel" role="tabpanel" tabindex="0" aria-labelledby="protocol-settings-tab-advanced" hidden>
-                  <div class="protocol-settings-group" id="tcp-advanced" data-protocol="tcp" data-section="advanced">
+                  <div class="protocol-settings-group payload-conversion-group" id="tcp-advanced" data-protocol="tcp" data-section="advanced">
+                    <div class="payload-conversion-intro">
+                      <strong>CSV source conversion</strong>
+                      <span>Use a header to name fields. Point settings appear only for GeoJSON and Esri JSON.</span>
+                    </div>
                     <div class="control-group aligned-group" id="tcp-input-has-header-group">
                       <label for="tcp-input-has-header" data-tooltip="Treat the first logical CSV record as field names and do not send it as an event. Leave off to preserve the existing behavior and generate field_1, field_2, and similar names for structured formats." data-tooltip-icon="▤" data-tooltip-kind="info" aria-label="TCP CSV header row">CSV header row:</label>
                       <input type="checkbox" id="tcp-input-has-header" data-tooltip="Treat the first logical CSV record as field names and do not send it as an event. Leave off to preserve the existing behavior and generate field_1, field_2, and similar names for structured formats." data-tooltip-icon="▤" data-tooltip-kind="info" aria-label="TCP CSV source has a header row">
@@ -403,7 +407,11 @@
                       <input type="number" id="tcp-wkid" value="4326" min="1" step="1" data-tooltip="Spatial reference WKID for generated point geometry. GeoJSON requires 4326; Esri JSON includes the configured WKID." data-tooltip-icon="⌖" data-tooltip-kind="info" aria-label="TCP payload spatial reference WKID">
                     </div>
                   </div>
-                  <div class="protocol-settings-group" id="udp-advanced" data-protocol="udp" data-section="advanced">
+                  <div class="protocol-settings-group payload-conversion-group" id="udp-advanced" data-protocol="udp" data-section="advanced">
+                    <div class="payload-conversion-intro">
+                      <strong>CSV source conversion</strong>
+                      <span>Use a header to name fields. Point settings appear only for GeoJSON and Esri JSON.</span>
+                    </div>
                     <div class="control-group aligned-group" id="udp-input-has-header-group">
                       <label for="udp-input-has-header" data-tooltip="Treat the first logical CSV record as field names and do not send it as an event. Leave off to preserve the existing behavior and generate field_1, field_2, and similar names for structured formats." data-tooltip-icon="▤" data-tooltip-kind="info" aria-label="UDP CSV header row">CSV header row:</label>
                       <input type="checkbox" id="udp-input-has-header" data-tooltip="Treat the first logical CSV record as field names and do not send it as an event. Leave off to preserve the existing behavior and generate field_1, field_2, and similar names for structured formats." data-tooltip-icon="▤" data-tooltip-kind="info" aria-label="UDP CSV source has a header row">
@@ -432,6 +440,10 @@
                     </div>
                   </div>
                   <div class="protocol-settings-group" id="http-advanced" data-protocol="http" data-section="advanced">
+                    <div class="control-group aligned-group" id="http-polling-group" style="display: none;">
+                      <label for="http-polling" data-tooltip="Serve the latest replay payload to GET requests at the configured HTTP path.&#10;---&#10;Off: GET requests provide status or Server-Sent Events.&#10;On: each ordinary GET receives the latest replay payload using the selected format.&#10;Default is off." data-tooltip-icon="↻" data-tooltip-kind="info" aria-label="Serve HTTP Poller requests">GET polling:</label>
+                      <input type="checkbox" id="http-polling" data-tooltip="Serve the latest replay payload to GET requests at the configured HTTP path.&#10;---&#10;Off: GET requests provide status or Server-Sent Events.&#10;On: each ordinary GET receives the latest replay payload using the selected format.&#10;Default is off." data-tooltip-icon="↻" data-tooltip-kind="info" aria-label="Serve latest replay payload to HTTP Poller GET requests">
+                    </div>
                   </div>
                   <div class="protocol-settings-group" id="ws-advanced" data-protocol="ws" data-section="advanced">
                     <div class="control-group aligned-group" id="ws-subscription-msg-group" style="display: none;">

@@ -56,11 +56,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const TYPE_META = {
     grpc: { icon: '\u2B21', label: 'gRPC', color: '#7c4dff' },
     'http-receiver': { icon: '\u25A0', label: 'HTTP', color: '#0097a7' },
+    'http-poller': { icon: '\u21BB', label: 'HTTP Poller', color: '#00838f' },
     websocket: { icon: '\u25C6', label: 'WebSocket', color: '#00897b' },
     mqtt: { icon: '\u25CE', label: 'MQTT', color: '#f57c00' },
     kafka: { icon: '\u25B2', label: 'Kafka', color: '#e53935' },
     tcp: { icon: '\u25D7', label: 'TCP', color: '#546e7a' },
+    'tcp-client': { icon: '\u25D7', label: 'TCP Client', color: '#546e7a' },
+    'tcp-server': { icon: '\u25D7', label: 'TCP Server', color: '#455a64' },
     udp: { icon: '\u25D6', label: 'UDP', color: '#78909c' },
+    'udp-client': { icon: '\u25D6', label: 'UDP Client', color: '#78909c' },
+    'udp-server': { icon: '\u25D6', label: 'UDP Server', color: '#607d8b' },
     'azure-event-hub': { icon: '\u2756', label: 'Azure Event Hub', color: '#0078d4' },
     'azure-service-bus': { icon: '\u2756', label: 'Azure Svc Bus', color: '#0062ad' },
     kinetic: { icon: '\u25C9', label: 'Kinetic', color: '#43a047' },
@@ -165,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error(result && result.error || 'The feed list response is invalid.');
       }
       listedRevision = result.revision;
-      allItems = result.items.map(item => ({ ...item, supported: Boolean(item.supported) && item.feedType !== 'websocket' }));
+      allItems = result.items.map(item => ({ ...item, supported: Boolean(item.supported) }));
       endpointUI.setListErrors(result.errors);
       populateTypeDropdown();
       pickerSection.classList.remove('hidden');
@@ -247,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (request !== detailGeneration || epoch !== endpointUI.generation) return;
       if (!details || details.error) throw new Error(details && details.error || 'The feed detail response is invalid.');
       if (details.id !== item.id) throw new Error('The feed detail response does not match the selected feed.');
-      const candidate = { ...details, supported: Boolean(details.supported) && details.feedType !== 'websocket' };
+      const candidate = { ...details, supported: Boolean(details.supported) };
       if (candidate.supported) window.VelocityConnectionOptions.buildVelocityConnectionOptions(candidate);
       selectedItem = candidate;
       showInfo(candidate);
@@ -270,7 +275,9 @@ document.addEventListener('DOMContentLoaded', () => {
     element('info-server').textContent = item.serverName
       ? `${item.serverName} (${item.serverId})` : item.serverId || '-';
     element('info-type').textContent = meta.label || type || '-';
-    element('info-url').textContent = item.url || item.host || '-';
+    element('info-url').textContent = item.url
+      || (item.host && item.port ? `${item.host}:${item.port}` : item.host)
+      || (item.port && item.serverApiUrl ? `${new URL(item.serverApiUrl).hostname}:${item.port}` : '-');
     element('info-auth').textContent = item.authType || 'none';
     element('info-format').textContent = item.format || '-';
     element('info-schema').textContent = Array.isArray(item.schema)

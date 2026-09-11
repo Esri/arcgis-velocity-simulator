@@ -7,6 +7,11 @@ body {
   --action-button-hover-text: var(--button-text);
   --action-button-disabled-bg: var(--button-disabled-bg);
   --action-button-disabled-text: var(--text-color);
+  --action-button-disabled-border: color-mix(
+    in srgb,
+    var(--action-button-disabled-text) 35%,
+    var(--action-button-disabled-bg)
+  );
 
   --action-primary-bg: var(--button-primary-bg);
   --action-primary-text: var(--button-text);
@@ -39,6 +44,7 @@ body {
   --dialog-button-hover-text: var(--action-button-hover-text);
   --dialog-button-disabled-bg: var(--action-button-disabled-bg);
   --dialog-button-disabled-text: var(--action-button-disabled-text);
+  --dialog-button-disabled-border: var(--action-button-disabled-border);
 }
 
 body.blue,

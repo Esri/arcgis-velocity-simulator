@@ -231,10 +231,12 @@ test('an XMPP server without certificate paths reports the automatic self-signed
 
 test('protocol rows describe formats, paths, serialization, and timings', () => {
   const http = rowsByKey(buildConnectionSummary({
-    ...BASE, connectionType: 'http-server', port: 8443, httpFormat: 'geo-json', httpPath: '/feed',
+    ...BASE, connectionType: 'http-server', port: 8443, httpFormat: 'geo-json',
+    httpPath: '/feed', httpPolling: true,
   }));
   assert.strictEqual(http.format.value, 'GeoJSON');
   assert.strictEqual(http.path.value, '/feed');
+  assert.strictEqual(http.httpPolling.value, 'On');
 
   const ws = rowsByKey(buildConnectionSummary({
     ...BASE, connectionType: 'ws-client', port: 8080, wsSubscriptionMsg: 'subscribe', wsIgnoreFirstMsg: true,

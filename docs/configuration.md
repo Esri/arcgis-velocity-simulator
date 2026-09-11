@@ -286,7 +286,7 @@ mode](headless.md).
 - `udpFormat`, `udpInputHasHeader`, `udpXField`, `udpYField`, `udpWkid`
 - `waitForClient`
 - `wsFormat`, `wsTls`, `wsPath`, `wsTlsCaPath`, `wsTlsCertPath`, `wsTlsKeyPath`, `wsSubscriptionMsg`, `wsIgnoreFirstMsg`, `wsHeaders`, `wsAllowUnverifiedTls`
-- `httpFormat`, `httpTls`, `httpPath`, `httpTlsCaPath`, `httpTlsCertPath`, `httpTlsKeyPath`, `httpAllowUnverifiedTls`
+- `httpFormat`, `httpPolling`, `httpTls`, `httpPath`, `httpTlsCaPath`, `httpTlsCertPath`, `httpTlsKeyPath`, `httpAllowUnverifiedTls`
 - `useTls`, `tlsCaPath`, `tlsCertPath`, `tlsKeyPath`, `allowUnverifiedTls`
 - `xmppConversation`, `xmppDomain`, `xmppTlsPolicy`
 - `xmppUsername`, `xmppPassword`, `xmppResource`, `xmppTlsCaPath`, `xmppAllowUnverifiedTls`, `xmppPingIntervalMs`, `xmppReconnectDelayMs`

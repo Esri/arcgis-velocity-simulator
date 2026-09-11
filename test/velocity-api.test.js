@@ -68,8 +68,39 @@ async function main() {
   const websocket = api.parseFeedItem({
     id: 'websocket', feed: { name: 'websocket', properties: { 'websocket.url': 'wss://source.example.com' } },
   });
-  assert.strictEqual(websocket.supported, false);
-  assert.match(websocket.reason, /outbound source/);
+  assert.strictEqual(websocket.supported, true);
+  assert.strictEqual(websocket.url, 'wss://source.example.com');
+  const poller = api.parseFeedItem({
+    id: 'poller',
+    feed: {
+      name: 'http-poller',
+      formatName: 'json',
+      properties: { 'http-poller.url': 'https://simulator.example.com/events', 'http-poller.httpMethod': 'GET' },
+    },
+  });
+  assert.strictEqual(poller.supported, true);
+  assert.strictEqual(poller.httpMethod, 'GET');
+  const postPoller = api.parseFeedItem({
+    id: 'post-poller',
+    feed: {
+      name: 'http-poller',
+      properties: { 'http-poller.url': 'https://simulator.example.com/events', 'http-poller.httpMethod': 'POST' },
+    },
+  });
+  assert.strictEqual(postPoller.supported, false);
+  assert.match(postPoller.reason, /GET-based/);
+  const udpServer = api.parseFeedItem({
+    id: 'udp-server',
+    feed: { name: 'udp-server', formatName: 'json', properties: { 'udp-server.port': 17009 } },
+  });
+  assert.strictEqual(udpServer.supported, true);
+  assert.strictEqual(udpServer.port, 17009);
+  const tcpClient = api.parseFeedItem({
+    id: 'tcp',
+    feed: { name: 'tcp', formatName: 'json', properties: { 'tcp.host': 'receiver.example.com', 'tcp.port': 17013 } },
+  });
+  assert.strictEqual(tcpClient.supported, true);
+  assert.strictEqual(tcpClient.host, 'receiver.example.com');
   for (const authority of [
     'receiver.example.com', 'receiver.example.com:443', 'receiver.example.com:7143',
     '[2001:db8::1]', '[2001:db8::1]:443', '[2001:db8::1]:7143',

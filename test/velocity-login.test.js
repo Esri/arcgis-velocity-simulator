@@ -252,14 +252,13 @@ async function test(name, run) {
     app.close();
   });
 
-  await test('WebSocket feeds stay unsupported even if a legacy list marks them supported', async () => {
-    const websocket = { ...feed(), feedType: 'websocket', url: 'wss://receiver.example.com' };
+  await test('WebSocket feeds remain supported as Simulator server endpoints', async () => {
+    const websocket = { ...feed(), feedType: 'websocket', url: 'wss://simulator.example.com/stream' };
     const app = await harness({ listItems: async () => list([websocket]), getItemDetails: async () => websocket });
     await app.signIn();
-    assert.strictEqual(app.element('item-select').options.length, 1);
-    app.element('filter-all-btn').click();
+    assert.strictEqual(app.element('item-select').options.length, 2);
     await app.selectFeed();
-    assert.strictEqual(app.element('apply-btn').disabled, true);
+    assert.strictEqual(app.element('apply-btn').disabled, false);
     app.close();
   });
 
@@ -550,7 +549,7 @@ async function test(name, run) {
 
   await test('an unsupported-only list reports the total and explains how to show its items', async () => {
     const items = Array.from({ length: 14 }, (_, index) => ({
-      ...feed(`source-${index}`), feedType: 'http-poller', supported: false,
+      ...feed(`source-${index}`), feedType: 'kafka', supported: false,
     }));
     const app = await harness({ listItems: async () => list(items) });
     await app.signIn();

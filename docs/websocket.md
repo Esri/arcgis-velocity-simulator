@@ -103,9 +103,9 @@ and port.
 
 Keep the path and any required non-secret query supplied by the WebSocket
 service; do not derive them from a management API URL. A Velocity WebSocket
-feed connects outward to a source, so it is not a receiver that the Simulator
-can publish to as another client. Use an explicitly configured server
-workflow for that direction. See
+feed connects outward to a source, so applying one selects **WebSocket
+Server**. The server matches the URL pathname; the feed retains any configured
+query in its outbound connection URL. See
 [ArcGIS Velocity REST API](velocity-rest-api.md#data-endpoints).
 
 ## Subscription message

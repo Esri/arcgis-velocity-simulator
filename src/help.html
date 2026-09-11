@@ -54,7 +54,7 @@
                     <ul>
                         <li><strong>Basics</strong> contains TCP and UDP payload format, HTTP and WebSocket format and path, gRPC serialization and RPC type, and XMPP conversation or account values.</li>
                         <li><strong>Security</strong> contains TLS or STARTTLS policy, certificate paths, certificate verification, and remote binding where applicable.</li>
-                        <li><strong>Advanced</strong> contains TCP and UDP CSV schema and geometry, optional headers, subscription messages, first-message handling, and XMPP timing values.</li>
+                        <li><strong>Advanced</strong> contains TCP and UDP CSV schema and geometry, HTTP GET polling, WebSocket subscription and first-message handling, and XMPP timing values.</li>
                         <li><strong>Summary</strong> provides the effective connection and warnings. Secrets are shown only as <code>Set (hidden)</code>, <code>Empty</code>, or <code>Not set</code>.</li>
                     </ul>
                     <p>Edits apply to the next connection. <strong>Done</strong> and <kbd>Escape</kbd> keep them; <strong>Revert changes</strong> restores the values present when the window opened; <strong>Reset to preset</strong> reapplies a modified preset. While connected, Settings opens read-only in Summary mode.</p>
@@ -68,7 +68,7 @@
                         <tbody>
                             <tr><td>TCP</td><td>You need a direct byte stream.</td><td>Choose Delimited (CSV), JSON, GeoJSON, or Esri JSON. Receivers frame newline-separated logical payloads.</td></tr>
                             <tr><td>UDP</td><td>You need independent datagrams.</td><td>Choose Delimited (CSV), JSON, GeoJSON, or Esri JSON. Each complete payload occupies one datagram.</td></tr>
-                            <tr><td>HTTP</td><td>You publish POST requests or host a receiving endpoint.</td><td>Configure format, path, and optional TLS in Settings.</td></tr>
+                            <tr><td>HTTP</td><td>You publish POST requests or host a receiving or polling endpoint.</td><td>Configure format, path, GET polling, and optional TLS in Settings.</td></tr>
                             <tr><td>WebSocket</td><td>You publish over a persistent WS or WSS connection.</td><td>Configure path, format, optional subscription message, first-message handling, and headers.</td></tr>
                             <tr><td>gRPC</td><td>You publish to a gRPC service or host a gRPC endpoint.</td><td>Configure serialization, RPC type, and optional endpoint metadata header.</td></tr>
                             <tr><td>XMPP</td><td>You publish direct or Multi-User Chat messages.</td><td>Configure the account, conversation, STARTTLS, and destination or room.</td></tr>
@@ -124,7 +124,7 @@
                     <h3>Connect to ArcGIS Velocity</h3>
                     <p>Select the ArcGIS Velocity sign-in control to browse feeds and apply supported connection settings. The shared <strong>Velocity endpoint</strong> section offers <strong>Automatic</strong> discovery or a <strong>Custom public URL</strong>. <strong>Detect again</strong> previews discovery; <strong>Apply URL</strong> validates the selected address with the current Portal session and reloads feeds.</p>
                     <p>If the Portal has multiple Velocity servers, <strong>All Velocity servers</strong> aggregates their feeds by default. Each result identifies its source server, and partial failures do not hide healthy results. Select one <strong>Server</strong> to edit its custom URL; each override belongs only to that Portal and server.</p>
-                    <p>Pending endpoint edits block feed application, and changing the Portal requires sign-in again. While disconnected, <strong>Apply</strong> fills validated connection settings without connecting or starting playback. WebSocket feeds are outbound sources, not publishing destinations. Stored passwords and feed secrets are never recovered.</p>
+                    <p>Pending endpoint edits block feed application, and changing the Portal requires sign-in again. While disconnected, <strong>Apply</strong> fills validated connection settings without connecting or starting playback. TCP, UDP, GET-based HTTP Poller, and WebSocket feeds select the complementary Simulator server or client role. Feeds that require an unimplemented broker or provider protocol remain visible under <strong>All</strong>. Stored passwords and feed secrets are never recovered.</p>
                     <p>After you apply a supported feed, the Simulator can attach its token to supported gRPC metadata, HTTP headers, and WebSocket upgrade headers. The token is refreshed before it expires and is never displayed in the interface.</p>
                     <p>See the <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/velocity-login.md" target="_blank" rel="noreferrer">ArcGIS Velocity sign-in guide</a> for controls, exact tooltips, feed selection, and authentication, and the <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/velocity-rest-api.md" target="_blank" rel="noreferrer">Velocity REST API guide</a> for public addresses, discovery, and resource paths.</p>
                 </section>
