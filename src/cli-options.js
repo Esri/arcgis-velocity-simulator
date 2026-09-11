@@ -51,6 +51,10 @@ const {
   XMPP_MIN_TIMING_MS,
 } = require('./xmpp-constants');
 const { INTERNAL_APP_USERNAME } = require('./xmpp-accounts');
+const {
+  DEFAULT_SOCKET_PAYLOAD_FORMAT,
+  SOCKET_PAYLOAD_FORMAT_SET,
+} = require('./payload-format-utils');
 
 const IS_WINDOWS_CONSOLE = os.platform() === 'win32';
 const CLI_SYMBOLS = {
@@ -104,6 +108,16 @@ const CLI_OPTION_KEYS = new Set([
   'onError',
   'doneFile',
   'runId',
+  'tcpFormat',
+  'tcpInputHasHeader',
+  'tcpXField',
+  'tcpYField',
+  'tcpWkid',
+  'udpFormat',
+  'udpInputHasHeader',
+  'udpXField',
+  'udpYField',
+  'udpWkid',
   'grpcHeaderPath',
   'grpcHeaderPathKey',
   'grpcSerialization',
@@ -183,6 +197,16 @@ const APP_DEFAULTS = {
   linesPerInterval: 1,
   intervalMs: 1000,
   loop: false,
+  tcpFormat: DEFAULT_SOCKET_PAYLOAD_FORMAT,
+  tcpInputHasHeader: false,
+  tcpXField: null,
+  tcpYField: null,
+  tcpWkid: 4326,
+  udpFormat: DEFAULT_SOCKET_PAYLOAD_FORMAT,
+  udpInputHasHeader: false,
+  udpXField: null,
+  udpYField: null,
+  udpWkid: 4326,
   grpcHeaderPath: 'replace.with.dedicated.uid',
   grpcHeaderPathKey: 'grpc-path',
   grpcSerialization: 'protobuf',
@@ -601,6 +625,86 @@ const CLI_PARAMETER_DEFINITIONS = [
     example: 'protocol=tcp',
     requiredInHeadless: 'No',
     purpose: 'Choose the network transport for headless replay. When protocol=xmpp the role defaults to client unless mode is given explicitly.',
+  },
+  {
+    key: 'tcpFormat',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.tcpFormat,
+    options: ['delimited', 'json', 'geo-json', 'esri-json'],
+    example: 'tcpFormat=json',
+    requiredInHeadless: 'No',
+    purpose: 'TCP payload format. Delimited is comma-separated CSV and is the default. Structured formats convert logical CSV records using the header when tcpInputHasHeader=true, otherwise generated field names. Only applies when protocol=tcp.',
+  },
+  {
+    key: 'tcpInputHasHeader',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.tcpInputHasHeader,
+    options: ['true', 'false'],
+    example: 'tcpInputHasHeader=true',
+    requiredInHeadless: 'No',
+    purpose: 'Treat the first logical CSV record as field names and omit it from TCP events. Leave false to preserve existing replay behavior and generate field_1, field_2, and similar names.',
+  },
+  {
+    key: 'tcpXField',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.tcpXField,
+    options: ['field name', 'omitted'],
+    example: 'tcpXField=longitude',
+    requiredInHeadless: 'No',
+    purpose: 'Optional CSV field used as the point X coordinate for TCP GeoJSON or Esri JSON conversion. tcpYField is required when this is set.',
+  },
+  {
+    key: 'tcpYField',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.tcpYField,
+    options: ['field name', 'omitted'],
+    example: 'tcpYField=latitude',
+    requiredInHeadless: 'No',
+    purpose: 'Optional CSV field used as the point Y coordinate for TCP GeoJSON or Esri JSON conversion. tcpXField is required when this is set.',
+  },
+  {
+    key: 'tcpWkid',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.tcpWkid,
+    options: ['positive integer'],
+    example: 'tcpWkid=4326',
+    requiredInHeadless: 'No',
+    purpose: 'Spatial reference WKID for generated TCP point geometry. GeoJSON requires 4326; Esri JSON includes the configured WKID.',
+  },
+  {
+    key: 'udpFormat',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.udpFormat,
+    options: ['delimited', 'json', 'geo-json', 'esri-json'],
+    example: 'udpFormat=geo-json',
+    requiredInHeadless: 'No',
+    purpose: 'UDP payload format. Each converted logical CSV record is sent as one complete datagram and must fit within 65,507 UTF-8 bytes. Only applies when protocol=udp.',
+  },
+  {
+    key: 'udpInputHasHeader',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.udpInputHasHeader,
+    options: ['true', 'false'],
+    example: 'udpInputHasHeader=true',
+    requiredInHeadless: 'No',
+    purpose: 'Treat the first logical CSV record as field names and omit it from UDP events. Leave false to preserve existing replay behavior and generate field_1, field_2, and similar names.',
+  },
+  {
+    key: 'udpXField',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.udpXField,
+    options: ['field name', 'omitted'],
+    example: 'udpXField=longitude',
+    requiredInHeadless: 'No',
+    purpose: 'Optional CSV field used as the point X coordinate for UDP GeoJSON or Esri JSON conversion. udpYField is required when this is set.',
+  },
+  {
+    key: 'udpYField',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.udpYField,
+    options: ['field name', 'omitted'],
+    example: 'udpYField=latitude',
+    requiredInHeadless: 'No',
+    purpose: 'Optional CSV field used as the point Y coordinate for UDP GeoJSON or Esri JSON conversion. udpXField is required when this is set.',
+  },
+  {
+    key: 'udpWkid',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.udpWkid,
+    options: ['positive integer'],
+    example: 'udpWkid=4326',
+    requiredInHeadless: 'No',
+    purpose: 'Spatial reference WKID for generated UDP point geometry. GeoJSON requires 4326; Esri JSON includes the configured WKID.',
   },
   {
     key: 'runId',
@@ -1872,6 +1976,41 @@ function validateHeadlessOptions(values, errors, warnings) {
     options.stdout = parseBoolean(normalized.stdout, 'stdout', errors);
   }
 
+  for (const key of ['tcpFormat', 'udpFormat']) {
+    if (normalized[key] === undefined) continue;
+    const format = String(normalized[key]).trim().toLowerCase();
+    if (!SOCKET_PAYLOAD_FORMAT_SET.has(format)) {
+      errors.push(`Invalid ${key} '${normalized[key]}'. Use delimited, json, geo-json, or esri-json.`);
+    } else {
+      options[key] = format;
+    }
+  }
+  for (const key of ['tcpInputHasHeader', 'udpInputHasHeader']) {
+    if (normalized[key] !== undefined) options[key] = parseBoolean(normalized[key], key, errors);
+  }
+  for (const key of ['tcpXField', 'tcpYField', 'udpXField', 'udpYField']) {
+    if (normalized[key] !== undefined) {
+      const field = String(normalized[key]).trim();
+      options[key] = field || null;
+    }
+  }
+  for (const key of ['tcpWkid', 'udpWkid']) {
+    if (normalized[key] === undefined) continue;
+    const wkid = parseInteger(normalized[key], key, errors);
+    if (wkid !== null && wkid <= 0) errors.push(`${key} must be a positive integer.`);
+    else if (wkid !== null) options[key] = wkid;
+  }
+  for (const prefix of ['tcp', 'udp']) {
+    const xField = options[`${prefix}XField`];
+    const yField = options[`${prefix}YField`];
+    if (Boolean(xField) !== Boolean(yField)) {
+      errors.push(`${prefix}XField and ${prefix}YField must be set together.`);
+    }
+    if (options[`${prefix}Format`] === 'geo-json' && options[`${prefix}Wkid`] !== 4326) {
+      errors.push(`${prefix}Wkid must be 4326 when ${prefix}Format=geo-json.`);
+    }
+  }
+
   if (normalized.grpcHeaderPathKey !== undefined && normalized.grpcHeaderPathKey !== '') {
     options.grpcHeaderPathKey = String(normalized.grpcHeaderPathKey).trim();
   }
@@ -2374,9 +2513,41 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
   let uiStartupPresets = null;
 
   if (!headlessRequested) {
+    for (const key of ['tcpFormat', 'udpFormat']) {
+      if (mergedValues[key] === undefined) continue;
+      const format = String(mergedValues[key]).trim().toLowerCase();
+      if (!SOCKET_PAYLOAD_FORMAT_SET.has(format)) {
+        errors.push(`Invalid ${key} '${mergedValues[key]}'. Use delimited, json, geo-json, or esri-json.`);
+      } else {
+        mergedValues[key] = format;
+      }
+    }
+    for (const key of ['tcpInputHasHeader', 'udpInputHasHeader']) {
+      if (mergedValues[key] !== undefined) mergedValues[key] = parseBoolean(mergedValues[key], key, errors);
+    }
+    for (const key of ['tcpWkid', 'udpWkid']) {
+      if (mergedValues[key] !== undefined) mergedValues[key] = parseInteger(mergedValues[key], key, errors, { min: 1 });
+    }
+    for (const prefix of ['tcp', 'udp']) {
+      const xField = mergedValues[`${prefix}XField`] === undefined ? ''
+        : String(mergedValues[`${prefix}XField`]).trim();
+      const yField = mergedValues[`${prefix}YField`] === undefined ? ''
+        : String(mergedValues[`${prefix}YField`]).trim();
+      if (Boolean(xField) !== Boolean(yField)) {
+        errors.push(`${prefix}XField and ${prefix}YField must be set together.`);
+      }
+      if (mergedValues[`${prefix}Format`] === 'geo-json'
+          && mergedValues[`${prefix}Wkid`] !== undefined
+          && mergedValues[`${prefix}Wkid`] !== 4326) {
+        errors.push(`${prefix}Wkid must be 4326 when ${prefix}Format=geo-json.`);
+      }
+    }
     // Keys that can prepopulate the UI when passed in UI mode.
     const uiPresetKeys = new Set([
-      'protocol', 'mode', 'ip', 'port', 'grpcSerialization', 'grpcSendMethod',
+      'protocol', 'mode', 'ip', 'port',
+      'tcpFormat', 'tcpInputHasHeader', 'tcpXField', 'tcpYField', 'tcpWkid',
+      'udpFormat', 'udpInputHasHeader', 'udpXField', 'udpYField', 'udpWkid',
+      'grpcSerialization', 'grpcSendMethod',
       'grpcHeaderPath', 'grpcHeaderPathKey', 'useTls', 'tlsCaPath', 'tlsCertPath', 'tlsKeyPath',
       'allowUnverifiedTls', 'httpAllowUnverifiedTls', 'wsAllowUnverifiedTls',
       'httpFormat', 'httpTls', 'httpPath', 'httpTlsCaPath', 'httpTlsCertPath', 'httpTlsKeyPath',
@@ -2497,6 +2668,16 @@ function formatExplainOutput(cliOptions) {
       ['mode', (presets && presets.mode) || `(default: ${d.mode})`],
       ['ip', (presets && presets.ip) || `(default: ${d.ip})`],
       ['port', (presets && presets.port) || `(default: ${d.port})`],
+      ['tcpFormat', (presets && presets.tcpFormat) || `(default: ${d.tcpFormat})`],
+      ['tcpInputHasHeader', presets && presets.tcpInputHasHeader !== undefined ? presets.tcpInputHasHeader : `(default: ${d.tcpInputHasHeader})`],
+      ['tcpXField', (presets && presets.tcpXField) || `(default: ${d.tcpXField || 'not set'})`],
+      ['tcpYField', (presets && presets.tcpYField) || `(default: ${d.tcpYField || 'not set'})`],
+      ['tcpWkid', (presets && presets.tcpWkid) || `(default: ${d.tcpWkid})`],
+      ['udpFormat', (presets && presets.udpFormat) || `(default: ${d.udpFormat})`],
+      ['udpInputHasHeader', presets && presets.udpInputHasHeader !== undefined ? presets.udpInputHasHeader : `(default: ${d.udpInputHasHeader})`],
+      ['udpXField', (presets && presets.udpXField) || `(default: ${d.udpXField || 'not set'})`],
+      ['udpYField', (presets && presets.udpYField) || `(default: ${d.udpYField || 'not set'})`],
+      ['udpWkid', (presets && presets.udpWkid) || `(default: ${d.udpWkid})`],
       ['grpcSerialization', (presets && presets.grpcSerialization) || `(default: ${d.grpcSerialization})`],
       ['grpcSendMethod', (presets && presets.grpcSendMethod) || `(default: ${d.grpcSendMethod})`],
       ['grpcHeaderPath', (presets && presets.grpcHeaderPath) || `(default: ${d.grpcHeaderPath})`],
@@ -2579,6 +2760,16 @@ function formatExplainOutput(cliOptions) {
       ['mode', h.mode],
       ['ip', h.ip],
       ['port', h.port],
+      ['tcpFormat', h.tcpFormat],
+      ['tcpInputHasHeader', h.tcpInputHasHeader],
+      ['tcpXField', h.tcpXField || '(not set)'],
+      ['tcpYField', h.tcpYField || '(not set)'],
+      ['tcpWkid', h.tcpWkid],
+      ['udpFormat', h.udpFormat],
+      ['udpInputHasHeader', h.udpInputHasHeader],
+      ['udpXField', h.udpXField || '(not set)'],
+      ['udpYField', h.udpYField || '(not set)'],
+      ['udpWkid', h.udpWkid],
       ['linesPerInterval', h.linesPerInterval],
       ['intervalMs', `${h.intervalMs}ms`],
       ['loop', h.loop],

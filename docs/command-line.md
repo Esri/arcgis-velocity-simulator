@@ -152,6 +152,16 @@ terminal help, the dialog, and this guide use the same terminology.
 | `grpcSendMethod` | `stream`, `unary` | `stream` | No | `grpcSendMethod=unary` | gRPC RPC type for client-mode sending. `stream` (default) uses a Client Streaming RPC — multiplexes all messages over a single persistent HTTP/2 stream for higher throughput. `unary` uses a Unary RPC — sends each message as a discrete request/response round-trip, easier to trace and debug. Only applies when `protocol=grpc` and `mode=client`. See [gRPC transport](grpc.md#send-methods-rpc-types). |
 | `startLine` | `integer >= 1` | `1` | No | `startLine=100` | 1-based inclusive start line for the replay window. |
 | `stdout` | `true`, `false` | `true` | No | `stdout=false` | Enable or disable console log output during headless runs. |
+| `tcpFormat` | `delimited`, `json`, `geo-json`, `esri-json` | `delimited` | No | `tcpFormat=json` | TCP payload format. The Simulator converts each logical CSV record before sending it; Delimited preserves the existing newline-terminated CSV behavior. Only applies when `protocol=tcp`. See [Data formats](data-formats.md) and [TCP transport](tcp.md). |
+| `tcpInputHasHeader` | `true`, `false` | `false` | No | `tcpInputHasHeader=true` | Treat the first logical CSV record as TCP field names and do not send it as an event. When false, structured formats use deterministic names such as `field_1` and `field_2`. |
+| `tcpXField` | field name, `omitted` | `(none)` | No | `tcpXField=longitude` | Optional CSV field used as the point X coordinate for TCP GeoJSON or Esri JSON conversion. Set it together with `tcpYField`. |
+| `tcpYField` | field name, `omitted` | `(none)` | No | `tcpYField=latitude` | Optional CSV field used as the point Y coordinate for TCP GeoJSON or Esri JSON conversion. Set it together with `tcpXField`. |
+| `tcpWkid` | `integer >= 1` | `4326` | No | `tcpWkid=4326` | Spatial reference WKID for generated TCP point geometry. GeoJSON requires 4326; Esri JSON includes the configured WKID. |
+| `udpFormat` | `delimited`, `json`, `geo-json`, `esri-json` | `delimited` | No | `udpFormat=geo-json` | UDP payload format. Each converted logical CSV record is one complete UTF-8 datagram and must not exceed 65,507 bytes. Only applies when `protocol=udp`. See [Data formats](data-formats.md) and [UDP transport](udp.md). |
+| `udpInputHasHeader` | `true`, `false` | `false` | No | `udpInputHasHeader=true` | Treat the first logical CSV record as UDP field names and do not send it as an event. When false, structured formats use deterministic names such as `field_1` and `field_2`. |
+| `udpXField` | field name, `omitted` | `(none)` | No | `udpXField=longitude` | Optional CSV field used as the point X coordinate for UDP GeoJSON or Esri JSON conversion. Set it together with `udpYField`. |
+| `udpYField` | field name, `omitted` | `(none)` | No | `udpYField=latitude` | Optional CSV field used as the point Y coordinate for UDP GeoJSON or Esri JSON conversion. Set it together with `udpXField`. |
+| `udpWkid` | `integer >= 1` | `4326` | No | `udpWkid=4326` | Spatial reference WKID for generated UDP point geometry. GeoJSON requires 4326; Esri JSON includes the configured WKID. |
 | `waitForClient` | `true`, `false` | `false` | No | `waitForClient=true` | In server mode, wait for at least one recipient before advancing through the file. When false (the default), data is sent immediately and lines are advanced even if no client is connected. Ignored in client mode. |
 | `wsAllowUnverifiedTls` | `true`, `false` | `false` | No | `wsAllowUnverifiedTls=true` | Explicitly accept an unverified WSS server certificate in client mode. The connection stays encrypted, but the server identity is not checked and the bypass applies to any host, not only localhost. Server mode is unaffected. Only applies when `protocol=ws`, `mode=client`, and `wsTls=true`. See [TLS and SSL security](tls.md#explicit-certificate-verification-bypass). |
 | `wsFormat` | `json`, `delimited`, `esri-json`, `geo-json`, `xml` | `delimited` | No | `wsFormat=json` | WebSocket message format and associated content type. Only applies when `protocol=ws`. |
@@ -326,6 +336,24 @@ npm run start:headless -- filename=./data.csv
 
 ```bash
 npm run start:headless -- filename=./data.csv protocol=tcp mode=client ip=127.0.0.1 port=5565 linesPerInterval=1 intervalMs=500
+```
+
+### Headless TCP GeoJSON with a CSV header
+
+The first logical record defines the field names and is not sent. Both
+coordinate mappings are required together, and GeoJSON requires WKID 4326:
+
+```bash
+npm run start:headless -- filename=./data.csv protocol=tcp mode=client ip=127.0.0.1 port=5565 tcpFormat=geo-json tcpInputHasHeader=true tcpXField=longitude tcpYField=latitude tcpWkid=4326
+```
+
+### Headless UDP Esri JSON with point geometry
+
+Each converted record is sent as one complete datagram. Esri JSON includes the
+configured WKID:
+
+```bash
+npm run start:headless -- filename=./data.csv protocol=udp mode=client ip=127.0.0.1 port=5565 udpFormat=esri-json udpInputHasHeader=true udpXField=x udpYField=y udpWkid=3857
 ```
 
 ### Headless TCP client that waits for the server and reconnects after restarts

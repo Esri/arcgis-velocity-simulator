@@ -33,11 +33,11 @@ The connection row holds only the fields that every protocol shares:
 
 | Inline | Moved into Protocol Settings |
 |---|---|
-| File selection, then the **Setup** toolbar: Preset, **Modified**, and Settings. | gRPC serialization, RPC type, and endpoint header. |
-| Connection type. | HTTP format and path. |
-| Host and Port. | WebSocket format, path, subscription message, **Skip 1st**, and headers. |
-| **Connect**, **Disconnect**, **Play/Pause**, and **Step**. | XMPP domain, conversation, account, destination, room, remote binding, and timing. |
-| File selection, the lines and interval rate fields, and the playback actions. | TLS toggles or the STARTTLS policy, certificate paths, and **Allow unverified**. |
+| File selection, then the **Setup** toolbar: Preset, **Modified**, and Settings. | TCP and UDP format, CSV header row, coordinate fields, and WKID. |
+| Connection type. | gRPC serialization, RPC type, and endpoint header. |
+| Host and Port. | HTTP format and path. |
+| **Connect**, **Disconnect**, **Play/Pause**, and **Step**. | WebSocket format, path, subscription message, **Skip 1st**, and headers. |
+| File selection, the lines and interval rate fields, and the playback actions. | XMPP domain, conversation, account, destination, room, remote binding, timing, TLS or STARTTLS, certificate paths, and **Allow unverified**. |
 
 No control is duplicated: each one exists once, in exactly one place, and keeps
 the element identifier it always had. The authoritative copy of every control
@@ -78,15 +78,14 @@ selected protocol and mode are not offered:
 
 | Section | Holds | Offered for |
 |---|---|---|
-| Basics | Format, path, serialization, RPC type, XMPP domain, conversation, account, and room fields. | gRPC, HTTP, WebSocket, XMPP. |
+| Basics | Format, path, serialization, RPC type, XMPP domain, conversation, account, and room fields. | TCP, UDP, gRPC, HTTP, WebSocket, XMPP. |
 | Security | TLS or the STARTTLS policy, certificate verification, the CA, certificate, and key paths, and XMPP **Allow remote**. | gRPC, HTTP, WebSocket, XMPP. |
-| Advanced | gRPC endpoint header, WebSocket subscription message, **Skip 1st**, headers, and the XMPP timing values. | gRPC Client, WebSocket, XMPP. |
+| Advanced | TCP and UDP CSV schema and geometry, gRPC endpoint header, WebSocket subscription message, **Skip 1st**, headers, and XMPP timing values. | TCP, UDP, gRPC Client, WebSocket, XMPP. |
 | Summary | Every connection setting as a read-only list, warnings first. | Every mode. |
 
-TCP and UDP have no protocol settings at all, so only **Summary** is offered and
-the panel explains where the connection fields live. HTTP has no Advanced
-settings, and a gRPC Server has none either because the endpoint header applies
-to client mode only.
+TCP and UDP offer Basics, Advanced, and Summary. HTTP has no Advanced settings,
+and a gRPC Server has none either because the endpoint header applies to client
+mode only.
 
 Sections use `tablist`, `tab`, and `tabpanel` semantics with a roving tab stop:
 only the selected tab is in the tab order, `←`, `→`, `↑`, and `↓` move between
@@ -203,7 +202,10 @@ Logger reports the identity it receives on.
 | `grpcSerialization` | Serialization | gRPC. |
 | `grpcRpcType` | RPC type | gRPC. |
 | `grpcEndpointHeader` | Endpoint header | gRPC Client. |
-| `format` | Format | HTTP, WebSocket. |
+| `format` | Format | TCP, UDP, HTTP, WebSocket. |
+| `csvHeader` | CSV header row | TCP, UDP. |
+| `pointFields` | Point fields | TCP, UDP. |
+| `wkid` | Geometry WKID | TCP, UDP. |
 | `path` | Path | HTTP, WebSocket. |
 | `wsSubscriptionMessage` | Subscription message | WebSocket. Presence only. |
 | `wsSkipFirstMessage` | Skip first message | WebSocket. |
@@ -316,6 +318,9 @@ controls still expose the same text as a non-visual accessible description.
 ## Related documentation
 
 - [Connection presets](connection-presets.md)
+- [Data formats](data-formats.md)
+- [TCP transport](tcp.md)
+- [UDP transport](udp.md)
 - [Keyboard shortcuts](keyboard-shortcuts.md)
 - [TLS and SSL security](tls.md)
 - [XMPP transport](xmpp.md)

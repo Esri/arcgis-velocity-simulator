@@ -4,6 +4,8 @@
  */
 
 const assert = require('assert');
+const net = require('net');
+const dgram = require('dgram');
 const WebSocket = require('ws');
 const { TransportManager } = require('../src/transport-manager.js');
 
@@ -196,6 +198,59 @@ async function run() {
     } finally {
       await client.disconnect();
       await new Promise((resolve) => wss.close(() => resolve()));
+    }
+  });
+
+  await test('TCP manager reconstructs structured records across socket chunks', async () => {
+    const server = new TransportManager({ logger });
+    const records = [];
+    server.on('data-received', ({ data }) => records.push(data));
+    let client;
+    try {
+      const listening = await server.connect({
+        protocol: 'tcp', mode: 'server', ip: '127.0.0.1', port: 0, tcpFormat: 'json',
+      });
+      client = net.createConnection({ host: '127.0.0.1', port: listening.address.port });
+      await new Promise((resolve, reject) => {
+        client.once('connect', resolve);
+        client.once('error', reject);
+      });
+      client.write(Buffer.from('{"value":"'));
+      client.write(Buffer.from('雪"}{"next":'));
+      client.write(Buffer.from('2}'));
+      await waitFor(() => records.length === 2, 'TCP records were not reconstructed');
+      assert.deepStrictEqual(records, ['{"value":"雪"}', '{"next":2}']);
+      client.end();
+      await new Promise(resolve => client.once('close', resolve));
+      assert.deepStrictEqual(records, ['{"value":"雪"}', '{"next":2}'], 'EOF must not duplicate a complete record');
+      client = null;
+    } finally {
+      if (client) client.destroy();
+      await server.disconnect();
+    }
+  });
+
+  await test('UDP manager excludes registration control traffic and preserves datagrams', async () => {
+    const server = new TransportManager({ logger });
+    const records = [];
+    server.on('data-received', ({ data }) => records.push(data));
+    const client = dgram.createSocket('udp4');
+    try {
+      const listening = await server.connect({
+        protocol: 'udp', mode: 'server', ip: '127.0.0.1', port: 0, udpFormat: 'json',
+      });
+      await new Promise((resolve, reject) => {
+        client.send(Buffer.from('UDP Client connected'), listening.address.port, '127.0.0.1', error => error ? reject(error) : resolve());
+      });
+      await new Promise((resolve, reject) => {
+        client.send(Buffer.from('{"id":1}'), listening.address.port, '127.0.0.1', error => error ? reject(error) : resolve());
+      });
+      await waitFor(() => records.length === 1, 'UDP payload was not received');
+      assert.deepStrictEqual(records, ['{"id":1}']);
+      await assert.rejects(server.send('not-json'), /Invalid JSON payload/);
+    } finally {
+      client.close();
+      await server.disconnect();
     }
   });
 }

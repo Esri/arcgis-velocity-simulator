@@ -574,13 +574,19 @@ select {
   text-align-last: left;
 }
 
+#tcp-format,
+#udp-format,
 #http-format {
   text-align: left;
   text-align-last: left;
 }
 
 #grpc-header-path-key,
-#grpc-header-path {
+#grpc-header-path,
+#tcp-x-field,
+#tcp-y-field,
+#udp-x-field,
+#udp-y-field {
   text-align: left;
 }
 

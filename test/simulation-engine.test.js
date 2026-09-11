@@ -4,6 +4,9 @@
  */
 
 const { EventEmitter } = require('events');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { SimulationEngine } = require('../src/simulation-engine.js');
 
 class FakeTransport extends EventEmitter {
@@ -155,6 +158,38 @@ async function runSimulationEngineTests() {
       && transport.sentPayloads.join(',') === 'line-1,line-3,line-4';
   });
 
+  console.log('\n--- Test 4: TCP and UDP payload conversion ---');
+  await runAsyncTest('headless UDP converts logical CSV records to JSON before sending', async () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'velocity-engine-format-'));
+    const filename = path.join(directory, 'events.csv');
+    try {
+      fs.writeFileSync(filename, 'id,name\r\n001,"First\r\nEvent"\r\n002,Second\r\n');
+      const transport = new FakeTransport();
+      const engine = new SimulationEngine({
+        transport,
+        logger: silentLogger,
+        options: {
+          filename,
+          protocol: 'udp',
+          mode: 'client',
+          udpFormat: 'json',
+          udpInputHasHeader: true,
+          maxLines: 2,
+          intervalMs: 5,
+          linesPerInterval: 1,
+        },
+      });
+      const summary = await engine.run();
+      return summary.status === 'completed'
+        && summary.linesSent === 2
+        && JSON.parse(transport.sentPayloads[0]).id === '001'
+        && JSON.parse(transport.sentPayloads[0]).name === 'First\r\nEvent'
+        && JSON.parse(transport.sentPayloads[1]).id === '002';
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   console.log('\n=== Test Results ===');
   console.log(`✅ Passed: ${passed}`);
   console.log(`❌ Failed: ${failed}`);
@@ -171,5 +206,4 @@ if (require.main === module) {
     process.exit(1);
   });
 }
-
 

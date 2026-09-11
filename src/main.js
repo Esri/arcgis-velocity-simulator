@@ -36,6 +36,19 @@ const { APP_DEFAULTS, DEFAULT_LOG_LEVEL, formatCliStartupErrorOutput, formatExpl
 const { EXIT_CODES, runHeadlessSession } = require(path.join(basePath, 'headless-runner.js'));
 const { createProtocolSettingsWindowManager } = require(path.join(basePath, 'protocol-settings-window-manager.js'));
 const { createReferenceWindowManager } = require(path.join(basePath, 'reference-window-manager.js'));
+const { loadReplayPayloadsFromFile } = require(path.join(basePath, 'file-source.js'));
+const {
+  SOCKET_PAYLOAD_FORMAT_SET,
+  assertTcpPayloadSize,
+  assertUdpPayloadSize,
+  validatePayload,
+} = require(path.join(basePath, 'payload-format-utils.js'));
+const {
+  attachTcpPayloadReceiver,
+  createUdpPayloadReceiver,
+  finishTcpPayloadReceiver,
+} = require(path.join(basePath, 'socket-payload-receiver.js'));
+const { isUdpClientRegistrationMessage } = require(path.join(basePath, 'udp-utils.js'));
 
 const SUPPORTED_THEMES = new Set([
   'light', 'dark', 'dark-gray', 'light-gray', 'blue', 'green',
@@ -146,6 +159,7 @@ let errorWindow = null; // The error dialog instance.
 let connection = null; // Holds the active server or client socket.
 let tcpClientSockets = []; // Array of connected TCP client sockets (when in server mode).
 let udpServerClients = new Set(); // Set of known UDP clients (when in server mode).
+let activeSocketPayloadFormat = null;
 let grpcTransport = null; // Holds active gRPC transport (GrpcClientTransport or GrpcServerTransport).
 let inspectModeActive = false; // Tracks whether Inspect Element pick mode is active.
 let devToolsOpen = false; // Tracks whether DevTools is currently open (synced via devtools-opened/closed events).
@@ -1514,6 +1528,7 @@ const emitConnectionStatus = (status, message) => {
   if (status === 'disconnected') {
     velocityConnectionBusy = false;
     velocityTransportRevision = null;
+    activeSocketPayloadFormat = null;
   }
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('connection-status-changed', status, message);
@@ -1619,6 +1634,16 @@ async function getCurrentLaunchConfig() {
       const loopBtn = document.getElementById('toggle-loop-button');
       const isLooping = loopBtn ? loopBtn.classList.contains('active') : false;
       return JSON.stringify({
+        tcpFormat: getVal('tcp-format') || 'delimited',
+        tcpInputHasHeader: getChecked('tcp-input-has-header'),
+        tcpXField: getVal('tcp-x-field') || null,
+        tcpYField: getVal('tcp-y-field') || null,
+        tcpWkid: getInteger('tcp-wkid', 4326),
+        udpFormat: getVal('udp-format') || 'delimited',
+        udpInputHasHeader: getChecked('udp-input-has-header'),
+        udpXField: getVal('udp-x-field') || null,
+        udpYField: getVal('udp-y-field') || null,
+        udpWkid: getInteger('udp-wkid', 4326),
         grpcHeaderPath: getVal('grpc-header-path') || 'replace.with.dedicated.uid',
         grpcHeaderPathKey: getVal('grpc-header-path-key') || 'grpc-path',
         grpcSendMethod: getVal('grpc-send-method') || 'stream',
@@ -1681,6 +1706,16 @@ async function getCurrentLaunchConfig() {
       connectRetryIntervalMs: 1000,
       connectTimeoutMs: 0,
       connectWaitForServer: false,
+      tcpFormat: s.tcpFormat,
+      tcpInputHasHeader: s.tcpInputHasHeader,
+      tcpXField: s.tcpXField,
+      tcpYField: s.tcpYField,
+      tcpWkid: s.tcpWkid,
+      udpFormat: s.udpFormat,
+      udpInputHasHeader: s.udpInputHasHeader,
+      udpXField: s.udpXField,
+      udpYField: s.udpYField,
+      udpWkid: s.udpWkid,
       grpcHeaderPath: s.grpcHeaderPath,
       grpcHeaderPathKey: s.grpcHeaderPathKey,
       grpcSendMethod: s.grpcSendMethod,
@@ -2286,6 +2321,25 @@ ipcMain.handle('read-csv-file', (event, filePath) => {
   });
 });
 
+ipcMain.handle('read-replay-file', async (event, filePath, options = {}) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) {
+    throw new Error('Only the main window can load replay data.');
+  }
+  if (!filePath || typeof filePath !== 'string' || !options || typeof options !== 'object' || Array.isArray(options)) {
+    throw new Error('A valid replay file and payload options are required.');
+  }
+  const protocol = options.protocol;
+  if (!['tcp', 'udp'].includes(protocol)) throw new Error('Replay conversion is available only for TCP and UDP.');
+  return loadReplayPayloadsFromFile(filePath, {
+    protocol,
+    format: options.format,
+    hasHeaderRow: options.hasHeaderRow === true,
+    xField: typeof options.xField === 'string' && options.xField.trim() ? options.xField.trim() : undefined,
+    yField: typeof options.yField === 'string' && options.yField.trim() ? options.yField.trim() : undefined,
+    wkid: Number.parseInt(options.wkid, 10) || 4326,
+  });
+});
+
 // IPC handlers for config import/export
 ipcMain.handle('export-config', async (event, filePath) => {
   if (!configManager) {
@@ -2358,7 +2412,8 @@ ipcMain.handle('get-microphone-support-state', () => {
 // Establishes a TCP or UDP connection based on the provided parameters.
 ipcMain.handle('connect', (event, options) => {
   const {
-    protocol, mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath,
+    protocol, mode, ip, port, tcpFormat = 'delimited', udpFormat = 'delimited',
+    grpcSerialization, grpcSendMethod, headerPathKey, headerPath,
     useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls,
     httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, httpAllowUnverifiedTls,
     wsFormat, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsPath,
@@ -2381,6 +2436,12 @@ ipcMain.handle('connect', (event, options) => {
     return { success: false, error: 'Unsupported protocol or mode' };
   }
 
+  if ((protocol === 'tcp' && !SOCKET_PAYLOAD_FORMAT_SET.has(tcpFormat))
+      || (protocol === 'udp' && !SOCKET_PAYLOAD_FORMAT_SET.has(udpFormat))) {
+    logStatus('Error: Choose Delimited, JSON, GeoJSON, or Esri JSON for TCP or UDP.');
+    return { success: false, error: 'Invalid TCP or UDP payload format' };
+  }
+
   if (!port || port < 1 || port > 65535) {
     logStatus('Error: Valid port number required (1-65535).');
     return { success: false, error: 'Invalid port' };
@@ -2393,6 +2454,7 @@ ipcMain.handle('connect', (event, options) => {
 
   velocityConnectionBusy = true;
   velocityTransportRevision = velocityAppliedRevision;
+  activeSocketPayloadFormat = protocol === 'tcp' ? tcpFormat : protocol === 'udp' ? udpFormat : null;
   try {
     if (protocol === 'tcp') {
       if (mode === 'server') {
@@ -2401,8 +2463,14 @@ ipcMain.handle('connect', (event, options) => {
           tcpClientSockets.push(socket);
           // Reset flag when client connects
           hasLoggedNoClients = false;
-          socket.on('data', (data) => logStatus(`Received from client: ${data.toString()}`));
+          attachTcpPayloadReceiver(socket, {
+            format: tcpFormat,
+            context: { clientKey: `${socket.remoteAddress}:${socket.remotePort}` },
+            onRecord: (data) => logStatus(`Received from client: ${data}`),
+            onWarning: (message, context) => logStatus(`TCP payload warning (${context.clientKey}): ${message}`),
+          });
           socket.on('close', () => {
+            finishTcpPayloadReceiver(socket);
             logStatus('Client disconnected.');
             tcpClientSockets = tcpClientSockets.filter((s) => s !== socket);
             // Reset flag when client disconnects so message can be logged again if needed
@@ -2417,12 +2485,18 @@ ipcMain.handle('connect', (event, options) => {
         server.listen(port, ip, () => {
           connection = server;
           const address = server.address();
-          emitConnectionStatus('connected', `TCP Server listening on ${address.address}:${address.port}`);
+          emitConnectionStatus('connected', `TCP Server listening on ${address.address}:${address.port} [${tcpFormat}]`);
         });
       } else { // TCP Client
         const client = net.createConnection({ host: ip, port }, () => {
           connection = client;
-          emitConnectionStatus('connected', `TCP client connected to ${ip}:${port} from local port ${client.localPort}`);
+          emitConnectionStatus('connected', `TCP client connected to ${ip}:${port} from local port ${client.localPort} [${tcpFormat}]`);
+        });
+        attachTcpPayloadReceiver(client, {
+          format: tcpFormat,
+          context: { clientKey: `${ip}:${port}` },
+          onRecord: (data) => logStatus(`Received from TCP server: ${data}`),
+          onWarning: (message, context) => logStatus(`TCP payload warning (${context.clientKey}): ${message}`),
         });
         client.on('error', (err) => {
           emitConnectionStatus('disconnected', `TCP Client error: ${err.message}`);
@@ -2437,6 +2511,12 @@ ipcMain.handle('connect', (event, options) => {
       const socket = dgram.createSocket('udp4');
       if (mode === 'server') {
         udpServerClients = new Set();
+        const receiveUdpPayload = createUdpPayloadReceiver({
+          format: udpFormat,
+          isControlDatagram: isUdpClientRegistrationMessage,
+          onRecord: (data, clientKey) => logStatus(`Received from ${clientKey}: ${data}`),
+          onWarning: (message, clientKey) => logStatus(`UDP payload warning (${clientKey}): ${message}`),
+        });
         socket.on('error', (err) => {
           emitConnectionStatus('disconnected', `UDP Server error: ${err.message}`);
           socket.close();
@@ -2446,7 +2526,7 @@ ipcMain.handle('connect', (event, options) => {
           const address = socket.address();
           connection = { socket, protocol, mode };
           logStatus(`UDP Server successfully bound and listening on ${address.address}:${address.port}`);
-          emitConnectionStatus('connected', `UDP Server listening on ${address.address}:${address.port}`);
+          emitConnectionStatus('connected', `UDP Server listening on ${address.address}:${address.port} [${udpFormat}]`);
         });
         socket.on('message', (msg, rinfo) => {
           const clientKey = `${rinfo.address}:${rinfo.port}`;
@@ -2454,14 +2534,14 @@ ipcMain.handle('connect', (event, options) => {
             udpServerClients.add(clientKey);
             logStatus(`New UDP client detected: ${clientKey}`);
           }
-          logStatus(`Received from ${clientKey}: ${msg}`);
+          receiveUdpPayload(msg, clientKey);
         });
         socket.bind(port, ip);
       } else { // UDP Client
         socket.bind(() => {
           const localAddress = socket.address();
           connection = { socket, protocol, mode, ip, port };
-          emitConnectionStatus('connected', `UDP Client ready to send to ${ip}:${port} from local port ${localAddress.port}`);
+          emitConnectionStatus('connected', `UDP Client ready to send to ${ip}:${port} from local port ${localAddress.port} [${udpFormat}]`);
         });
       }
     } else if (protocol === 'grpc') {
@@ -2703,6 +2783,10 @@ ipcMain.on('send-data', (event, data) => {
   }
 
   try {
+    if (activeSocketPayloadFormat) {
+      validatePayload(data, activeSocketPayloadFormat);
+      if (connection instanceof net.Server || connection instanceof net.Socket) assertTcpPayloadSize(data);
+    }
     const message = data + '\n';
     if (connection instanceof net.Server) { // TCP Server
       if (tcpClientSockets.length > 0) {
@@ -2727,6 +2811,7 @@ ipcMain.on('send-data', (event, data) => {
         logStatus('TCP connection is closed.');
       }
     } else if (connection.socket && connection.mode === 'client') { // UDP Client
+      assertUdpPayloadSize(data);
       const buffer = Buffer.from(data);
       connection.socket.send(buffer, connection.port, connection.ip, (err) => {
         if (err) logStatus(`UDP send error: ${err.message}`);
@@ -2735,6 +2820,7 @@ ipcMain.on('send-data', (event, data) => {
       if (udpServerClients.size === 0) {
         logStatus('No UDP clients to send data to.');
       } else {
+        assertUdpPayloadSize(data);
         const buffer = Buffer.from(data);
         udpServerClients.forEach((clientKey) => {
           const [host, port] = clientKey.split(':');

@@ -583,6 +583,26 @@ function enableConnect(document) {
     assert.strictEqual(connect.allowUnverifiedTls, false);
   });
 
+  await uiTest('TCP and UDP payload settings reach Connect without changing the default', async ({ document, window, state }) => {
+    const connectionType = document.getElementById('connection-type');
+    connectionType.value = 'tcp-client';
+    connectionType.dispatchEvent(new window.Event('change'));
+    document.getElementById('tcp-format').value = 'geo-json';
+    document.getElementById('tcp-input-has-header').checked = true;
+    document.getElementById('tcp-x-field').value = 'longitude';
+    document.getElementById('tcp-y-field').value = 'latitude';
+    document.getElementById('tcp-wkid').value = '4326';
+    enableConnect(document).click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const tcp = state.connects[state.connects.length - 1];
+    assert.strictEqual(tcp.tcpFormat, 'geo-json');
+    assert.strictEqual(tcp.tcpInputHasHeader, true);
+    assert.strictEqual(tcp.tcpXField, 'longitude');
+    assert.strictEqual(tcp.tcpYField, 'latitude');
+    assert.strictEqual(tcp.tcpWkid, 4326);
+    assert.strictEqual(tcp.udpFormat, 'delimited');
+  });
+
   await uiTest('CLI prepopulation fills fields without marking the preset modified', async ({ document, state }) => {
     state.listeners.get('cli-presets')({
       protocol: 'ws', mode: 'client', ip: '127.0.0.1', port: 8443,

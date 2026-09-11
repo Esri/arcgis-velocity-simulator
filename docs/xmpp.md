@@ -648,6 +648,7 @@ publish into it.
 | [Connection summary and protocol settings](connection-summary.md) | The read-only description of the current connection and its warnings. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
+| [Data formats](data-formats.md) | Shared input-versus-payload concepts for socket replay. |
 | [Configuration](configuration.md) | App Config and Launch Config settings, storage locations, and reset steps. |
 | [Configuration](configuration.md) | App Config and Launch Config settings, storage locations, and the launch configuration samples. |
 | [Developer guide](developer-guide.md) | Repository structure, local development, tests, debugging, and extension points. |

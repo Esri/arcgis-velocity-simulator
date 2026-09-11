@@ -73,7 +73,8 @@ These rules are durable: they apply to every documentation change, not just the 
 
 | Guide | Owns |
 |-------|------|
-| `docs/grpc.md`, `docs/http.md`, `docs/websocket.md`, `docs/xmpp.md` | Their protocol's behavior, user interface controls, tooltip reference, and troubleshooting. |
+| `docs/tcp.md`, `docs/udp.md`, `docs/grpc.md`, `docs/http.md`, `docs/websocket.md`, `docs/xmpp.md` | Their protocol's behavior, user interface controls, tooltip reference, and troubleshooting. |
+| `docs/data-formats.md` | Shared input, payload, and export format concepts; TCP and UDP payload choices; CSV conversion; schemas and geometry; framing; compatibility; and shared troubleshooting. |
 | `docs/tls.md` | Shared certificate concepts: certificate types, trust stores, mutual TLS, automatic self-signed certificates, and the TLS Trust Badge. |
 | `docs/command-line.md` | The command-line option reference: every parameter, its values, default, headless requirement, and example. |
 | `docs/headless.md` | Headless workflows: no-UI replay sessions, the launch configuration workflow, and completion artifacts. |

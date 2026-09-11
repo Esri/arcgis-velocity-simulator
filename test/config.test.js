@@ -153,6 +153,15 @@ async function runConfigTests() {
   const xmppSecretKeys = [
     'xmppExternalPassword', 'xmppPassword', 'xmppRoomPassword',
   ];
+  const socketPayloadKeys = [
+    'tcpFormat', 'tcpInputHasHeader', 'tcpXField', 'tcpYField', 'tcpWkid',
+    'udpFormat', 'udpInputHasHeader', 'udpXField', 'udpYField', 'udpWkid',
+  ];
+  runTest('Every launch-config sample includes TCP and UDP payload conversion settings', () =>
+    sampleNames.every((name) => {
+      const sample = JSON.parse(fs.readFileSync(path.join(__dirname, '../docs/examples', name), 'utf8'));
+      return socketPayloadKeys.every((key) => Object.hasOwn(sample.connection, key));
+    }));
   runTest('Every launch-config sample includes the complete XMPP mapping', () =>
     sampleNames.every((name) => {
       const sample = JSON.parse(fs.readFileSync(path.join(__dirname, '../docs/examples', name), 'utf8'));
@@ -165,6 +174,11 @@ async function runConfigTests() {
   );
   runTest('Saved launch configurations map every non-secret XMPP setting', () =>
     xmppKeys.filter((key) => !xmppSecretKeys.includes(key)).every((key) =>
+      mainSource.includes(`${key}: s.${key}`) ||
+      mainSource.includes(`${key}: getVal(`) ||
+      mainSource.includes(`${key}: getChecked(`)));
+  runTest('Saved launch configurations map every TCP and UDP payload setting', () =>
+    socketPayloadKeys.every((key) =>
       mainSource.includes(`${key}: s.${key}`) ||
       mainSource.includes(`${key}: getVal(`) ||
       mainSource.includes(`${key}: getChecked(`)));

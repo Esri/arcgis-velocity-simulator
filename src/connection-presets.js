@@ -77,6 +77,18 @@
     host: { elementId: 'ip-address', kind: 'value' },
     port: { elementId: 'port', kind: 'value' },
 
+    tcpFormat: { elementId: 'tcp-format', kind: 'value' },
+    tcpInputHasHeader: { elementId: 'tcp-input-has-header', kind: 'checked' },
+    tcpXField: { elementId: 'tcp-x-field', kind: 'value' },
+    tcpYField: { elementId: 'tcp-y-field', kind: 'value' },
+    tcpWkid: { elementId: 'tcp-wkid', kind: 'value' },
+
+    udpFormat: { elementId: 'udp-format', kind: 'value' },
+    udpInputHasHeader: { elementId: 'udp-input-has-header', kind: 'checked' },
+    udpXField: { elementId: 'udp-x-field', kind: 'value' },
+    udpYField: { elementId: 'udp-y-field', kind: 'value' },
+    udpWkid: { elementId: 'udp-wkid', kind: 'value' },
+
     grpcSerialization: { elementId: 'grpc-serialization', kind: 'value' },
     grpcSendMethod: { elementId: 'grpc-send-method', kind: 'value' },
     grpcHeaderPathKey: { elementId: 'grpc-header-path-key', kind: 'value' },
@@ -138,6 +150,18 @@
     connectionType: 'tcp-server',
     host: CONNECTION_PRESET_HOST,
     port: 5565,
+
+    tcpFormat: 'delimited',
+    tcpInputHasHeader: false,
+    tcpXField: '',
+    tcpYField: '',
+    tcpWkid: 4326,
+
+    udpFormat: 'delimited',
+    udpInputHasHeader: false,
+    udpXField: '',
+    udpYField: '',
+    udpWkid: 4326,
 
     grpcSerialization: 'protobuf',
     grpcSendMethod: 'stream',

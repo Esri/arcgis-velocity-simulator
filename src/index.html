@@ -157,6 +157,28 @@
               </div>
               <div class="protocol-settings-panels">
                 <div id="protocol-settings-panel-basics" class="protocol-settings-panel" role="tabpanel" tabindex="0" aria-labelledby="protocol-settings-tab-basics">
+                  <div class="protocol-settings-group" data-protocol="tcp" data-section="basics">
+                    <div class="control-group aligned-group" id="tcp-format-group" style="display: none;">
+                      <label for="tcp-format" data-tooltip="TCP payload format. The Simulator converts each logical record from the loaded CSV file before sending it. Delimited (CSV) preserves the existing comma-delimited workflow." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="TCP payload format">Format:</label>
+                      <select id="tcp-format" data-tooltip="TCP payload format. The Simulator converts each logical record from the loaded CSV file before sending it. Delimited (CSV) preserves the existing comma-delimited workflow." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="TCP payload format">
+                        <option value="delimited" selected title="Delimited (CSV) - send each logical CSV record as UTF-8 text terminated by a newline. This is the default and preserves existing replay behavior.">Delimited (CSV)</option>
+                        <option value="json" title="JSON - convert each CSV record to a JSON object using the header row or generated field names.">JSON</option>
+                        <option value="geo-json" title="GeoJSON - convert each CSV record to a GeoJSON Feature. Configure X and Y fields to create point geometry, or leave them empty for null geometry.">GeoJSON</option>
+                        <option value="esri-json" title="Esri JSON - convert each CSV record to an Esri JSON feature with attributes. Configure X and Y fields to create point geometry.">Esri JSON</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="protocol-settings-group" data-protocol="udp" data-section="basics">
+                    <div class="control-group aligned-group" id="udp-format-group" style="display: none;">
+                      <label for="udp-format" data-tooltip="UDP payload format. Each converted CSV record is sent as one complete UTF-8 datagram and must fit within 65,507 bytes." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="UDP payload format">Format:</label>
+                      <select id="udp-format" data-tooltip="UDP payload format. Each converted CSV record is sent as one complete UTF-8 datagram and must fit within 65,507 bytes." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="UDP payload format">
+                        <option value="delimited" selected title="Delimited (CSV) - send each logical CSV record as one UTF-8 datagram. This is the default and preserves existing replay behavior.">Delimited (CSV)</option>
+                        <option value="json" title="JSON - convert each CSV record to one JSON object per datagram.">JSON</option>
+                        <option value="geo-json" title="GeoJSON - convert each CSV record to one GeoJSON Feature per datagram. Configure X and Y fields to create point geometry.">GeoJSON</option>
+                        <option value="esri-json" title="Esri JSON - convert each CSV record to one Esri JSON feature per datagram. Configure X and Y fields to create point geometry.">Esri JSON</option>
+                      </select>
+                    </div>
+                  </div>
                   <div class="protocol-settings-group" data-protocol="grpc" data-section="basics">
                     <div class="control-group aligned-group" id="grpc-serialization-group" style="display: none;">
                       <label for="grpc-serialization">Serialization:</label>
@@ -363,6 +385,42 @@
                   </div>
                 </div>
                 <div id="protocol-settings-panel-advanced" class="protocol-settings-panel" role="tabpanel" tabindex="0" aria-labelledby="protocol-settings-tab-advanced" hidden>
+                  <div class="protocol-settings-group" id="tcp-advanced" data-protocol="tcp" data-section="advanced">
+                    <div class="control-group aligned-group" id="tcp-input-has-header-group">
+                      <label for="tcp-input-has-header" data-tooltip="Treat the first logical CSV record as field names and do not send it as an event. Leave off to preserve the existing behavior and generate field_1, field_2, and similar names for structured formats." data-tooltip-icon="▤" data-tooltip-kind="info" aria-label="TCP CSV header row">CSV header row:</label>
+                      <input type="checkbox" id="tcp-input-has-header" data-tooltip="Treat the first logical CSV record as field names and do not send it as an event. Leave off to preserve the existing behavior and generate field_1, field_2, and similar names for structured formats." data-tooltip-icon="▤" data-tooltip-kind="info" aria-label="TCP CSV source has a header row">
+                    </div>
+                    <div class="control-group aligned-group" id="tcp-x-field-group">
+                      <label for="tcp-x-field" data-tooltip="Optional CSV field containing the point X coordinate. Set both X and Y for GeoJSON or Esri JSON point geometry. GeoJSON requires WKID 4326." data-tooltip-icon="⌖" data-tooltip-kind="info" aria-label="TCP X coordinate field">X field:</label>
+                      <input type="text" id="tcp-x-field" value="" placeholder="Optional field name" data-tooltip="Optional CSV field containing the point X coordinate. Set both X and Y for GeoJSON or Esri JSON point geometry. GeoJSON requires WKID 4326." data-tooltip-icon="⌖" data-tooltip-kind="info" aria-label="TCP payload X coordinate field">
+                    </div>
+                    <div class="control-group aligned-group" id="tcp-y-field-group">
+                      <label for="tcp-y-field" data-tooltip="Optional CSV field containing the point Y coordinate. Set both X and Y for GeoJSON or Esri JSON point geometry." data-tooltip-icon="⌖" data-tooltip-kind="info" aria-label="TCP Y coordinate field">Y field:</label>
+                      <input type="text" id="tcp-y-field" value="" placeholder="Optional field name" data-tooltip="Optional CSV field containing the point Y coordinate. Set both X and Y for GeoJSON or Esri JSON point geometry." data-tooltip-icon="⌖" data-tooltip-kind="info" aria-label="TCP payload Y coordinate field">
+                    </div>
+                    <div class="control-group aligned-group" id="tcp-wkid-group">
+                      <label for="tcp-wkid" data-tooltip="Spatial reference WKID for generated point geometry. GeoJSON requires 4326; Esri JSON includes the configured WKID." data-tooltip-icon="⌖" data-tooltip-kind="info" aria-label="TCP geometry WKID">WKID:</label>
+                      <input type="number" id="tcp-wkid" value="4326" min="1" step="1" data-tooltip="Spatial reference WKID for generated point geometry. GeoJSON requires 4326; Esri JSON includes the configured WKID." data-tooltip-icon="⌖" data-tooltip-kind="info" aria-label="TCP payload spatial reference WKID">
+                    </div>
+                  </div>
+                  <div class="protocol-settings-group" id="udp-advanced" data-protocol="udp" data-section="advanced">
+                    <div class="control-group aligned-group" id="udp-input-has-header-group">
+                      <label for="udp-input-has-header" data-tooltip="Treat the first logical CSV record as field names and do not send it as an event. Leave off to preserve the existing behavior and generate field_1, field_2, and similar names for structured formats." data-tooltip-icon="▤" data-tooltip-kind="info" aria-label="UDP CSV header row">CSV header row:</label>
+                      <input type="checkbox" id="udp-input-has-header" data-tooltip="Treat the first logical CSV record as field names and do not send it as an event. Leave off to preserve the existing behavior and generate field_1, field_2, and similar names for structured formats." data-tooltip-icon="▤" data-tooltip-kind="info" aria-label="UDP CSV source has a header row">
+                    </div>
+                    <div class="control-group aligned-group" id="udp-x-field-group">
+                      <label for="udp-x-field" data-tooltip="Optional CSV field containing the point X coordinate. Set both X and Y for GeoJSON or Esri JSON point geometry. GeoJSON requires WKID 4326." data-tooltip-icon="⌖" data-tooltip-kind="info" aria-label="UDP X coordinate field">X field:</label>
+                      <input type="text" id="udp-x-field" value="" placeholder="Optional field name" data-tooltip="Optional CSV field containing the point X coordinate. Set both X and Y for GeoJSON or Esri JSON point geometry. GeoJSON requires WKID 4326." data-tooltip-icon="⌖" data-tooltip-kind="info" aria-label="UDP payload X coordinate field">
+                    </div>
+                    <div class="control-group aligned-group" id="udp-y-field-group">
+                      <label for="udp-y-field" data-tooltip="Optional CSV field containing the point Y coordinate. Set both X and Y for GeoJSON or Esri JSON point geometry." data-tooltip-icon="⌖" data-tooltip-kind="info" aria-label="UDP Y coordinate field">Y field:</label>
+                      <input type="text" id="udp-y-field" value="" placeholder="Optional field name" data-tooltip="Optional CSV field containing the point Y coordinate. Set both X and Y for GeoJSON or Esri JSON point geometry." data-tooltip-icon="⌖" data-tooltip-kind="info" aria-label="UDP payload Y coordinate field">
+                    </div>
+                    <div class="control-group aligned-group" id="udp-wkid-group">
+                      <label for="udp-wkid" data-tooltip="Spatial reference WKID for generated point geometry. GeoJSON requires 4326; Esri JSON includes the configured WKID." data-tooltip-icon="⌖" data-tooltip-kind="info" aria-label="UDP geometry WKID">WKID:</label>
+                      <input type="number" id="udp-wkid" value="4326" min="1" step="1" data-tooltip="Spatial reference WKID for generated point geometry. GeoJSON requires 4326; Esri JSON includes the configured WKID." data-tooltip-icon="⌖" data-tooltip-kind="info" aria-label="UDP payload spatial reference WKID">
+                    </div>
+                  </div>
                   <div class="protocol-settings-group" id="grpc-advanced" data-protocol="grpc" data-section="advanced">
                     <div class="control-group aligned-group" id="grpc-header-path-key-group" style="display: none;">
                       <label for="grpc-header-path-key">Header path key:</label>

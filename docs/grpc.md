@@ -514,6 +514,7 @@ the product client connects.
 | [Connection summary and protocol settings](connection-summary.md) | The read-only description of the current connection and its warnings. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
+| [Data formats](data-formats.md) | Payload formats and why they are separate from gRPC serialization. |
 | [HTTP and HTTPS transport](http.md) | HTTP and HTTPS modes, data formats, and request paths. |
 | [WebSocket transport](websocket.md) | WebSocket modes, formats, subscription messages, and custom headers. |
 | [XMPP transport](xmpp.md) | XMPP roles, conversations, STARTTLS policies, accounts, and limitations. |

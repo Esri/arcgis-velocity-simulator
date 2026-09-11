@@ -29,10 +29,13 @@ lists all of them with their intended audience.
 | [Protocol settings and presets](docs/connection-presets.md) | The connection panel, Protocol Settings, and the twelve paired Simulator and Logger presets. |
 | [Connection summary and protocol settings](docs/connection-summary.md) | Protocol Settings, its sections, warning alert, and read-only summary. |
 | [Configuration](docs/configuration.md) | Configuration file format, settings, themes, fonts, storage locations, and launch configuration samples. |
+| [Data formats](docs/data-formats.md) | CSV-first input, TCP and UDP payload choices, schemas, geometry, framing, and compatibility. |
 | [Developer guide](docs/developer-guide.md) | Repository structure, local development, tests, documentation checks, debugging, logging, and extension points. |
 | [Headless mode](docs/headless.md) | No-UI replay: parameters, launch configuration workflow, output formats, and the done file. |
 | [gRPC transport](docs/grpc.md) | gRPC modes, Protobuf, Kryo, and Text serialization, and TLS. |
 | [HTTP and HTTPS transport](docs/http.md) | HTTP modes, JSON, CSV, Esri JSON, GeoJSON, and XML formats, and TLS. |
+| [TCP transport](docs/tcp.md) | TCP roles, payload formats, stream framing, controls, and headless use. |
+| [UDP transport](docs/udp.md) | UDP roles, payload formats, datagram limits, controls, and headless use. |
 | [WebSocket transport](docs/websocket.md) | WebSocket modes, formats, TLS, subscription messages, and custom headers. |
 | [XMPP transport](docs/xmpp.md) | Client and server roles, Direct and Room conversations, STARTTLS policies, accounts, and explicit limitations. |
 | [TLS and SSL security](docs/tls.md) | Certificate formats, operating system trust stores, mutual TLS, self-signed certificates, and the TLS Trust Badge. |

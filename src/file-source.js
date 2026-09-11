@@ -16,6 +16,13 @@
 
 const fs = require('fs');
 const readline = require('readline');
+const {
+  DEFAULT_SOCKET_PAYLOAD_FORMAT,
+  SOCKET_PAYLOAD_FORMAT_SET,
+  assertTcpPayloadSize,
+  assertUdpPayloadSize,
+  convertDelimitedSource,
+} = require('./payload-format-utils');
 
 async function loadLinesFromFile(filePath) {
   if (!filePath || typeof filePath !== 'string') {
@@ -52,7 +59,33 @@ async function loadLinesFromFile(filePath) {
   });
 }
 
+async function loadReplayPayloadsFromFile(filePath, options = {}) {
+  if (!filePath || typeof filePath !== 'string') {
+    throw new Error('A valid file path is required.');
+  }
+  const protocol = options.protocol;
+  if (protocol !== 'tcp' && protocol !== 'udp') return loadLinesFromFile(filePath);
+
+  const format = options.format || DEFAULT_SOCKET_PAYLOAD_FORMAT;
+  if (!SOCKET_PAYLOAD_FORMAT_SET.has(format)) {
+    throw new Error(`Unsupported ${protocol.toUpperCase()} payload format: ${format}`);
+  }
+  const source = await fs.promises.readFile(filePath, 'utf8');
+  const converted = convertDelimitedSource(source, format, {
+    skipEmptyRecords: true,
+    hasHeaderRow: options.hasHeaderRow === true,
+    xField: options.xField || undefined,
+    yField: options.yField || undefined,
+    wkid: options.wkid === undefined ? 4326 : options.wkid,
+  });
+  converted.payloads.forEach(payload => {
+    if (protocol === 'udp') assertUdpPayloadSize(payload);
+    else assertTcpPayloadSize(payload);
+  });
+  return converted.payloads;
+}
+
 module.exports = {
   loadLinesFromFile,
+  loadReplayPayloadsFromFile,
 };
-

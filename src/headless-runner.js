@@ -114,6 +114,8 @@ async function runHeadlessSession(options, { app = null, logger = null } = {}) {
     mode: options.mode,
     ip: options.ip,
     port: options.port,
+    payloadFormat: options.protocol === 'tcp' ? options.tcpFormat || 'delimited'
+      : options.protocol === 'udp' ? options.udpFormat || 'delimited' : null,
   };
 
   try {
@@ -169,4 +171,3 @@ async function runHeadlessSession(options, { app = null, logger = null } = {}) {
 module.exports.EXIT_CODES = EXIT_CODES;
 module.exports.runHeadlessSession = runHeadlessSession;
 module.exports.writeDoneFile = writeDoneFile;
-

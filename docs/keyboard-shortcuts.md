@@ -49,7 +49,7 @@ for macOS (`Cmd`); both forms appear in every table.
 | `Ctrl+D` (Windows/Linux)<br>`Cmd+D` (macOS) | **Disconnect** | Disconnects from current connection |
 | `Ctrl+Delete` (Windows/Linux)<br>`Cmd+Delete` (macOS) | **Clear Status Log** | Clears the status/log area |
 | `Ctrl+Shift+O` (Windows/Linux)<br>`Cmd+Shift+O` (macOS) | **Toggle Status Log Sort Order** | Switch between Ascending and Descending order (default: Ascending) |
-| `Ctrl+Shift+P` (Windows/Linux)<br>`Cmd+Shift+P` (macOS) | **Protocol Settings...** | Opens the Protocol Settings window for the selected protocol, or focuses it if it is already open. TCP and UDP have no protocol settings, so the status log says so instead. |
+| `Ctrl+Shift+P` (Windows/Linux)<br>`Cmd+Shift+P` (macOS) | **Protocol Settings...** | Opens the Protocol Settings window for the selected protocol, or focuses it if it is already open. TCP and UDP expose payload format, CSV schema, and geometry settings there. |
 
 ## Standard text editing
 

@@ -72,6 +72,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const connectionTypeSelect = document.getElementById('connection-type');
   const connectionPresetSelect = document.getElementById('connection-preset');
   const connectionPresetState = document.getElementById('connection-preset-state');
+  const tcpFormatSelect = document.getElementById('tcp-format');
+  const tcpFormatGroup = document.getElementById('tcp-format-group');
+  const tcpInputHasHeaderCheckbox = document.getElementById('tcp-input-has-header');
+  const tcpXFieldGroup = document.getElementById('tcp-x-field-group');
+  const tcpYFieldGroup = document.getElementById('tcp-y-field-group');
+  const tcpWkidGroup = document.getElementById('tcp-wkid-group');
+  const tcpXFieldInput = document.getElementById('tcp-x-field');
+  const tcpYFieldInput = document.getElementById('tcp-y-field');
+  const tcpWkidInput = document.getElementById('tcp-wkid');
+  const udpFormatSelect = document.getElementById('udp-format');
+  const udpFormatGroup = document.getElementById('udp-format-group');
+  const udpInputHasHeaderCheckbox = document.getElementById('udp-input-has-header');
+  const udpXFieldGroup = document.getElementById('udp-x-field-group');
+  const udpYFieldGroup = document.getElementById('udp-y-field-group');
+  const udpWkidGroup = document.getElementById('udp-wkid-group');
+  const udpXFieldInput = document.getElementById('udp-x-field');
+  const udpYFieldInput = document.getElementById('udp-y-field');
+  const udpWkidInput = document.getElementById('udp-wkid');
   const grpcSerializationSelect = document.getElementById('grpc-serialization');
   const grpcSerializationGroup = document.getElementById('grpc-serialization-group');
   const grpcSendMethodSelect = document.getElementById('grpc-send-method');
@@ -196,6 +214,48 @@ document.addEventListener('DOMContentLoaded', () => {
     text: 'gRPC Feature Serialization Format: Text. Uses the internal GrpcFeatureService protocol (feature-service.proto) where the bytes field carries plain UTF-8 text, typically a CSV line. Best for simple human-readable testing.',
   };
 
+  const SOCKET_FORMAT_TOOLTIPS = {
+    delimited: 'Delimited (CSV). Send each logical CSV record as UTF-8 text. This is the default and preserves the existing replay workflow.',
+    json: 'JSON. Convert each logical CSV record to a JSON object using the header row or generated field names.',
+    'geo-json': 'GeoJSON. Convert each logical CSV record to an RFC 7946 Feature. Set X and Y fields for point geometry, or leave them empty for null geometry.',
+    'esri-json': 'Esri JSON. Convert each logical CSV record to an Esri JSON feature with attributes and optional point geometry.',
+  };
+
+  function updateSocketFormatTooltip(select, group, protocol) {
+    if (!select) return;
+    const tooltip = `${protocol} Format: ${SOCKET_FORMAT_TOOLTIPS[select.value] || SOCKET_FORMAT_TOOLTIPS.delimited}`;
+    select.dataset.tooltip = tooltip;
+    select.setAttribute('aria-label', tooltip);
+    if (group) group.dataset.tooltip = tooltip;
+  }
+
+  function updateSocketConversionVisibility() {
+    for (const [select, groups] of [
+      [tcpFormatSelect, [tcpXFieldGroup, tcpYFieldGroup, tcpWkidGroup]],
+      [udpFormatSelect, [udpXFieldGroup, udpYFieldGroup, udpWkidGroup]],
+    ]) {
+      const spatial = select.value === 'geo-json' || select.value === 'esri-json';
+      groups.forEach(group => { group.style.display = spatial ? '' : 'none'; });
+    }
+    updateProtocolSectionVisibility();
+  }
+
+  function socketPayloadOptions(protocol) {
+    const tcp = protocol === 'tcp';
+    return {
+      format: (tcp ? tcpFormatSelect : udpFormatSelect).value,
+      hasHeaderRow: (tcp ? tcpInputHasHeaderCheckbox : udpInputHasHeaderCheckbox).checked,
+      xField: (tcp ? tcpXFieldInput : udpXFieldInput).value.trim(),
+      yField: (tcp ? tcpYFieldInput : udpYFieldInput).value.trim(),
+      wkid: Number.parseInt((tcp ? tcpWkidInput : udpWkidInput).value, 10) || 4326,
+    };
+  }
+
+  function refreshLoadedPayloads() {
+    if (!selectedReplayFilePath) return;
+    loadFile(selectedReplayFilePath, { announceSelection: false });
+  }
+
   const GRPC_SEND_METHOD_TOOLTIPS = {
     stream: 'gRPC RPC Type: Client Streaming. Opens a persistent client-streaming RPC and multiplexes all messages over a single long-lived HTTP/2 stream. The client writes multiple request messages before the server responds once. Ideal for high-throughput ingestion with minimal per-message overhead. Maps to Stream (GrpcFeed) or executeMulti (GrpcFeatureService).',
     unary: 'gRPC RPC Type: Unary. Each message is sent as a discrete request/response round-trip - one request in, one response out. The simplest gRPC call pattern, analogous to a traditional REST call. Easier to trace and debug, but incurs per-call overhead (HTTP/2 framing, header compression). Maps to Send (GrpcFeed) or execute (GrpcFeatureService).',
@@ -213,6 +273,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let linesSentCount = 0; // Total lines sent since the app started or since the log was cleared.
   let linesSentThisSession = 0; // Lines sent in the current play session (from play to pause).
   let csvLines = []; // Array to hold the lines from the loaded CSV file.
+  let selectedReplayFilePath = '';
+  let replayFileLoadGeneration = 0;
   let currentLineIndex = 0; // Index of the next line to be sent from csvLines.
   let isGestureLoggingEnabled = false; // Should gesture commands be logged to the status panel?
   let isMicLoggingEnabled = false; // Should voice commands be logged to the status panel?
@@ -444,13 +506,19 @@ document.addEventListener('DOMContentLoaded', () => {
     renderConnectionSummary();
   }
 
-  // Show/hide gRPC, HTTP, and WebSocket controls based on connection type
+  // Show/hide protocol-specific controls based on connection type
   connectionTypeSelect.addEventListener('change', () => {
     const val = connectionTypeSelect.value;
+    const isTcp = val.startsWith('tcp');
+    const isUdp = val.startsWith('udp');
     const isGrpc = val.startsWith('grpc');
     const isGrpcClient = val === 'grpc-client';
     const isHttp = val.startsWith('http');
     const isWs = val.startsWith('ws');
+
+    // TCP and UDP controls
+    tcpFormatGroup.style.display = isTcp ? '' : 'none';
+    udpFormatGroup.style.display = isUdp ? '' : 'none';
 
     // gRPC controls
     grpcSerializationGroup.style.display = isGrpc ? '' : 'none';
@@ -507,7 +575,28 @@ document.addEventListener('DOMContentLoaded', () => {
     updateUnverifiedTlsVisibility();
     updateProtocolSectionVisibility();
     refreshTlsBadge();
+    refreshLoadedPayloads();
   });
+
+  tcpFormatSelect.addEventListener('change', () => {
+    updateSocketFormatTooltip(tcpFormatSelect, tcpFormatGroup, 'TCP');
+    updateSocketConversionVisibility();
+    refreshLoadedPayloads();
+  });
+  updateSocketFormatTooltip(tcpFormatSelect, tcpFormatGroup, 'TCP');
+
+  udpFormatSelect.addEventListener('change', () => {
+    updateSocketFormatTooltip(udpFormatSelect, udpFormatGroup, 'UDP');
+    updateSocketConversionVisibility();
+    refreshLoadedPayloads();
+  });
+  updateSocketFormatTooltip(udpFormatSelect, udpFormatGroup, 'UDP');
+  updateSocketConversionVisibility();
+
+  [
+    tcpInputHasHeaderCheckbox, tcpXFieldInput, tcpYFieldInput, tcpWkidInput,
+    udpInputHasHeaderCheckbox, udpXFieldInput, udpYFieldInput, udpWkidInput,
+  ].forEach(control => control.addEventListener('change', refreshLoadedPayloads));
 
   grpcSerializationSelect.addEventListener('change', updateGrpcSerializationTooltip);
   updateGrpcSerializationTooltip();
@@ -2138,6 +2227,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const [protocol, mode] = connectionType.split('-');
     const ip = document.getElementById('ip-address').value;
     const port = parseInt(document.getElementById('port').value, 10);
+    const tcpPayload = socketPayloadOptions('tcp');
+    const udpPayload = socketPayloadOptions('udp');
     const serialization = grpcSerializationSelect.value;
     const grpcSendMethod = grpcSendMethodSelect.value;
     const headerPathKey = grpcHeaderPathKeyInput.value;
@@ -2179,14 +2270,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const serLabel = protocol === 'grpc' ? ` [${serialization || 'protobuf'}]` : '';
     const methodLabel = protocol === 'grpc' ? ` ${grpcSendMethod === 'unary' ? 'unary' : 'streaming'}` : '';
     const headerLabel = protocol === 'grpc' && mode === 'client' ? ` ${headerPathKey}=${headerPath}` : '';
+    const socketFormatLabel = protocol === 'tcp' ? ` [${tcpPayload.format}]`
+      : protocol === 'udp' ? ` [${udpPayload.format}]` : '';
     const httpLabel = protocol === 'http'
       ? ` [${httpFormat}] ${httpTls ? (httpAllowUnverifiedTls ? 'tls=on (unverified)' : 'tls=on') : 'tls=off'} path=${httpPath}`
       : '';
     const wsLabel = protocol === 'ws' ? ` [${wsFormat}] ${wsTls ? 'wss' : 'ws'} path=${wsPath}` : '';
     const xmppLabel = protocol === 'xmpp' ? describeXmppConnectIntent(xmppOptions) : '';
-    logStatus(`Connecting via ${protocol.toUpperCase()} ${mode} to ${ip}:${port}${serLabel}${methodLabel}${tlsLabel}${headerLabel}${httpLabel}${wsLabel}${xmppLabel}...`);
+    logStatus(`Connecting via ${protocol.toUpperCase()} ${mode} to ${ip}:${port}${socketFormatLabel}${serLabel}${methodLabel}${tlsLabel}${headerLabel}${httpLabel}${wsLabel}${xmppLabel}...`);
     handleConnectionStatusChange('connecting');
-    const result = await window.api.connect({ protocol, mode, ip, port, grpcSerialization: serialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls, httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, httpAllowUnverifiedTls, wsFormat, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsPath, wsSubscriptionMsg, wsIgnoreFirstMsg, wsHeaders, wsAllowUnverifiedTls, ...xmppOptions });
+    const result = await window.api.connect({
+      protocol, mode, ip, port,
+      tcpFormat: tcpPayload.format,
+      tcpInputHasHeader: tcpPayload.hasHeaderRow,
+      tcpXField: tcpPayload.xField,
+      tcpYField: tcpPayload.yField,
+      tcpWkid: tcpPayload.wkid,
+      udpFormat: udpPayload.format,
+      udpInputHasHeader: udpPayload.hasHeaderRow,
+      udpXField: udpPayload.xField,
+      udpYField: udpPayload.yField,
+      udpWkid: udpPayload.wkid,
+      grpcSerialization: serialization, grpcSendMethod, headerPathKey, headerPath,
+      useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls,
+      httpFormat, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, httpAllowUnverifiedTls,
+      wsFormat, wsTls, wsTlsCaPath, wsTlsCertPath, wsTlsKeyPath, wsPath, wsSubscriptionMsg,
+      wsIgnoreFirstMsg, wsHeaders, wsAllowUnverifiedTls, ...xmppOptions,
+    });
     if (result && result.success === false) {
       logStatus(`❌ ${result.error || 'The connection could not be started.'}`);
       handleConnectionStatusChange('disconnected');
@@ -2770,6 +2880,22 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (presets.ip !== undefined) document.getElementById('ip-address').value = presets.ip;
       if (presets.port !== undefined) document.getElementById('port').value = presets.port;
+      if (presets.tcpFormat !== undefined) {
+        tcpFormatSelect.value = presets.tcpFormat;
+        tcpFormatSelect.dispatchEvent(new Event('change'));
+      }
+      if (presets.udpFormat !== undefined) {
+        udpFormatSelect.value = presets.udpFormat;
+        udpFormatSelect.dispatchEvent(new Event('change'));
+      }
+      if (presets.tcpInputHasHeader !== undefined) tcpInputHasHeaderCheckbox.checked = presets.tcpInputHasHeader === true || presets.tcpInputHasHeader === 'true';
+      if (presets.tcpXField !== undefined) tcpXFieldInput.value = presets.tcpXField || '';
+      if (presets.tcpYField !== undefined) tcpYFieldInput.value = presets.tcpYField || '';
+      if (presets.tcpWkid !== undefined) tcpWkidInput.value = presets.tcpWkid;
+      if (presets.udpInputHasHeader !== undefined) udpInputHasHeaderCheckbox.checked = presets.udpInputHasHeader === true || presets.udpInputHasHeader === 'true';
+      if (presets.udpXField !== undefined) udpXFieldInput.value = presets.udpXField || '';
+      if (presets.udpYField !== undefined) udpYFieldInput.value = presets.udpYField || '';
+      if (presets.udpWkid !== undefined) udpWkidInput.value = presets.udpWkid;
       if (presets.grpcSerialization !== undefined) grpcSerializationSelect.value = presets.grpcSerialization;
       if (presets.grpcSendMethod !== undefined) grpcSendMethodSelect.value = presets.grpcSendMethod;
       if (presets.grpcHeaderPathKey !== undefined) grpcHeaderPathKeyInput.value = presets.grpcHeaderPathKey;
@@ -2877,6 +3003,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isLooping = toggleLoopButton && toggleLoopButton.classList.contains('active');
         if (shouldLoop !== isLooping && toggleLoopButton) toggleLoopButton.click();
       }
+      refreshLoadedPayloads();
   }
 
   // Listen for saved theme from main process
@@ -2902,29 +3029,44 @@ document.addEventListener('DOMContentLoaded', () => {
    * Loads and processes a CSV file selected by the user.
    * @param {string} filePath - The absolute path to the file.
    */
-  async function loadFile(filePath) {
+  async function loadFile(filePath, { announceSelection = true } = {}) {
+    const loadGeneration = ++replayFileLoadGeneration;
+    connectButton.disabled = true;
     try {
       const fileName = filePath.split(/[\\/]/).pop();
       filePathSpan.textContent = fileName;
       filePathSpan.title = filePath;
-      logStatus(`Selected file: ${filePath}`);
-      const lines = await window.api.readCsvFile(filePath);
+      selectedReplayFilePath = filePath;
+      if (announceSelection) logStatus(`Selected file: ${filePath}`);
+      const protocol = (connectionTypeSelect.value || '').split('-')[0];
+      const lines = protocol === 'tcp' || protocol === 'udp'
+        ? await window.api.readReplayFile(filePath, { protocol, ...socketPayloadOptions(protocol) })
+        : await window.api.readCsvFile(filePath);
+      if (loadGeneration !== replayFileLoadGeneration) return;
       if (lines && lines.length > 0) {
         csvLines = lines;
         currentLineIndex = 0;
         linesSentCount = 0;
         updateLinesSentCount();
         updateLineInfo();
-        logStatus(`Loaded ${csvLines.length} lines from file.`);
+        const format = protocol === 'tcp' ? tcpFormatSelect.value
+          : protocol === 'udp' ? udpFormatSelect.value : 'delimited';
+        logStatus(`Loaded ${csvLines.length} ${protocol === 'tcp' || protocol === 'udp' ? `${format} payloads` : 'lines'} from file.`);
         connectButton.disabled = false;
         sendManualButton.disabled = true; // Disabled until connected
         lineSlider.disabled = false;
       } else {
         logStatus('File is empty or could not be read.');
+        csvLines = [];
         connectButton.disabled = true;
         lineSlider.disabled = true;
       }
     } catch (error) {
+      if (loadGeneration !== replayFileLoadGeneration) return;
+      csvLines = [];
+      connectButton.disabled = true;
+      lineSlider.disabled = true;
+      updateLineInfo();
       logStatus(`Error selecting or reading file: ${error.message}`);
       window.api.showErrorInDialog(new Error(`Error selecting or reading file: ${error.message}`));
     }

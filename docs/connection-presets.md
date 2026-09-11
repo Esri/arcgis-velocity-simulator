@@ -35,9 +35,10 @@ The panel shows only what is true of every connection, in this order:
 5. **Lines / ms** — the replay rate.
 6. **Connect**, **Disconnect**, **Play/Pause**, and **Step**.
 
-TCP and UDP have no settings of their own. **Settings** remains available for
-the read-only Summary, while its count stays hidden. A compact warning alert
-appears only when the current values need attention.
+TCP and UDP provide a format in Basics and CSV schema and geometry controls in
+Advanced. Their configured-state count remains hidden while every value is at
+its documented default. A compact warning alert appears only when the current
+values need attention.
 
 ## The Protocol Settings window
 
@@ -61,14 +62,15 @@ protocol and role:
 
 | Protocol | Basics | Security | Advanced |
 |---|---|---|---|
+| TCP | Format | — | CSV header row, X field, Y field, WKID |
+| UDP | Format | — | CSV header row, X field, Y field, WKID |
 | HTTP | Format, HTTP path | TLS, CA/cert/key paths, Allow unverified | — |
 | WebSocket | Format, WS path | TLS, CA/cert/key paths, Allow unverified | Subscribe, Ignore 1st msg, Headers |
 | gRPC | Serialization, RPC type | TLS, CA/cert/key paths, Allow unverified | Header path key and value, for a client |
 | XMPP | Conversation, domain, account, destination or room, Copy Client Settings | STARTTLS, CA/cert/key paths, Allow unverified, Allow remote | Timeouts, ping interval, reconnect delay |
 
 A fourth section, **Summary**, is always offered and holds the read-only
-connection summary. TCP and UDP have no protocol settings, so only **Summary**
-is offered and the panel says where the connection fields live.
+connection summary.
 
 The section list is a tablist. It is a left rail at normal width and a top
 segmented control in compact view, and the same keys work in both: `Arrow` keys
@@ -160,7 +162,7 @@ Each label names which application listens. In this repository:
 
 | Protocol | Values |
 |---|---|
-| TCP, UDP | Host `127.0.0.1`, port `5565`. |
+| TCP, UDP | Host `127.0.0.1`, port `5565`, Delimited (CSV), no header row, no geometry mapping, WKID 4326. |
 | gRPC | Host `127.0.0.1`, port `5565`, Text serialization, Client Streaming, TLS off. |
 | HTTP | Host `127.0.0.1`, port `8080`, Delimited (CSV), path `/`, TLS off. |
 | WebSocket | Host `127.0.0.1`, port `8080`, Delimited (CSV), path `/`, TLS off, no subscription message, first message kept. |
@@ -267,6 +269,8 @@ Protocol Settings holds the following controls for each protocol:
 
 | Protocol | Contents |
 |---|---|
+| TCP | `format, CSV header row, X field, Y field, and WKID` |
+| UDP | `format, CSV header row, X field, Y field, and WKID` |
 | HTTP | `format, HTTP path, TLS, and certificates` |
 | WebSocket | `format, WS path, TLS, certificates, subscription message, and headers` |
 | gRPC | `serialization, RPC type, header path, TLS, and certificates` |
@@ -281,3 +285,6 @@ Protocol Settings holds the following controls for each protocol:
 | 🔒 | [TLS and SSL security](tls.md) | Certificate types, trust stores, and the explicit verification bypass. |
 | ⌨️ | [Command-line reference](command-line.md) | Every parameter, its values, default, and example. |
 | ⚙️ | [Configuration](configuration.md) | Persisted App Config and Launch Config keys. |
+| ⇄ | [Data formats](data-formats.md) | TCP and UDP payload choices, CSV schemas, geometry, and framing. |
+| 🧵 | [TCP transport](tcp.md) | TCP roles, controls, and stream behavior. |
+| 📦 | [UDP transport](udp.md) | UDP roles, controls, and datagram behavior. |

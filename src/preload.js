@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('api', {
   // --- File Operations (Renderer to Main) ---
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog'), // Opens native file dialog
   readCsvFile: (filePath) => ipcRenderer.invoke('read-csv-file', filePath), // Reads CSV file content
+  readReplayFile: (filePath, options) => ipcRenderer.invoke('read-replay-file', filePath, options), // Converts CSV source records to the selected TCP/UDP payload format
   
   // --- Network Operations (Renderer to Main) ---
   connect: (options) => ipcRenderer.invoke('connect', options), // Establishes TCP/UDP/gRPC/HTTP/WebSocket/XMPP connection

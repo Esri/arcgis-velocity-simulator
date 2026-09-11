@@ -20,7 +20,10 @@
  * Shared data format constants used by HTTP and WebSocket transports.
  * Extracted as a DRY shared module (same pattern as tls-utils.js).
  *
- * Supported formats match ArcGIS Velocity's TCP, HTTP, and WebSocket feeds:
+ * HTTP and WebSocket expose this complete text-format set. TCP and UDP reuse
+ * the four-format subset in payload-format-utils.js, which intentionally
+ * excludes XML until socket conversion and output interoperability are
+ * implemented end to end.
  *   - delimited   (text/plain)        — CSV rows, one per line
  *   - json        (application/json)  — JSON objects or arrays
  *   - esri-json   (application/json)  — Esri Feature JSON schema
@@ -31,7 +34,7 @@
 /**
  * Valid data format identifiers (matching Velocity's supportedFormats).
  * Delimited (CSV) is listed first and is the default, matching the order
- * used by ArcGIS Velocity TCP, HTTP, and WebSocket feeds.
+ * used by ArcGIS Velocity HTTP and WebSocket feeds.
  */
 const DATA_FORMATS = Object.freeze({
   DELIMITED: 'delimited',
@@ -65,4 +68,3 @@ module.exports = {
   FORMAT_CONTENT_TYPES,
   DEFAULT_FORMAT,
 };
-

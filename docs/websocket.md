@@ -54,9 +54,10 @@ unhandled error.
 ## Format options
 
 The WebSocket Format dropdown controls the Content-Type associated with each
-message. These match the formats supported by ArcGIS Velocity TCP, HTTP, and
-WebSocket feeds. **Delimited (CSV) is the default**, matching Velocity's
-ordering:
+message. **Delimited (CSV) is the default**, matching Velocity's ordering.
+These choices are independent of TCP and UDP payload conversion; XML remains
+available here but is not a TCP or UDP choice. See [Data
+formats](data-formats.md) for the shared distinction:
 
 | UI Label | Value | Content-Type | Description |
 |----------|-------|--------------|-------------|
@@ -283,5 +284,6 @@ WebSocket parameters can be set in launch configuration JSON files:
 | [Connection summary and protocol settings](connection-summary.md) | The read-only description of the current connection, its warnings, and the effective URL. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
+| [Data formats](data-formats.md) | Shared input-versus-payload concepts and TCP/UDP conversion behavior. |
 | [HTTP and HTTPS transport](http.md) | HTTP and HTTPS modes, data formats, and request paths. |
 | [gRPC transport](grpc.md) | gRPC modes, serialization formats, and metadata. |

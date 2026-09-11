@@ -52,9 +52,9 @@
                     <h3>Use Protocol Settings</h3>
                     <p>Select <strong>Settings</strong>, or press <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd>, to open the resizable Protocol Settings window. The compact connection row holds preset, connection type, host, port, replay controls, and connection actions.</p>
                     <ul>
-                        <li><strong>Basics</strong> contains format, path, serialization, RPC type, and XMPP conversation or account values.</li>
+                        <li><strong>Basics</strong> contains TCP and UDP payload format, HTTP and WebSocket format and path, gRPC serialization and RPC type, and XMPP conversation or account values.</li>
                         <li><strong>Security</strong> contains TLS or STARTTLS policy, certificate paths, certificate verification, and remote binding where applicable.</li>
-                        <li><strong>Advanced</strong> contains optional headers, subscription messages, first-message handling, and XMPP timing values.</li>
+                        <li><strong>Advanced</strong> contains TCP and UDP CSV schema and geometry, optional headers, subscription messages, first-message handling, and XMPP timing values.</li>
                         <li><strong>Summary</strong> provides the effective connection and warnings. Secrets are shown only as <code>Set (hidden)</code>, <code>Empty</code>, or <code>Not set</code>.</li>
                     </ul>
                     <p>Edits apply to the next connection. <strong>Done</strong> and <kbd>Escape</kbd> keep them; <strong>Revert changes</strong> restores the values present when the window opened; <strong>Reset to preset</strong> reapplies a modified preset. While connected, Settings opens read-only in Summary mode.</p>
@@ -66,14 +66,39 @@
                     <table class="help-table">
                         <thead><tr><th>Transport</th><th>Use it when</th><th>Details</th></tr></thead>
                         <tbody>
-                            <tr><td>TCP / UDP</td><td>You need a direct stream or datagrams.</td><td>Server listens; client publishes to a remote server.</td></tr>
+                            <tr><td>TCP</td><td>You need a direct byte stream.</td><td>Choose Delimited (CSV), JSON, GeoJSON, or Esri JSON. Receivers frame newline-separated logical payloads.</td></tr>
+                            <tr><td>UDP</td><td>You need independent datagrams.</td><td>Choose Delimited (CSV), JSON, GeoJSON, or Esri JSON. Each complete payload occupies one datagram.</td></tr>
                             <tr><td>HTTP</td><td>You publish POST requests or host a receiving endpoint.</td><td>Configure format, path, and optional TLS in Settings.</td></tr>
                             <tr><td>WebSocket</td><td>You publish over a persistent WS or WSS connection.</td><td>Configure path, format, optional subscription message, first-message handling, and headers.</td></tr>
                             <tr><td>gRPC</td><td>You publish to a gRPC service or host a gRPC endpoint.</td><td>Configure serialization, RPC type, and optional endpoint metadata header.</td></tr>
                             <tr><td>XMPP</td><td>You publish direct or Multi-User Chat messages.</td><td>Configure the account, conversation, STARTTLS, and destination or room.</td></tr>
                         </tbody>
                     </table>
-                    <p>For detailed setup, use the owning guides: <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/http.md" target="_blank" rel="noreferrer">HTTP</a>, <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/websocket.md" target="_blank" rel="noreferrer">WebSocket</a>, <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/grpc.md" target="_blank" rel="noreferrer">gRPC</a>, <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/xmpp.md" target="_blank" rel="noreferrer">XMPP</a>, and <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/tls.md" target="_blank" rel="noreferrer">TLS</a>.</p>
+                    <p>For detailed setup, use the owning guides: <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/tcp.md" target="_blank" rel="noreferrer">TCP</a>, <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/udp.md" target="_blank" rel="noreferrer">UDP</a>, <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/http.md" target="_blank" rel="noreferrer">HTTP</a>, <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/websocket.md" target="_blank" rel="noreferrer">WebSocket</a>, <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/grpc.md" target="_blank" rel="noreferrer">gRPC</a>, <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/xmpp.md" target="_blank" rel="noreferrer">XMPP</a>, and <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/tls.md" target="_blank" rel="noreferrer">TLS</a>.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Format TCP and UDP payloads</h3>
+                    <p>The source remains CSV-first. Delimited (CSV), the default, preserves each complete logical CSV record. JSON converts it to one object, GeoJSON to one Feature, and Esri JSON to one feature. Quoted fields, escaped quotes, and embedded CSV newlines remain within the same logical record. XML remains an HTTP and WebSocket choice; it is not available for TCP or UDP.</p>
+                    <p><strong>CSV header row</strong> is off by default. When enabled for a structured format, the first logical record supplies field names and is not sent. Otherwise, fields receive deterministic names such as <code>field_1</code>. Set both <strong>X field</strong> and <strong>Y field</strong> for point geometry, or leave both empty for null or absent geometry. WKID defaults to 4326; GeoJSON requires 4326, while Esri JSON includes the configured WKID.</p>
+                    <p>TCP terminates logical payloads with a newline, but byte-stream reads may fragment or combine them. UDP sends exactly one complete UTF-8 payload per datagram, rejects payloads over 65,507 bytes before send, and never reassembles across datagrams. Practical UDP limits can be lower.</p>
+                    <table class="help-table">
+                        <thead><tr><th>Control</th><th>Tooltip</th></tr></thead>
+                        <tbody>
+                            <tr><td>TCP Format label</td><td>Choose how each logical CSV record is encoded for TCP.</td></tr>
+                            <tr><td>TCP Format</td><td>TCP payload format. The Simulator converts each logical record from the loaded CSV file before sending it. Delimited (CSV) preserves the existing comma-delimited workflow.</td></tr>
+                            <tr><td>UDP Format label</td><td>Choose how each logical CSV record is encoded for UDP.</td></tr>
+                            <tr><td>UDP Format</td><td>UDP payload format. Each converted CSV record is sent as one complete UTF-8 datagram and must fit within 65,507 bytes.</td></tr>
+                            <tr><td>CSV header row</td><td>Treat the first logical CSV record as field names and do not send it as an event. Leave off to preserve the existing behavior and generate field_1, field_2, and similar names for structured formats.</td></tr>
+                            <tr><td>X field label</td><td>Optional CSV field used as the point X coordinate.</td></tr>
+                            <tr><td>X field</td><td>Optional CSV field containing the point X coordinate. Set both X and Y for GeoJSON or Esri JSON point geometry. GeoJSON requires WKID 4326.</td></tr>
+                            <tr><td>Y field label</td><td>Optional CSV field used as the point Y coordinate.</td></tr>
+                            <tr><td>Y field</td><td>Optional CSV field containing the point Y coordinate. Set both X and Y for GeoJSON or Esri JSON point geometry.</td></tr>
+                            <tr><td>WKID label</td><td>Spatial reference WKID used for generated point geometry.</td></tr>
+                            <tr><td>WKID</td><td>Spatial reference WKID for generated point geometry. GeoJSON requires 4326; Esri JSON includes the configured WKID.</td></tr>
+                        </tbody>
+                    </table>
+                    <p>The format of an incoming payload is separate from the Logger's capture or export format. Existing user interface, headless, and Launch Config workflows that omit the new options continue to use Delimited. See <a href="https://github.com/Esri/arcgis-velocity-simulator/blob/main/docs/data-formats.md" target="_blank" rel="noreferrer">data formats</a> for schemas, examples, compatibility, and troubleshooting.</p>
                 </section>
 
                 <section class="help-section">

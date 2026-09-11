@@ -222,7 +222,49 @@ async function runCliOptionsTests() {
   const warnExplainOutput = formatExplainOutput(warnExplainResult);
   runTest('Explain output includes warnings section when there are warnings', () => warnExplainOutput.includes('Warnings') && warnExplainOutput.includes("'doneFile'") && warnExplainOutput.includes("'maxLines'"));
 
-  console.log('\n--- Test 7: gRPC header path CLI options ---');
+  console.log('\n--- Test 7: TCP and UDP payload formats ---');
+  const socketFormatResult = parseCommandLineArgs(createArgv([
+    'runMode=headless',
+    'filename=./data.csv',
+    'protocol=udp',
+    'udpFormat=geo-json',
+    'udpInputHasHeader=true',
+    'udpXField=longitude',
+    'udpYField=latitude',
+    'udpWkid=4326',
+  ]));
+  runTest('UDP structured payload options parse in headless mode', () =>
+    socketFormatResult.headless.udpFormat === 'geo-json'
+      && socketFormatResult.headless.udpInputHasHeader === true
+      && socketFormatResult.headless.udpXField === 'longitude'
+      && socketFormatResult.headless.udpYField === 'latitude'
+      && socketFormatResult.headless.udpWkid === 4326);
+  runTest('TCP and UDP formats default to Delimited', () =>
+    defaultUiResult.ui.presets === null
+      && parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv'])).headless.tcpFormat === 'delimited'
+      && parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv'])).headless.udpFormat === 'delimited');
+  runTest('TCP format is accepted as a UI preset', () =>
+    parseCommandLineArgs(createArgv(['tcpFormat=json'])).ui.presets.tcpFormat === 'json');
+  runTest('Unsupported TCP format is rejected in UI mode', () =>
+    parseCommandLineArgs(createArgv(['tcpFormat=xml'])).mode === 'error');
+  runTest('Unsupported TCP format is rejected in headless mode', () =>
+    parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv', 'tcpFormat=xml'])).errors
+      .some(error => error.includes('Invalid tcpFormat')));
+  runTest('Point fields must be configured as a pair', () =>
+    parseCommandLineArgs(createArgv([
+      'runMode=headless', 'filename=./data.csv', 'tcpFormat=geo-json', 'tcpXField=longitude',
+    ])).errors.some(error => error.includes('tcpXField and tcpYField')));
+  runTest('GeoJSON requires WKID 4326', () =>
+    parseCommandLineArgs(createArgv([
+      'runMode=headless', 'filename=./data.csv', 'udpFormat=geo-json',
+      'udpXField=x', 'udpYField=y', 'udpWkid=3857',
+    ])).errors.some(error => error.includes('udpWkid must be 4326')));
+  const socketParameters = getCommandLineReferenceData().parameters;
+  runTest('CLI reference documents both socket format options', () =>
+    socketParameters.some(parameter => parameter.name === 'tcpFormat')
+      && socketParameters.some(parameter => parameter.name === 'udpFormat'));
+
+  console.log('\n--- Test 8: gRPC header path CLI options ---');
   const grpcHeaderResult = parseCommandLineArgs(createArgv([
     'runMode=headless',
     'filename=./data.csv',
@@ -290,7 +332,7 @@ async function runCliOptionsTests() {
 
   runTest('Headless gRPC explain output shows grpcSendMethod', () => headlessGrpcExplainOutput.includes('grpcSendMethod'));
 
-  console.log('\n--- Test 8: XMPP CLI options ---');
+  console.log('\n--- Test 9: XMPP CLI options ---');
   const xmppClient = parseCommandLineArgs(createArgv([
     'runMode=headless',
     'filename=./data.csv',

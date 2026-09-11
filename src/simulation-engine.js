@@ -33,7 +33,7 @@
  * 4. Call `pause()` or `stop()` if an external orchestrator needs runtime control.
  */
 const { EventEmitter } = require('events');
-const { loadLinesFromFile } = require('./file-source.js');
+const { loadLinesFromFile, loadReplayPayloadsFromFile } = require('./file-source.js');
 
 /**
  * Backend replay engine used by headless runs.
@@ -43,11 +43,10 @@ const { loadLinesFromFile } = require('./file-source.js');
  * allows future reuse from UI or service-style entry points.
  */
 class SimulationEngine extends EventEmitter {
-  constructor({ transport, logger = null, options = {}, loadLines = loadLinesFromFile } = {}) {
+  constructor({ transport, logger = null, options = {}, loadLines } = {}) {
 	super();
 	this.transport = transport;
 	this.logger = logger;
-	this.loadLines = loadLines;
 	this.options = {
 	  filename: null,
 	  protocol: 'tcp',
@@ -70,6 +69,20 @@ class SimulationEngine extends EventEmitter {
 	  onError: 'exit',
 	  ...options,
 	};
+	this.loadLines = loadLines || ((filePath) => {
+	  if (this.options.protocol !== 'tcp' && this.options.protocol !== 'udp') {
+	    return loadLinesFromFile(filePath);
+	  }
+	  const prefix = this.options.protocol;
+	  return loadReplayPayloadsFromFile(filePath, {
+	    protocol: prefix,
+	    format: this.options[`${prefix}Format`],
+	    hasHeaderRow: this.options[`${prefix}InputHasHeader`] === true,
+	    xField: this.options[`${prefix}XField`],
+	    yField: this.options[`${prefix}YField`],
+	    wkid: this.options[`${prefix}Wkid`],
+	  });
+	});
 
 	this.lines = [];
 	this.startIndex = 0;
@@ -123,7 +136,7 @@ class SimulationEngine extends EventEmitter {
 
 	this.lines = await this.loadLines(this.options.filename);
 	if (this.lines.length === 0) {
-	  throw new Error(`Input file '${this.options.filename}' does not contain any non-empty lines.`);
+	  throw new Error(`Input file '${this.options.filename}' does not contain any replay records.`);
 	}
 
 	this.startIndex = this.options.startLine - 1;
@@ -144,7 +157,7 @@ class SimulationEngine extends EventEmitter {
 	this.currentLineIndex = this.startIndex;
 	this.isInitialized = true;
 
-	this.log('info', `Loaded ${this.lines.length} lines from ${this.options.filename}. Active range: ${this.startIndex + 1}-${this.endIndex + 1}.`);
+	this.log('info', `Loaded ${this.lines.length} replay records from ${this.options.filename}. Active range: ${this.startIndex + 1}-${this.endIndex + 1}.`);
 	this.emit('initialized', {
 	  filePath: this.options.filename,
 	  totalLines: this.lines.length,

@@ -63,6 +63,8 @@ const mockIpcRenderer = {
         return Promise.resolve('/test/path/file.csv');
       case 'read-csv-file':
         return Promise.resolve(['line1', 'line2', 'line3']);
+      case 'read-replay-file':
+        return Promise.resolve(['{"id":1}', '{"id":2}']);
       case 'connect':
         return Promise.resolve({ success: true });
       case 'disconnect':
@@ -163,6 +165,7 @@ async function runPreloadTests() {
     getCliHelpReference: () => mockIpcRenderer.invoke('get-cli-help-reference'),
     openFileDialog: () => mockIpcRenderer.invoke('open-file-dialog'),
     readCsvFile: (filePath) => mockIpcRenderer.invoke('read-csv-file', filePath),
+    readReplayFile: (filePath, options) => mockIpcRenderer.invoke('read-replay-file', filePath, options),
     connect: (params) => mockIpcRenderer.invoke('connect', params),
     disconnect: () => mockIpcRenderer.invoke('disconnect'),
     sendData: (data) => mockIpcRenderer.send('send-data', data),
@@ -204,6 +207,7 @@ async function runPreloadTests() {
   runTest('getCliHelpReference function exists', () => typeof global.window.api.getCliHelpReference === 'function');
   runTest('openFileDialog function exists', () => typeof global.window.api.openFileDialog === 'function');
   runTest('readCsvFile function exists', () => typeof global.window.api.readCsvFile === 'function');
+  runTest('readReplayFile function exists', () => typeof global.window.api.readReplayFile === 'function');
   runTest('connect function exists', () => typeof global.window.api.connect === 'function');
   runTest('disconnect function exists', () => typeof global.window.api.disconnect === 'function');
   runTest('sendData function exists', () => typeof global.window.api.sendData === 'function');
@@ -245,6 +249,11 @@ async function runPreloadTests() {
   await runAsyncTest('readCsvFile returns lines', async () => {
     const lines = await global.window.api.readCsvFile('/test/file.csv');
     return Array.isArray(lines) && lines.length === 3;
+  });
+  await runAsyncTest('readReplayFile forwards format options and returns payloads', async () => {
+    const payloads = await global.window.api.readReplayFile('/test/file.csv', { protocol: 'tcp', format: 'json' });
+    const invocation = mockIpcRenderer._invocations.find(entry => entry.channel === 'read-replay-file');
+    return payloads.length === 2 && invocation.args[1].format === 'json';
   });
   
   // Test 6: IPC Communication

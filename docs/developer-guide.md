@@ -49,7 +49,8 @@ Key modules:
 | `src/cli-options.js` | The single source of truth for command-line parameter metadata; feeds terminal help, the in-application reference dialog, and the documentation. |
 | `src/simulation-engine.js` | Replay scheduling, line ranges, loops, `waitForClient`, error modes, and completion semantics, with no renderer dependency. |
 | `src/transport-manager.js` | Owns TCP, UDP, HTTP, WebSocket, gRPC, and XMPP connections, tracks recipients in server mode, and raises status and connection events. |
-| `src/grpc-transport.js`, `src/http-transport.js`, `src/ws-transport.js`, `src/xmpp-transport.js` | Per-protocol client and server transports behind a common `connect`/`send`/`disconnect`/`isConnected`/`hasRecipients` shape. |
+| `src/grpc-transport.js`, `src/http-transport.js`, `src/ws-transport.js`, `src/xmpp-transport.js` | Per-protocol client and server transports behind a common `connect`/`send`/`disconnect`/`isConnected`/`hasRecipients` shape. TCP and UDP socket lifecycle remains in the transport manager. |
+| `src/payload-format-utils.js` | CSV logical-record parsing and typed Delimited, JSON, GeoJSON, and Esri JSON payload conversion shared by TCP and UDP. See [Data formats](data-formats.md). |
 | `src/xmpp-*.js` | XMPP protocol layers: constants, client core, server core, SASL, shared SCRAM-SHA-1 primitives, Multi-User Chat, accounts, and utilities. |
 | `src/connection-presets.js` | The twelve paired Simulator and Logger connection presets shared with the sister repository; loaded by the renderer and by the tests. See [Protocol settings and presets](connection-presets.md). |
 | `src/connection-summary.js` | The pure generator behind every read-only description of a connection: the warning-only alert, status-bar Summary button, the read-only Summary section, and the configured-state count. No DOM access, so it runs unchanged in Node. See [Connection summary](connection-summary.md). |
@@ -135,7 +136,7 @@ same local ports.
 |---------|-------|--------|
 | `npm run test:config` | `config.test.js` | Configuration file input and output, defaults, error handling, and the XMPP launch configuration mappings. |
 | `npm run test:cli` | `cli-options.test.js` | Parsing, defaults, validation, and help modes. |
-| `npm run test:engine` | `simulation-engine.test.js` | Replay scheduling, ranges, `waitForClient`, and error modes. |
+| `npm run test:engine` | `simulation-engine.test.js` | Logical-record replay scheduling, ranges, `waitForClient`, payload conversion handoff, and error modes. |
 | `npm run test:headless-runner` | `headless-runner.test.js` | The headless entry path, help short-circuiting, and engine handoff. |
 | `npm run test:transport-manager` | `transport-manager.test.js` | HTTP/WebSocket client/server delivery, recipient waiting, formats, paths, and explicit TLS verification bypass. |
 | `npm run test:help` | `help.test.js` | Help dialog filters, sorting, copy and export, shortcuts, and theme behavior. |
@@ -161,7 +162,8 @@ same local ports.
 | `npm run test:prereqs-install` | `install-prereqs.test.js` | The installer plan, dry-run output, and per-host behavior. |
 
 `run-all-tests.js` also runs `external-sign.test.js`, `sign-lock.test.js`,
-`format-utils.test.js`, `velocity-auth-utils.test.js`, and
+`format-utils.test.js`, `payload-format-utils.test.js`,
+`velocity-auth-utils.test.js`, and
 `tooltip-utils.test.js`. Any suite can be run directly with `node`; a
 non-zero exit code means failure.
 
@@ -309,6 +311,12 @@ The packaged application writes its logs to:
 4. Map the field in `CONNECTION_PRESET_CONTROLS` in `src/connection-presets.js` and add its documented default to `PROTOCOL_SETTING_FIELDS` in `src/connection-summary.js`, then emit its row from the protocol function that owns it. A secret must go through `describeSecret()`.
 5. Record the tooltip in the owning transport guide and in `src/help.html`, then extend `test/protocol-settings.test.js` and `test/connection-summary.test.js`.
 
+For TCP or UDP payload choices, keep logical CSV parsing and conversion in the
+shared payload-format module. Test quoted fields, escaped quotes, embedded
+newlines, generated and header-based schemas, typed values, geometry mappings,
+GeoJSON WKID validation, and the UDP UTF-8 byte limit. Keep gRPC serialization
+and Logger capture/export formats separate from this conversion surface.
+
 ### Adding a transport
 
 1. Add the protocol's options to `src/cli-options.js` so terminal help, the reference dialog, and the documentation stay in sync.
@@ -416,3 +424,4 @@ Run before opening a pull request:
 | [Velocity REST API connections](velocity-rest-api.md) | Public API bases, server discovery, and source-aware connection selection. |
 | [Protocol settings and presets](connection-presets.md) | The connection panel, Protocol Settings, and the paired presets. |
 | [Connection summary and protocol settings](connection-summary.md) | The summary generator, its surfaces, and how to add a row. |
+| [Data formats](data-formats.md) | Shared TCP and UDP conversion, schema, geometry, and framing concepts. |

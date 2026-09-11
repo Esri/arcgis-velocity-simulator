@@ -243,6 +243,29 @@ test('protocol rows describe formats, paths, serialization, and timings', () => 
   assert.strictEqual(ws.wsSkipFirstMessage.value, 'On');
   assert.strictEqual(ws.wsHeaders.value, 'Not set');
 
+  const tcp = rowsByKey(buildConnectionSummary({
+    ...BASE,
+    connectionType: 'tcp-client',
+    tcpFormat: 'esri-json',
+    tcpInputHasHeader: true,
+    tcpXField: 'longitude',
+    tcpYField: 'latitude',
+    tcpWkid: 4326,
+  }));
+  assert.strictEqual(tcp.format.value, 'Esri JSON');
+  assert.strictEqual(tcp.csvHeader.value, 'On');
+  assert.strictEqual(tcp.pointFields.value, 'longitude / latitude');
+
+  const udp = buildConnectionSummary({
+    ...BASE,
+    connectionType: 'udp-client',
+    udpFormat: 'geo-json',
+    udpXField: 'longitude',
+    udpWkid: 3857,
+  });
+  assert.ok(udp.warnings.some(row => row.key === 'pointFieldMapping'));
+  assert.ok(udp.warnings.some(row => row.key === 'geoJsonWkid'));
+
   const grpc = rowsByKey(buildConnectionSummary({
     ...BASE, connectionType: 'grpc-client', grpcSerialization: 'text', grpcSendMethod: 'unary',
     grpcHeaderPathKey: 'grpc-path', grpcHeaderPath: 'feed.uid',
@@ -313,10 +336,10 @@ test('the connection state is echoed for every lifecycle value', () => {
 
 test('the chip counts only protocol settings that differ from their defaults', () => {
   const tcp = countConfiguredProtocolSettings({ connectionType: 'tcp-server' });
-  assert.strictEqual(tcp.hasSettings, false);
+  assert.strictEqual(tcp.hasSettings, true);
   assert.strictEqual(tcp.count, 0);
   assert.strictEqual(tcp.shortLabel, '');
-  assert.strictEqual(tcp.label, 'TCP · no protocol settings');
+  assert.strictEqual(tcp.label, 'TCP · defaults');
 
   const httpDefaults = countConfiguredProtocolSettings({
     connectionType: 'http-server', httpFormat: 'delimited', httpTls: true, httpPath: '/',

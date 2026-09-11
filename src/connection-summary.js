@@ -97,9 +97,9 @@
   const MODE_LABELS = Object.freeze({ client: 'Client', server: 'Server' });
 
   /** Protocols that own a Protocol Settings dialog section. */
-  const DIALOG_PROTOCOLS = Object.freeze(['http', 'ws', 'grpc', 'xmpp']);
+  const DIALOG_PROTOCOLS = Object.freeze(['tcp', 'udp', 'http', 'ws', 'grpc', 'xmpp']);
 
-  /** Data format display names shared by the HTTP and WebSocket transports. */
+  /** Data format display names shared by the text payload transports. */
   const FORMAT_LABELS = Object.freeze({
     delimited: 'Delimited (CSV)',
     json: 'JSON',
@@ -145,8 +145,20 @@
    * controls exist?".
    */
   const PROTOCOL_SETTING_FIELDS = Object.freeze({
-    tcp: Object.freeze([]),
-    udp: Object.freeze([]),
+    tcp: Object.freeze([
+      { field: 'tcpFormat', defaultValue: 'delimited' },
+      { field: 'tcpInputHasHeader', defaultValue: false },
+      { field: 'tcpXField', defaultValue: '', spatialOnly: true },
+      { field: 'tcpYField', defaultValue: '', spatialOnly: true },
+      { field: 'tcpWkid', defaultValue: '4326', spatialOnly: true },
+    ]),
+    udp: Object.freeze([
+      { field: 'udpFormat', defaultValue: 'delimited' },
+      { field: 'udpInputHasHeader', defaultValue: false },
+      { field: 'udpXField', defaultValue: '', spatialOnly: true },
+      { field: 'udpYField', defaultValue: '', spatialOnly: true },
+      { field: 'udpWkid', defaultValue: '4326', spatialOnly: true },
+    ]),
     grpc: Object.freeze([
       { field: 'grpcSerialization', defaultValue: 'protobuf' },
       { field: 'grpcSendMethod', defaultValue: 'stream' },
@@ -331,6 +343,10 @@
       if (entry.serverOnly && mode !== 'server') return false;
       if (entry.mucOnly && !isMuc) return false;
       if (entry.directOnly && isMuc) return false;
+      if (entry.spatialOnly) {
+        const format = state[`${protocol}Format`] || 'delimited';
+        if (format !== 'geo-json' && format !== 'esri-json') return false;
+      }
       return true;
     });
     const count = applicable.filter((entry) => {
@@ -460,6 +476,30 @@
         'Any host that can reach this machine may sign in with the external account.',
       ));
     }
+    if (protocol === 'tcp' || protocol === 'udp') {
+      const prefix = protocol === 'tcp' ? 'tcp' : 'udp';
+      const xField = describeValue(state[`${prefix}XField`], '');
+      const yField = describeValue(state[`${prefix}YField`], '');
+      const format = state[`${prefix}Format`] || 'delimited';
+      const spatial = format === 'geo-json' || format === 'esri-json';
+      if (spatial && Boolean(xField) !== Boolean(yField)) {
+        warnings.push(warningRow(
+          'pointFieldMapping',
+          'Point fields',
+          'Set both X and Y fields, or leave both empty.',
+          'Point geometry cannot be created from a partial coordinate mapping.',
+        ));
+      }
+      const wkid = String(state[`${prefix}Wkid`] || 4326);
+      if (format === 'geo-json' && wkid !== '4326') {
+        warnings.push(warningRow(
+          'geoJsonWkid',
+          'GeoJSON WKID',
+          `${wkid} is not supported — GeoJSON point coordinates require 4326.`,
+          'Choose WKID 4326 or use Esri JSON when another spatial reference is required.',
+        ));
+      }
+    }
     return warnings;
   }
 
@@ -539,6 +579,29 @@
 
   function buildProtocolRows(state, protocol, mode) {
     const rows = [];
+    if (protocol === 'tcp' || protocol === 'udp') {
+      const prefix = protocol === 'tcp' ? 'tcp' : 'udp';
+      const formatValue = state[`${prefix}Format`] || 'delimited';
+      const xField = describeValue(state[`${prefix}XField`], '');
+      const yField = describeValue(state[`${prefix}YField`], '');
+      const wkid = String(state[`${prefix}Wkid`] || 4326);
+      const invalidGeoJsonWkid = formatValue === 'geo-json' && wkid !== '4326';
+      rows.push(row('format', 'Format', FORMAT_LABELS[formatValue] || FORMAT_LABELS.delimited, {
+        isDefault: formatValue === 'delimited',
+      }));
+      rows.push(row('csvHeader', 'CSV header row', describeToggle(state[`${prefix}InputHasHeader`]), {
+        isDefault: !isTruthy(state[`${prefix}InputHasHeader`]),
+      }));
+      if (formatValue !== 'geo-json' && formatValue !== 'esri-json') return rows;
+      rows.push(row('pointFields', 'Point fields', xField || yField ? `${xField || 'Missing X'} / ${yField || 'Missing Y'}` : 'Not set', {
+        isDefault: !xField && !yField,
+        detail: xField && yField ? 'X / Y fields used to create point geometry.' : '',
+      }));
+      rows.push(row('wkid', 'Geometry WKID', invalidGeoJsonWkid ? `${wkid} (GeoJSON requires 4326)` : wkid, {
+        isDefault: wkid === '4326',
+      }));
+      return rows;
+    }
     if (protocol === 'grpc') {
       rows.push(row('grpcSerialization', 'Serialization', GRPC_SERIALIZATION_LABELS[state.grpcSerialization] || GRPC_SERIALIZATION_LABELS.protobuf, {
         isDefault: (state.grpcSerialization || 'protobuf') === 'protobuf',

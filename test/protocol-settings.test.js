@@ -67,6 +67,7 @@ function createApiProxy(state) {
     disconnect: async () => { state.disconnects += 1; return { success: true }; },
     sendData: () => {},
     readCsvFile: async () => ['a,b,c'],
+    readReplayFile: async () => ['a,b,c'],
     getXmppClientSettings: async () => ({ success: true, text: 'ip=127.0.0.1' }),
   };
   return new Proxy(stub, {
@@ -215,6 +216,18 @@ test('every control id from the inline layout is preserved exactly once', () => 
   PRESERVED_CONTROL_IDS.forEach((id) => {
     assert.ok(document.getElementById(id), `${id} must still exist`);
     assert.strictEqual(allIds.filter((entry) => entry === id).length, 1, `${id} must not be duplicated`);
+  });
+
+  test('TCP and UDP control tooltips are documented verbatim', () => {
+    const dom = new JSDOM(indexHtml);
+    for (const protocol of ['tcp', 'udp']) {
+      const documentation = fs.readFileSync(path.join(__dirname, '..', 'docs', `${protocol}.md`), 'utf8');
+      const groups = [...dom.window.document.querySelectorAll(`.protocol-settings-group[data-protocol="${protocol}"]`)];
+      for (const control of groups.flatMap(group => [...group.querySelectorAll('[title], [data-tooltip]')])) {
+        const tooltip = control.getAttribute('data-tooltip') || control.getAttribute('title');
+        assert.ok(documentation.includes(tooltip), `${protocol}.md is missing tooltip: ${tooltip}`);
+      }
+    }
   });
   const duplicates = allIds.filter((id, index) => allIds.indexOf(id) !== index);
   assert.deepStrictEqual(duplicates, [], 'no id may appear twice');
@@ -439,11 +452,22 @@ test('Protocol Settings is the only connection-dialog shortcut in the applicatio
     select('connection-type', 'tcp-server');
     assert.deepStrictEqual(
       tabState().filter((tab) => !tab.hidden).map((tab) => tab.section),
-      ['summary'],
-      'TCP has no protocol settings',
+      ['basics', 'advanced', 'summary'],
+      'TCP offers payload format and CSV conversion settings',
     );
-    assert.strictEqual(document.getElementById('protocol-settings-empty').hidden, false);
-    assert.match(document.getElementById('protocol-settings-empty').textContent, /^TCP has no protocol settings/);
+    assert.strictEqual(document.getElementById('protocol-settings-empty').hidden, true);
+    assert.strictEqual(document.getElementById('tcp-format').value, 'delimited');
+    assert.strictEqual(document.getElementById('tcp-x-field-group').style.display, 'none');
+    select('tcp-format', 'geo-json');
+    assert.strictEqual(document.getElementById('tcp-x-field-group').style.display, '');
+    assert.strictEqual(document.getElementById('tcp-wkid').value, '4326');
+
+    select('connection-type', 'udp-client');
+    assert.deepStrictEqual(
+      tabState().filter((tab) => !tab.hidden).map((tab) => tab.section),
+      ['basics', 'advanced', 'summary'],
+    );
+    assert.strictEqual(document.getElementById('udp-format').value, 'delimited');
 
     select('connection-type', 'http-server');
     assert.deepStrictEqual(
@@ -757,6 +781,7 @@ test('Protocol Settings is the only connection-dialog shortcut in the applicatio
     document.getElementById('select-file').click();
     await new Promise((resolve) => setTimeout(resolve, 0));
     select('connection-type', 'xmpp-server');
+    await new Promise((resolve) => setTimeout(resolve, 0));
     type('xmpp-external-username', 'velocity-logger');
     type('xmpp-destination', 'feed@localhost');
     type('xmpp-tls-cert-path', '/not-a-real-path/server.pem');
@@ -793,8 +818,7 @@ test('Protocol Settings is the only connection-dialog shortcut in the applicatio
     state.listeners.get('onConnectionStatusChanged')('disconnected', '');
 
     select('connection-type', 'udp-server');
-    assert.strictEqual(note.hidden, false);
-    assert.match(note.textContent, /^UDP has no protocol settings/);
+    assert.strictEqual(note.hidden, true, 'UDP now has format and CSV conversion settings');
   });
 
   await uiTest('the dialog heading and summary follow the protocol and mode', async ({ document, select, type }) => {

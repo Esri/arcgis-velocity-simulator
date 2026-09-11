@@ -114,12 +114,16 @@ reference stay aligned.
 | `grpcSerialization` | `protobuf`, `kryo`, `text` | `protobuf` | No | `grpcSerialization=text` | gRPC feature serialization format. Only applies when `protocol=grpc`. |
 | `startLine` | `integer >= 1` | `1` | No | `startLine=100` | 1-based inclusive start line for the replay window. |
 | `stdout` | `true`, `false` | `true` | No | `stdout=false` | Enable or disable console log output during headless runs. |
+| `tcpFormat` | `delimited`, `json`, `geo-json`, `esri-json` | `delimited` | No | `tcpFormat=json` | TCP payload format for each logical CSV record. |
+| `udpFormat` | `delimited`, `json`, `geo-json`, `esri-json` | `delimited` | No | `udpFormat=geo-json` | UDP payload format; each record must fit in one datagram. |
 | `waitForClient` | `true`, `false` | `false` | No | `waitForClient=true` | In server mode, wait for at least one recipient before advancing through the file. Ignored in client mode. |
 
-HTTP and WebSocket use the following protocol-specific settings. All are optional:
+Transports use the following protocol-specific settings. All are optional:
 
 | Transport | Parameters | Defaults / behavior |
 |---|---|---|
+| TCP | `tcpFormat`, `tcpInputHasHeader`, `tcpXField`, `tcpYField`, `tcpWkid` | Delimited, no header row, no geometry mapping, WKID 4326. TCP publishes newline-separated logical payloads. |
+| UDP | `udpFormat`, `udpInputHasHeader`, `udpXField`, `udpYField`, `udpWkid` | Delimited, no header row, no geometry mapping, WKID 4326. UDP publishes one complete payload per datagram, with a 65,507-byte UTF-8 maximum. |
 | HTTP | `httpFormat`, `httpPath`, `httpTls`, `httpTlsCaPath`, `httpTlsCertPath`, `httpTlsKeyPath`, `httpAllowUnverifiedTls` | `delimited`, `/`, TLS on, system CA/no client identity, verification on. Formats are `delimited`, `json`, `esri-json`, `geo-json`, and `xml`. Client mode sends POST requests; server mode broadcasts to SSE watchers. |
 | WebSocket | `wsFormat`, `wsPath`, `wsTls`, `wsTlsCaPath`, `wsTlsCertPath`, `wsTlsKeyPath`, `wsAllowUnverifiedTls`, `wsSubscriptionMsg`, `wsIgnoreFirstMsg`, `wsHeaders` | `delimited`, `/`, TLS on, system CA/no client identity, verification on, no subscription, do not ignore the first message, and no custom headers. Client mode sends text frames; server mode broadcasts to connected sockets. |
 
@@ -159,6 +163,17 @@ That is why the default remains `127.0.0.1`, while some server-mode examples use
 npm run start:headless -- filename=./data.csv protocol=tcp mode=client ip=127.0.0.1 port=5565 linesPerInterval=1 intervalMs=500 loop=false exitOnComplete=true stdout=true
 ```
 
+Add `tcpFormat=json`, `tcpFormat=geo-json`, or `tcpFormat=esri-json` to convert
+logical CSV records. For a header-based spatial schema, also set
+`tcpInputHasHeader=true`, `tcpXField=<name>`, `tcpYField=<name>`, and
+`tcpWkid=4326`. The header record defines the schema and is not sent.
+When `tcpInputHasHeader` is omitted or false, the first record remains an event
+and structured formats use deterministic generated field names.
+
+```bash
+npm run start:headless -- filename=./data.csv protocol=tcp mode=client ip=127.0.0.1 port=5565 tcpFormat=geo-json tcpInputHasHeader=true tcpXField=longitude tcpYField=latitude tcpWkid=4326
+```
+
 ### TCP client that waits for the server and reconnects after restarts
 
 ```bash
@@ -184,6 +199,17 @@ npm run start:headless -- filename=./data.csv protocol=tcp mode=server ip=0.0.0.
 ```bash
 npm run start:headless -- filename=./data.csv protocol=udp mode=client ip=127.0.0.1 port=5565 startLine=100 endLine=200 maxLines=50 doneFile=./run.done.json logFile=./run.log runId=batch-100-200
 ```
+
+Set `udpFormat` to choose the payload conversion. Each logical record becomes
+one complete datagram; oversize records are rejected before send.
+
+```bash
+npm run start:headless -- filename=./data.csv protocol=udp mode=client ip=127.0.0.1 port=5565 udpFormat=esri-json udpInputHasHeader=true udpXField=x udpYField=y udpWkid=3857
+```
+
+Omitting `udpInputHasHeader`, coordinate fields, and `udpWkid` preserves the
+header as an event, generates deterministic names for a structured payload,
+uses null geometry, and defaults WKID to 4326.
 
 When the Simulator uses UDP server mode, it learns recipient endpoints from
 inbound datagrams. A paired Logger UDP client sends one

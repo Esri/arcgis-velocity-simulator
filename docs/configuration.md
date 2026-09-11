@@ -227,10 +227,15 @@ application never reads them at run time.
 
 | Sample | Purpose |
 |--------|---------|
-| [Generic sample](examples/launch-config.sample.json) | Every supported section and key. |
-| [Server-mode sample](examples/launch-config.server.sample.json) | Binds locally and replays immediately. |
-| [Client-mode sample](examples/launch-config.client.sample.json) | Connects to an existing endpoint. |
-| [XMPP sample](examples/launch-config.xmpp.sample.json) | Signs in as an XMPP client on port 5222 and publishes to a recipient. |
+| [Generic sample](examples/launch-config.sample.json) | Every supported section and key, including TCP and UDP source conversion defaults. |
+| [Server-mode sample](examples/launch-config.server.sample.json) | Binds locally, replays immediately, and lists the complete transport key set. |
+| [Client-mode sample](examples/launch-config.client.sample.json) | Connects to an existing endpoint and lists the complete transport key set. |
+| [XMPP sample](examples/launch-config.xmpp.sample.json) | Signs in as an XMPP client on port 5222 and retains inactive TCP and UDP defaults for a complete key reference. |
+
+Every sample includes both TCP and UDP conversion key groups so it can also
+serve as a complete reference. Only the group matching `protocol` is active.
+These are Simulator source conversion settings, not Logger capture or export
+settings.
 
 ```bash
 npm run start:headless -- config=./docs/examples/launch-config.sample.json
@@ -277,6 +282,8 @@ mode](headless.md).
 - `runMode`
 - `startLine`
 - `stdout`
+- `tcpFormat`, `tcpInputHasHeader`, `tcpXField`, `tcpYField`, `tcpWkid`
+- `udpFormat`, `udpInputHasHeader`, `udpXField`, `udpYField`, `udpWkid`
 - `waitForClient`
 - `wsFormat`, `wsTls`, `wsPath`, `wsTlsCaPath`, `wsTlsCertPath`, `wsTlsKeyPath`, `wsSubscriptionMsg`, `wsIgnoreFirstMsg`, `wsHeaders`, `wsAllowUnverifiedTls`
 - `httpFormat`, `httpTls`, `httpPath`, `httpTlsCaPath`, `httpTlsCertPath`, `httpTlsKeyPath`, `httpAllowUnverifiedTls`
@@ -304,9 +311,17 @@ an unverified server certificate for any host, not only localhost. See
 [TLS and SSL security](tls.md#explicit-certificate-verification-bypass).
 
 Saving a launch configuration from the UI captures the current connection
-controls, including the three verification options. Connection presets change
-those controls before you save, but a preset never writes configuration by
-itself. See [Connection presets](connection-presets.md).
+controls, including TCP and UDP payload conversion settings and the three
+verification options. `tcpFormat` and `udpFormat` default to `delimited`;
+existing files that omit them therefore retain Delimited (CSV) behavior.
+Header-row flags default to `false`, coordinate fields are optional and paired,
+and WKID defaults to `4326`. A missing or false header flag preserves the
+existing header-as-event behavior; for structured formats it also selects
+deterministic generated field names such as `field_1` and `field_2`. These
+conversion options belong to the
+Simulator and are not Logger capture or export controls. See [Data
+formats](data-formats.md) for conversion and framing and [Connection
+presets](connection-presets.md) for preset behavior.
 
 #### Credentials in launch-config files
 
@@ -352,6 +367,11 @@ The launch-config file can use either top-level keys or grouped sections such as
     "mode": "server",
     "port": 5565,
     "protocol": "tcp",
+    "tcpFormat": "geo-json",
+    "tcpInputHasHeader": true,
+    "tcpXField": "longitude",
+    "tcpYField": "latitude",
+    "tcpWkid": 4326,
     "waitForClient": false,
     "xmppConnectTimeoutMs": 30000,
     "xmppConversation": "direct",

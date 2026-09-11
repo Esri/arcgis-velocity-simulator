@@ -42,6 +42,18 @@
 const { EventEmitter } = require('events');
 const net = require('net');
 const dgram = require('dgram');
+const {
+  SOCKET_PAYLOAD_FORMAT_SET,
+  assertTcpPayloadSize,
+  assertUdpPayloadSize,
+  validatePayload,
+} = require('./payload-format-utils');
+const {
+  attachTcpPayloadReceiver,
+  createUdpPayloadReceiver,
+  finishTcpPayloadReceiver,
+} = require('./socket-payload-receiver');
+const { isUdpClientRegistrationMessage } = require('./udp-utils');
 
 /**
  * Protocols whose connection handle is a transport object exposing
@@ -198,6 +210,7 @@ class TransportManager extends EventEmitter {
   async connect(options) {
     const {
       protocol, mode, ip, port,
+      tcpFormat = 'delimited', udpFormat = 'delimited',
       grpcSerialization, grpcSendMethod, headerPathKey, headerPath,
       useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls,
       connectTimeoutMs = 0, connectWaitForServer = false, connectRetryIntervalMs = 1000,
@@ -213,6 +226,11 @@ class TransportManager extends EventEmitter {
     this.mode = mode;
     this.ip = ip;
     this.port = port;
+    if ((protocol === 'tcp' && !SOCKET_PAYLOAD_FORMAT_SET.has(tcpFormat))
+        || (protocol === 'udp' && !SOCKET_PAYLOAD_FORMAT_SET.has(udpFormat))) {
+      throw new Error('Choose Delimited, JSON, GeoJSON, or Esri JSON for TCP or UDP.');
+    }
+    this.payloadFormat = protocol === 'tcp' ? tcpFormat : protocol === 'udp' ? udpFormat : null;
 
     if (protocol === 'grpc') {
       return this.connectGrpc({ mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls });
@@ -232,13 +250,13 @@ class TransportManager extends EventEmitter {
 
     if (protocol === 'tcp') {
       return mode === 'server'
-        ? this.connectTcpServer({ ip, port, connectTimeoutMs })
-        : this.connectTcpClient({ ip, port, connectTimeoutMs, connectWaitForServer, connectRetryIntervalMs });
+        ? this.connectTcpServer({ ip, port, connectTimeoutMs, format: tcpFormat })
+        : this.connectTcpClient({ ip, port, connectTimeoutMs, connectWaitForServer, connectRetryIntervalMs, format: tcpFormat });
     }
 
     return mode === 'server'
-      ? this.connectUdpServer({ ip, port, connectTimeoutMs })
-      : this.connectUdpClient({ ip, port, connectTimeoutMs, connectWaitForServer, connectRetryIntervalMs });
+      ? this.connectUdpServer({ ip, port, connectTimeoutMs, format: udpFormat })
+      : this.connectUdpClient({ ip, port, connectTimeoutMs, connectWaitForServer, connectRetryIntervalMs, format: udpFormat });
   }
 
   /**
@@ -476,7 +494,7 @@ class TransportManager extends EventEmitter {
    * - In headless server mode, the simulation engine may wait until a first client appears.
    * - Any inbound client messages are surfaced through `data-received` for observability.
    */
-  async connectTcpServer({ ip, port, connectTimeoutMs }) {
+  async connectTcpServer({ ip, port, connectTimeoutMs, format = 'delimited' }) {
     return new Promise((resolve, reject) => {
       let settled = false;
       let timeout = null;
@@ -488,13 +506,18 @@ class TransportManager extends EventEmitter {
         this.emit('client-connected', { protocol: 'tcp', mode: 'server', clientKey });
         this.resolveRecipientWaiters();
 
-        socket.on('data', (data) => {
-          const message = data.toString();
+        attachTcpPayloadReceiver(socket, {
+          format,
+          context: { clientKey },
+          onRecord: (message) => {
           this.emit('data-received', { protocol: 'tcp', mode: 'server', data: message, clientKey });
           this.log('debug', `Received from TCP client ${clientKey}: ${message}`);
+          },
+          onWarning: (message, context) => this.log('warn', `TCP payload warning (${context.clientKey}): ${message}`),
         });
 
         socket.on('close', () => {
+          finishTcpPayloadReceiver(socket);
           this.tcpClientSockets = this.tcpClientSockets.filter((entry) => entry !== socket);
           this.log('info', `TCP client disconnected: ${clientKey}`);
           this.emit('client-disconnected', { protocol: 'tcp', mode: 'server', clientKey });
@@ -533,8 +556,8 @@ class TransportManager extends EventEmitter {
         this.connection = server;
         settled = true;
         if (timeout) clearTimeout(timeout);
-        this.emitStatus('connected', `TCP server listening on ${address.address}:${address.port}`);
-        resolve({ protocol: 'tcp', mode: 'server', address });
+        this.emitStatus('connected', `TCP server listening on ${address.address}:${address.port} [${format}]`);
+        resolve({ protocol: 'tcp', mode: 'server', address, format });
       });
 
       if (connectTimeoutMs > 0) {
@@ -556,25 +579,29 @@ class TransportManager extends EventEmitter {
    * error) at `connectRetryIntervalMs` intervals until the server accepts the connection.
    * `connectTimeoutMs > 0` sets an overall deadline; `connectTimeoutMs = 0` waits forever.
    */
-  async connectTcpClient({ ip, port, connectTimeoutMs, connectWaitForServer = false, connectRetryIntervalMs = 1000 }) {
+  async connectTcpClient({ ip, port, connectTimeoutMs, connectWaitForServer = false, connectRetryIntervalMs = 1000, format = 'delimited' }) {
     const deadline = connectTimeoutMs > 0 ? Date.now() + connectTimeoutMs : null;
 
     const attemptOnce = () => new Promise((resolve, reject) => {
       const client = net.createConnection({ host: ip, port }, () => {
         this.connection = client;
-        this.emitStatus('connected', `TCP client connected to ${ip}:${port} from local port ${client.localPort}`);
+        this.emitStatus('connected', `TCP client connected to ${ip}:${port} from local port ${client.localPort} [${format}]`);
 
         client.on('close', () => {
           this.connection = null;
           this.emitStatus('disconnected', 'TCP client disconnected.');
         });
-        client.on('data', (data) => {
-          const message = data.toString();
+        attachTcpPayloadReceiver(client, {
+          format,
+          context: { clientKey: `${ip}:${port}` },
+          onRecord: (message) => {
           this.emit('data-received', { protocol: 'tcp', mode: 'client', data: message, clientKey: `${ip}:${port}` });
           this.log('debug', `Received from TCP server ${ip}:${port}: ${message}`);
+          },
+          onWarning: (message, context) => this.log('warn', `TCP payload warning (${context.clientKey}): ${message}`),
         });
 
-        resolve({ protocol: 'tcp', mode: 'client' });
+        resolve({ protocol: 'tcp', mode: 'client', format });
       });
 
       client.once('error', (error) => {
@@ -627,11 +654,20 @@ class TransportManager extends EventEmitter {
    * lazily from inbound datagrams. Once a sender is observed, that endpoint can be
    * treated as a recipient for future outbound replay traffic.
    */
-  async connectUdpServer({ ip, port, connectTimeoutMs }) {
+  async connectUdpServer({ ip, port, connectTimeoutMs, format = 'delimited' }) {
     return new Promise((resolve, reject) => {
       let settled = false;
       let timeout = null;
       const socket = dgram.createSocket('udp4');
+      const receiveUdpPayload = createUdpPayloadReceiver({
+        format,
+        isControlDatagram: isUdpClientRegistrationMessage,
+        onRecord: (text, clientKey) => {
+          this.emit('data-received', { protocol: 'udp', mode: 'server', data: text, clientKey });
+          this.log('debug', `Received from UDP client ${clientKey}: ${text}`);
+        },
+        onWarning: (message, clientKey) => this.log('warn', `UDP payload warning (${clientKey}): ${message}`),
+      });
 
       socket.on('error', (error) => {
         if (!settled) {
@@ -651,8 +687,8 @@ class TransportManager extends EventEmitter {
         this.connection = { socket, protocol: 'udp', mode: 'server' };
         settled = true;
         if (timeout) clearTimeout(timeout);
-        this.emitStatus('connected', `UDP server listening on ${address.address}:${address.port}`);
-        resolve({ protocol: 'udp', mode: 'server', address });
+        this.emitStatus('connected', `UDP server listening on ${address.address}:${address.port} [${format}]`);
+        resolve({ protocol: 'udp', mode: 'server', address, format });
       });
 
       socket.on('message', (message, remoteInfo) => {
@@ -664,9 +700,7 @@ class TransportManager extends EventEmitter {
           this.resolveRecipientWaiters();
         }
 
-        const text = message.toString();
-        this.emit('data-received', { protocol: 'udp', mode: 'server', data: text, clientKey });
-        this.log('debug', `Received from UDP client ${clientKey}: ${text}`);
+        receiveUdpPayload(message, clientKey);
       });
 
       socket.bind(port, ip);
@@ -689,11 +723,19 @@ class TransportManager extends EventEmitter {
    * Note: UDP is connectionless so `connectWaitForServer` has no practical effect here;
    * the option is accepted for API consistency but no retry logic is applied.
    */
-  async connectUdpClient({ ip, port, connectTimeoutMs, connectWaitForServer: _connectWaitForServer = false, connectRetryIntervalMs: _connectRetryIntervalMs = 1000 }) {
+  async connectUdpClient({ ip, port, connectTimeoutMs, connectWaitForServer: _connectWaitForServer = false, connectRetryIntervalMs: _connectRetryIntervalMs = 1000, format = 'delimited' }) {
     return new Promise((resolve, reject) => {
       let settled = false;
       let timeout = null;
       const socket = dgram.createSocket('udp4');
+      const receiveUdpPayload = createUdpPayloadReceiver({
+        format,
+        onRecord: (text, clientKey) => {
+          this.emit('data-received', { protocol: 'udp', mode: 'client', data: text, clientKey });
+          this.log('debug', `Received from UDP endpoint ${clientKey}: ${text}`);
+        },
+        onWarning: (message, clientKey) => this.log('warn', `UDP payload warning (${clientKey}): ${message}`),
+      });
 
       socket.on('error', (error) => {
         if (!settled) {
@@ -709,9 +751,7 @@ class TransportManager extends EventEmitter {
 
       socket.on('message', (message, remoteInfo) => {
         const clientKey = `${remoteInfo.address}:${remoteInfo.port}`;
-        const text = message.toString();
-        this.emit('data-received', { protocol: 'udp', mode: 'client', data: text, clientKey });
-        this.log('debug', `Received from UDP endpoint ${clientKey}: ${text}`);
+        receiveUdpPayload(message, clientKey);
       });
 
       socket.bind(() => {
@@ -719,8 +759,8 @@ class TransportManager extends EventEmitter {
         this.connection = { socket, protocol: 'udp', mode: 'client', ip, port };
         settled = true;
         if (timeout) clearTimeout(timeout);
-        this.emitStatus('connected', `UDP client ready to send to ${ip}:${port} from local port ${localAddress.port}`);
-        resolve({ protocol: 'udp', mode: 'client', address: localAddress });
+        this.emitStatus('connected', `UDP client ready to send to ${ip}:${port} from local port ${localAddress.port} [${format}]`);
+        resolve({ protocol: 'udp', mode: 'client', address: localAddress, format });
       });
 
       if (connectTimeoutMs > 0) {
@@ -791,6 +831,11 @@ class TransportManager extends EventEmitter {
       throw new Error('Data must be a non-empty string.');
     }
 
+    if (this.protocol === 'tcp' || this.protocol === 'udp') {
+      validatePayload(data, this.payloadFormat || 'delimited');
+      if (this.protocol === 'tcp') assertTcpPayloadSize(data);
+    }
+
     if (OBJECT_TRANSPORT_PROTOCOLS.has(this.protocol)) {
       const result = await this.connection.send(data);
       if (result && result.reason === 'no-watchers') {
@@ -846,6 +891,7 @@ class TransportManager extends EventEmitter {
     }
 
     if (this.connection.socket && this.mode === 'client') {
+      assertUdpPayloadSize(data);
       const buffer = Buffer.from(data);
       await new Promise((resolve, reject) => {
         this.connection.socket.send(buffer, this.port, this.ip, (error) => {
@@ -865,6 +911,7 @@ class TransportManager extends EventEmitter {
         return { delivered: false, recipients: 0, reason: 'no-clients' };
       }
 
+      assertUdpPayloadSize(data);
       const buffer = Buffer.from(data);
       const clients = Array.from(this.udpServerClients);
       await Promise.all(clients.map((clientKey) => {

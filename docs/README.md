@@ -20,13 +20,16 @@ documentation samples rather than runtime configuration.
 | 🎚 | [Protocol settings and presets](connection-presets.md) | The connection panel, Protocol Settings and its sections, the paired Simulator and Logger presets, and the Custom and Custom (modified) states. | Users and developers |
 | 🧾 | [Connection summary and protocol settings](connection-summary.md) | Protocol Settings, its sections, warning alert, and read-only summary. | Users and developers |
 | ⚙️ | [Configuration](configuration.md) | App Config and Launch Config settings, themes, fonts, platform storage locations, launch configuration samples, and reset steps. | Users and developers |
+| ⇄ | [Data formats](data-formats.md) | CSV-first input, TCP and UDP payload choices, schemas, geometry, framing, compatibility, and troubleshooting. | Users and developers |
 | 🧑‍💻 | [Developer guide](developer-guide.md) | Repository structure, local development, tests, documentation checks, debugging, logging, and how to add controls, transports, and themes. | Developers |
 | 🔌 | [gRPC transport](grpc.md) | Client and server modes, Protobuf, Kryo, and Text serialization, remote procedure call types, TLS, and metadata. | Users and developers |
 | 🤖 | [Headless mode](headless.md) | No-UI replay sessions, headless parameters, the launch configuration workflow, and the `doneFile` artifact. | Users and developers |
 | 🌐 | [HTTP and HTTPS transport](http.md) | Client and server modes, JSON, CSV, Esri JSON, GeoJSON, and XML formats, TLS, and metadata. | Users and developers |
 | ⌘ | [Keyboard shortcuts](keyboard-shortcuts.md) | Every shortcut, the context menu reference, and the in-app dialog shortcuts. | Users |
 | 🎙️ | [Offline speech recognition](offline-speech.md) | Local voice control: setup, supported commands, frequency analysis internals, and troubleshooting. | Users and developers |
+| 🧵 | [TCP transport](tcp.md) | Client and server roles, payload formats, stream framing, controls, headless use, and troubleshooting. | Users and developers |
 | 🔒 | [TLS and SSL security](tls.md) | Certificate types, operating system trust stores, mutual TLS, automatic self-signed certificates, and the TLS Trust Badge. | Users and developers |
+| 📦 | [UDP transport](udp.md) | Client and server roles, payload formats, datagram boundaries and limits, controls, headless use, and troubleshooting. | Users and developers |
 | 🔑 | [ArcGIS Velocity sign-in and feed picker](velocity-login.md) | ArcGIS Velocity sign-in, feed browsing, token-based authentication, and auto-configuration. | Users |
 | 🌐 | [ArcGIS Velocity REST API](velocity-rest-api.md) | Endpoint discovery and overrides, public URL contexts, REST resources, and data endpoints. | Users and developers |
 | 🔗 | [WebSocket transport](websocket.md) | Client and server modes, formats, TLS, subscription messages, and custom headers. | Users and developers |
@@ -36,10 +39,10 @@ documentation samples rather than runtime configuration.
 
 | | Sample | Purpose |
 |---|--------|---------|
-| 📄 | [Generic sample](examples/launch-config.sample.json) | Every supported section and key. |
-| 📥 | [Server-mode sample](examples/launch-config.server.sample.json) | Binds locally and replays immediately. |
-| 📤 | [Client-mode sample](examples/launch-config.client.sample.json) | Connects to an existing endpoint. |
-| 💬 | [XMPP sample](examples/launch-config.xmpp.sample.json) | Signs in as an XMPP client on port 5222 and publishes to a recipient. |
+| 📄 | [Generic sample](examples/launch-config.sample.json) | Every supported section and key, including TCP and UDP source conversion defaults. |
+| 📥 | [Server-mode sample](examples/launch-config.server.sample.json) | Binds locally, replays immediately, and lists the complete transport key set. |
+| 📤 | [Client-mode sample](examples/launch-config.client.sample.json) | Connects to an existing endpoint and lists the complete transport key set. |
+| 💬 | [XMPP sample](examples/launch-config.xmpp.sample.json) | Signs in as an XMPP client and retains inactive TCP and UDP defaults for a complete key reference. |
 
 Copy a sample, adjust the values, and pass it with `config=<path>`; values
 supplied on the command line always override values loaded from the file. The

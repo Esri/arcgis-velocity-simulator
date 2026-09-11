@@ -41,9 +41,10 @@ the UI and headless engine.
 ## Format options
 
 The HTTP Format dropdown controls the `Content-Type` header used when sending
-data. These match the formats supported by the ArcGIS Velocity TCP and HTTP
-Receiver feeds. **Delimited (CSV) is the default**, matching the order used by
-Velocity:
+data. **Delimited (CSV) is the default**, matching the order used by Velocity.
+These HTTP choices are independent of TCP and UDP payload conversion; in
+particular, XML remains available here but is not a TCP or UDP choice. See
+[Data formats](data-formats.md) for the shared distinction:
 
 | UI Label | Value | Content-Type | Description |
 |----------|-------|--------------|-------------|
@@ -261,5 +262,6 @@ HTTP parameters can be set in launch configuration JSON files:
 | [Connection summary and protocol settings](connection-summary.md) | The read-only description of the current connection, its warnings, and the effective URL. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
+| [Data formats](data-formats.md) | Shared input-versus-payload concepts and TCP/UDP conversion behavior. |
 | [WebSocket transport](websocket.md) | WebSocket modes, formats, subscription messages, and custom headers. |
 | [gRPC transport](grpc.md) | gRPC modes, serialization formats, and metadata. |

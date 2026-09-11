@@ -424,7 +424,8 @@ async function runHeadlessRunnerTests() {
     return exitCode === EXIT_CODES.success
       && done.success === true
       && done.summary.linesSent === 2
-      && done.runId === 'headless-runner-test';
+      && done.runId === 'headless-runner-test'
+      && done.payloadFormat === 'delimited';
   });
 
   console.log('\n=== Test Results ===');
