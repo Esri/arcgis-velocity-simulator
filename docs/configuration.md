@@ -452,5 +452,6 @@ cp ~/.config/arcgis-velocity-simulator/config.json ~/Desktop/backup.json
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Connection presets](connection-presets.md) | Paired Simulator and Logger field presets and the Essentials plus Advanced layout. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
+| [Installation](installation.md) | Install a release package and locate deployed application logs. |
 | [Developer guide](developer-guide.md) | Repository structure, local development, tests, debugging, and how to add a theme or a control. |
 | [Keyboard shortcuts](keyboard-shortcuts.md) | Every shortcut, including the in-app dialog shortcuts. |

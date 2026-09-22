@@ -32,6 +32,7 @@ lists all of them with their intended audience.
 | [Data formats](docs/data-formats.md) | CSV-first input, TCP and UDP payload choices, schemas, geometry, framing, and compatibility. |
 | [Developer guide](docs/developer-guide.md) | Repository structure, local development, tests, documentation checks, debugging, logging, and extension points. |
 | [Headless mode](docs/headless.md) | No-UI replay: parameters, launch configuration workflow, output formats, and the done file. |
+| [Installation](docs/installation.md) | Install and run release packages, handle first-launch security checks, and find deployed logs. |
 | [gRPC transport](docs/grpc.md) | gRPC modes, Protobuf, Kryo, and Text serialization, and TLS. |
 | [HTTP and HTTPS transport](docs/http.md) | HTTP modes, JSON, CSV, Esri JSON, GeoJSON, and XML formats, and TLS. |
 | [TCP transport](docs/tcp.md) | TCP roles, payload formats, stream framing, controls, and headless use. |
@@ -229,7 +230,13 @@ See [Keyboard shortcuts](docs/keyboard-shortcuts.md) for complete list.
 - [Node.js](https://nodejs.org/) (v18 or newer)
 - [npm](https://www.npmjs.com/) (comes with Node.js)
 
-### Installation and usage
+### Run a release package
+
+See [Installing and running the application](docs/installation.md) for package
+selection, platform installation, first-launch security guidance, deployed log
+locations, and startup troubleshooting.
+
+### Development setup
 
 ```bash
 npm install

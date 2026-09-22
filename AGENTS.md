@@ -78,8 +78,9 @@ These rules are durable: they apply to every documentation change, not just the 
 | `docs/tls.md` | Shared certificate concepts: certificate types, trust stores, mutual TLS, automatic self-signed certificates, and the TLS Trust Badge. |
 | `docs/command-line.md` | The command-line option reference: every parameter, its values, default, headless requirement, and example. |
 | `docs/headless.md` | Headless workflows: no-UI replay sessions, the launch configuration workflow, and completion artifacts. |
+| `docs/installation.md` | Release package selection, installation, first launch, Gatekeeper and SmartScreen guidance, deployed log locations, and startup troubleshooting. |
 | `docs/configuration.md` | Persisted App Config, Launch Config keys and storage locations, and the `docs/examples/` samples. |
-| `docs/developer-guide.md` | Repository structure, local development, testing, documentation checks, debugging, logging, and extension points. |
+| `docs/developer-guide.md` | Repository structure, local development, testing, documentation checks, debugging, logging implementation, and extension points. |
 | `docs/build-and-release.md` | Prerequisites, packaging, code signing, release commands, and the release checklist. |
 | `docs/keyboard-shortcuts.md`, `docs/offline-speech.md`, `docs/velocity-login.md` | Their feature surface end to end. |
 | `docs/velocity-rest-api.md` | Endpoint discovery and override workflows, public URL contexts, REST resource meanings, and the distinction between management and data endpoints. |

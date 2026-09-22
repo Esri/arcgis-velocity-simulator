@@ -266,15 +266,16 @@ as `[Auth]`, `[API]`, `[Token]`, `[Transport]`, or `[Startup]`, log the operatio
 on entry and its outcome on completion, and never log a password.
 
 Output goes to both the console and a log file in either mode. The level
-defaults to `info` and is set with `logLevel=<level>`; the file defaults to
-`./logs/velocity-simulator-YYYYMMDDTHHMMSS.log` and is overridden with
+defaults to `info` and is set with `logLevel=<level>`. Development launches
+default to `./logs/velocity-simulator-YYYYMMDDTHHMMSS.log`; packaged launches
+use the platform directory below. Override either default with
 `logFile=<path>`. Entries use the format `[timestamp] [LEVEL] [message]`.
 
-The packaged application writes its logs to:
-
-- **macOS**: `~/Library/Logs/arcgis-velocity-simulator/`
-- **Windows**: `%APPDATA%\arcgis-velocity-simulator\logs\`
-- **Linux**: `~/.config/arcgis-velocity-simulator/logs/`
+Packaged applications resolve their default log directory independently of the
+process working directory. Development launches continue to use `./logs`, and
+an explicit `logFile=<path>` always takes precedence. See
+[Installing and running the application](installation.md#find-diagnostic-logs)
+for deployed paths on macOS, Windows, and Linux.
 
 ## Common failures
 
@@ -420,6 +421,7 @@ Run before opening a pull request:
 | [Build and release](build-and-release.md) | Prerequisites, packaging, signing, and the release commands. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
+| [Installation](installation.md) | Release package installation, deployed logs, and startup troubleshooting. |
 | [Configuration](configuration.md) | App Config and Launch Config settings, themes, storage locations, and reset steps. |
 | [Velocity REST API connections](velocity-rest-api.md) | Public API bases, server discovery, and source-aware connection selection. |
 | [Protocol settings and presets](connection-presets.md) | The connection panel, Protocol Settings, and the paired presets. |

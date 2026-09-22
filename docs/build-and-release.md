@@ -227,6 +227,9 @@ npm run package:mac
 
 `scripts/release.sh` picks up the same variables from the environment.
 
+Users installing an unsigned test package should follow
+[Installing and running the application](installation.md#unsigned-package-workaround).
+
 ### Windows signing
 
 Without signing, SmartScreen shows "Windows protected your PC" on first run.
@@ -433,7 +436,7 @@ version prefixed with `v`, for example `v1.2.3`.
 | `gh` errors while publishing. | `gh` is not installed or not authenticated. Run `npm run prereqs:install:release` and `gh auth login`, then re-run with `--upload-only`. |
 | A build fails and the parallel output is unreadable. | Re-run with `npm run package:seq` or `./scripts/release.sh --seq <version>` for non-interleaved output. |
 | The external signing script appears to hang. | Its output streams into the nested signing log and a heartbeat is printed after 30 seconds of silence. Tune `VELOCITY_SIGN_PROGRESS_INTERVAL_MS`, or raise or disable the watchdog with `VELOCITY_SIGN_TIMEOUT_MS`. |
-| macOS reports that the application cannot be checked for malicious software. | The build is unsigned. Sign and notarize it, or open it once through **System Settings → Privacy & Security → Open Anyway** for local testing. |
+| macOS reports that the application is damaged or cannot be checked for malicious software. | The build is unsigned or not notarized. Use a signed and notarized package for distribution. User launch troubleshooting belongs in [Installing and running the application](installation.md#troubleshooting). |
 | Windows SmartScreen warns on first run. | The build is unsigned or signed with a self-signed or non-Extended-Validation certificate. Use an Extended Validation certificate for distribution. |
 | A platform is missing from the published release. | That artifact could not be built on the host. Check the [host support matrix](#host-support-matrix) and rebuild on a supported host. |
 
@@ -442,5 +445,6 @@ version prefixed with `v`, for example `v1.2.3`.
 | Document | Purpose |
 |----------|---------|
 | [Developer guide](developer-guide.md) | Repository structure, local development, tests, debugging, and extension points. |
+| [Installation](installation.md) | Install and run release packages, find logs, and troubleshoot first launch. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Configuration](configuration.md) | App Config and Launch Config settings, storage locations, and reset steps. |

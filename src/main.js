@@ -79,13 +79,16 @@ const startupFilePathFromCli = cliOptions.ui.startupFilePath;
 // Initialised immediately after CLI parsing so every subsequent print — including
 // startup warnings, help text, and error output — is captured in the log file.
 const { RunLogger } = require(path.join(basePath, 'run-logger.js'));
+const { resolveAppLogFile } = require(path.join(basePath, 'app-log-path.js'));
 
-const appLogFile = cliOptions.logFile || (() => {
-  const ts = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, '');
-  const logDir = path.resolve('./logs');
-  fs.mkdirSync(logDir, { recursive: true });
-  return path.join(logDir, `velocity-simulator-${ts}.log`);
-})();
+const appLogFile = resolveAppLogFile({
+  explicitLogFile: cliOptions.logFile,
+  appSlug: 'arcgis-velocity-simulator',
+  filePrefix: 'velocity-simulator',
+  isPackaged: app.isPackaged,
+  homePath: app.getPath('home'),
+  userDataPath: path.join(app.getPath('appData'), 'arcgis-velocity-simulator'),
+});
 
 const appLogger = new RunLogger({
   logLevel: cliOptions.logLevel,

@@ -24,6 +24,7 @@ documentation samples rather than runtime configuration.
 | 🧑‍💻 | [Developer guide](developer-guide.md) | Repository structure, local development, tests, documentation checks, debugging, logging, and how to add controls, transports, and themes. | Developers |
 | 🔌 | [gRPC transport](grpc.md) | Client and server modes, Protobuf, Kryo, and Text serialization, remote procedure call types, TLS, and metadata. | Users and developers |
 | 🤖 | [Headless mode](headless.md) | No-UI replay sessions, headless parameters, the launch configuration workflow, and the `doneFile` artifact. | Users and developers |
+| 💻 | [Installation](installation.md) | Install and run release packages, handle first-launch security checks, find deployed logs, and troubleshoot startup. | Users |
 | 🌐 | [HTTP and HTTPS transport](http.md) | Client and server modes, JSON, CSV, Esri JSON, GeoJSON, and XML formats, TLS, and metadata. | Users and developers |
 | ⌘ | [Keyboard shortcuts](keyboard-shortcuts.md) | Every shortcut, the context menu reference, and the in-app dialog shortcuts. | Users |
 | 🎙️ | [Offline speech recognition](offline-speech.md) | Local voice control: setup, supported commands, frequency analysis internals, and troubleshooting. | Users and developers |
@@ -57,6 +58,7 @@ key list is documented in [Configuration](configuration.md) and the workflow in
 | 🧵 | Stream a file to an ArcGIS Velocity feed | The transport guide for your protocol, then [TLS and SSL security](tls.md). |
 | 🔍 | Check what a connection will do before starting it | [Connection summary and protocol settings](connection-summary.md). |
 | 🗓️ | Schedule an unattended replay | [Headless mode](headless.md), then the launch configuration samples above. |
+| 💻 | Install a release package | [Installation](installation.md). |
 | 🧑‍💻 | Change the application | [Developer guide](developer-guide.md). |
 | 📤 | Publish a build | [Build and release](build-and-release.md). |
 
