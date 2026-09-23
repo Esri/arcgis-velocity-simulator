@@ -233,11 +233,18 @@ async function run() {
   await test('UDP manager excludes registration control traffic and preserves datagrams', async () => {
     const server = new TransportManager({ logger });
     const records = [];
+    const recipients = [];
+    const replies = [];
     server.on('data-received', ({ data }) => records.push(data));
+    server.on('client-connected', ({ clientKey }) => recipients.push(clientKey));
     const client = dgram.createSocket('udp4');
+    client.on('message', data => replies.push(data));
     try {
       const listening = await server.connect({
         protocol: 'udp', mode: 'server', ip: '127.0.0.1', port: 0, udpFormat: 'json',
+      });
+      await new Promise((resolve, reject) => {
+        client.send(Buffer.from('UDP Client connected'), listening.address.port, '127.0.0.1', error => error ? reject(error) : resolve());
       });
       await new Promise((resolve, reject) => {
         client.send(Buffer.from('UDP Client connected'), listening.address.port, '127.0.0.1', error => error ? reject(error) : resolve());
@@ -247,6 +254,9 @@ async function run() {
       });
       await waitFor(() => records.length === 1, 'UDP payload was not received');
       assert.deepStrictEqual(records, ['{"id":1}']);
+      assert.strictEqual(recipients.length, 1, 'Renewal must not duplicate a recipient notification');
+      assert.strictEqual(server.udpServerClients.size, 1);
+      assert.deepStrictEqual(replies, [], 'Registration renewal must not produce an acknowledgement');
       await assert.rejects(server.send('not-json'), /Invalid JSON payload/);
     } finally {
       client.close();

@@ -34,6 +34,7 @@ const testSuites = [
   { file: 'format-utils.test.js', description: '📦 Format Utils Tests' },
   { file: 'payload-format-utils.test.js', description: '🧩 TCP and UDP Payload Format Tests' },
   { file: 'socket-payload-receiver.test.js', description: '📥 TCP and UDP Payload Receiver Tests' },
+  { file: 'udp-utils.test.js', description: 'UDP Registration Lifecycle Tests' },
   { file: 'ws-transport.test.js', description: '🌐 WebSocket Transport Tests' },
   { file: 'xmpp-core.test.js', description: '💬 XMPP Core Tests' },
   { file: 'xmpp-transport.test.js', description: '📨 XMPP Transport Integration Tests' },

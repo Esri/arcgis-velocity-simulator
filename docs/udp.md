@@ -24,9 +24,19 @@ formats](data-formats.md) for shared conversion and schema rules.
 a handshake or acknowledgement. **UDP Server** binds the selected address and
 learns recipient endpoints from inbound datagrams before publishing replayed
 records to them. A paired Logger UDP client sends the literal
-`UDP Client connected` registration datagram when it starts. This is a custom
-application-pair convention, not a UDP standard or a Velocity handshake.
-Velocity UDP feeds do not register recipients.
+`UDP Client connected` registration datagram when it starts and renews it
+every 30 seconds by default while connected. The Logger controls the renewal
+interval; there is no Simulator registration-sender setting.
+This is a custom application-pair convention,
+not a UDP standard or a Velocity handshake. It lets a restarted Simulator
+server relearn a still-running Logger client without waiting for a Logger
+reconnect. Renewals stop when the Logger disconnects.
+
+Registration and renewal are not acknowledgements, delivery confirmation, or
+liveness checks. The Simulator filters the exact marker from payload records,
+does not reply to it, and retains learned endpoints until the server disconnects.
+Velocity UDP feeds do not register recipients, and the Simulator UDP Client
+never sends a registration or renewal datagram.
 
 The shared default address is `127.0.0.1`, the default port is `5565`, and the
 default format is Delimited. Local presets fill the paired role and address but
@@ -129,7 +139,7 @@ npm run start:headless -- filename=./data.csv protocol=udp mode=client ip=feed.e
 
 | Symptom | Check |
 |---|---|
-| A generic server has no recipients | Start the paired Logger UDP client so it sends its registration datagram. For a Velocity feed, use Simulator UDP Client instead. |
+| A generic server has no recipients | Start the paired Logger UDP client; after a Simulator restart, allow up to the next renewal for rediscovery (30 seconds by default). Registration can be lost like any UDP datagram. For a Velocity feed, use Simulator UDP Client instead. |
 | A delimited Velocity feed receives no records | Enable Append LF and verify the advertised host and port are reachable; a ready UDP socket does not confirm delivery. |
 | A record exceeds the limit | Reduce it below 65,507 UTF-8 bytes and account for lower practical limits. |
 | The receiver expects several datagrams per event | Reconfigure it for one complete event per datagram; there is no reassembly. |
