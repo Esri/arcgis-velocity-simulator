@@ -115,6 +115,7 @@ const CLI_OPTION_KEYS = new Set([
   'tcpWkid',
   'udpFormat',
   'udpInputHasHeader',
+  'udpAppendNewline',
   'udpXField',
   'udpYField',
   'udpWkid',
@@ -205,6 +206,7 @@ const APP_DEFAULTS = {
   tcpWkid: 4326,
   udpFormat: DEFAULT_SOCKET_PAYLOAD_FORMAT,
   udpInputHasHeader: false,
+  udpAppendNewline: false,
   udpXField: null,
   udpYField: null,
   udpWkid: 4326,
@@ -675,6 +677,14 @@ const CLI_PARAMETER_DEFINITIONS = [
     example: 'udpFormat=geo-json',
     requiredInHeadless: 'No',
     purpose: 'UDP payload format. Each converted logical CSV record is sent as one complete datagram and must fit within 65,507 UTF-8 bytes. Only applies when protocol=udp.',
+  },
+  {
+    key: 'udpAppendNewline',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.udpAppendNewline,
+    options: ['true', 'false'],
+    example: 'udpAppendNewline=true',
+    requiredInHeadless: 'No',
+    purpose: 'Append LF to each delimited UDP payload for receivers that require newline framing, including Velocity UDP feeds. Defaults to false; ignored for structured formats. The LF counts toward the 65,507-byte datagram limit.',
   },
   {
     key: 'udpInputHasHeader',
@@ -1995,7 +2005,7 @@ function validateHeadlessOptions(values, errors, warnings) {
       options[key] = format;
     }
   }
-  for (const key of ['tcpInputHasHeader', 'udpInputHasHeader', 'httpPolling']) {
+  for (const key of ['tcpInputHasHeader', 'udpInputHasHeader', 'udpAppendNewline', 'httpPolling']) {
     if (normalized[key] !== undefined) options[key] = parseBoolean(normalized[key], key, errors);
   }
   for (const key of ['tcpXField', 'tcpYField', 'udpXField', 'udpYField']) {
@@ -2532,7 +2542,7 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
         mergedValues[key] = format;
       }
     }
-    for (const key of ['tcpInputHasHeader', 'udpInputHasHeader', 'httpPolling']) {
+    for (const key of ['tcpInputHasHeader', 'udpInputHasHeader', 'udpAppendNewline', 'httpPolling']) {
       if (mergedValues[key] !== undefined) mergedValues[key] = parseBoolean(mergedValues[key], key, errors);
     }
     for (const key of ['tcpWkid', 'udpWkid']) {
@@ -2556,7 +2566,7 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
     const uiPresetKeys = new Set([
       'protocol', 'mode', 'ip', 'port',
       'tcpFormat', 'tcpInputHasHeader', 'tcpXField', 'tcpYField', 'tcpWkid',
-      'udpFormat', 'udpInputHasHeader', 'udpXField', 'udpYField', 'udpWkid',
+      'udpFormat', 'udpInputHasHeader', 'udpAppendNewline', 'udpXField', 'udpYField', 'udpWkid',
       'grpcSerialization', 'grpcSendMethod',
       'grpcHeaderPath', 'grpcHeaderPathKey', 'useTls', 'tlsCaPath', 'tlsCertPath', 'tlsKeyPath',
       'allowUnverifiedTls', 'httpAllowUnverifiedTls', 'wsAllowUnverifiedTls',
@@ -2685,6 +2695,7 @@ function formatExplainOutput(cliOptions) {
       ['tcpWkid', (presets && presets.tcpWkid) || `(default: ${d.tcpWkid})`],
       ['udpFormat', (presets && presets.udpFormat) || `(default: ${d.udpFormat})`],
       ['udpInputHasHeader', presets && presets.udpInputHasHeader !== undefined ? presets.udpInputHasHeader : `(default: ${d.udpInputHasHeader})`],
+      ['udpAppendNewline', presets && presets.udpAppendNewline !== undefined ? presets.udpAppendNewline : `(default: ${d.udpAppendNewline})`],
       ['udpXField', (presets && presets.udpXField) || `(default: ${d.udpXField || 'not set'})`],
       ['udpYField', (presets && presets.udpYField) || `(default: ${d.udpYField || 'not set'})`],
       ['udpWkid', (presets && presets.udpWkid) || `(default: ${d.udpWkid})`],
@@ -2778,6 +2789,7 @@ function formatExplainOutput(cliOptions) {
       ['tcpWkid', h.tcpWkid],
       ['udpFormat', h.udpFormat],
       ['udpInputHasHeader', h.udpInputHasHeader],
+      ['udpAppendNewline', h.udpAppendNewline],
       ['udpXField', h.udpXField || '(not set)'],
       ['udpYField', h.udpYField || '(not set)'],
       ['udpWkid', h.udpWkid],

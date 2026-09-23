@@ -601,6 +601,15 @@ function enableConnect(document) {
     assert.strictEqual(tcp.tcpYField, 'latitude');
     assert.strictEqual(tcp.tcpWkid, 4326);
     assert.strictEqual(tcp.udpFormat, 'delimited');
+    assert.strictEqual(tcp.udpAppendNewline, false);
+  });
+
+  await uiTest('UDP LF framing reaches Connect from CLI prepopulation', async ({ document, state }) => {
+    state.listeners.get('cli-presets')({ protocol: 'udp', mode: 'client', ip: '127.0.0.1', port: 17009, udpAppendNewline: true });
+    assert.strictEqual(document.getElementById('udp-append-newline').checked, true);
+    enableConnect(document).click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.strictEqual(state.connects.at(-1).udpAppendNewline, true);
   });
 
   await uiTest('CLI prepopulation fills fields without marking the preset modified', async ({ document, state }) => {

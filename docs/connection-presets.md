@@ -36,7 +36,9 @@ The panel shows only what is true of every connection, in this order:
 6. **Connect**, **Disconnect**, **Play/Pause**, and **Step**.
 
 TCP and UDP provide a format in Basics and CSV schema and geometry controls in
-Advanced. Their configured-state count remains hidden while every value is at
+Advanced. UDP also offers the Simulator-only **Append LF** publishing control,
+off in all local presets; see [UDP transport](udp.md).
+Their configured-state count remains hidden while every value is at
 its documented default. A compact warning alert appears only when the current
 values need attention.
 

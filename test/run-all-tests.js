@@ -48,6 +48,7 @@ const testSuites = [
   { file: 'velocity-preferences.test.js', description: 'Velocity Endpoint Preference Tests' },
   { file: 'velocity-main-integration.test.js', description: 'Velocity Main IPC Integration Tests' },
   { file: 'velocity-connection-options.test.js', description: 'Velocity Connection Application Tests' },
+  { file: 'velocity-udp.test.js', description: 'Velocity UDP Feed Loopback Tests' },
   { file: 'velocity-login.test.js', description: 'Velocity Login Dialog Tests' },
   { file: 'ws-query-auth.test.js', description: 'WebSocket Ephemeral Credential Tests' },
   { file: 'network-address-utils.test.js', description: 'Network Authority Formatting Tests' },

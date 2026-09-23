@@ -101,6 +101,36 @@ test('the WebSocket send path handles the promise the client transport returns',
   assert.match(body, /\} catch \(err\) \{/, 'the synchronous path keeps its try/catch');
 });
 
+test('the UI UDP send path shares LF encoding and rejects the final oversized datagram', () => {
+  const vm = require('vm');
+  const net = require('net');
+  const payloadUtils = require('../src/payload-format-utils');
+  const { encodeUdpPayload } = require('../src/udp-utils');
+  const sent = [];
+  const logs = [];
+  let send;
+  const context = {
+    ipcMain: { on: (_name, callback) => { send = callback; } },
+    connection: { mode: 'client', port: 17009, ip: '127.0.0.1', udpAppendNewline: true,
+      socket: { send: (bytes, port, ip, callback) => { sent.push({ bytes, port, ip }); callback(); } } },
+    activeSocketPayloadFormat: 'delimited',
+    net, encodeUdpPayload, validatePayload: payloadUtils.validatePayload,
+    assertTcpPayloadSize: payloadUtils.assertTcpPayloadSize,
+    logStatus: message => logs.push(message),
+  };
+  const start = mainSource.indexOf("ipcMain.on('send-data'");
+  const end = mainSource.indexOf("\nipcMain.", start + 1);
+  vm.runInNewContext(mainSource.slice(start, end), context);
+  send({}, '1,café');
+  assert.deepStrictEqual(sent[0].bytes, Buffer.from('1,café\n'));
+  send({}, 'x'.repeat(65507));
+  assert.strictEqual(sent.length, 1);
+  assert(logs.some(message => message.includes('65507')));
+  context.connection.udpAppendNewline = false;
+  send({}, '2,plain');
+  assert.deepStrictEqual(sent[1].bytes, Buffer.from('2,plain'));
+});
+
 test('the gRPC client transport receives a logging hook for teardown diagnostics', () => {
   assert.match(mainSource, /createGrpcClientTransport\(\{[^}]*onLog: \(level, message\) => velocityLog\(level, message\)/,
     'gRPC teardown diagnostics must reach the application log');

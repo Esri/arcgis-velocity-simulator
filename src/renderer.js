@@ -84,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const udpFormatSelect = document.getElementById('udp-format');
   const udpFormatGroup = document.getElementById('udp-format-group');
   const udpInputHasHeaderCheckbox = document.getElementById('udp-input-has-header');
+  const udpAppendNewlineCheckbox = document.getElementById('udp-append-newline');
   const udpXFieldGroup = document.getElementById('udp-x-field-group');
   const udpYFieldGroup = document.getElementById('udp-y-field-group');
   const udpWkidGroup = document.getElementById('udp-wkid-group');
@@ -2304,6 +2305,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tcpWkid: tcpPayload.wkid,
       udpFormat: udpPayload.format,
       udpInputHasHeader: udpPayload.hasHeaderRow,
+      udpAppendNewline: udpAppendNewlineCheckbox.checked,
       udpXField: udpPayload.xField,
       udpYField: udpPayload.yField,
       udpWkid: udpPayload.wkid,
@@ -2910,6 +2912,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (presets.tcpYField !== undefined) tcpYFieldInput.value = presets.tcpYField || '';
       if (presets.tcpWkid !== undefined) tcpWkidInput.value = presets.tcpWkid;
       if (presets.udpInputHasHeader !== undefined) udpInputHasHeaderCheckbox.checked = presets.udpInputHasHeader === true || presets.udpInputHasHeader === 'true';
+      if (presets.udpAppendNewline !== undefined) udpAppendNewlineCheckbox.checked = presets.udpAppendNewline === true || presets.udpAppendNewline === 'true';
       if (presets.udpXField !== undefined) udpXFieldInput.value = presets.udpXField || '';
       if (presets.udpYField !== undefined) udpYFieldInput.value = presets.udpYField || '';
       if (presets.udpWkid !== undefined) udpWkidInput.value = presets.udpWkid;

@@ -163,15 +163,38 @@
         wsTls: tls, wsPath: `${url.pathname}${url.search}`, wsFormat: format(item.format),
       };
     }
-    if (['tcp', 'tcp-client', 'tcp-server', 'udp-client', 'udp-server'].includes(type)) {
-      const protocol = type.startsWith('udp') ? 'udp' : 'tcp';
+    if (['udp-client', 'udp-server'].includes(type)) {
+      const isFeed = Boolean(item.feedType);
+      if (!item.host || item.host === '0.0.0.0' || item.host === '*') {
+        throw new Error(isFeed
+          ? 'This UDP feed needs a routable IPv4 data host. Configure UDP Client manually with the reachable feed host and advertised port; the management API URL is not a data endpoint.'
+          : 'This UDP output needs an advertised destination host. Ensure its destination routes to the Logger; the management API URL is not a data endpoint.');
+      }
+      const configuredHost = socketHost(item.host, 'UDP');
+      if (configuredHost.includes(':')) throw new Error('UDP automatic configuration currently requires an IPv4 host.');
+      if (configuredHost === '0.0.0.0') throw new Error('UDP automatic configuration requires a routable IPv4 data host, not a wildcard bind address.');
+      const port = socketPort(item.port, 'UDP');
+      const options = {
+        connectionType: isFeed ? 'udp-client' : 'udp-server',
+        ip: isFeed ? configuredHost : '127.0.0.1',
+        port,
+        udpFormat: socketFormat(item.format),
+      };
+      if (isFeed) options.udpAppendNewline = options.udpFormat === 'delimited';
+      if (!isFeed) {
+        options.expectedDestination = { host: configuredHost, port };
+        options.routingWarning = `Velocity sends UDP datagrams to ${configuredHost}:${port}. The Logger bind address defaults to 127.0.0.1; choose a local interface and ensure the advertised destination routes to this Logger.`
+          + (type === 'udp-server' ? ' A UDP Server output destination may be fixed by the deployment public host name.' : '')
+          + ' No registration datagram is sent.';
+      }
+      return options;
+    }
+    if (['tcp', 'tcp-client', 'tcp-server'].includes(type)) {
+      const protocol = 'tcp';
       const connectorServer = type.endsWith('-server');
       const configuredHost = connectorServer
         ? endpointHost(item.serverApiUrl)
         : socketHost(item.host, protocol.toUpperCase());
-      if (protocol === 'udp' && configuredHost.includes(':')) {
-        throw new Error('UDP automatic configuration currently requires an IPv4 host.');
-      }
       const port = socketPort(item.port, protocol.toUpperCase());
       return {
         connectionType: `${protocol}-${connectorServer ? 'client' : 'server'}`,

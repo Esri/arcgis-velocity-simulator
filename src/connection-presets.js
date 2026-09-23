@@ -85,6 +85,7 @@
 
     udpFormat: { elementId: 'udp-format', kind: 'value' },
     udpInputHasHeader: { elementId: 'udp-input-has-header', kind: 'checked' },
+    udpAppendNewline: { elementId: 'udp-append-newline', kind: 'checked' },
     udpXField: { elementId: 'udp-x-field', kind: 'value' },
     udpYField: { elementId: 'udp-y-field', kind: 'value' },
     udpWkid: { elementId: 'udp-wkid', kind: 'value' },
@@ -160,6 +161,7 @@
 
     udpFormat: 'delimited',
     udpInputHasHeader: false,
+    udpAppendNewline: false,
     udpXField: '',
     udpYField: '',
     udpWkid: 4326,

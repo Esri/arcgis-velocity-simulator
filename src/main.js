@@ -40,7 +40,6 @@ const { loadReplayPayloadsFromFile } = require(path.join(basePath, 'file-source.
 const {
   SOCKET_PAYLOAD_FORMAT_SET,
   assertTcpPayloadSize,
-  assertUdpPayloadSize,
   validatePayload,
 } = require(path.join(basePath, 'payload-format-utils.js'));
 const {
@@ -48,7 +47,7 @@ const {
   createUdpPayloadReceiver,
   finishTcpPayloadReceiver,
 } = require(path.join(basePath, 'socket-payload-receiver.js'));
-const { isUdpClientRegistrationMessage } = require(path.join(basePath, 'udp-utils.js'));
+const { isUdpClientRegistrationMessage, encodeUdpPayload } = require(path.join(basePath, 'udp-utils.js'));
 
 const SUPPORTED_THEMES = new Set([
   'light', 'dark', 'dark-gray', 'light-gray', 'blue', 'green',
@@ -1644,6 +1643,7 @@ async function getCurrentLaunchConfig() {
         tcpWkid: getInteger('tcp-wkid', 4326),
         udpFormat: getVal('udp-format') || 'delimited',
         udpInputHasHeader: getChecked('udp-input-has-header'),
+        udpAppendNewline: getChecked('udp-append-newline'),
         udpXField: getVal('udp-x-field') || null,
         udpYField: getVal('udp-y-field') || null,
         udpWkid: getInteger('udp-wkid', 4326),
@@ -1717,6 +1717,7 @@ async function getCurrentLaunchConfig() {
       tcpWkid: s.tcpWkid,
       udpFormat: s.udpFormat,
       udpInputHasHeader: s.udpInputHasHeader,
+      udpAppendNewline: s.udpAppendNewline,
       udpXField: s.udpXField,
       udpYField: s.udpYField,
       udpWkid: s.udpWkid,
@@ -2417,7 +2418,7 @@ ipcMain.handle('get-microphone-support-state', () => {
 // Establishes a TCP or UDP connection based on the provided parameters.
 ipcMain.handle('connect', (event, options) => {
   const {
-    protocol, mode, ip, port, tcpFormat = 'delimited', udpFormat = 'delimited',
+    protocol, mode, ip, port, tcpFormat = 'delimited', udpFormat = 'delimited', udpAppendNewline = false,
     grpcSerialization, grpcSendMethod, headerPathKey, headerPath,
     useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls,
     httpFormat, httpPolling, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, httpAllowUnverifiedTls,
@@ -2529,7 +2530,7 @@ ipcMain.handle('connect', (event, options) => {
         });
         socket.on('listening', () => {
           const address = socket.address();
-          connection = { socket, protocol, mode };
+          connection = { socket, protocol, mode, udpAppendNewline: udpAppendNewline === true };
           logStatus(`UDP Server successfully bound and listening on ${address.address}:${address.port}`);
           emitConnectionStatus('connected', `UDP Server listening on ${address.address}:${address.port} [${udpFormat}]`);
         });
@@ -2545,7 +2546,7 @@ ipcMain.handle('connect', (event, options) => {
       } else { // UDP Client
         socket.bind(() => {
           const localAddress = socket.address();
-          connection = { socket, protocol, mode, ip, port };
+          connection = { socket, protocol, mode, ip, port, udpAppendNewline: udpAppendNewline === true };
           emitConnectionStatus('connected', `UDP Client ready to send to ${ip}:${port} from local port ${localAddress.port} [${udpFormat}]`);
         });
       }
@@ -2816,8 +2817,7 @@ ipcMain.on('send-data', (event, data) => {
         logStatus('TCP connection is closed.');
       }
     } else if (connection.socket && connection.mode === 'client') { // UDP Client
-      assertUdpPayloadSize(data);
-      const buffer = Buffer.from(data);
+      const buffer = encodeUdpPayload(data, activeSocketPayloadFormat, connection.udpAppendNewline);
       connection.socket.send(buffer, connection.port, connection.ip, (err) => {
         if (err) logStatus(`UDP send error: ${err.message}`);
       });
@@ -2825,8 +2825,7 @@ ipcMain.on('send-data', (event, data) => {
       if (udpServerClients.size === 0) {
         logStatus('No UDP clients to send data to.');
       } else {
-        assertUdpPayloadSize(data);
-        const buffer = Buffer.from(data);
+        const buffer = encodeUdpPayload(data, activeSocketPayloadFormat, connection.udpAppendNewline);
         udpServerClients.forEach((clientKey) => {
           const [host, port] = clientKey.split(':');
           connection.socket.send(buffer, parseInt(port, 10), host, (err) => {

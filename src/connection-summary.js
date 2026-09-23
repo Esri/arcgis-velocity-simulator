@@ -155,6 +155,7 @@
     udp: Object.freeze([
       { field: 'udpFormat', defaultValue: 'delimited' },
       { field: 'udpInputHasHeader', defaultValue: false },
+      { field: 'udpAppendNewline', defaultValue: false },
       { field: 'udpXField', defaultValue: '', spatialOnly: true },
       { field: 'udpYField', defaultValue: '', spatialOnly: true },
       { field: 'udpWkid', defaultValue: '4326', spatialOnly: true },
@@ -438,6 +439,14 @@
         'Certificate verification is disabled for every host, not only localhost. Use it only for local self-signed testing.',
       ));
     }
+    if (typeof state.routingWarning === 'string' && state.routingWarning.trim()) {
+      warnings.push(warningRow(
+        'routing',
+        'Routing',
+        state.routingWarning.trim(),
+        'Confirm that the advertised destination routes to this application.',
+      ));
+    }
     if (protocol === 'xmpp' && String(state.xmppTlsPolicy || 'required') === 'preferred') {
       warnings.push(warningRow(
         'opportunisticTls',
@@ -590,8 +599,21 @@
       rows.push(row('format', 'Format', FORMAT_LABELS[formatValue] || FORMAT_LABELS.delimited, {
         isDefault: formatValue === 'delimited',
       }));
+      if (protocol === 'udp' && state.expectedDestination
+          && typeof state.expectedDestination === 'object') {
+        rows.push(row(
+          'expectedDestination',
+          'Expected destination',
+          formatEndpoint(state.expectedDestination.host, state.expectedDestination.port),
+          { group: 'Connection', kind: 'endpoint' },
+        ));
+      }
       rows.push(row('csvHeader', 'CSV header row', describeToggle(state[`${prefix}InputHasHeader`]), {
         isDefault: !isTruthy(state[`${prefix}InputHasHeader`]),
+      }));
+      if (protocol === 'udp') rows.push(row('udpAppendNewline', 'Append LF', describeToggle(state.udpAppendNewline), {
+        isDefault: !isTruthy(state.udpAppendNewline),
+        detail: 'Appends LF to delimited payloads only; included in the datagram size limit.',
       }));
       if (formatValue !== 'geo-json' && formatValue !== 'esri-json') return rows;
       rows.push(row('pointFields', 'Point fields', xField || yField ? `${xField || 'Missing X'} / ${yField || 'Missing Y'}` : 'Not set', {

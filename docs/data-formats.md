@@ -98,6 +98,10 @@ UDP preserves datagram boundaries. The Simulator sends exactly one complete
 logical payload per datagram. A payload must be no more than 65,507 UTF-8 bytes,
 and there is no cross-datagram reassembly. Practical network, platform, and
 receiver limits may be lower, so smaller datagrams are more portable.
+The Simulator's optional **Append LF** control adds a delimited-record
+terminator within that same datagram and byte limit. It does not change
+structured formats. See [Velocity feeds](udp.md#velocity-feeds) for the
+receivers that require it; generic connections leave it off.
 
 ## Examples
 

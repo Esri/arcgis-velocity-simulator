@@ -64,8 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
     'tcp-client': { icon: '\u25D7', label: 'TCP Client', color: '#546e7a' },
     'tcp-server': { icon: '\u25D7', label: 'TCP Server', color: '#455a64' },
     udp: { icon: '\u25D6', label: 'UDP', color: '#78909c' },
-    'udp-client': { icon: '\u25D6', label: 'UDP Client', color: '#78909c' },
-    'udp-server': { icon: '\u25D6', label: 'UDP Server', color: '#607d8b' },
+    'udp-client': { icon: '\u25D6', label: 'UDP Client (receiving feed)', color: '#78909c' },
+    'udp-server': { icon: '\u25D6', label: 'UDP Server (receiving feed)', color: '#607d8b' },
     'azure-event-hub': { icon: '\u2756', label: 'Azure Event Hub', color: '#0078d4' },
     'azure-service-bus': { icon: '\u2756', label: 'Azure Svc Bus', color: '#0062ad' },
     kinetic: { icon: '\u25C9', label: 'Kinetic', color: '#43a047' },
@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setTooltip(applyBtn, pendingEndpoint
       ? 'Apply the pending endpoint selection before applying a feed.'
       : selectedItem && !selectedItem.supported
-        ? 'Cannot apply - this feed type is not yet supported by the Simulator.'
+        ? selectedItem.reason || 'Cannot apply - this feed type is not yet supported by the Simulator.'
         : "Apply the selected feed's connection settings to the main window.");
   }
 
@@ -256,6 +256,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (candidate.supported) window.VelocityConnectionOptions.buildVelocityConnectionOptions(candidate);
       selectedItem = candidate;
       showInfo(candidate);
+      if (!candidate.supported) setStatus('warning', candidate.reason || 'This feed cannot be applied automatically.');
+      else if ((candidate.feedType || '').startsWith('udp-')) {
+        setStatus('info', 'Apply selects UDP Client: the Simulator sends payload datagrams to this receiving feed without registration or a handshake. Verify that the advertised host is reachable from the Simulator.');
+      }
     } catch (error) {
       if (request === detailGeneration && epoch === endpointUI.generation) setStatus('error', error.message);
     } finally {
@@ -277,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     element('info-type').textContent = meta.label || type || '-';
     element('info-url').textContent = item.url
       || (item.host && item.port ? `${item.host}:${item.port}` : item.host)
-      || (item.port && item.serverApiUrl ? `${new URL(item.serverApiUrl).hostname}:${item.port}` : '-');
+      || (!(type.startsWith('udp-')) && item.port && item.serverApiUrl ? `${new URL(item.serverApiUrl).hostname}:${item.port}` : '-');
     element('info-auth').textContent = item.authType || 'none';
     element('info-format').textContent = item.format || '-';
     element('info-schema').textContent = Array.isArray(item.schema)

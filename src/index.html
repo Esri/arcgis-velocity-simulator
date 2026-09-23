@@ -408,6 +408,10 @@
                     </div>
                   </div>
                   <div class="protocol-settings-group payload-conversion-group" id="udp-advanced" data-protocol="udp" data-section="advanced">
+                    <div class="control-group aligned-group" id="udp-append-newline-group">
+                      <label for="udp-append-newline" data-tooltip="Append LF to each delimited UDP payload. Required by Velocity UDP feeds; ignored for structured formats. The LF counts toward the 65,507-byte datagram limit." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="Append LF to UDP payloads">Append LF:</label>
+                      <input type="checkbox" id="udp-append-newline" data-tooltip="Append LF to each delimited UDP payload. Required by Velocity UDP feeds; ignored for structured formats. The LF counts toward the 65,507-byte datagram limit." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="Append LF to UDP payloads">
+                    </div>
                     <div class="payload-conversion-intro">
                       <strong>CSV source conversion</strong>
                       <span>Use a header to name fields. Point settings appear only for GeoJSON and Esri JSON.</span>

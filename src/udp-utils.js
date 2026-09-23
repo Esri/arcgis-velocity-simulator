@@ -16,14 +16,21 @@
 
 const UDP_CLIENT_REGISTRATION_MESSAGE = 'UDP Client connected';
 const UDP_CLIENT_REGISTRATION_BYTES = Buffer.from(UDP_CLIENT_REGISTRATION_MESSAGE);
+const { assertUdpPayloadSize } = require('./payload-format-utils');
+
+function encodeUdpPayload(data, format, appendNewline = false) {
+  const payload = appendNewline && format === 'delimited' ? `${data}\n` : data;
+  assertUdpPayloadSize(payload);
+  return Buffer.from(payload);
+}
 
 function isUdpClientRegistrationMessage(message) {
   return Buffer.isBuffer(message) && message.equals(UDP_CLIENT_REGISTRATION_BYTES);
 }
 
 /**
- * Announces a receiving UDP client to a server that learns reply endpoints from
- * inbound datagrams.
+ * Custom app-pair convention, not UDP or ArcGIS Velocity behavior: announces a
+ * receiving Logger client to a Simulator server that learns reply endpoints.
  *
  * @param {import('dgram').Socket} socket connected UDP socket
  * @returns {Promise<void>}
@@ -38,6 +45,7 @@ function registerUdpClient(socket) {
 }
 
 module.exports = {
+  encodeUdpPayload,
   UDP_CLIENT_REGISTRATION_MESSAGE,
   isUdpClientRegistrationMessage,
   registerUdpClient,

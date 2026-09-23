@@ -223,6 +223,11 @@ async function runCliOptionsTests() {
   runTest('Explain output includes warnings section when there are warnings', () => warnExplainOutput.includes('Warnings') && warnExplainOutput.includes("'doneFile'") && warnExplainOutput.includes("'maxLines'"));
 
   console.log('\n--- Test 7: TCP and UDP payload formats ---');
+  runTest('UDP LF framing is opt-in and validated in UI and headless modes', () =>
+    parseCommandLineArgs(createArgv(['udpAppendNewline=true'])).ui.presets.udpAppendNewline === true
+      && parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv', 'udpAppendNewline=true'])).headless.udpAppendNewline === true
+      && parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv'])).headless.udpAppendNewline === false
+      && parseCommandLineArgs(createArgv(['udpAppendNewline=invalid'])).mode === 'error');
   const socketFormatResult = parseCommandLineArgs(createArgv([
     'runMode=headless',
     'filename=./data.csv',

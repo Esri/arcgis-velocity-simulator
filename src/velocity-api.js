@@ -141,7 +141,7 @@ function parseItem(item, direction) {
     parsed.entityPath = text(properties[`${name}.${name === 'azure-event-hub' ? 'entityPath' : 'topicName'}`]);
     parsed.sharedAccessKeyName = text(properties[`${name}.sharedAccessKeyName`]);
   } else if (['tcp', 'tcp-client', 'tcp-server', 'udp-client', 'udp-server'].includes(name)) {
-    parsed.host = text(properties[`${name}.hostname`] ?? properties[`${name}.host`]);
+    parsed.host = text(properties[`${name}.hostName`] ?? properties[`${name}.hostname`] ?? properties[`${name}.host`]);
     parsed.port = typeof properties[`${name}.port`] === 'number'
       ? properties[`${name}.port`] : text(properties[`${name}.port`]);
     const formatPrefix = text(definition.formatName).toLowerCase();
@@ -149,7 +149,14 @@ function parseItem(item, direction) {
       parsed.xField = text(properties[`${formatPrefix}.xField`]);
       parsed.yField = text(properties[`${formatPrefix}.yField`]);
     }
-    if (!Number.isInteger(Number(parsed.port)) || Number(parsed.port) < 1 || Number(parsed.port) > 65535) {
+    if (name.startsWith('udp-')) {
+      try {
+        buildVelocityConnectionOptions(parsed);
+      } catch (error) {
+        parsed.supported = false;
+        parsed.reason = error.message;
+      }
+    } else if (!Number.isInteger(Number(parsed.port)) || Number(parsed.port) < 1 || Number(parsed.port) > 65535) {
       parsed.supported = false;
       parsed.reason = 'This feed does not advertise a valid TCP or UDP port.';
     } else if (!name.endsWith('-server') && !parsed.host) {
@@ -163,7 +170,7 @@ function parseItem(item, direction) {
   } else if (parsed.supported && Object.hasOwn(parsed, 'url') && !parsed.url) {
     parsed.supported = false;
     parsed.reason = 'This item has no valid public data URL, or its URL contains embedded credentials. Configure the connection manually.';
-  } else if (!parsed.supported) {
+  } else if (!parsed.supported && !parsed.reason) {
     parsed.reason = `This ${direction} type is not yet supported by the ${direction === 'feed' ? 'Simulator' : 'Logger'}.`;
   }
   return parsed;

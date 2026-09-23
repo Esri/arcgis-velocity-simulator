@@ -246,8 +246,10 @@ URLs with embedded credentials, fragments, or credential query parameters
 are rejected instead of saving temporary credentials in connection fields.
 A WebSocket feed connects outward, so applying it selects **WebSocket Server**
 for the feed to connect to. A GET-based HTTP Poller selects **HTTP Server**
-with GET polling enabled. TCP and UDP feed roles are inverted so the Simulator
-uses the complementary client or server role.
+with GET polling enabled. TCP feed roles are inverted so the Simulator
+uses the complementary client or server role. Both UDP feed types select
+Simulator UDP Client using the advertised data host, never the management URL.
+See [Velocity feeds](udp.md#velocity-feeds) for endpoint validation and framing.
 
 Review the populated settings in
 [Protocol settings and presets](connection-presets.md) before connecting.

@@ -54,18 +54,36 @@ test('missing or invalid endpoints fail without fallback', () => {
   assert.throws(() => build({ feedType: 'mqtt', url: 'https://receiver.example.com' }), /supported/);
 });
 
-test('TCP and UDP connector roles are inverted for feeds and outputs', () => {
-  assert.deepStrictEqual(build({
-    feedType: 'udp-server', serverApiUrl: 'https://velocity.example.com:7143/arcgis',
-    port: 17009, format: 'json',
-  }), {
-    connectionType: 'udp-client', ip: 'velocity.example.com', port: 17009, udpFormat: 'json',
-  });
-  assert.deepStrictEqual(build({
-    feedType: 'udp-client', host: 'logger.example.com', port: 17012, format: 'geo-json',
-  }), {
-    connectionType: 'udp-server', ip: 'logger.example.com', port: 17012, udpFormat: 'geo-json',
-  });
+test('both UDP feed types receive and both output types send without registration', () => {
+  for (const type of ['udp-client', 'udp-server']) {
+    for (const format of ['delimited', 'json', 'geo-json', 'esri-json']) {
+      assert.deepStrictEqual(build({
+        feedType: type, host: 'data.example.com', serverApiUrl: 'https://management.example.com/arcgis',
+        port: '17009', format,
+      }), {
+        connectionType: 'udp-client', ip: 'data.example.com', port: 17009, udpFormat: format,
+        udpAppendNewline: format === 'delimited',
+      });
+      const output = build({ outputType: type, host: 'destination.example.com', port: 17009, format });
+      assert.strictEqual(output.connectionType, 'udp-server');
+      assert.strictEqual(output.ip, '127.0.0.1');
+      assert.strictEqual(output.udpFormat, format);
+      assert.deepStrictEqual(output.expectedDestination, { host: 'destination.example.com', port: 17009 });
+      assert.match(output.routingWarning, /destination.example.com:17009/);
+      assert.match(output.routingWarning, /routes to this Logger/);
+      if (type === 'udp-server') assert.match(output.routingWarning, /fixed by the deployment public host name/);
+    }
+    for (const direction of ['feedType', 'outputType']) {
+      for (const host of ['', '0.0.0.0', '*', '::1', '[2001:db8::1]', 'bad host']) {
+        assert.throws(() => build({ [direction]: type, host, port: 17009, serverApiUrl: 'https://management.example.com' }), /host|IPv4/);
+      }
+      for (const port of [0, 65536, 'bad']) assert.throws(() => build({ [direction]: type, host: 'data.example.com', port }), /port/);
+      assert.throws(() => build({ [direction]: type, host: 'data.example.com', port: 17009, format: 'xml' }), /XML/);
+    }
+  }
+});
+
+test('TCP connector role inversion is unchanged', () => {
   assert.deepStrictEqual(build({
     feedType: 'tcp-server', serverApiUrl: 'https://velocity.example.com/arcgis',
     port: '17011', format: 'delimited',
@@ -99,7 +117,7 @@ test('TCP and UDP connector roles are inverted for feeds and outputs', () => {
     outputType: 'tcp-client', host: '[2001:db8::2]', port: 17011, format: 'json',
   }).ip, '2001:db8::2');
   assert.throws(() => build({
-    feedType: 'udp-server', serverApiUrl: 'https://[2001:db8::1]/arcgis',
+    feedType: 'udp-server', host: '2001:db8::1',
     port: 17009, format: 'json',
   }), /IPv4/);
 });
@@ -150,7 +168,7 @@ test('browser UMD export matches the Node module', () => {
 test('main renderer validates atomically, honors transport locks, and never connects', () => {
   const source = fs.readFileSync(require.resolve('../src/renderer'), 'utf8');
   const block = source.slice(source.indexOf('  window.api.onFeedApplied((item) => {'), source.indexOf('  // Token refresh notification'));
-  const dom = new JSDOM('<select id="type"><option>tcp-server</option><option>http-client</option><option>grpc-client</option></select>');
+  const dom = new JSDOM('<select id="type"><option>tcp-server</option><option>http-client</option><option>grpc-client</option><option>udp-client</option></select>');
   const writes = [];
   let callback;
   let authUpdates = 0;
@@ -193,6 +211,13 @@ test('main renderer validates atomically, honors transport locks, and never conn
   assert(writes.some(([key, value]) => key === 'grpcHeaderPathKey' && value === 'x-route'));
   assert(writes.some(([key, value]) => key === 'grpcHeaderPath' && value === '/tenant/feed'));
   assert.deepStrictEqual(writes.at(-1), ['port', 7443]);
+  for (const feedType of ['udp-client', 'udp-server']) {
+    writes.length = 0;
+    callback({ feedType, host: 'data.example.com', port: 17009, format: 'delimited' });
+    assert.strictEqual(context.connectionTypeSelect.value, 'udp-client');
+    assert(writes.some(([key, value]) => key === 'udpAppendNewline' && value === true));
+    assert(writes.some(([key, value]) => key === 'host' && value === 'data.example.com'));
+  }
   assert(!/\.connect\(/.test(block));
   dom.window.close();
 });

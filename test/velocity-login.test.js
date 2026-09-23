@@ -82,6 +82,38 @@ async function test(name, run) {
 }
 
 (async () => {
+  await test('both UDP receiving feeds show actual data host and apply without registration', async () => {
+    for (const type of ['udp-client', 'udp-server']) {
+      const item = { ...sourcedFeed('server-a'), feedType: type, url: undefined,
+        host: 'data.example.com', port: 17009, format: 'delimited', serverApiUrl: ROOT };
+      const app = await harness({ listItems: async () => list([item]), getItemDetails: async () => item });
+      await app.signIn();
+      await app.selectFeed();
+      assert.strictEqual(app.element('info-url').textContent, 'data.example.com:17009');
+      assert.match(app.element('info-type').textContent, /receiving feed/);
+      assert.match(app.element('info-server').textContent, /server-a/);
+      assert.match(app.element('status-banner-text').textContent, /without registration/);
+      assert.strictEqual(app.element('apply-btn').disabled, false);
+      app.element('apply-btn').click();
+      await settle();
+      assert.strictEqual(app.calls.find(([name]) => name === 'applyItem')[1].id, item.id);
+      app.close();
+    }
+  });
+
+  await test('invalid UDP feed shows its reason without inventing a management endpoint', async () => {
+    const item = { ...feed(), feedType: 'udp-server', url: undefined, port: 17009,
+      serverApiUrl: ROOT, supported: false, reason: 'This UDP feed needs a routable IPv4 data host.' };
+    const app = await harness({ listItems: async () => list([item]), getItemDetails: async () => item });
+    await app.signIn();
+    app.element('filter-all-btn').click();
+    await app.selectFeed();
+    assert.strictEqual(app.element('info-url').textContent, '-');
+    assert.strictEqual(app.element('apply-btn').disabled, true);
+    assert.match(app.element('status-banner-text').textContent, /routable IPv4/);
+    app.close();
+  });
+
   await test('endpoint and Portal controls are shared across auth tabs; typing sends no requests', async () => {
     const app = await harness();
     app.element('endpoint-custom').click();

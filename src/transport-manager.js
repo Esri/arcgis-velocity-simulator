@@ -45,7 +45,6 @@ const dgram = require('dgram');
 const {
   SOCKET_PAYLOAD_FORMAT_SET,
   assertTcpPayloadSize,
-  assertUdpPayloadSize,
   validatePayload,
 } = require('./payload-format-utils');
 const {
@@ -53,7 +52,7 @@ const {
   createUdpPayloadReceiver,
   finishTcpPayloadReceiver,
 } = require('./socket-payload-receiver');
-const { isUdpClientRegistrationMessage } = require('./udp-utils');
+const { isUdpClientRegistrationMessage, encodeUdpPayload } = require('./udp-utils');
 
 /**
  * Protocols whose connection handle is a transport object exposing
@@ -231,6 +230,7 @@ class TransportManager extends EventEmitter {
       throw new Error('Choose Delimited, JSON, GeoJSON, or Esri JSON for TCP or UDP.');
     }
     this.payloadFormat = protocol === 'tcp' ? tcpFormat : protocol === 'udp' ? udpFormat : null;
+    this.udpAppendNewline = options.udpAppendNewline === true;
 
     if (protocol === 'grpc') {
       return this.connectGrpc({ mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls });
@@ -891,8 +891,7 @@ class TransportManager extends EventEmitter {
     }
 
     if (this.connection.socket && this.mode === 'client') {
-      assertUdpPayloadSize(data);
-      const buffer = Buffer.from(data);
+      const buffer = encodeUdpPayload(data, this.payloadFormat, this.udpAppendNewline);
       await new Promise((resolve, reject) => {
         this.connection.socket.send(buffer, this.port, this.ip, (error) => {
           if (error) {
@@ -911,8 +910,7 @@ class TransportManager extends EventEmitter {
         return { delivered: false, recipients: 0, reason: 'no-clients' };
       }
 
-      assertUdpPayloadSize(data);
-      const buffer = Buffer.from(data);
+      const buffer = encodeUdpPayload(data, this.payloadFormat, this.udpAppendNewline);
       const clients = Array.from(this.udpServerClients);
       await Promise.all(clients.map((clientKey) => {
         const [host, port] = clientKey.split(':');

@@ -91,10 +91,33 @@ async function main() {
   assert.match(postPoller.reason, /GET-based/);
   const udpServer = api.parseFeedItem({
     id: 'udp-server',
-    feed: { name: 'udp-server', formatName: 'json', properties: { 'udp-server.port': 17009 } },
+    feed: { name: 'udp-server', formatName: 'json', properties: { 'udp-server.hostName': 'data.example.com', 'udp-server.port': 17009 } },
   });
   assert.strictEqual(udpServer.supported, true);
   assert.strictEqual(udpServer.port, 17009);
+  assert.strictEqual(udpServer.host, 'data.example.com');
+  for (const type of ['udp-client', 'udp-server']) {
+    for (const key of ['hostName', 'hostname', 'host']) {
+      const parsed = api.parseFeedItem({
+        id: 'same-feed-id', feed: { name: type, formatName: 'delimited', properties: {
+          [`${type}.${key}`]: 'data.example.com', [`${type}.port`]: '17009',
+        } },
+      });
+      assert.strictEqual(parsed.id, 'same-feed-id');
+      assert.strictEqual(parsed.supported, true);
+      assert.strictEqual(parsed.host, 'data.example.com');
+    }
+    for (const [host, port, format, reason] of [
+      ['', 17009, 'json', /routable/], ['0.0.0.0', 17009, 'json', /routable/],
+      ['::1', 17009, 'json', /IPv4/], ['data.example.com', 0, 'json', /port/],
+      ['data.example.com', 17009, 'xml', /XML/],
+    ]) {
+      const parsed = api.parseFeedItem({ id: 'bad-feed', feed: { name: type, formatName: format,
+        properties: { [`${type}.hostName`]: host, [`${type}.port`]: port } } });
+      assert.strictEqual(parsed.supported, false);
+      assert.match(parsed.reason, reason);
+    }
+  }
   const tcpClient = api.parseFeedItem({
     id: 'tcp',
     feed: { name: 'tcp', formatName: 'json', properties: { 'tcp.host': 'receiver.example.com', 'tcp.port': 17013 } },

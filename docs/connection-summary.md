@@ -204,6 +204,8 @@ Logger reports the identity it receives on.
 | `grpcEndpointHeader` | Endpoint header | gRPC Client. |
 | `format` | Format | TCP, UDP, HTTP, WebSocket. |
 | `csvHeader` | CSV header row | TCP, UDP. |
+| `udpAppendNewline` | Append LF | UDP publishing; see [UDP transport](udp.md). |
+| `expectedDestination` | Expected destination | Shared UDP output-routing metadata when supplied; separate from the local bind endpoint. |
 | `pointFields` | Point fields | TCP, UDP. |
 | `wkid` | Geometry WKID | TCP, UDP. |
 | `path` | Path | HTTP, WebSocket. |

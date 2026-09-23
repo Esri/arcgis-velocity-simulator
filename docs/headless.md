@@ -211,11 +211,10 @@ Omitting `udpInputHasHeader`, coordinate fields, and `udpWkid` preserves the
 header as an event, generates deterministic names for a structured payload,
 uses null geometry, and defaults WKID to 4326.
 
-When the Simulator uses UDP server mode, it learns recipient endpoints from
-inbound datagrams. A paired Logger UDP client sends one
-`UDP Client connected` registration datagram on startup. Set
-`waitForClient=true` to keep the first replay record pending until that
-registration arrives.
+For a Velocity UDP feed, use client mode and `udpAppendNewline=true` with
+Delimited payloads. For a generic paired Logger client, server mode can use
+`waitForClient=true`. See [UDP transport](udp.md) for the custom registration
+convention and Velocity framing requirements.
 
 ### gRPC client with default header path
 

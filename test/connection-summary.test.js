@@ -141,6 +141,19 @@ test('credential-bearing WebSocket fields report presence only', () => {
   assert.doesNotMatch(formatConnectionSummaryText(summary), /do-not-print-me/);
 });
 
+test('shared UDP routing metadata stays separate from binding and LF is reported', () => {
+  const summary = buildConnectionSummary({
+    ...BASE, connectionType: 'udp-server', host: '127.0.0.1', port: 17009,
+    expectedDestination: { host: 'destination.example.com', port: 17009 },
+    routingWarning: 'Confirm routing to the receiving application.',
+    udpAppendNewline: true,
+  });
+  assert.strictEqual(rowsByKey(summary).expectedDestination.value, 'destination.example.com:17009');
+  assert.strictEqual(rowsByKey(summary).udpAppendNewline.value, 'On');
+  assert.strictEqual(summary.warnings[0].key, 'routing');
+  assert.strictEqual(rowsByKey(summary).udpAppendNewline.isDefault, false);
+});
+
 test('an empty XMPP account password is reported as Empty, not as unset', () => {
   const summary = buildConnectionSummary({
     ...BASE, port: 5222, connectionType: 'xmpp-client', xmppUsername: 'velocity-simulator', xmppPassword: '',

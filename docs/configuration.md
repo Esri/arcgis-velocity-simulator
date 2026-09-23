@@ -314,6 +314,9 @@ Saving a launch configuration from the UI captures the current connection
 controls, including TCP and UDP payload conversion settings and the three
 verification options. `tcpFormat` and `udpFormat` default to `delimited`;
 existing files that omit them therefore retain Delimited (CSV) behavior.
+`udpAppendNewline` defaults to `false` and is saved from the **Append LF**
+control. It is a Simulator publishing setting, not a Logger receive option.
+See [UDP transport](udp.md) for when LF framing is required.
 Header-row flags default to `false`, coordinate fields are optional and paired,
 and WKID defaults to `4326`. A missing or false header flag preserves the
 existing header-as-event behavior; for structured formats it also selects

@@ -28,6 +28,7 @@
     "tcpWkid": 4326,
     "udpFormat": "delimited",
     "udpInputHasHeader": false,
+    "udpAppendNewline": false,
     "udpXField": null,
     "udpYField": null,
     "udpWkid": 4326,
