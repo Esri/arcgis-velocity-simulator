@@ -6,6 +6,9 @@ This guide explains how users install and start ArcGIS Velocity Simulator from
 a release package on macOS, Windows, or Linux. It also covers first-launch
 security warnings, deployed log locations, and startup troubleshooting.
 
+Release packages include the application runtime; Node.js and npm are not
+required to run them.
+
 ## Table of contents
 
 - [Choose a package](#choose-a-package)
@@ -28,12 +31,16 @@ Download packages only from the repository's official GitHub release page.
 | Linux | `arcgis-velocity-simulator-<version>-linux.AppImage` | Portable launch on AppImage-compatible distributions. |
 | Debian and Ubuntu | `arcgis-velocity-simulator-<version>-linux.deb` | Installation through `apt` or `dpkg`. |
 
-The current macOS release package is for Apple silicon (`arm64`). An Intel Mac
-requires an `x64` or universal package.
+Check the release's architecture before downloading. The v1.0.6 macOS packages
+are for Apple silicon (`arm64`), Windows packages are `x64`, and Linux packages
+are `arm64`. An Intel Mac requires an `x64` or universal macOS package; an
+`x86_64` Linux system requires a matching Linux package.
 
 ## Install and launch
 
 ### macOS
+
+To install from a DMG:
 
 1. Download the DMG from the official release page;
 2. verify the GitHub-published SHA-256 digest if your workflow requires an
@@ -42,53 +49,67 @@ requires an `x64` or universal package.
 4. drag `VelocitySimulator.app` to `/Applications`; and
 5. open the application from `/Applications`.
 
-The DMG itself is valid when this command completes successfully:
+Alternatively, extract the macOS ZIP and move `VelocitySimulator.app` into
+`/Applications`. Quit any running copy before replacing it, then launch the
+installed application rather than a copy inside the mounted DMG.
+
+To check the downloaded DMG, set `VERSION` to the version you downloaded
+(for example, `1.0.6`):
 
 ```bash
 VERSION=x.y.z
 hdiutil verify \
   "$HOME/Downloads/arcgis-velocity-simulator-${VERSION}-mac.dmg"
+shasum -a 256 \
+  "$HOME/Downloads/arcgis-velocity-simulator-${VERSION}-mac.dmg"
 ```
+
+`hdiutil verify` checks the disk image's internal integrity. Compare the
+`shasum` value with the asset's SHA-256 digest on GitHub; neither check
+establishes Apple signing or notarization.
 
 #### Unsigned package workaround
 
-A browser adds a quarantine attribute to downloaded applications. When a
-package is not signed with an Apple Developer ID and notarized, Gatekeeper can
-report the application as damaged even though the DMG checksum is valid.
+Browser downloads can carry a quarantine attribute. Without Developer ID
+signing and notarization, Gatekeeper may block the application or report it as
+damaged even when its download is intact. An ad hoc bundle signature does not
+provide Developer ID trust or notarization.
 
-The supported distribution fix is a signed and notarized package. For a trusted
-test package downloaded from the official Esri release page, use this temporary
-workaround:
+Try opening the installed application normally first. Only if Gatekeeper
+blocks a trusted official package whose checksum you have verified, quit the
+application and use this workaround:
 
 ```bash
-mkdir -p "$HOME/Library/Logs/arcgis-velocity-simulator"
-
 xattr -dr com.apple.quarantine \
   "/Applications/VelocitySimulator.app"
 
-open "/Applications/VelocitySimulator.app" --args \
-  "logFile=$HOME/Library/Logs/arcgis-velocity-simulator/velocity-simulator.log"
+open "/Applications/VelocitySimulator.app"
 ```
 
-The absolute `logFile` argument also avoids an `ENOENT` error for an affected
-package that tries to create `/logs` when Finder starts it with `/` as the
-working directory. Use the command for each launch until a corrected package is
-installed.
+Afterward, launch this installed copy normally from Finder. Quarantine removal
+is not a command to repeat on every launch; a replacement download may be
+quarantined again. No manual log-directory creation or `logFile` argument is
+required. See [Find diagnostic logs](#find-diagnostic-logs).
 
 > [!WARNING]
 > Removing quarantine bypasses a macOS security control. Use this workaround
 > only after confirming that the application came from the official Esri
-> release page and its checksum matches the published digest. Do not use `sudo`
-> and do not create a `/logs` folder at the filesystem root.
+> release page and its checksum matches the published digest. This does not
+> notarize the application. Do not use `sudo` or disable Gatekeeper globally.
 
 ### Windows
 
 Run the setup executable for a standard installation, or run the portable
-executable directly. Windows can show a SmartScreen warning when a package is
+executable directly. For the Windows ZIP, extract the entire archive into a
+writable folder and run `VelocitySimulator.exe` there; keep its supporting files
+together. Windows can show a SmartScreen warning when a package is
 unsigned or its signing certificate has not established reputation. Verify the
 publisher and obtain packages only from the official release page.
 
 ### Linux
+
+Run these commands from the download directory, replacing `x.y.z` with the
+downloaded version. The package architecture must match your system.
 
 For an AppImage:
 
@@ -107,8 +128,8 @@ sudo apt install "./arcgis-velocity-simulator-${VERSION}-linux.deb"
 
 ## Find diagnostic logs
 
-Packaged applications write timestamped diagnostic logs to a writable,
-platform-specific directory:
+Packaged applications automatically create the diagnostic log directory and
+write timestamped files in both UI and headless modes:
 
 | Platform | Default directory |
 |---|---|
@@ -127,13 +148,17 @@ Linux:  /home/alice/.config/arcgis-velocity-simulator/logs/velocity-simulator-20
 This behavior applies to every packaged platform, not only macOS. Packaged
 applications do not depend on the launcher's working directory. An explicit
 `logFile=<path>` argument always takes precedence.
+Relative overrides resolve against the process working directory; use an
+absolute path when launching through a desktop shortcut. On Linux, the
+application-data base follows `XDG_CONFIG_HOME` when set; the table shows the
+usual default.
 
 ## Troubleshooting
 
 | Symptom | Cause and action |
 |---|---|
-| macOS says the application is damaged. | The package is not Developer ID-signed and notarized, or the download is corrupt. Run `hdiutil verify`, confirm the published SHA-256 digest, and use [Unsigned package workaround](#unsigned-package-workaround) only for a trusted official package. |
-| macOS shows `ENOENT: no such file or directory, mkdir '/logs'`. | The package resolved a relative log directory from Finder's `/` working directory. Use [Unsigned package workaround](#unsigned-package-workaround), including its absolute `logFile` argument. |
+| macOS says the application is damaged. | Check disk-image integrity and the published SHA-256 digest first. Do not bypass a checksum mismatch. For an intact, trusted official package blocked by Gatekeeper, see [Unsigned package workaround](#unsigned-package-workaround). |
+| macOS shows `ENOENT: no such file or directory, mkdir '/logs'`. | Install v1.0.6 or later and launch the copy in `/Applications`. Default logs no longer depend on Finder's working directory. If the error persists, check for an explicit `logFile` override; do not create `/logs` or run the app with `sudo`. |
 | macOS says the application is unsupported. | The package architecture does not match the Mac. The current package requires Apple silicon. |
 | Windows shows a SmartScreen warning. | Confirm the package came from the official release page and verify its publisher before continuing. |
 | Linux cannot execute the AppImage. | Add execute permission with `chmod +x` and confirm the distribution supports AppImage. |
