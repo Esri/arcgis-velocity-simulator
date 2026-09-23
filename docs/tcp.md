@@ -37,6 +37,12 @@ address selection, including TCP hostname resolution. Explicit IPv4 or IPv6
 resolves DNS names only in the selected family; a literal of the other family
 is rejected before connecting.
 
+In headless client mode, `connectWaitForServer=true` also retries DNS
+`ENOTFOUND` and temporary `EAI_AGAIN` failures, including explicit-family
+lookups. `connectRetryIntervalMs` controls the delay and `connectTimeoutMs`
+bounds the retry period. Invalid hosts and address-family mismatches are
+configuration errors and are not retried.
+
 Use `::1` for IPv6 loopback and `::` only for an intentional all-interface
 IPv6 server bind. Explicit IPv6 listeners accept IPv6 only. Auto retains
 existing operating-system listen semantics; it is not a new simultaneous

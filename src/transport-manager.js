@@ -621,11 +621,13 @@ class TransportManager extends EventEmitter {
         return await attemptOnce();
       } catch (error) {
         attempt += 1;
+        const errorCode = error.code || (error.cause && error.cause.code);
         const isRetryable = connectWaitForServer && (
-          error.code === 'ECONNREFUSED' ||
-          error.code === 'ECONNRESET' ||
-          error.code === 'ETIMEDOUT' ||
-          error.code === 'ENOTFOUND'
+          errorCode === 'ECONNREFUSED' ||
+          errorCode === 'ECONNRESET' ||
+          errorCode === 'ETIMEDOUT' ||
+          errorCode === 'ENOTFOUND' ||
+          errorCode === 'EAI_AGAIN'
         );
 
         if (!isRetryable) {
@@ -638,7 +640,7 @@ class TransportManager extends EventEmitter {
         }
 
         const retryDelay = Math.min(connectRetryIntervalMs, remaining === Infinity ? connectRetryIntervalMs : remaining);
-        this.log('info', `TCP server not yet available at ${target} (${error.code}). Retrying in ${retryDelay}ms... (attempt ${attempt})`);
+        this.log('info', `TCP server not yet available at ${target} (${errorCode}). Retrying in ${retryDelay}ms... (attempt ${attempt})`);
         this.emitStatus('connecting', `Waiting for server at ${target}. Retry in ${retryDelay}ms.`);
 
         // eslint-disable-next-line no-await-in-loop
