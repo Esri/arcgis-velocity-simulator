@@ -258,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showInfo(candidate);
       if (!candidate.supported) setStatus('warning', candidate.reason || 'This feed cannot be applied automatically.');
       else if ((candidate.feedType || '').startsWith('udp-')) {
-        setStatus('info', 'Apply selects UDP Client: the Simulator sends payload datagrams to this receiving feed without registration or a handshake. Verify that the advertised host is reachable from the Simulator.');
+        setStatus('info', 'Apply selects UDP Client: the Simulator sends payload datagrams to this receiving feed without registration or a handshake. Verify that the advertised host and address family are reachable from the Simulator.');
       }
     } catch (error) {
       if (request === detailGeneration && epoch === endpointUI.generation) setStatus('error', error.message);
@@ -279,8 +279,9 @@ document.addEventListener('DOMContentLoaded', () => {
     element('info-server').textContent = item.serverName
       ? `${item.serverName} (${item.serverId})` : item.serverId || '-';
     element('info-type').textContent = meta.label || type || '-';
+    const hostText = item.host && item.host.includes(':') && !item.host.startsWith('[') ? `[${item.host}]` : item.host;
     element('info-url').textContent = item.url
-      || (item.host && item.port ? `${item.host}:${item.port}` : item.host)
+      || (hostText && item.port ? `${hostText}:${item.port}` : hostText)
       || (!(type.startsWith('udp-')) && item.port && item.serverApiUrl ? `${new URL(item.serverApiUrl).hostname}:${item.port}` : '-');
     element('info-auth').textContent = item.authType || 'none';
     element('info-format').textContent = item.format || '-';

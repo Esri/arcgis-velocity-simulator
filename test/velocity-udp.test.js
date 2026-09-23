@@ -14,19 +14,21 @@ async function run() {
   assert.throws(() => encodeUdpPayload('é'.repeat(32753) + 'x', 'delimited', true), /65507/);
   assert.strictEqual(encodeUdpPayload('x'.repeat(65507), 'delimited', false).length, 65507);
 
-  for (const type of ['udp-client', 'udp-server']) {
+  for (const [type, host, family] of [
+    ['udp-client', '127.0.0.1', 'udp4'], ['udp-server', '127.0.0.1', 'udp4'], ['udp-client', '::1', 'udp6'],
+  ]) {
     for (const format of ['delimited', 'json']) {
-      const receiver = dgram.createSocket('udp4');
+      const receiver = dgram.createSocket(family);
       const transport = new TransportManager();
       const received = [];
       receiver.on('message', data => received.push(data.toString('utf8')));
-      receiver.bind(0, '127.0.0.1');
+      receiver.bind(0, host);
       await once(receiver, 'listening');
       try {
         const item = parseFeedItem({
           id: 'receiving-feed',
           feed: { name: type, formatName: format, properties: {
-            [`${type}.hostName`]: '127.0.0.1', [`${type}.port`]: receiver.address().port,
+            [`${type}.hostName`]: host, [`${type}.port`]: receiver.address().port,
           } },
         });
         const options = buildVelocityConnectionOptions({

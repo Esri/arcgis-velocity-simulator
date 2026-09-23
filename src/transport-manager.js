@@ -53,6 +53,7 @@ const {
   finishTcpPayloadReceiver,
 } = require('./socket-payload-receiver');
 const { isUdpClientRegistrationMessage, encodeUdpPayload } = require('./udp-utils');
+const { resolveUdpEndpoint, udpEndpointKey, formatUdpEndpoint, resolveSocketEndpoint, tcpSocketOptions, formatSocketEndpoint } = require('./socket-address-utils');
 
 /**
  * Protocols whose connection handle is a transport object exposing
@@ -80,7 +81,7 @@ class TransportManager extends EventEmitter {
     this.ip = null;
     this.port = null;
     this.tcpClientSockets = [];
-    this.udpServerClients = new Set();
+    this.udpServerClients = new Map();
     this._recipientWaiters = new Set();
   }
 
@@ -209,7 +210,7 @@ class TransportManager extends EventEmitter {
   async connect(options) {
     const {
       protocol, mode, ip, port,
-      tcpFormat = 'delimited', udpFormat = 'delimited',
+      tcpFormat = 'delimited', tcpAddressFamily = 'auto', udpFormat = 'delimited', udpAddressFamily = 'ipv4',
       grpcSerialization, grpcSendMethod, headerPathKey, headerPath,
       useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls,
       connectTimeoutMs = 0, connectWaitForServer = false, connectRetryIntervalMs = 1000,
@@ -250,13 +251,13 @@ class TransportManager extends EventEmitter {
 
     if (protocol === 'tcp') {
       return mode === 'server'
-        ? this.connectTcpServer({ ip, port, connectTimeoutMs, format: tcpFormat })
-        : this.connectTcpClient({ ip, port, connectTimeoutMs, connectWaitForServer, connectRetryIntervalMs, format: tcpFormat });
+        ? this.connectTcpServer({ ip, port, connectTimeoutMs, format: tcpFormat, tcpAddressFamily })
+        : this.connectTcpClient({ ip, port, connectTimeoutMs, connectWaitForServer, connectRetryIntervalMs, format: tcpFormat, tcpAddressFamily });
     }
 
     return mode === 'server'
-      ? this.connectUdpServer({ ip, port, connectTimeoutMs, format: udpFormat })
-      : this.connectUdpClient({ ip, port, connectTimeoutMs, connectWaitForServer, connectRetryIntervalMs, format: udpFormat });
+      ? this.connectUdpServer({ ip, port, connectTimeoutMs, format: udpFormat, udpAddressFamily })
+      : this.connectUdpClient({ ip, port, connectTimeoutMs, connectWaitForServer, connectRetryIntervalMs, format: udpFormat, udpAddressFamily });
   }
 
   /**
@@ -494,14 +495,16 @@ class TransportManager extends EventEmitter {
    * - In headless server mode, the simulation engine may wait until a first client appears.
    * - Any inbound client messages are surfaced through `data-received` for observability.
    */
-  async connectTcpServer({ ip, port, connectTimeoutMs, format = 'delimited' }) {
+  async connectTcpServer({ ip, port, connectTimeoutMs, format = 'delimited', tcpAddressFamily = 'auto' }) {
+    this.log('info', `[Transport] Resolving TCP ${tcpAddressFamily} bind host ${ip}`);
+    const endpoint = await resolveSocketEndpoint(ip, tcpAddressFamily, { bind: true });
     return new Promise((resolve, reject) => {
       let settled = false;
       let timeout = null;
 
       const server = net.createServer((socket) => {
         this.tcpClientSockets.push(socket);
-        const clientKey = `${socket.remoteAddress}:${socket.remotePort}`;
+        const clientKey = formatSocketEndpoint({ address: socket.remoteAddress, port: socket.remotePort });
         this.log('info', `TCP client connected: ${clientKey}`);
         this.emit('client-connected', { protocol: 'tcp', mode: 'server', clientKey });
         this.resolveRecipientWaiters();
@@ -551,12 +554,12 @@ class TransportManager extends EventEmitter {
         this.rejectRecipientWaiters(new Error('TCP server closed before a recipient became available.'));
       });
 
-      server.listen(port, ip, () => {
+      server.listen(tcpSocketOptions(endpoint, port, { bind: true }), () => {
         const address = server.address();
         this.connection = server;
         settled = true;
         if (timeout) clearTimeout(timeout);
-        this.emitStatus('connected', `TCP server listening on ${address.address}:${address.port} [${format}]`);
+        this.emitStatus('connected', `TCP server listening on ${formatSocketEndpoint(address)} [${format}]`);
         resolve({ protocol: 'tcp', mode: 'server', address, format });
       });
 
@@ -579,36 +582,37 @@ class TransportManager extends EventEmitter {
    * error) at `connectRetryIntervalMs` intervals until the server accepts the connection.
    * `connectTimeoutMs > 0` sets an overall deadline; `connectTimeoutMs = 0` waits forever.
    */
-  async connectTcpClient({ ip, port, connectTimeoutMs, connectWaitForServer = false, connectRetryIntervalMs = 1000, format = 'delimited' }) {
+  async connectTcpClient({ ip, port, connectTimeoutMs, connectWaitForServer = false, connectRetryIntervalMs = 1000, format = 'delimited', tcpAddressFamily = 'auto' }) {
     const deadline = connectTimeoutMs > 0 ? Date.now() + connectTimeoutMs : null;
+    const target = formatSocketEndpoint({ address: ip, port });
 
-    const attemptOnce = () => new Promise((resolve, reject) => {
-      const client = net.createConnection({ host: ip, port }, () => {
-        this.connection = client;
-        this.emitStatus('connected', `TCP client connected to ${ip}:${port} from local port ${client.localPort} [${format}]`);
-
-        client.on('close', () => {
-          this.connection = null;
-          this.emitStatus('disconnected', 'TCP client disconnected.');
+    const attemptOnce = async () => {
+      const endpoint = await resolveSocketEndpoint(ip, tcpAddressFamily);
+      return new Promise((resolve, reject) => {
+        const client = net.createConnection(tcpSocketOptions(endpoint, port), () => {
+          this.connection = client;
+          this.emitStatus('connected', `TCP client connected to ${target} from local port ${client.localPort} [${format}]`);
+          client.on('close', () => {
+            this.connection = null;
+            this.emitStatus('disconnected', 'TCP client disconnected.');
+          });
+          attachTcpPayloadReceiver(client, {
+            format,
+            context: { clientKey: target },
+            onRecord: (message) => {
+              this.emit('data-received', { protocol: 'tcp', mode: 'client', data: message, clientKey: target });
+              this.log('debug', `Received from TCP server ${target}: ${message}`);
+            },
+            onWarning: (message, context) => this.log('warn', `TCP payload warning (${context.clientKey}): ${message}`),
+          });
+          resolve({ protocol: 'tcp', mode: 'client', format });
         });
-        attachTcpPayloadReceiver(client, {
-          format,
-          context: { clientKey: `${ip}:${port}` },
-          onRecord: (message) => {
-          this.emit('data-received', { protocol: 'tcp', mode: 'client', data: message, clientKey: `${ip}:${port}` });
-          this.log('debug', `Received from TCP server ${ip}:${port}: ${message}`);
-          },
-          onWarning: (message, context) => this.log('warn', `TCP payload warning (${context.clientKey}): ${message}`),
+        client.once('error', (error) => {
+          client.destroy();
+          reject(error);
         });
-
-        resolve({ protocol: 'tcp', mode: 'client', format });
       });
-
-      client.once('error', (error) => {
-        client.destroy();
-        reject(error);
-      });
-    });
+    };
 
     let attempt = 0;
     for (;;) {
@@ -630,18 +634,18 @@ class TransportManager extends EventEmitter {
 
         const remaining = deadline ? deadline - Date.now() : Infinity;
         if (remaining <= 0) {
-          throw new Error(`Timed out waiting for TCP server at ${ip}:${port} after ${connectTimeoutMs}ms (${attempt} attempt(s)).`);
+          throw new Error(`Timed out waiting for TCP server at ${target} after ${connectTimeoutMs}ms (${attempt} attempt(s)).`);
         }
 
         const retryDelay = Math.min(connectRetryIntervalMs, remaining === Infinity ? connectRetryIntervalMs : remaining);
-        this.log('info', `TCP server not yet available at ${ip}:${port} (${error.code}). Retrying in ${retryDelay}ms... (attempt ${attempt})`);
-        this.emitStatus('connecting', `Waiting for server at ${ip}:${port}. Retry in ${retryDelay}ms.`);
+        this.log('info', `TCP server not yet available at ${target} (${error.code}). Retrying in ${retryDelay}ms... (attempt ${attempt})`);
+        this.emitStatus('connecting', `Waiting for server at ${target}. Retry in ${retryDelay}ms.`);
 
         // eslint-disable-next-line no-await-in-loop
         await new Promise((res) => setTimeout(res, retryDelay));
 
         if (deadline && Date.now() >= deadline) {
-          throw new Error(`Timed out waiting for TCP server at ${ip}:${port} after ${connectTimeoutMs}ms (${attempt} attempt(s)).`);
+          throw new Error(`Timed out waiting for TCP server at ${target} after ${connectTimeoutMs}ms (${attempt} attempt(s)).`);
         }
       }
     }
@@ -654,11 +658,14 @@ class TransportManager extends EventEmitter {
    * lazily from inbound datagrams. Once a sender is observed, that endpoint can be
    * treated as a recipient for future outbound replay traffic.
    */
-  async connectUdpServer({ ip, port, connectTimeoutMs, format = 'delimited' }) {
+  async connectUdpServer({ ip, port, connectTimeoutMs, format = 'delimited', udpAddressFamily = 'ipv4' }) {
+    this.log('info', `[Transport] Resolving UDP ${udpAddressFamily} bind host ${ip}`);
+    const endpoint = await resolveUdpEndpoint(ip, udpAddressFamily, { bind: true });
+    this.udpServerClients.clear();
     return new Promise((resolve, reject) => {
       let settled = false;
       let timeout = null;
-      const socket = dgram.createSocket('udp4');
+      const socket = dgram.createSocket(endpoint.socketOptions);
       const receiveUdpPayload = createUdpPayloadReceiver({
         format,
         isControlDatagram: isUdpClientRegistrationMessage,
@@ -687,14 +694,15 @@ class TransportManager extends EventEmitter {
         this.connection = { socket, protocol: 'udp', mode: 'server' };
         settled = true;
         if (timeout) clearTimeout(timeout);
-        this.emitStatus('connected', `UDP server listening on ${address.address}:${address.port} [${format}]`);
+        this.emitStatus('connected', `UDP server listening on ${formatUdpEndpoint(address)} [${format}, ${udpAddressFamily}]`);
         resolve({ protocol: 'udp', mode: 'server', address, format });
       });
 
       socket.on('message', (message, remoteInfo) => {
-        const clientKey = `${remoteInfo.address}:${remoteInfo.port}`;
-        if (!this.udpServerClients.has(clientKey)) {
-          this.udpServerClients.add(clientKey);
+        const endpointKey = udpEndpointKey(remoteInfo);
+        const clientKey = formatUdpEndpoint(remoteInfo);
+        if (!this.udpServerClients.has(endpointKey)) {
+          this.udpServerClients.set(endpointKey, { address: remoteInfo.address, port: remoteInfo.port });
           this.log('info', `UDP client detected: ${clientKey}`);
           this.emit('client-connected', { protocol: 'udp', mode: 'server', clientKey });
           this.resolveRecipientWaiters();
@@ -703,7 +711,7 @@ class TransportManager extends EventEmitter {
         receiveUdpPayload(message, clientKey);
       });
 
-      socket.bind(port, ip);
+      socket.bind(port, endpoint.address);
 
       if (connectTimeoutMs > 0) {
         timeout = setTimeout(() => {
@@ -723,11 +731,14 @@ class TransportManager extends EventEmitter {
    * Note: UDP is connectionless so `connectWaitForServer` has no practical effect here;
    * the option is accepted for API consistency but no retry logic is applied.
    */
-  async connectUdpClient({ ip, port, connectTimeoutMs, connectWaitForServer: _connectWaitForServer = false, connectRetryIntervalMs: _connectRetryIntervalMs = 1000, format = 'delimited' }) {
+  async connectUdpClient({ ip, port, connectTimeoutMs, connectWaitForServer: _connectWaitForServer = false, connectRetryIntervalMs: _connectRetryIntervalMs = 1000, format = 'delimited', udpAddressFamily = 'ipv4' }) {
+    this.log('info', `[Transport] Resolving UDP ${udpAddressFamily} destination ${ip}`);
+    const endpoint = await resolveUdpEndpoint(ip, udpAddressFamily);
+    this.ip = endpoint.address;
     return new Promise((resolve, reject) => {
       let settled = false;
       let timeout = null;
-      const socket = dgram.createSocket('udp4');
+      const socket = dgram.createSocket(endpoint.socketOptions);
       const receiveUdpPayload = createUdpPayloadReceiver({
         format,
         onRecord: (text, clientKey) => {
@@ -750,16 +761,16 @@ class TransportManager extends EventEmitter {
       });
 
       socket.on('message', (message, remoteInfo) => {
-        const clientKey = `${remoteInfo.address}:${remoteInfo.port}`;
+        const clientKey = formatUdpEndpoint(remoteInfo);
         receiveUdpPayload(message, clientKey);
       });
 
       socket.bind(() => {
         const localAddress = socket.address();
-        this.connection = { socket, protocol: 'udp', mode: 'client', ip, port };
+        this.connection = { socket, protocol: 'udp', mode: 'client', ip: endpoint.address, port };
         settled = true;
         if (timeout) clearTimeout(timeout);
-        this.emitStatus('connected', `UDP client ready to send to ${ip}:${port} from local port ${localAddress.port} [${format}]`);
+        this.emitStatus('connected', `UDP client ready to send to ${formatUdpEndpoint({ address: endpoint.address, port })} from local port ${localAddress.port} [${format}, ${udpAddressFamily}]`);
         resolve({ protocol: 'udp', mode: 'client', address: localAddress, format });
       });
 
@@ -911,11 +922,10 @@ class TransportManager extends EventEmitter {
       }
 
       const buffer = encodeUdpPayload(data, this.payloadFormat, this.udpAppendNewline);
-      const clients = Array.from(this.udpServerClients);
-      await Promise.all(clients.map((clientKey) => {
-        const [host, port] = clientKey.split(':');
+      const clients = Array.from(this.udpServerClients.values());
+      await Promise.all(clients.map(({ address, port }) => {
         return new Promise((resolve, reject) => {
-          this.connection.socket.send(buffer, Number.parseInt(port, 10), host, (error) => {
+          this.connection.socket.send(buffer, port, address, (error) => {
             if (error) {
               reject(error);
               return;

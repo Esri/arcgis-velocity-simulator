@@ -143,12 +143,12 @@ const request = (name, params = {}, eventSender = sender) => handlers.get(name)(
   };
   vm.runInNewContext(source.slice(connectStart, connectEnd), connectContext);
   for (const invalidConnection of [{ protocol: 'unknown', mode: 'client' }, { protocol: 'tcp', mode: 'unknown' }]) {
-    const result = handlers.get('connect')({}, { ip: 'example.com', port: 443, ...invalidConnection });
+    const result = await handlers.get('connect')({}, { ip: 'example.com', port: 443, ...invalidConnection });
     assert.strictEqual(result.success, false);
     assert.match(result.error, /Unsupported/);
     assert.strictEqual(connectContext.velocityConnectionBusy, false);
   }
-  const invalidFormat = handlers.get('connect')({}, {
+  const invalidFormat = await handlers.get('connect')({}, {
     protocol: 'tcp', mode: 'client', ip: 'example.com', port: 443, tcpFormat: 'xml',
   });
   assert.strictEqual(invalidFormat.success, false);

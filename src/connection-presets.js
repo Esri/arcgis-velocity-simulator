@@ -78,12 +78,14 @@
     port: { elementId: 'port', kind: 'value' },
 
     tcpFormat: { elementId: 'tcp-format', kind: 'value' },
+    tcpAddressFamily: { elementId: 'tcp-address-family', kind: 'value' },
     tcpInputHasHeader: { elementId: 'tcp-input-has-header', kind: 'checked' },
     tcpXField: { elementId: 'tcp-x-field', kind: 'value' },
     tcpYField: { elementId: 'tcp-y-field', kind: 'value' },
     tcpWkid: { elementId: 'tcp-wkid', kind: 'value' },
 
     udpFormat: { elementId: 'udp-format', kind: 'value' },
+    udpAddressFamily: { elementId: 'udp-address-family', kind: 'value' },
     udpInputHasHeader: { elementId: 'udp-input-has-header', kind: 'checked' },
     udpAppendNewline: { elementId: 'udp-append-newline', kind: 'checked' },
     udpXField: { elementId: 'udp-x-field', kind: 'value' },
@@ -154,12 +156,14 @@
     port: 5565,
 
     tcpFormat: 'delimited',
+    tcpAddressFamily: 'auto',
     tcpInputHasHeader: false,
     tcpXField: '',
     tcpYField: '',
     tcpWkid: 4326,
 
     udpFormat: 'delimited',
+    udpAddressFamily: 'ipv4',
     udpInputHasHeader: false,
     udpAppendNewline: false,
     udpXField: '',

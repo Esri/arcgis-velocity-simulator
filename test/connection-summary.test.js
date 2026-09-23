@@ -148,6 +148,16 @@ test('shared UDP routing metadata stays separate from binding and LF is reported
     routingWarning: 'Confirm routing to the receiving application.',
     udpAppendNewline: true,
   });
+
+  test('Socket address family appears in Summary without rewriting the endpoint', () => {
+    for (const protocol of ['tcp', 'udp']) {
+      const summary = buildConnectionSummary({ ...BASE, connectionType: `${protocol}-client`, host: '::1',
+        [`${protocol}AddressFamily`]: 'ipv6' });
+      assert.strictEqual(rowsByKey(summary)[`${protocol}AddressFamily`].value, 'IPv6');
+      assert.strictEqual(rowsByKey(summary)[`${protocol}AddressFamily`].isDefault, false);
+      assert.match(formatConnectionSummaryText(summary), /\[::1\]/);
+    }
+  });
   assert.strictEqual(rowsByKey(summary).expectedDestination.value, 'destination.example.com:17009');
   assert.strictEqual(rowsByKey(summary).udpAppendNewline.value, 'On');
   assert.strictEqual(summary.warnings[0].key, 'routing');

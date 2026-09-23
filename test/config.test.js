@@ -154,8 +154,8 @@ async function runConfigTests() {
     'xmppExternalPassword', 'xmppPassword', 'xmppRoomPassword',
   ];
   const socketPayloadKeys = [
-    'tcpFormat', 'tcpInputHasHeader', 'tcpXField', 'tcpYField', 'tcpWkid',
-    'udpFormat', 'udpInputHasHeader', 'udpXField', 'udpYField', 'udpWkid',
+    'tcpFormat', 'tcpAddressFamily', 'tcpInputHasHeader', 'tcpXField', 'tcpYField', 'tcpWkid',
+    'udpFormat', 'udpAddressFamily', 'udpInputHasHeader', 'udpXField', 'udpYField', 'udpWkid',
   ];
   runTest('Every launch-config sample includes TCP and UDP payload conversion settings', () =>
     sampleNames.every((name) => {

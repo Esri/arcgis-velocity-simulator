@@ -167,23 +167,34 @@
       const isFeed = Boolean(item.feedType);
       if (!item.host || item.host === '0.0.0.0' || item.host === '*') {
         throw new Error(isFeed
-          ? 'This UDP feed needs a routable IPv4 data host. Configure UDP Client manually with the reachable feed host and advertised port; the management API URL is not a data endpoint.'
+          ? 'This UDP feed needs a routable data host. Configure UDP Client manually with the reachable feed host, address family, and advertised port; the management API URL is not a data endpoint.'
           : 'This UDP output needs an advertised destination host. Ensure its destination routes to the Logger; the management API URL is not a data endpoint.');
       }
       const configuredHost = socketHost(item.host, 'UDP');
-      if (configuredHost.includes(':')) throw new Error('UDP automatic configuration currently requires an IPv4 host.');
-      if (configuredHost === '0.0.0.0') throw new Error('UDP automatic configuration requires a routable IPv4 data host, not a wildcard bind address.');
+      const literalIpv6 = configuredHost.includes(':');
+      const udpAddressFamily = item.udpAddressFamily ?? (literalIpv6 ? 'ipv6' : 'ipv4');
+      if (!['ipv4', 'ipv6'].includes(udpAddressFamily)) throw new Error('UDP address family must be ipv4 or ipv6.');
+      if ((literalIpv6 && udpAddressFamily !== 'ipv6')
+          || (/^\d+\.\d+\.\d+\.\d+$/.test(configuredHost) && udpAddressFamily !== 'ipv4')) {
+        throw new Error('The advertised UDP host does not match its address family.');
+      }
+      if (configuredHost.startsWith('::ffff:')) throw new Error('IPv4-mapped IPv6 addresses are not supported for UDP. Choose IPv4 instead.');
+      if (configuredHost === '0.0.0.0' || configuredHost === '::') throw new Error('UDP automatic configuration requires a routable data host, not a wildcard bind address.');
+      if (item.feedType === 'udp-server' && udpAddressFamily === 'ipv6') {
+        throw new Error('Velocity UDP Server feeds bind IPv4 only. Use an advertised IPv4 data host or an IPv4 forwarding endpoint.');
+      }
       const port = socketPort(item.port, 'UDP');
       const options = {
         connectionType: isFeed ? 'udp-client' : 'udp-server',
-        ip: isFeed ? configuredHost : '127.0.0.1',
+        ip: isFeed ? configuredHost : udpAddressFamily === 'ipv6' ? '::1' : '127.0.0.1',
         port,
+        udpAddressFamily,
         udpFormat: socketFormat(item.format),
       };
       if (isFeed) options.udpAppendNewline = options.udpFormat === 'delimited';
       if (!isFeed) {
-        options.expectedDestination = { host: configuredHost, port };
-        options.routingWarning = `Velocity sends UDP datagrams to ${configuredHost}:${port}. The Logger bind address defaults to 127.0.0.1; choose a local interface and ensure the advertised destination routes to this Logger.`
+        options.expectedDestination = { host: configuredHost, port, family: udpAddressFamily };
+        options.routingWarning = `Velocity sends UDP datagrams to ${literalIpv6 ? `[${configuredHost}]` : configuredHost}:${port}. The Logger bind address defaults to ${options.ip}; choose a local interface and ensure the advertised destination routes to this Logger.`
           + (type === 'udp-server' ? ' A UDP Server output destination may be fixed by the deployment public host name.' : '')
           + ' No registration datagram is sent.';
       }
@@ -193,13 +204,27 @@
       const protocol = 'tcp';
       const connectorServer = type.endsWith('-server');
       const configuredHost = connectorServer
-        ? endpointHost(item.serverApiUrl)
+        ? (item.host ? socketHost(item.host, 'TCP') : endpointHost(item.serverApiUrl))
         : socketHost(item.host, protocol.toUpperCase());
+      const ipv6 = configuredHost.includes(':');
+      const tcpAddressFamily = item.tcpAddressFamily ?? (ipv6 ? 'ipv6' : connectorServer ? 'ipv4' : 'auto');
+      if (!['auto', 'ipv4', 'ipv6'].includes(tcpAddressFamily)) throw new Error('TCP address family must be auto, ipv4, or ipv6.');
+      if (tcpAddressFamily !== 'auto' && configuredHost.startsWith('::ffff:')) {
+        throw new Error('IPv4-mapped IPv6 addresses require TCP Auto or an IPv4 address. Choose IPv4 instead.');
+      }
+      if ((ipv6 && tcpAddressFamily === 'ipv4')
+          || (/^\d+\.\d+\.\d+\.\d+$/.test(configuredHost) && tcpAddressFamily === 'ipv6')) {
+        throw new Error('The advertised TCP host does not match its address family.');
+      }
+      if (connectorServer && (ipv6 || tcpAddressFamily === 'ipv6')) {
+        throw new Error('Velocity TCP Server feeds and outputs bind IPv4 only. Use an advertised IPv4 data host or an IPv4 forwarding endpoint.');
+      }
       const port = socketPort(item.port, protocol.toUpperCase());
       return {
         connectionType: `${protocol}-${connectorServer ? 'client' : 'server'}`,
         ip: configuredHost,
         port,
+        tcpAddressFamily: connectorServer ? 'ipv4' : tcpAddressFamily,
         [`${protocol}Format`]: socketFormat(item.format),
       };
     }

@@ -62,19 +62,20 @@ test('both UDP feed types receive and both output types send without registratio
         port: '17009', format,
       }), {
         connectionType: 'udp-client', ip: 'data.example.com', port: 17009, udpFormat: format,
+        udpAddressFamily: 'ipv4',
         udpAppendNewline: format === 'delimited',
       });
       const output = build({ outputType: type, host: 'destination.example.com', port: 17009, format });
       assert.strictEqual(output.connectionType, 'udp-server');
       assert.strictEqual(output.ip, '127.0.0.1');
       assert.strictEqual(output.udpFormat, format);
-      assert.deepStrictEqual(output.expectedDestination, { host: 'destination.example.com', port: 17009 });
+      assert.deepStrictEqual(output.expectedDestination, { host: 'destination.example.com', port: 17009, family: 'ipv4' });
       assert.match(output.routingWarning, /destination.example.com:17009/);
       assert.match(output.routingWarning, /routes to this Logger/);
       if (type === 'udp-server') assert.match(output.routingWarning, /fixed by the deployment public host name/);
     }
     for (const direction of ['feedType', 'outputType']) {
-      for (const host of ['', '0.0.0.0', '*', '::1', '[2001:db8::1]', 'bad host']) {
+      for (const host of ['', '0.0.0.0', '*', '::', '[::]', 'bad host']) {
         assert.throws(() => build({ [direction]: type, host, port: 17009, serverApiUrl: 'https://management.example.com' }), /host|IPv4/);
       }
       for (const port of [0, 65536, 'bad']) assert.throws(() => build({ [direction]: type, host: 'data.example.com', port }), /port/);
@@ -88,18 +89,18 @@ test('TCP connector role inversion is unchanged', () => {
     feedType: 'tcp-server', serverApiUrl: 'https://velocity.example.com/arcgis',
     port: '17011', format: 'delimited',
   }), {
-    connectionType: 'tcp-client', ip: 'velocity.example.com', port: 17011, tcpFormat: 'delimited',
+    connectionType: 'tcp-client', ip: 'velocity.example.com', port: 17011, tcpFormat: 'delimited', tcpAddressFamily: 'ipv4',
   });
   assert.deepStrictEqual(build({
     outputType: 'tcp-client', host: 'logger.example.com', port: 17013, format: 'esri-json',
   }), {
-    connectionType: 'tcp-server', ip: 'logger.example.com', port: 17013, tcpFormat: 'esri-json',
+    connectionType: 'tcp-server', ip: 'logger.example.com', port: 17013, tcpFormat: 'esri-json', tcpAddressFamily: 'auto',
   });
   assert.deepStrictEqual(build({
     outputType: 'tcp-server', serverApiUrl: 'https://velocity.example.com:7143/arcgis',
     port: 17011, format: 'json',
   }), {
-    connectionType: 'tcp-client', ip: 'velocity.example.com', port: 17011, tcpFormat: 'json',
+    connectionType: 'tcp-client', ip: 'velocity.example.com', port: 17011, tcpFormat: 'json', tcpAddressFamily: 'ipv4',
   });
   assert.throws(() => build({
     outputType: 'tcp-server', port: 17011, format: 'json',
@@ -120,6 +121,33 @@ test('TCP connector role inversion is unchanged', () => {
     feedType: 'udp-server', host: '2001:db8::1',
     port: 17009, format: 'json',
   }), /IPv4/);
+});
+
+test('advertised IPv6 selects family only for capable Velocity connectors', () => {
+  for (const host of ['::1', '[::1]']) {
+    const feed = build({ feedType: 'udp-client', host, port: 17009, format: 'delimited' });
+    assert.strictEqual(feed.udpAddressFamily, 'ipv6');
+    assert.strictEqual(feed.ip, '::1');
+    assert.strictEqual(feed.udpAppendNewline, true);
+    for (const outputType of ['udp-client', 'udp-server']) {
+      const output = build({ outputType, host, port: 17009 });
+      assert.strictEqual(output.udpAddressFamily, 'ipv6');
+      assert.strictEqual(output.ip, '::1');
+      assert.deepStrictEqual(output.expectedDestination, { host: '::1', port: 17009, family: 'ipv6' });
+      assert.match(output.routingWarning, /\[::1\]:17009/);
+    }
+    assert.throws(() => build({ feedType: 'udp-server', host, port: 17009 }), /bind IPv4 only/);
+    for (const direction of ['feedType', 'outputType']) {
+      assert.strictEqual(build({ [direction]: 'tcp-client', host, port: 17009 }).tcpAddressFamily, 'ipv6');
+      assert.throws(() => build({ [direction]: 'tcp-server', host, port: 17009 }), /bind IPv4 only/);
+    }
+  }
+  assert.strictEqual(build({ feedType: 'udp-client', host: 'dual.example', port: 17009 }).udpAddressFamily, 'ipv4');
+  assert.strictEqual(build({ feedType: 'tcp-client', host: 'dual.example', port: 17009 }).tcpAddressFamily, 'auto');
+  for (const protocol of ['tcp', 'udp']) {
+    assert.throws(() => build({ feedType: `${protocol}-client`, host: '::1', port: 17009, [`${protocol}AddressFamily`]: 'ipv4' }), /family/);
+    assert.throws(() => build({ feedType: `${protocol}-client`, host: '127.0.0.1', port: 17009, [`${protocol}AddressFamily`]: 'ipv6' }), /family/);
+  }
 });
 
 test('HTTP Poller and WebSocket feeds map to Simulator server roles', () => {

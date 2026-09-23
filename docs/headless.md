@@ -97,7 +97,7 @@ reference stay aligned.
 | `help-table-narrow` | `true`, `false` | `false` | No | `help-table-narrow=true` | Print CLI help in a narrower ASCII-table layout for smaller terminals, then exit. |
 | `help-table-wide` | `true`, `false` | `false` | No | `help-table-wide=true` | Print CLI help in a wide ASCII-table layout for larger terminals, then exit. |
 | `help-wide` | `true`, `false` | `false` | No | `help-wide=true` | Print a compact ASCII-table parameter summary (name, values, default, example, purpose) and exit without running the app. |
-| `ip` | `IPv4-or-host-bind-address` | `127.0.0.1` | No | `ip=192.168.1.25` | Bind address for server mode or destination address for client mode. Default `127.0.0.1` is loopback/local-only. |
+| `ip` | IP address or hostname | `127.0.0.1` | No | `ip=192.168.1.25` | Bind address for server mode or destination address for client mode. See [TCP transport](tcp.md) and [UDP transport](udp.md) for IPv6 family selection. |
 | `linesPerInterval` | `integer >= 1` | `1` | No | `linesPerInterval=5` | Number of lines processed during each scheduler tick. |
 | `logFile` | `path`, `omitted` | `(none)` | No | `logFile=./logs/run.log` | Optional file path for persisted headless logs. |
 | `logLevel` | `error`, `warn`, `info`, `debug` | `info` | No | `logLevel=debug` | Minimum log level written to stdout/logFile in headless mode. |
@@ -215,6 +215,11 @@ For a Velocity UDP feed, use client mode and `udpAppendNewline=true` with
 Delimited payloads. For a generic paired Logger client, server mode can use
 `waitForClient=true`. See [UDP transport](udp.md) for the custom registration
 convention and Velocity framing requirements.
+
+For a local IPv6 pair, set `ip=::1` and the protocol's family option,
+`tcpAddressFamily=ipv6` or `udpAddressFamily=ipv6`. This does not change file
+conversion, replay controls, or completion artifacts. Full option values and
+defaults are in the [Command-line reference](command-line.md).
 
 ### gRPC client with default header path
 

@@ -135,7 +135,7 @@ terminal help, the dialog, and this guide use the same terminology.
 | `httpTlsCertPath` | `path`, `omitted` | `(none)` | No | `httpTlsCertPath=./certs/server.pem` | HTTPS client mTLS or server identity certificate PEM. Pair it with `httpTlsKeyPath`. |
 | `httpTlsKeyPath` | `path`, `omitted` | `(none)` | No | `httpTlsKeyPath=./certs/server-key.pem` | Private key PEM corresponding to `httpTlsCertPath`. |
 | `intervalMs` | `integer >= 1` | `1000` | No | `intervalMs=250` | Delay in milliseconds between scheduler ticks. |
-| `ip` | `IPv4-or-host-bind-address` | `127.0.0.1` | No | `ip=192.168.1.25` | Bind address for server mode or destination address for client mode. Default `127.0.0.1` is loopback/local-only. |
+| `ip` | IP address or hostname | `127.0.0.1` | No | `ip=192.168.1.25` | Bind address for server mode or destination address for client mode. Default `127.0.0.1` is loopback/local-only. TCP and UDP also accept IPv6 subject to their address-family setting. |
 | `linesPerInterval` | `integer >= 1` | `1` | No | `linesPerInterval=5` | Number of lines processed during each scheduler tick. |
 | `logFile` | `path`, `omitted` | `(none)` | No | `logFile=./logs/run.log` | Optional file path for persisted headless logs. |
 | `logLevel` | `error`, `warn`, `info`, `debug` | `info` | No | `logLevel=debug` | Minimum log level written to stdout/logFile in headless mode. |
@@ -154,6 +154,7 @@ terminal help, the dialog, and this guide use the same terminology.
 | `startLine` | `integer >= 1` | `1` | No | `startLine=100` | 1-based inclusive start line for the replay window. |
 | `stdout` | `true`, `false` | `true` | No | `stdout=false` | Enable or disable console log output during headless runs. |
 | `tcpFormat` | `delimited`, `json`, `geo-json`, `esri-json` | `delimited` | No | `tcpFormat=json` | TCP payload format. The Simulator converts each logical CSV record before sending it; Delimited preserves the existing newline-terminated CSV behavior. Only applies when `protocol=tcp`. See [Data formats](data-formats.md) and [TCP transport](tcp.md). |
+| `tcpAddressFamily` | `auto`, `ipv4`, `ipv6` | `auto` | No | `tcpAddressFamily=ipv6` | TCP DNS and socket family; Auto preserves existing Node.js selection. Explicit IPv6 listeners accept IPv6 only. See [Address family](tcp.md#address-family). |
 | `tcpInputHasHeader` | `true`, `false` | `false` | No | `tcpInputHasHeader=true` | Treat the first logical CSV record as TCP field names and do not send it as an event. When false, structured formats use deterministic names such as `field_1` and `field_2`. |
 | `tcpXField` | field name, `omitted` | `(none)` | No | `tcpXField=longitude` | Optional CSV field used as the point X coordinate for TCP GeoJSON or Esri JSON conversion. Set it together with `tcpYField`. |
 | `tcpYField` | field name, `omitted` | `(none)` | No | `tcpYField=latitude` | Optional CSV field used as the point Y coordinate for TCP GeoJSON or Esri JSON conversion. Set it together with `tcpXField`. |
@@ -161,6 +162,7 @@ terminal help, the dialog, and this guide use the same terminology.
 | `udpFormat` | `delimited`, `json`, `geo-json`, `esri-json` | `delimited` | No | `udpFormat=geo-json` | UDP payload format. Each converted logical CSV record is one complete UTF-8 datagram and must not exceed 65,507 bytes. Only applies when `protocol=udp`. See [Data formats](data-formats.md) and [UDP transport](udp.md). |
 | `udpInputHasHeader` | `true`, `false` | `false` | No | `udpInputHasHeader=true` | Treat the first logical CSV record as UDP field names and do not send it as an event. When false, structured formats use deterministic names such as `field_1` and `field_2`. |
 | `udpAppendNewline` | `true`, `false` | `false` | No | `udpAppendNewline=true` | Append LF to each delimited UDP payload; ignored for structured formats. The terminator counts toward the 65,507-byte limit. See [Velocity feeds](udp.md#velocity-feeds). |
+| `udpAddressFamily` | `ipv4`, `ipv6` | `ipv4` | No | `udpAddressFamily=ipv6` | UDP DNS and socket family; IPv6 sockets accept IPv6 only. Host must match the selected family. See [Address family](udp.md#address-family). |
 | `udpXField` | field name, `omitted` | `(none)` | No | `udpXField=longitude` | Optional CSV field used as the point X coordinate for UDP GeoJSON or Esri JSON conversion. Set it together with `udpYField`. |
 | `udpYField` | field name, `omitted` | `(none)` | No | `udpYField=latitude` | Optional CSV field used as the point Y coordinate for UDP GeoJSON or Esri JSON conversion. Set it together with `udpXField`. |
 | `udpWkid` | `integer >= 1` | `4326` | No | `udpWkid=4326` | Spatial reference WKID for generated UDP point geometry. GeoJSON requires 4326; Esri JSON includes the configured WKID. |

@@ -575,7 +575,9 @@ select {
 }
 
 #tcp-format,
+#tcp-address-family,
 #udp-format,
+#udp-address-family,
 #http-format {
   text-align: left;
   text-align-last: left;

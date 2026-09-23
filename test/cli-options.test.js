@@ -223,6 +223,20 @@ async function runCliOptionsTests() {
   runTest('Explain output includes warnings section when there are warnings', () => warnExplainOutput.includes('Warnings') && warnExplainOutput.includes("'doneFile'") && warnExplainOutput.includes("'maxLines'"));
 
   console.log('\n--- Test 7: TCP and UDP payload formats ---');
+  runTest('TCP and UDP address-family defaults preserve existing behavior', () => {
+    const result = parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv']));
+    return result.headless.tcpAddressFamily === 'auto' && result.headless.udpAddressFamily === 'ipv4';
+  });
+  runTest('Both socket families parse in UI and headless mode without rewriting Host', () => {
+    const ui = parseCommandLineArgs(createArgv(['tcpAddressFamily=ipv6', 'udpAddressFamily=ipv6', 'ip=::1']));
+    const headless = parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv', 'tcpAddressFamily=ipv6', 'udpAddressFamily=ipv6', 'ip=::1']));
+    return ui.ui.presets.tcpAddressFamily === 'ipv6' && ui.ui.presets.udpAddressFamily === 'ipv6'
+      && ui.ui.presets.ip === '::1' && headless.headless.tcpAddressFamily === 'ipv6'
+      && headless.headless.udpAddressFamily === 'ipv6' && headless.headless.ip === '::1';
+  });
+  runTest('Invalid families and UDP Auto are rejected', () =>
+    ['udpAddressFamily=auto', 'tcpAddressFamily=invalid', 'udpAddressFamily='].every(value =>
+      parseCommandLineArgs(createArgv([value])).mode === 'error'));
   runTest('UDP LF framing is opt-in and validated in UI and headless modes', () =>
     parseCommandLineArgs(createArgv(['udpAppendNewline=true'])).ui.presets.udpAppendNewline === true
       && parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv', 'udpAppendNewline=true'])).headless.udpAppendNewline === true

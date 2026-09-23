@@ -109,7 +109,7 @@ async function main() {
     }
     for (const [host, port, format, reason] of [
       ['', 17009, 'json', /routable/], ['0.0.0.0', 17009, 'json', /routable/],
-      ['::1', 17009, 'json', /IPv4/], ['data.example.com', 0, 'json', /port/],
+      ['data.example.com', 0, 'json', /port/],
       ['data.example.com', 17009, 'xml', /XML/],
     ]) {
       const parsed = api.parseFeedItem({ id: 'bad-feed', feed: { name: type, formatName: format,
@@ -117,6 +117,10 @@ async function main() {
       assert.strictEqual(parsed.supported, false);
       assert.match(parsed.reason, reason);
     }
+    const ipv6 = api.parseFeedItem({ id: 'ipv6-feed', feed: { name: type, formatName: 'json',
+      properties: { [`${type}.hostName`]: '[::1]', [`${type}.port`]: 17009 } } });
+    assert.strictEqual(ipv6.supported, type === 'udp-client');
+    if (!ipv6.supported) assert.match(ipv6.reason, /bind IPv4 only/);
   }
   const tcpClient = api.parseFeedItem({
     id: 'tcp',

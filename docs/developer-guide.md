@@ -64,6 +64,7 @@ Key modules:
 | `src/velocity-endpoint-ui.js`, `src/velocity-login-*.js` | Shared endpoint controls and the sign-in dialog's context-isolated bridge and feed picker. |
 | `src/velocity-preferences.js`, `src/velocity-connection-options.js` | Non-secret preference allowlisting and validation before applying connection fields. |
 | `src/network-address-utils.js` | Shared IPv4, DNS, and bracketed IPv6 authority formatting for gRPC and WebSocket transports. |
+| `src/socket-address-utils.js` | Shared TCP and UDP family selection, literal normalization, DNS resolution, socket options, and structured UDP recipient keys. |
 | `src/run-logger.js` | The `RunLogger` used for console and log-file output in both modes. |
 
 Shared logic belongs in a shared module. When behavior is needed by more than

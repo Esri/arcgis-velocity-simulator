@@ -144,12 +144,18 @@ function parseItem(item, direction) {
     parsed.host = text(properties[`${name}.hostName`] ?? properties[`${name}.hostname`] ?? properties[`${name}.host`]);
     parsed.port = typeof properties[`${name}.port`] === 'number'
       ? properties[`${name}.port`] : text(properties[`${name}.port`]);
+    if (name.startsWith('tcp') && properties[`${name}.addressFamily`] !== undefined) {
+      parsed.tcpAddressFamily = text(properties[`${name}.addressFamily`]);
+    }
     const formatPrefix = text(definition.formatName).toLowerCase();
     if (formatPrefix) {
       parsed.xField = text(properties[`${formatPrefix}.xField`]);
       parsed.yField = text(properties[`${formatPrefix}.yField`]);
     }
     if (name.startsWith('udp-')) {
+      if (properties[`${name}.addressFamily`] !== undefined) {
+        parsed.udpAddressFamily = text(properties[`${name}.addressFamily`]);
+      }
       try {
         buildVelocityConnectionOptions(parsed);
       } catch (error) {

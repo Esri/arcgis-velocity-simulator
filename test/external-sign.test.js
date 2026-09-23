@@ -3,6 +3,7 @@ const { spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { version: currentVersion } = require('../package.json');
 
 const {
   SIGN_PRODUCT_NAMES_ENV,
@@ -341,26 +342,26 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
 (function testArtifactSigningPlanUsesOnlyBuiltSignableFiles() {
   const plan = getArtifactSigningPlan({
     artifactPaths: [
-      path.join('/repo/dist', 'arcgis-velocity-simulator-1.0.5-setup.exe'),
-      path.join('/repo/dist', 'arcgis-velocity-simulator-1.0.5-portable.exe'),
-      path.join('/repo/dist', 'arcgis-velocity-simulator-1.0.5-win.zip'),
-      path.join('/repo/dist', 'arcgis-velocity-simulator-1.0.5-linux.AppImage'),
+      path.join('/repo/dist', `arcgis-velocity-simulator-${currentVersion}-setup.exe`),
+      path.join('/repo/dist', `arcgis-velocity-simulator-${currentVersion}-portable.exe`),
+      path.join('/repo/dist', `arcgis-velocity-simulator-${currentVersion}-win.zip`),
+      path.join('/repo/dist', `arcgis-velocity-simulator-${currentVersion}-linux.AppImage`),
     ],
   });
 
   assert.deepStrictEqual(plan.sourceDirs, ['/repo/dist']);
-  assert.strictEqual(plan.fileMask, 'arcgis-velocity-simulator-1.0.5-setup.exe;arcgis-velocity-simulator-1.0.5-portable.exe');
+  assert.strictEqual(plan.fileMask, `arcgis-velocity-simulator-${currentVersion}-setup.exe;arcgis-velocity-simulator-${currentVersion}-portable.exe`);
 })();
 
 (function testArtifactSigningRejectsStaleVersions() {
   assert.throws(
     () => getArtifactSigningPlan({
-      artifactPaths: [path.join('/repo/dist', 'arcgis-velocity-simulator-1.1.0-setup.exe')],
+      artifactPaths: [path.join('/repo/dist', 'arcgis-velocity-simulator-0.0.0-setup.exe')],
     }),
-    /Refusing stale-version artifacts; expected 1\.0\.5/
+    error => error.message.includes(`Refusing stale-version artifacts; expected ${currentVersion}`)
   );
   assert.doesNotThrow(() => assertCurrentVersionArtifacts([
-    path.join('/repo/dist', 'arcgis-velocity-simulator-1.0.5-portable.exe'),
+    path.join('/repo/dist', `arcgis-velocity-simulator-${currentVersion}-portable.exe`),
   ]));
 })();
 

@@ -158,6 +158,14 @@
               <div class="protocol-settings-panels">
                 <div id="protocol-settings-panel-basics" class="protocol-settings-panel" role="tabpanel" tabindex="0" aria-labelledby="protocol-settings-tab-basics">
                   <div class="protocol-settings-group" data-protocol="tcp" data-section="basics">
+                    <div class="control-group aligned-group payload-format-row" id="tcp-address-family-group">
+                      <label for="tcp-address-family" data-tooltip="Choose Auto, IPv4, or IPv6 for TCP. Auto preserves system address selection. Explicit IPv6 listeners accept IPv6 only." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="TCP address family">Address family:</label>
+                      <select id="tcp-address-family" data-tooltip="Choose Auto, IPv4, or IPv6 for TCP. Auto preserves system address selection. Explicit IPv6 listeners accept IPv6 only." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="TCP address family">
+                        <option value="auto" selected title="Auto - preserve the operating system and Node.js TCP address selection. This is the default.">Auto</option>
+                        <option value="ipv4" title="IPv4 - use IPv4 addresses and resolve hostnames to IPv4.">IPv4</option>
+                        <option value="ipv6" title="IPv6 - use IPv6 addresses and resolve hostnames to IPv6. Explicit IPv6 listeners accept IPv6 only.">IPv6</option>
+                      </select>
+                    </div>
                     <div class="control-group aligned-group payload-format-row" id="tcp-format-group" style="display: none;">
                       <label for="tcp-format" data-tooltip="TCP payload format. The Simulator converts each logical record from the loaded CSV file before sending it. Delimited (CSV) preserves the existing comma-delimited workflow." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="TCP payload format">Format:</label>
                       <select id="tcp-format" data-tooltip="TCP payload format. The Simulator converts each logical record from the loaded CSV file before sending it. Delimited (CSV) preserves the existing comma-delimited workflow." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="TCP payload format">
@@ -169,6 +177,13 @@
                     </div>
                   </div>
                   <div class="protocol-settings-group" data-protocol="udp" data-section="basics">
+                    <div class="control-group aligned-group payload-format-row" id="udp-address-family-group">
+                      <label for="udp-address-family" data-tooltip="Choose IPv4 or IPv6 for UDP. The host must match the selected family. IPv6 sockets accept IPv6 only." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="UDP address family">Address family:</label>
+                      <select id="udp-address-family" data-tooltip="Choose IPv4 or IPv6 for UDP. The host must match the selected family. IPv6 sockets accept IPv6 only." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="UDP address family">
+                        <option value="ipv4" selected title="IPv4 - use IPv4 addresses and resolve hostnames to IPv4. This is the default.">IPv4</option>
+                        <option value="ipv6" title="IPv6 - use IPv6 addresses and resolve hostnames to IPv6. IPv4-mapped addresses are not supported.">IPv6</option>
+                      </select>
+                    </div>
                     <div class="control-group aligned-group payload-format-row" id="udp-format-group" style="display: none;">
                       <label for="udp-format" data-tooltip="UDP payload format. Each converted CSV record is sent as one complete UTF-8 datagram and must fit within 65,507 bytes." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="UDP payload format">Format:</label>
                       <select id="udp-format" data-tooltip="UDP payload format. Each converted CSV record is sent as one complete UTF-8 datagram and must fit within 65,507 bytes." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="UDP payload format">

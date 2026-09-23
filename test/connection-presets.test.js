@@ -203,7 +203,7 @@ function createApiStub(state) {
   const noop = () => {};
   const register = (channel) => (callback) => { state.listeners.set(channel, callback); };
   return {
-    connect: async (payload) => { state.connects.push(payload); return { success: true }; },
+    connect: async (payload) => { state.connects.push(payload); return state.connectResult || { success: true }; },
     disconnect: async () => ({ success: true }),
     sendData: noop,
     openFileDialog: async () => null,
@@ -610,6 +610,66 @@ function enableConnect(document) {
     enableConnect(document).click();
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.strictEqual(state.connects.at(-1).udpAppendNewline, true);
+  });
+
+  await uiTest('Address family stays in Basics, updates tooltip, and never rewrites Host', async ({ document, window, state }) => {
+    for (const protocol of ['tcp', 'udp']) {
+      const control = document.getElementById(`${protocol}-address-family`);
+      assert.strictEqual(control.closest('[data-section]').dataset.section, 'basics');
+      document.getElementById('ip-address').value = '127.0.0.1';
+      control.value = 'ipv6';
+      control.dispatchEvent(new window.Event('change'));
+      assert.strictEqual(document.getElementById('ip-address').value, '127.0.0.1');
+      assert.strictEqual(control.dataset.tooltip, control.selectedOptions[0].title);
+    }
+    state.listeners.get('cli-presets')({ protocol: 'udp', mode: 'client', ip: '::1', port: 5565, tcpAddressFamily: 'ipv6', udpAddressFamily: 'ipv6' });
+    enableConnect(document).click();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.strictEqual(state.connects.at(-1).udpAddressFamily, 'ipv6');
+    assert.strictEqual(state.connects.at(-1).tcpAddressFamily, 'ipv6');
+    assert.strictEqual(state.connects.at(-1).ip, '::1');
+  });
+
+  await uiTest('Socket family errors open the existing Basics validation surface', async ({ document, window, state }) => {
+    document.getElementById('connection-type').value = 'udp-client';
+    document.getElementById('connection-type').dispatchEvent(new window.Event('change'));
+    state.connectResult = { success: false, error: 'UDP host ::1 does not match the selected IPv4 address family.' };
+    enableConnect(document).click();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.strictEqual(document.getElementById('protocol-settings-dialog').open, true);
+    assert.strictEqual(document.getElementById('udp-address-family').getAttribute('aria-invalid'), 'true');
+    assert.match(document.getElementById('protocol-settings-alert').textContent, /does not match/);
+  });
+
+  await uiTest('Host tooltip follows socket role and family without changing other protocols', async ({ document, window }) => {
+    const type = document.getElementById('connection-type');
+    const host = document.getElementById('ip-address');
+    const label = document.querySelector('label[for="ip-address"]');
+    for (const protocol of ['tcp', 'udp']) {
+      const guide = fs.readFileSync(path.join(__dirname, `../docs/${protocol}.md`), 'utf8');
+      type.value = `${protocol}-server`;
+      type.dispatchEvent(new window.Event('change'));
+      const family = document.getElementById(`${protocol}-address-family`);
+      for (const value of protocol === 'tcp' ? ['auto', 'ipv4', 'ipv6'] : ['ipv4', 'ipv6']) {
+        family.value = value;
+        family.dispatchEvent(new window.Event('change'));
+        assert.strictEqual(host.dataset.tooltip, label.dataset.tooltip);
+        assert.match(host.dataset.tooltip, /firewall rules still apply/);
+        assert.match(host.dataset.tooltip, value === 'ipv6' ? /Use :: to listen on all local IPv6/ : /0\.0\.0\.0/);
+        assert(guide.includes(host.dataset.tooltip), 'The owning guide must retain exact dynamic text');
+        assert.strictEqual(host.getAttribute('aria-label'), host.dataset.tooltip);
+      }
+      type.value = `${protocol}-client`;
+      type.dispatchEvent(new window.Event('change'));
+      assert.match(host.dataset.tooltip, /reachable peer/);
+      assert.match(host.dataset.tooltip, /Do not use 0\.0\.0\.0 or ::/);
+      assert(guide.includes(host.dataset.tooltip));
+    }
+    type.value = 'http-server';
+    type.dispatchEvent(new window.Event('change'));
+    assert.doesNotMatch(host.dataset.tooltip || '', /Local bind address|Destination address/);
+    assert.doesNotMatch(label.dataset.tooltip || '', /Local bind address|Destination address/);
+    assert.strictEqual(host.value, '127.0.0.1');
   });
 
   await uiTest('CLI prepopulation fills fields without marking the preset modified', async ({ document, state }) => {

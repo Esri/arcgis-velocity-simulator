@@ -147,6 +147,7 @@
   const PROTOCOL_SETTING_FIELDS = Object.freeze({
     tcp: Object.freeze([
       { field: 'tcpFormat', defaultValue: 'delimited' },
+      { field: 'tcpAddressFamily', defaultValue: 'auto' },
       { field: 'tcpInputHasHeader', defaultValue: false },
       { field: 'tcpXField', defaultValue: '', spatialOnly: true },
       { field: 'tcpYField', defaultValue: '', spatialOnly: true },
@@ -154,6 +155,7 @@
     ]),
     udp: Object.freeze([
       { field: 'udpFormat', defaultValue: 'delimited' },
+      { field: 'udpAddressFamily', defaultValue: 'ipv4' },
       { field: 'udpInputHasHeader', defaultValue: false },
       { field: 'udpAppendNewline', defaultValue: false },
       { field: 'udpXField', defaultValue: '', spatialOnly: true },
@@ -599,6 +601,19 @@
       rows.push(row('format', 'Format', FORMAT_LABELS[formatValue] || FORMAT_LABELS.delimited, {
         isDefault: formatValue === 'delimited',
       }));
+      if (protocol === 'tcp') {
+        const family = state.tcpAddressFamily || 'auto';
+        rows.push(row('tcpAddressFamily', 'Address family', { auto: 'Auto', ipv4: 'IPv4', ipv6: 'IPv6' }[family] || family, {
+          isDefault: family === 'auto',
+          detail: 'Auto preserves TCP address selection; explicit IPv6 listeners accept IPv6 only.',
+        }));
+      }
+      if (protocol === 'udp') {
+        rows.push(row('udpAddressFamily', 'Address family', state.udpAddressFamily === 'ipv6' ? 'IPv6' : 'IPv4', {
+          isDefault: state.udpAddressFamily !== 'ipv6',
+          detail: 'UDP socket and DNS address family; IPv6 sockets accept IPv6 only.',
+        }));
+      }
       if (protocol === 'udp' && state.expectedDestination
           && typeof state.expectedDestination === 'object') {
         rows.push(row(

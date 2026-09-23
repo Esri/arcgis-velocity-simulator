@@ -34,6 +34,19 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { normalizeSocketAddressFamily } = require('./socket-address-utils');
+
+function parseSocketAddressFamilies(values, target, errors) {
+  for (const protocol of ['tcp', 'udp']) {
+    const key = `${protocol}AddressFamily`;
+    if (values[key] === undefined) continue;
+    try {
+      target[key] = normalizeSocketAddressFamily(String(values[key]).trim().toLowerCase(), { allowAuto: protocol === 'tcp' });
+    } catch (error) {
+      errors.push(`${key}: ${error.message}`);
+    }
+  }
+}
 const { formatDidYouMean } = require('./cli-suggestions');
 const {
   XMPP_DEFAULT_C2S_PORT,
@@ -109,11 +122,13 @@ const CLI_OPTION_KEYS = new Set([
   'doneFile',
   'runId',
   'tcpFormat',
+  'tcpAddressFamily',
   'tcpInputHasHeader',
   'tcpXField',
   'tcpYField',
   'tcpWkid',
   'udpFormat',
+  'udpAddressFamily',
   'udpInputHasHeader',
   'udpAppendNewline',
   'udpXField',
@@ -200,11 +215,13 @@ const APP_DEFAULTS = {
   intervalMs: 1000,
   loop: false,
   tcpFormat: DEFAULT_SOCKET_PAYLOAD_FORMAT,
+  tcpAddressFamily: 'auto',
   tcpInputHasHeader: false,
   tcpXField: null,
   tcpYField: null,
   tcpWkid: 4326,
   udpFormat: DEFAULT_SOCKET_PAYLOAD_FORMAT,
+  udpAddressFamily: 'ipv4',
   udpInputHasHeader: false,
   udpAppendNewline: false,
   udpXField: null,
@@ -553,7 +570,7 @@ const CLI_PARAMETER_DEFINITIONS = [
   {
     key: 'ip',
     defaultValue: DEFAULT_HEADLESS_OPTIONS.ip,
-    options: ['IPv4-or-host-bind-address'],
+    options: ['IP-address-or-hostname'],
     example: 'ip=127.0.0.1',
     requiredInHeadless: 'No',
     purpose: 'Target address for client mode or bind address for server mode. Default 127.0.0.1 is loopback/local-only; server mode often uses 0.0.0.0 to listen on all interfaces.',
@@ -631,6 +648,14 @@ const CLI_PARAMETER_DEFINITIONS = [
     purpose: 'Choose the network transport for headless replay. When protocol=xmpp the role defaults to client unless mode is given explicitly.',
   },
   {
+    key: 'tcpAddressFamily',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.tcpAddressFamily,
+    options: ['auto', 'ipv4', 'ipv6'],
+    example: 'tcpAddressFamily=ipv6',
+    requiredInHeadless: 'No',
+    purpose: 'TCP address family. Auto preserves the operating system and Node.js address selection. IPv4 or IPv6 explicitly resolves hostnames to that family; explicit IPv6 listeners accept IPv6 only.',
+  },
+  {
     key: 'tcpFormat',
     defaultValue: DEFAULT_HEADLESS_OPTIONS.tcpFormat,
     options: ['delimited', 'json', 'geo-json', 'esri-json'],
@@ -669,6 +694,14 @@ const CLI_PARAMETER_DEFINITIONS = [
     example: 'tcpWkid=4326',
     requiredInHeadless: 'No',
     purpose: 'Spatial reference WKID for generated TCP point geometry. GeoJSON requires 4326; Esri JSON includes the configured WKID.',
+  },
+  {
+    key: 'udpAddressFamily',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.udpAddressFamily,
+    options: ['ipv4', 'ipv6'],
+    example: 'udpAddressFamily=ipv6',
+    requiredInHeadless: 'No',
+    purpose: 'UDP socket and DNS address family. Defaults to ipv4. The host must match the family; IPv6 sockets accept IPv6 only. Use ::1 for local IPv6 or :: for an explicit all-interface IPv6 bind.',
   },
   {
     key: 'udpFormat',
@@ -1996,6 +2029,7 @@ function validateHeadlessOptions(values, errors, warnings) {
     options.stdout = parseBoolean(normalized.stdout, 'stdout', errors);
   }
 
+  parseSocketAddressFamilies(normalized, options, errors);
   for (const key of ['tcpFormat', 'udpFormat']) {
     if (normalized[key] === undefined) continue;
     const format = String(normalized[key]).trim().toLowerCase();
@@ -2533,6 +2567,7 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
   let uiStartupPresets = null;
 
   if (!headlessRequested) {
+    parseSocketAddressFamilies(mergedValues, mergedValues, errors);
     for (const key of ['tcpFormat', 'udpFormat']) {
       if (mergedValues[key] === undefined) continue;
       const format = String(mergedValues[key]).trim().toLowerCase();
@@ -2565,8 +2600,8 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
     // Keys that can prepopulate the UI when passed in UI mode.
     const uiPresetKeys = new Set([
       'protocol', 'mode', 'ip', 'port',
-      'tcpFormat', 'tcpInputHasHeader', 'tcpXField', 'tcpYField', 'tcpWkid',
-      'udpFormat', 'udpInputHasHeader', 'udpAppendNewline', 'udpXField', 'udpYField', 'udpWkid',
+      'tcpFormat', 'tcpAddressFamily', 'tcpInputHasHeader', 'tcpXField', 'tcpYField', 'tcpWkid',
+      'udpFormat', 'udpAddressFamily', 'udpInputHasHeader', 'udpAppendNewline', 'udpXField', 'udpYField', 'udpWkid',
       'grpcSerialization', 'grpcSendMethod',
       'grpcHeaderPath', 'grpcHeaderPathKey', 'useTls', 'tlsCaPath', 'tlsCertPath', 'tlsKeyPath',
       'allowUnverifiedTls', 'httpAllowUnverifiedTls', 'wsAllowUnverifiedTls',
@@ -2689,11 +2724,13 @@ function formatExplainOutput(cliOptions) {
       ['ip', (presets && presets.ip) || `(default: ${d.ip})`],
       ['port', (presets && presets.port) || `(default: ${d.port})`],
       ['tcpFormat', (presets && presets.tcpFormat) || `(default: ${d.tcpFormat})`],
+      ['tcpAddressFamily', (presets && presets.tcpAddressFamily) || `(default: ${d.tcpAddressFamily})`],
       ['tcpInputHasHeader', presets && presets.tcpInputHasHeader !== undefined ? presets.tcpInputHasHeader : `(default: ${d.tcpInputHasHeader})`],
       ['tcpXField', (presets && presets.tcpXField) || `(default: ${d.tcpXField || 'not set'})`],
       ['tcpYField', (presets && presets.tcpYField) || `(default: ${d.tcpYField || 'not set'})`],
       ['tcpWkid', (presets && presets.tcpWkid) || `(default: ${d.tcpWkid})`],
       ['udpFormat', (presets && presets.udpFormat) || `(default: ${d.udpFormat})`],
+      ['udpAddressFamily', (presets && presets.udpAddressFamily) || `(default: ${d.udpAddressFamily})`],
       ['udpInputHasHeader', presets && presets.udpInputHasHeader !== undefined ? presets.udpInputHasHeader : `(default: ${d.udpInputHasHeader})`],
       ['udpAppendNewline', presets && presets.udpAppendNewline !== undefined ? presets.udpAppendNewline : `(default: ${d.udpAppendNewline})`],
       ['udpXField', (presets && presets.udpXField) || `(default: ${d.udpXField || 'not set'})`],
@@ -2783,11 +2820,13 @@ function formatExplainOutput(cliOptions) {
       ['ip', h.ip],
       ['port', h.port],
       ['tcpFormat', h.tcpFormat],
+      ['tcpAddressFamily', h.tcpAddressFamily],
       ['tcpInputHasHeader', h.tcpInputHasHeader],
       ['tcpXField', h.tcpXField || '(not set)'],
       ['tcpYField', h.tcpYField || '(not set)'],
       ['tcpWkid', h.tcpWkid],
       ['udpFormat', h.udpFormat],
+      ['udpAddressFamily', h.udpAddressFamily],
       ['udpInputHasHeader', h.udpInputHasHeader],
       ['udpAppendNewline', h.udpAppendNewline],
       ['udpXField', h.udpXField || '(not set)'],

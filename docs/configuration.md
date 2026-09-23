@@ -282,8 +282,8 @@ mode](headless.md).
 - `runMode`
 - `startLine`
 - `stdout`
-- `tcpFormat`, `tcpInputHasHeader`, `tcpXField`, `tcpYField`, `tcpWkid`
-- `udpFormat`, `udpInputHasHeader`, `udpXField`, `udpYField`, `udpWkid`
+- `tcpFormat`, `tcpAddressFamily`, `tcpInputHasHeader`, `tcpXField`, `tcpYField`, `tcpWkid`
+- `udpFormat`, `udpAddressFamily`, `udpInputHasHeader`, `udpXField`, `udpYField`, `udpWkid`
 - `waitForClient`
 - `wsFormat`, `wsTls`, `wsPath`, `wsTlsCaPath`, `wsTlsCertPath`, `wsTlsKeyPath`, `wsSubscriptionMsg`, `wsIgnoreFirstMsg`, `wsHeaders`, `wsAllowUnverifiedTls`
 - `httpFormat`, `httpPolling`, `httpTls`, `httpPath`, `httpTlsCaPath`, `httpTlsCertPath`, `httpTlsKeyPath`, `httpAllowUnverifiedTls`
@@ -314,6 +314,10 @@ Saving a launch configuration from the UI captures the current connection
 controls, including TCP and UDP payload conversion settings and the three
 verification options. `tcpFormat` and `udpFormat` default to `delimited`;
 existing files that omit them therefore retain Delimited (CSV) behavior.
+`tcpAddressFamily` defaults to `auto`; `udpAddressFamily` defaults to `ipv4`.
+Saving a launch configuration captures both Basics selectors. Omitting these
+keys preserves the existing protocol defaults. See [TCP transport](tcp.md) and
+[UDP transport](udp.md) for addressing and bind behavior.
 `udpAppendNewline` defaults to `false` and is saved from the **Append LF**
 control. It is a Simulator publishing setting, not a Logger receive option.
 See [UDP transport](udp.md) for when LF framing is required.

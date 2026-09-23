@@ -10,6 +10,7 @@ formats](data-formats.md) for shared conversion and schema rules.
 ## Table of contents
 
 - [Roles and defaults](#roles-and-defaults)
+- [Address family](#address-family)
 - [Velocity feeds](#velocity-feeds)
 - [Formats and datagrams](#formats-and-datagrams)
 - [UI controls](#ui-controls)
@@ -42,6 +43,21 @@ The shared default address is `127.0.0.1`, the default port is `5565`, and the
 default format is Delimited. Local presets fill the paired role and address but
 do not connect or start playback.
 
+## Address family
+
+Protocol Settings **Basics** offers **IPv4** (default) and **IPv6**. The
+`udpAddressFamily` value controls the socket and DNS lookup family. DNS names
+resolve only within that selected family, and a literal of the other family
+is rejected before opening a socket. IPv6 sockets accept IPv6 only;
+IPv4-mapped addresses are not supported.
+
+Use `::1` for IPv6 loopback and `::` only for an intentional all-interface
+IPv6 server bind. Wildcard addresses are not client destinations. Raw IPv6
+and bracketed host-only literals such as `[::1]` are accepted, with the port
+entered separately. Endpoints are displayed as `[host]:port`. Changing the
+selector never rewrites Host; local presets still select IPv4 and `127.0.0.1`.
+The custom registration convention works identically on either family.
+
 ## Velocity feeds
 
 Both **UDP Client** and **UDP Server** Velocity feeds receive datagrams.
@@ -54,8 +70,16 @@ management API URL and `webContextURL` do not identify UDP data routing and are
 never substituted for a missing UDP host. A UDP Client feed's hostname is its
 Velocity-local bind address. If it is missing, wildcard (`0.0.0.0`), or
 unreachable from the Simulator, configure UDP Client manually with a reachable
-IPv4 host or DNS name and the feed port. Review firewall and forwarding rules.
-IPv6 automatic configuration and XML payloads are not supported.
+data host or DNS name, matching address family, and the feed port. Review
+firewall and forwarding rules. XML payloads are not supported.
+
+An advertised IPv6 literal selects IPv6 for a UDP Client feed. DNS names
+default to IPv4 unless an address family is explicitly supplied; the
+application does not assume that a hostname has an IPv6 route. Velocity UDP
+Server feeds bind IPv4 only, so Apply rejects IPv6 for that type. UDP Client
+feeds and both UDP output types have IPv6-capable addressing, but operating
+system, deployment, and network configuration must also permit IPv6.
+Socket support alone does not verify a deployed Velocity endpoint.
 
 For Delimited feeds, **Apply** enables **Append LF**. UDP Server feeds require
 LF-terminated records; without LF, records can remain buffered and subsequent
@@ -84,6 +108,7 @@ Open **Settings** and use these UDP-specific sections:
 | Section | Control | Behavior |
 |---|---|---|
 | Basics | Format | Selects Delimited (CSV), JSON, GeoJSON, or Esri JSON. |
+| Basics | Address family | IPv4 or IPv6; does not rewrite Host. |
 | Advanced | CSV header row | Uses the first logical CSV record as field names and does not publish it. Off by default. |
 | Advanced | Append LF | Appends LF to delimited payloads only. Off by default; enabled when applying a delimited Velocity UDP feed. |
 | Advanced | X field | Optional X-coordinate field. Configure it together with Y. |
@@ -99,6 +124,12 @@ The following text matches the UDP controls:
 
 | Control | Tooltip |
 |---|---|
+| Address family label and initial selector | Choose IPv4 or IPv6 for UDP. The host must match the selected family. IPv6 sockets accept IPv6 only. |
+| IPv4 | IPv4 - use IPv4 addresses and resolve hostnames to IPv4. This is the default. |
+| IPv6 | IPv6 - use IPv6 addresses and resolve hostnames to IPv6. IPv4-mapped addresses are not supported. |
+| Host input and label, client | Destination address: enter a reachable peer IP address or DNS name matching the selected address family. Do not use 0.0.0.0 or :: as a destination. |
+| Host input and label, server IPv4 | Local bind address: 127.0.0.1 accepts same-machine traffic only. A local LAN IP restricts listening to that interface. Use 0.0.0.0 to listen on all local IPv4 interfaces for remote peers or multiple interfaces. This expands network exposure; firewall rules still apply. |
+| Host input and label, server IPv6 | Local bind address: ::1 accepts same-machine traffic only. A local IPv6 address restricts listening to that interface. Use :: to listen on all local IPv6 interfaces for remote peers or multiple interfaces. Explicit IPv6 listeners accept IPv6 only. This expands network exposure; firewall rules still apply. |
 | Format label | Choose how each logical CSV record is encoded for UDP. |
 | Format | UDP payload format. Each converted CSV record is sent as one complete UTF-8 datagram and must fit within 65,507 bytes. |
 | Delimited (CSV) | Delimited (CSV) - send each logical CSV record as one UTF-8 datagram. This is the default and preserves existing replay behavior. |
@@ -123,6 +154,9 @@ Set `protocol=udp` and choose `udpFormat`. Omitting `udpFormat` selects
 npm run start:headless -- filename=./data.csv protocol=udp mode=client ip=127.0.0.1 port=5565 udpFormat=json
 ```
 
+For a local IPv6 receiver, use `ip=::1 udpAddressFamily=ipv6` with the same
+command. Existing launch configurations that omit the family remain IPv4.
+
 The CSV header, coordinate mapping, and WKID controls are also honored by
 headless and Launch Config workflows when configured. In server mode, use
 `waitForClient=true` to hold the first replay record until a recipient
@@ -145,6 +179,7 @@ npm run start:headless -- filename=./data.csv protocol=udp mode=client ip=feed.e
 | The receiver expects several datagrams per event | Reconfigure it for one complete event per datagram; there is no reassembly. |
 | Structured conversion fails | Validate the source CSV, header choice, field mappings, and WKID. |
 | Datagrams are missing or reordered | UDP has no delivery, ordering, or acknowledgement guarantee; use TCP when those properties are required. |
+| Host does not match the family | Correct Host or Address family; check IPv6 availability and DNS records instead of assuming automatic fallback. |
 
 ## Related documentation
 

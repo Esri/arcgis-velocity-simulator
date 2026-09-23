@@ -10,6 +10,7 @@ formats](data-formats.md) for the shared conversion and schema rules.
 ## Table of contents
 
 - [Roles and defaults](#roles-and-defaults)
+- [Address family](#address-family)
 - [Formats and framing](#formats-and-framing)
 - [UI controls](#ui-controls)
 - [Tooltip reference](#tooltip-reference)
@@ -27,6 +28,28 @@ records over that connection.
 TCP Server, `127.0.0.1`, port `5565`, and Delimited are the application-wide
 defaults. A local preset fills the paired role and address but does not connect
 or start playback.
+
+## Address family
+
+The **Address family** selector in Protocol Settings **Basics** offers **Auto**
+(default), **IPv4**, and **IPv6**. Auto preserves Node.js and operating-system
+address selection, including TCP hostname resolution. Explicit IPv4 or IPv6
+resolves DNS names only in the selected family; a literal of the other family
+is rejected before connecting.
+
+Use `::1` for IPv6 loopback and `::` only for an intentional all-interface
+IPv6 server bind. Explicit IPv6 listeners accept IPv6 only. Auto retains
+existing operating-system listen semantics; it is not a new simultaneous
+dual-stack mode. IPv4-mapped IPv6 literals are accepted only in TCP Auto.
+Raw IPv6 literals and bracketed host-only literals such as `[::1]` are
+accepted; enter the port separately. Status endpoints display `[host]:port`.
+Changing the selector never changes Host, and local presets retain
+`127.0.0.1` with Auto.
+
+Velocity TCP Server feeds and outputs listen on IPv4 only. Applying one
+selects IPv4 and rejects an advertised IPv6 endpoint. Other TCP connectors
+can use advertised IPv6 addresses when the deployment supports them;
+application socket support is not a guarantee of deployment reachability.
 
 ## Formats and framing
 
@@ -55,6 +78,7 @@ Open **Settings** and use these TCP-specific sections:
 | Section | Control | Behavior |
 |---|---|---|
 | Basics | Format | Selects Delimited (CSV), JSON, GeoJSON, or Esri JSON. |
+| Basics | Address family | Auto, IPv4, or IPv6; does not rewrite Host. |
 | Advanced | CSV header row | Uses the first logical CSV record as field names and does not publish it. Off by default. |
 | Advanced | X field | Optional X-coordinate field. Configure it together with Y. |
 | Advanced | Y field | Optional Y-coordinate field. Configure it together with X. |
@@ -69,6 +93,14 @@ The following text matches the TCP controls:
 
 | Control | Tooltip |
 |---|---|
+| Address family label and initial selector | Choose Auto, IPv4, or IPv6 for TCP. Auto preserves system address selection. Explicit IPv6 listeners accept IPv6 only. |
+| Auto | Auto - preserve the operating system and Node.js TCP address selection. This is the default. |
+| Host input and label, client | Destination address: enter a reachable peer IP address or DNS name matching the selected address family. Do not use 0.0.0.0 or :: as a destination. |
+| Host input and label, server Auto | Local bind address: 127.0.0.1 or ::1 is same-machine only. A local LAN IP restricts listening to that interface. Use 0.0.0.0 for all local IPv4 interfaces or :: for the system IPv6 wildcard when remote peers or multiple interfaces need access. Auto preserves system listen behavior. Wildcard binds expand network exposure; firewall rules still apply. |
+| Host input and label, server IPv4 | Local bind address: 127.0.0.1 accepts same-machine traffic only. A local LAN IP restricts listening to that interface. Use 0.0.0.0 to listen on all local IPv4 interfaces for remote peers or multiple interfaces. This expands network exposure; firewall rules still apply. |
+| Host input and label, server IPv6 | Local bind address: ::1 accepts same-machine traffic only. A local IPv6 address restricts listening to that interface. Use :: to listen on all local IPv6 interfaces for remote peers or multiple interfaces. Explicit IPv6 listeners accept IPv6 only. This expands network exposure; firewall rules still apply. |
+| IPv4 | IPv4 - use IPv4 addresses and resolve hostnames to IPv4. |
+| IPv6 | IPv6 - use IPv6 addresses and resolve hostnames to IPv6. Explicit IPv6 listeners accept IPv6 only. |
 | Format label | Choose how each logical CSV record is encoded for TCP. |
 | Format | TCP payload format. The Simulator converts each logical record from the loaded CSV file before sending it. Delimited (CSV) preserves the existing comma-delimited workflow. |
 | Delimited (CSV) | Delimited (CSV) - send each logical CSV record as UTF-8 text terminated by a newline. This is the default and preserves existing replay behavior. |
@@ -95,11 +127,18 @@ npm run start:headless -- filename=./data.csv protocol=tcp mode=client ip=127.0.
 The CSV header, coordinate mapping, and WKID controls are also honored by
 headless and Launch Config workflows when configured.
 
+For a local IPv6 receiver:
+
+```bash
+npm run start:headless -- filename=./data.csv protocol=tcp mode=client ip=::1 port=5565 tcpAddressFamily=ipv6
+```
+
 ## Troubleshooting
 
 | Symptom | Check |
 |---|---|
 | Connection is refused | Confirm the server is listening at the selected host and port; optionally use `connectWaitForServer=true`. |
+| Host does not match the family | Correct Host or Address family; the selector does not rewrite addresses. Check DNS records and IPv6 availability on both hosts. |
 | A server run advances before a client connects | Set `waitForClient=true`. |
 | Records are partial or combined | Implement newline framing over the TCP byte stream. |
 | Structured conversion fails | Validate the source CSV, header choice, field mappings, and WKID. |

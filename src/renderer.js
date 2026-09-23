@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const connectionPresetSelect = document.getElementById('connection-preset');
   const connectionPresetState = document.getElementById('connection-preset-state');
   const tcpFormatSelect = document.getElementById('tcp-format');
+  const tcpAddressFamilySelect = document.getElementById('tcp-address-family');
   const tcpFormatGroup = document.getElementById('tcp-format-group');
   const tcpInputHasHeaderCheckbox = document.getElementById('tcp-input-has-header');
   const tcpXFieldGroup = document.getElementById('tcp-x-field-group');
@@ -82,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const tcpYFieldInput = document.getElementById('tcp-y-field');
   const tcpWkidInput = document.getElementById('tcp-wkid');
   const udpFormatSelect = document.getElementById('udp-format');
+  const udpAddressFamilySelect = document.getElementById('udp-address-family');
   const udpFormatGroup = document.getElementById('udp-format-group');
   const udpInputHasHeaderCheckbox = document.getElementById('udp-input-has-header');
   const udpAppendNewlineCheckbox = document.getElementById('udp-append-newline');
@@ -208,6 +210,43 @@ document.addEventListener('DOMContentLoaded', () => {
   const connectionSummaryCopyBtn = document.getElementById('connection-summary-copy');
 
   const ipAddressInput = document.getElementById('ip-address');
+  const ipAddressLabel = document.querySelector('label[for="ip-address"]');
+  const initialHostTooltips = [ipAddressInput, ipAddressLabel].map(control => ({
+    control,
+    text: control && (control.dataset.tooltip || control.title),
+    ariaLabel: control && control.getAttribute('aria-label'),
+  }));
+  const SOCKET_HOST_TOOLTIPS = {
+    client: 'Destination address: enter a reachable peer IP address or DNS name matching the selected address family. Do not use 0.0.0.0 or :: as a destination.',
+    ipv4: 'Local bind address: 127.0.0.1 accepts same-machine traffic only. A local LAN IP restricts listening to that interface. Use 0.0.0.0 to listen on all local IPv4 interfaces for remote peers or multiple interfaces. This expands network exposure; firewall rules still apply.',
+    ipv6: 'Local bind address: ::1 accepts same-machine traffic only. A local IPv6 address restricts listening to that interface. Use :: to listen on all local IPv6 interfaces for remote peers or multiple interfaces. Explicit IPv6 listeners accept IPv6 only. This expands network exposure; firewall rules still apply.',
+    auto: 'Local bind address: 127.0.0.1 or ::1 is same-machine only. A local LAN IP restricts listening to that interface. Use 0.0.0.0 for all local IPv4 interfaces or :: for the system IPv6 wildcard when remote peers or multiple interfaces need access. Auto preserves system listen behavior. Wildcard binds expand network exposure; firewall rules still apply.',
+  };
+  function updateSocketHostTooltip() {
+    const [protocol, mode] = connectionTypeSelect.value.split('-');
+    const family = protocol === 'tcp' ? tcpAddressFamilySelect.value : udpAddressFamilySelect.value;
+    const text = protocol === 'tcp' || protocol === 'udp'
+      ? SOCKET_HOST_TOOLTIPS[mode === 'client' ? 'client' : family] : null;
+    initialHostTooltips.forEach(({ control, text: initialText, ariaLabel }) => {
+      if (!control) return;
+      control.removeAttribute('title');
+      if (text || initialText) control.dataset.tooltip = text || initialText;
+      else delete control.dataset.tooltip;
+      if (text) {
+        control.setAttribute('aria-label', text);
+        control.dataset.tooltipIcon = '⇄';
+        control.dataset.tooltipKind = 'info';
+      } else {
+        if (ariaLabel) control.setAttribute('aria-label', ariaLabel);
+        else control.removeAttribute('aria-label');
+        delete control.dataset.tooltipIcon;
+        delete control.dataset.tooltipKind;
+      }
+    });
+  }
+  connectionTypeSelect.addEventListener('change', updateSocketHostTooltip);
+  [tcpAddressFamilySelect, udpAddressFamilySelect].forEach(control => control.addEventListener('change', updateSocketHostTooltip));
+  updateSocketHostTooltip();
   const portInput = document.getElementById('port');
   const clearLogsButton = document.getElementById('clear-logs-button');
 
@@ -602,6 +641,15 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshLoadedPayloads();
   });
   updateSocketFormatTooltip(udpFormatSelect, udpFormatGroup, 'UDP');
+  [tcpAddressFamilySelect, udpAddressFamilySelect].forEach((select) => {
+    const updateTooltip = () => {
+      const text = select.selectedOptions[0].title;
+      select.dataset.tooltip = text;
+      select.setAttribute('aria-label', text);
+    };
+    select.addEventListener('change', updateTooltip);
+    updateTooltip();
+  });
   updateSocketConversionVisibility();
 
   [
@@ -2294,16 +2342,19 @@ document.addEventListener('DOMContentLoaded', () => {
       : '';
     const wsLabel = protocol === 'ws' ? ` [${wsFormat}] ${wsTls ? 'wss' : 'ws'} path=${wsPath}` : '';
     const xmppLabel = protocol === 'xmpp' ? describeXmppConnectIntent(xmppOptions) : '';
-    logStatus(`Connecting via ${protocol.toUpperCase()} ${mode} to ${ip}:${port}${socketFormatLabel}${serLabel}${methodLabel}${tlsLabel}${headerLabel}${httpLabel}${wsLabel}${xmppLabel}...`);
+    const displayEndpoint = connectionSummaryApi ? connectionSummaryApi.formatEndpoint(ip, port) : `${ip}:${port}`;
+    logStatus(`Connecting via ${protocol.toUpperCase()} ${mode} to ${displayEndpoint}${socketFormatLabel}${serLabel}${methodLabel}${tlsLabel}${headerLabel}${httpLabel}${wsLabel}${xmppLabel}...`);
     handleConnectionStatusChange('connecting');
     const result = await window.api.connect({
       protocol, mode, ip, port,
       tcpFormat: tcpPayload.format,
+      tcpAddressFamily: tcpAddressFamilySelect.value,
       tcpInputHasHeader: tcpPayload.hasHeaderRow,
       tcpXField: tcpPayload.xField,
       tcpYField: tcpPayload.yField,
       tcpWkid: tcpPayload.wkid,
       udpFormat: udpPayload.format,
+      udpAddressFamily: udpAddressFamilySelect.value,
       udpInputHasHeader: udpPayload.hasHeaderRow,
       udpAppendNewline: udpAppendNewlineCheckbox.checked,
       udpXField: udpPayload.xField,
@@ -2316,8 +2367,13 @@ document.addEventListener('DOMContentLoaded', () => {
       wsIgnoreFirstMsg, wsHeaders, wsAllowUnverifiedTls, ...xmppOptions,
     });
     if (result && result.success === false) {
-      logStatus(`❌ ${result.error || 'The connection could not be started.'}`);
       handleConnectionStatusChange('disconnected');
+      const message = result.error || 'The connection could not be started.';
+      if (protocol === 'tcp' || protocol === 'udp') {
+        showProtocolValidationError(protocol === 'tcp' ? tcpAddressFamilySelect : udpAddressFamilySelect, message);
+      } else {
+        logStatus(`❌ ${message}`);
+      }
     }
   });
 
@@ -2903,9 +2959,17 @@ document.addEventListener('DOMContentLoaded', () => {
         tcpFormatSelect.value = presets.tcpFormat;
         tcpFormatSelect.dispatchEvent(new Event('change'));
       }
+      if (presets.tcpAddressFamily !== undefined) {
+        tcpAddressFamilySelect.value = presets.tcpAddressFamily;
+        tcpAddressFamilySelect.dispatchEvent(new Event('change'));
+      }
       if (presets.udpFormat !== undefined) {
         udpFormatSelect.value = presets.udpFormat;
         udpFormatSelect.dispatchEvent(new Event('change'));
+      }
+      if (presets.udpAddressFamily !== undefined) {
+        udpAddressFamilySelect.value = presets.udpAddressFamily;
+        udpAddressFamilySelect.dispatchEvent(new Event('change'));
       }
       if (presets.tcpInputHasHeader !== undefined) tcpInputHasHeaderCheckbox.checked = presets.tcpInputHasHeader === true || presets.tcpInputHasHeader === 'true';
       if (presets.tcpXField !== undefined) tcpXFieldInput.value = presets.tcpXField || '';

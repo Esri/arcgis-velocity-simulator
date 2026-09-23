@@ -36,7 +36,8 @@ The panel shows only what is true of every connection, in this order:
 6. **Connect**, **Disconnect**, **Play/Pause**, and **Step**.
 
 TCP and UDP provide a format in Basics and CSV schema and geometry controls in
-Advanced. UDP also offers the Simulator-only **Append LF** publishing control,
+Advanced. Their Address family selectors also stay in Basics; all local presets
+retain TCP Auto, UDP IPv4, and host `127.0.0.1`. UDP also offers the Simulator-only **Append LF** publishing control,
 off in all local presets; see [UDP transport](udp.md).
 Their configured-state count remains hidden while every value is at
 its documented default. A compact warning alert appears only when the current
