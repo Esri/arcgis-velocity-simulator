@@ -161,9 +161,18 @@ test('shared UDP routing metadata stays separate from binding and LF is reported
   assert.strictEqual(rowsByKey(summary).expectedDestination.value, 'destination.example.com:17009');
   assert.strictEqual(rowsByKey(summary).udpAppendNewline.value, 'On');
   assert.strictEqual(summary.warnings[0].key, 'routing');
-  assert.strictEqual(rowsByKey(summary).udpAppendNewline.isDefault, false);
+  assert.strictEqual(rowsByKey(summary).udpAppendNewline.isDefault, true);
 });
 
+test('UDP LF is on by default and only explicit off counts as changed', () => {
+  for (const value of [undefined, true, false]) {
+    const summary = buildConnectionSummary({ ...BASE, connectionType: 'udp-client', udpAppendNewline: value });
+    const row = rowsByKey(summary).udpAppendNewline;
+    assert.strictEqual(row.value, value === false ? 'Off' : 'On');
+    assert.strictEqual(row.isDefault, value !== false);
+    assert.strictEqual(summary.changedCount, value === false ? 1 : 0);
+  }
+});
 test('an empty XMPP account password is reported as Empty, not as unset', () => {
   const summary = buildConnectionSummary({
     ...BASE, port: 5222, connectionType: 'xmpp-client', xmppUsername: 'velocity-simulator', xmppPassword: '',

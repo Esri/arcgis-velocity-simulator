@@ -237,10 +237,12 @@ async function runCliOptionsTests() {
   runTest('Invalid families and UDP Auto are rejected', () =>
     ['udpAddressFamily=auto', 'tcpAddressFamily=invalid', 'udpAddressFamily='].every(value =>
       parseCommandLineArgs(createArgv([value])).mode === 'error'));
-  runTest('UDP LF framing is opt-in and validated in UI and headless modes', () =>
+  runTest('UDP LF framing defaults on and preserves explicit false in UI and headless modes', () =>
     parseCommandLineArgs(createArgv(['udpAppendNewline=true'])).ui.presets.udpAppendNewline === true
       && parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv', 'udpAppendNewline=true'])).headless.udpAppendNewline === true
-      && parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv'])).headless.udpAppendNewline === false
+      && parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv'])).headless.udpAppendNewline === true
+      && parseCommandLineArgs(createArgv(['udpAppendNewline=false'])).ui.presets.udpAppendNewline === false
+      && parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv', 'udpAppendNewline=false'])).headless.udpAppendNewline === false
       && parseCommandLineArgs(createArgv(['udpAppendNewline=invalid'])).mode === 'error');
   const socketFormatResult = parseCommandLineArgs(createArgv([
     'runMode=headless',

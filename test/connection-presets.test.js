@@ -601,7 +601,7 @@ function enableConnect(document) {
     assert.strictEqual(tcp.tcpYField, 'latitude');
     assert.strictEqual(tcp.tcpWkid, 4326);
     assert.strictEqual(tcp.udpFormat, 'delimited');
-    assert.strictEqual(tcp.udpAppendNewline, false);
+    assert.strictEqual(tcp.udpAppendNewline, true);
   });
 
   await uiTest('UDP LF framing reaches Connect from CLI prepopulation', async ({ document, state }) => {
@@ -610,6 +610,40 @@ function enableConnect(document) {
     enableConnect(document).click();
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.strictEqual(state.connects.at(-1).udpAppendNewline, true);
+  });
+  await uiTest('UDP LF defaults on while explicit startup false stays off', async ({ document, state }) => {
+    const checkbox = document.getElementById('udp-append-newline');
+    assert.strictEqual(checkbox.checked, true);
+    state.listeners.get('cli-presets')({ protocol: 'udp', mode: 'client', ip: '127.0.0.1', port: 5565 });
+    assert.strictEqual(checkbox.checked, true, 'An omitted saved key uses the checked HTML default');
+    state.listeners.get('cli-presets')({ udpAppendNewline: false });
+    assert.strictEqual(checkbox.checked, false);
+    enableConnect(document).click();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.strictEqual(state.connects.at(-1).udpAppendNewline, false);
+  });
+  await uiTest('UDP LF reverts, locks read-only, and resets to the enabled preset default', async ({ document, window, state }) => {
+    const preset = document.getElementById('connection-preset');
+    preset.value = 'local-udp-logger-server';
+    preset.dispatchEvent(new window.Event('change'));
+    const checkbox = document.getElementById('udp-append-newline');
+    assert.strictEqual(checkbox.checked, true);
+    document.getElementById('protocol-settings-btn').click();
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new window.Event('change', { bubbles: true }));
+    document.getElementById('protocol-settings-revert').click();
+    assert.strictEqual(checkbox.checked, true);
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new window.Event('change', { bubbles: true }));
+    state.listeners.get('connection-status')('connected', '');
+    assert.strictEqual(checkbox.disabled, true);
+    assert.strictEqual(checkbox.checked, false, 'Read-only mode preserves explicit off');
+    state.listeners.get('connection-status')('disconnected', '');
+    assert.strictEqual(checkbox.disabled, false);
+    assert.strictEqual(checkbox.checked, false);
+    preset.value = 'local-udp-simulator-server';
+    preset.dispatchEvent(new window.Event('change'));
+    assert.strictEqual(checkbox.checked, true);
   });
 
   await uiTest('Address family stays in Basics, updates tooltip, and never rewrites Host', async ({ document, window, state }) => {

@@ -13,10 +13,13 @@ async function waitFor(predicate) {
   }
 }
 
-async function exercise(protocol, mode, family) {
+async function exercise(protocol, mode, family, udpAppendNewline, udpFormat = 'delimited') {
   const host = family === 'ipv6' ? '::1' : '127.0.0.1';
   const manager = new TransportManager();
-  const payloads = ['1,café', '2,雪'];
+  const payloads = udpFormat === 'json' ? ['{"id":1}', '{"id":2}']
+    : udpFormat === 'geo-json' ? ['{"type":"Feature","geometry":null,"properties":{"id":1}}']
+      : udpFormat === 'esri-json' ? ['{"attributes":{"id":1}}']
+        : ['1,café', protocol === 'udp' ? '2,雪\n' : '2,雪'];
   const chunks = [];
   let receiver;
   let tcpPeer;
@@ -38,7 +41,7 @@ async function exercise(protocol, mode, family) {
       port = receiver.address().port;
     } else {
       const result = await manager.connect({
-        protocol, mode, ip: host, port: 0, [`${protocol}AddressFamily`]: family,
+        protocol, mode, ip: host, port: 0, [`${protocol}AddressFamily`]: family, udpAppendNewline, udpFormat,
       });
       port = result.address.port;
       if (protocol === 'tcp') {
@@ -55,7 +58,7 @@ async function exercise(protocol, mode, family) {
       await manager.waitForRecipients({ timeoutMs: 2000 });
     }
     if (mode === 'client') await manager.connect({
-      protocol, mode, ip: family === 'ipv6' ? `[${host}]` : host, port, [`${protocol}AddressFamily`]: family,
+      protocol, mode, ip: family === 'ipv6' ? `[${host}]` : host, port, [`${protocol}AddressFamily`]: family, udpAppendNewline, udpFormat,
     });
     assert.strictEqual(manager.isConnected(), true);
     if (protocol === 'udp') {
@@ -63,11 +66,13 @@ async function exercise(protocol, mode, family) {
       assert.deepStrictEqual(chunks, [], 'UDP clients send no probe and servers send no registration acknowledgement');
     }
     for (const payload of payloads) await manager.send(payload);
-    const expected = Buffer.from(protocol === 'tcp' ? `${payloads.join('\n')}\n` : payloads.join(''));
+    const appendLf = protocol === 'tcp' || (udpFormat === 'delimited' && udpAppendNewline !== false);
+    const expectedDatagrams = payloads.map(payload => Buffer.from(appendLf && !payload.endsWith('\n') ? `${payload}\n` : payload));
+    const expected = Buffer.concat(expectedDatagrams);
     await waitFor(() => Buffer.concat(chunks).length >= expected.length);
     assert.deepStrictEqual(Buffer.concat(chunks), expected);
-    if (protocol === 'udp') assert.deepStrictEqual(chunks, payloads.map(payload => Buffer.from(payload)));
-    console.log(`  ${protocol} ${mode} ${family}: exact received UTF-8 bytes verified`);
+    if (protocol === 'udp') assert.deepStrictEqual(chunks, expectedDatagrams);
+    console.log(`  ${protocol} ${mode} ${family} ${udpFormat} LF=${udpAppendNewline ?? 'default'}: exact received UTF-8 bytes verified`);
   } finally {
     if (tcpPeer) tcpPeer.destroy();
     if (receiver instanceof net.Socket) receiver.destroy();
@@ -161,6 +166,10 @@ async function exerciseDnsRetryLimits() {
     for (const protocol of ['tcp', 'udp']) {
       for (const mode of ['client', 'server']) await exercise(protocol, mode, family);
     }
+    for (const format of ['json', 'geo-json', 'esri-json']) {
+      for (const mode of ['client', 'server']) await exercise('udp', mode, family, undefined, format);
+    }
+    for (const mode of ['client', 'server']) await exercise('udp', mode, family, false);
   }
   for (const family of ['ipv4', 'ipv6']) {
     for (const code of ['ENOTFOUND', 'EAI_AGAIN']) await exerciseDnsRecovery(family, code);

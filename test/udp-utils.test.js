@@ -6,6 +6,7 @@ const {
   MAX_UDP_CLIENT_REGISTRATION_INTERVAL_MS,
   UDP_CLIENT_REGISTRATION_MESSAGE,
   startUdpClientRegistration,
+  encodeUdpPayload,
 } = require('../src/udp-utils.js');
 
 function delay(milliseconds) {
@@ -126,6 +127,22 @@ function testThrowingErrorCallbackStopsAndSurfaces() {
 }
 
 (async () => {
+  assert.deepStrictEqual(encodeUdpPayload('1,café', 'delimited'), Buffer.from('1,café\n'));
+  assert.deepStrictEqual(encodeUdpPayload('1,café\n', 'delimited'), Buffer.from('1,café\n'));
+  assert.deepStrictEqual(encodeUdpPayload('1,café\r\n', 'delimited'), Buffer.from('1,café\r\n'));
+  assert.deepStrictEqual(encodeUdpPayload('1,café', 'delimited', false), Buffer.from('1,café'));
+  for (const [format, payload] of [
+    ['json', '{"id":1}'],
+    ['geo-json', '{"type":"Feature","geometry":null,"properties":{"id":1}}'],
+    ['esri-json', '{"attributes":{"id":1}}'],
+  ]) {
+    assert.deepStrictEqual(encodeUdpPayload(payload, format), Buffer.from(payload));
+    assert.deepStrictEqual(encodeUdpPayload(`${payload}\n`, format), Buffer.from(`${payload}\n`));
+  }
+  assert.strictEqual(encodeUdpPayload('é'.repeat(32753), 'delimited').length, 65507);
+  assert.strictEqual(encodeUdpPayload(`${'é'.repeat(32753)}\n`, 'delimited').length, 65507);
+  assert.throws(() => encodeUdpPayload('é'.repeat(32753) + 'x', 'delimited'), /65507/);
+  assert.strictEqual(encodeUdpPayload('x'.repeat(65507), 'delimited', false).length, 65507);
   assert.strictEqual(DEFAULT_UDP_CLIENT_REGISTRATION_INTERVAL_MS, 30000);
   assert.strictEqual(MAX_UDP_CLIENT_REGISTRATION_INTERVAL_MS, 2147483647);
   for (const intervalMs of [0, -1, 1.5, 2147483648, Infinity]) {

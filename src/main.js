@@ -2423,7 +2423,7 @@ ipcMain.handle('get-microphone-support-state', () => {
 // Establishes a TCP or UDP connection based on the provided parameters.
 ipcMain.handle('connect', async (event, options) => {
   const {
-    protocol, mode, ip, port, tcpFormat = 'delimited', tcpAddressFamily = 'auto', udpFormat = 'delimited', udpAppendNewline = false, udpAddressFamily = 'ipv4',
+    protocol, mode, ip, port, tcpFormat = 'delimited', tcpAddressFamily = 'auto', udpFormat = 'delimited', udpAppendNewline = true, udpAddressFamily = 'ipv4',
     grpcSerialization, grpcSendMethod, headerPathKey, headerPath,
     useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls,
     httpFormat, httpPolling, httpTls, httpTlsCaPath, httpTlsCertPath, httpTlsKeyPath, httpPath, httpAllowUnverifiedTls,

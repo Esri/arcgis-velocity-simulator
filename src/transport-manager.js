@@ -231,7 +231,7 @@ class TransportManager extends EventEmitter {
       throw new Error('Choose Delimited, JSON, GeoJSON, or Esri JSON for TCP or UDP.');
     }
     this.payloadFormat = protocol === 'tcp' ? tcpFormat : protocol === 'udp' ? udpFormat : null;
-    this.udpAppendNewline = options.udpAppendNewline === true;
+    this.udpAppendNewline = options.udpAppendNewline === undefined ? true : options.udpAppendNewline === true;
 
     if (protocol === 'grpc') {
       return this.connectGrpc({ mode, ip, port, grpcSerialization, grpcSendMethod, headerPathKey, headerPath, useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls });

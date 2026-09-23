@@ -20,8 +20,8 @@ const DEFAULT_UDP_CLIENT_REGISTRATION_INTERVAL_MS = 30000;
 const MAX_UDP_CLIENT_REGISTRATION_INTERVAL_MS = 2147483647;
 const { assertUdpPayloadSize } = require('./payload-format-utils');
 
-function encodeUdpPayload(data, format, appendNewline = false) {
-  const payload = appendNewline && format === 'delimited' ? `${data}\n` : data;
+function encodeUdpPayload(data, format, appendNewline = true) {
+  const payload = appendNewline && format === 'delimited' && !data.endsWith('\n') ? `${data}\n` : data;
   assertUdpPayloadSize(payload);
   return Buffer.from(payload);
 }

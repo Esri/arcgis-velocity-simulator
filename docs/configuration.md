@@ -318,8 +318,10 @@ existing files that omit them therefore retain Delimited (CSV) behavior.
 Saving a launch configuration captures both Basics selectors. Omitting these
 keys preserves the existing protocol defaults. See [TCP transport](tcp.md) and
 [UDP transport](udp.md) for addressing and bind behavior.
-`udpAppendNewline` defaults to `false` and is saved from the **Append LF**
-control. It is a Simulator publishing setting, not a Logger receive option.
+`udpAppendNewline` defaults to `true` and is saved from the **Append LF**
+control. A missing key uses that enabled default; an explicitly saved `false`
+or CLI `udpAppendNewline=false` remains disabled. It is a Simulator publishing
+setting, not a Logger receive option.
 See [UDP transport](udp.md) for when LF framing is required.
 Header-row flags default to `false`, coordinate fields are optional and paired,
 and WKID defaults to `4326`. A missing or false header flag preserves the

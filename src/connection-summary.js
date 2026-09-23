@@ -157,7 +157,7 @@
       { field: 'udpFormat', defaultValue: 'delimited' },
       { field: 'udpAddressFamily', defaultValue: 'ipv4' },
       { field: 'udpInputHasHeader', defaultValue: false },
-      { field: 'udpAppendNewline', defaultValue: false },
+      { field: 'udpAppendNewline', defaultValue: true },
       { field: 'udpXField', defaultValue: '', spatialOnly: true },
       { field: 'udpYField', defaultValue: '', spatialOnly: true },
       { field: 'udpWkid', defaultValue: '4326', spatialOnly: true },
@@ -626,8 +626,8 @@
       rows.push(row('csvHeader', 'CSV header row', describeToggle(state[`${prefix}InputHasHeader`]), {
         isDefault: !isTruthy(state[`${prefix}InputHasHeader`]),
       }));
-      if (protocol === 'udp') rows.push(row('udpAppendNewline', 'Append LF', describeToggle(state.udpAppendNewline), {
-        isDefault: !isTruthy(state.udpAppendNewline),
+      if (protocol === 'udp') rows.push(row('udpAppendNewline', 'Append LF', describeToggle(state.udpAppendNewline ?? true), {
+        isDefault: isTruthy(state.udpAppendNewline ?? true),
         detail: 'Appends LF to delimited payloads only; included in the datagram size limit.',
       }));
       if (formatValue !== 'geo-json' && formatValue !== 'esri-json') return rows;

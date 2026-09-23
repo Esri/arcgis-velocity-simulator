@@ -211,8 +211,10 @@ Omitting `udpInputHasHeader`, coordinate fields, and `udpWkid` preserves the
 header as an event, generates deterministic names for a structured payload,
 uses null geometry, and defaults WKID to 4326.
 
-For a Velocity UDP feed, use client mode and `udpAppendNewline=true` with
-Delimited payloads. For a generic paired Logger client, server mode can use
+For a Velocity UDP feed, use client mode. Delimited UDP publishing defaults to
+`udpAppendNewline=true`; set it explicitly to `false` only when a receiver needs
+unterminated datagrams. Structured payloads are unchanged. For a generic paired
+Logger client, server mode can use
 `waitForClient=true`. See [UDP transport](udp.md) for the custom registration
 convention and Velocity framing requirements.
 

@@ -111,7 +111,7 @@ test('the UI UDP send path shares LF encoding and rejects the final oversized da
   let send;
   const context = {
     ipcMain: { on: (_name, callback) => { send = callback; } },
-    connection: { mode: 'client', port: 17009, ip: '127.0.0.1', udpAppendNewline: true,
+    connection: { mode: 'client', port: 17009, ip: '127.0.0.1',
       socket: { send: (bytes, port, ip, callback) => { sent.push({ bytes, port, ip }); callback(); } } },
     activeSocketPayloadFormat: 'delimited',
     net, encodeUdpPayload, validatePayload: payloadUtils.validatePayload,
@@ -123,6 +123,7 @@ test('the UI UDP send path shares LF encoding and rejects the final oversized da
   vm.runInNewContext(mainSource.slice(start, end), context);
   send({}, '1,café');
   assert.deepStrictEqual(sent[0].bytes, Buffer.from('1,café\n'));
+  assert.match(mainSource, /udpAppendNewline = true/);
   send({}, 'x'.repeat(65507));
   assert.strictEqual(sent.length, 1);
   assert(logs.some(message => message.includes('65507')));

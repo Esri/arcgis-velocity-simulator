@@ -165,7 +165,7 @@
     udpFormat: 'delimited',
     udpAddressFamily: 'ipv4',
     udpInputHasHeader: false,
-    udpAppendNewline: false,
+    udpAppendNewline: true,
     udpXField: '',
     udpYField: '',
     udpWkid: 4326,

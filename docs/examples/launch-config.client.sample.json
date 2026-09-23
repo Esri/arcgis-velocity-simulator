@@ -30,7 +30,7 @@
     "udpFormat": "delimited",
     "udpAddressFamily": "ipv4",
     "udpInputHasHeader": false,
-    "udpAppendNewline": false,
+    "udpAppendNewline": true,
     "udpXField": null,
     "udpYField": null,
     "udpWkid": 4326,

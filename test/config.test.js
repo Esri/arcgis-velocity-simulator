@@ -155,7 +155,7 @@ async function runConfigTests() {
   ];
   const socketPayloadKeys = [
     'tcpFormat', 'tcpAddressFamily', 'tcpInputHasHeader', 'tcpXField', 'tcpYField', 'tcpWkid',
-    'udpFormat', 'udpAddressFamily', 'udpInputHasHeader', 'udpXField', 'udpYField', 'udpWkid',
+    'udpFormat', 'udpAddressFamily', 'udpAppendNewline', 'udpInputHasHeader', 'udpXField', 'udpYField', 'udpWkid',
   ];
   runTest('Every launch-config sample includes TCP and UDP payload conversion settings', () =>
     sampleNames.every((name) => {
@@ -199,6 +199,27 @@ async function runConfigTests() {
 
   const { parseCommandLineArgs } = require('../src/cli-options.js');
   const roundTripPath = path.join(os.tmpdir(), `avs-xmpp-launch-config-${process.pid}.json`);
+  runTest('Launch configs preserve explicit LF off and use on when missing in UI and headless', () => {
+    const file = path.join(os.tmpdir(), `avs-udp-lf-config-${process.pid}.json`);
+    try {
+      for (const value of [undefined, false, true]) {
+        const connection = { protocol: 'udp', mode: 'client', ip: '127.0.0.1', port: 5565 };
+        if (value !== undefined) connection.udpAppendNewline = value;
+        fs.writeFileSync(file, JSON.stringify({ connection }));
+        const ui = parseCommandLineArgs(['node', 'main.js', `config=${file}`]);
+        const headless = parseCommandLineArgs(['node', 'main.js', `config=${file}`, 'runMode=headless', `filename=${__filename}`]);
+        if (ui.mode !== 'ui' || headless.mode !== 'headless') return false;
+        if (ui.ui.presets.udpAppendNewline !== value || headless.headless.udpAppendNewline !== (value ?? true)) return false;
+        const override = parseCommandLineArgs(['node', 'main.js', `config=${file}`, 'runMode=headless', `filename=${__filename}`, 'udpAppendNewline=false']);
+        if (override.headless.udpAppendNewline !== false) return false;
+      }
+      return true;
+    } finally {
+      fs.rmSync(file, { force: true });
+    }
+  });
+  runTest('All launch samples enable LF by default', () => sampleNames.every(name =>
+    JSON.parse(fs.readFileSync(path.join(__dirname, '../docs/examples', name), 'utf8')).connection.udpAppendNewline === true));
   runTest('A launch-config file round-trips XMPP passwords without trimming them', () => {
     const configured = JSON.parse(JSON.stringify(clientSample));
     configured.connection.protocol = 'xmpp';

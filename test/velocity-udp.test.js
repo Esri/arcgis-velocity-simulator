@@ -8,7 +8,7 @@ const { encodeUdpPayload } = require('../src/udp-utils');
 const { SimulationEngine } = require('../src/simulation-engine');
 
 async function run() {
-  assert.strictEqual(encodeUdpPayload('1,a', 'delimited').toString(), '1,a');
+  assert.strictEqual(encodeUdpPayload('1,a', 'delimited').toString(), '1,a\n');
   assert.strictEqual(encodeUdpPayload('{"id":1}', 'json', true).toString(), '{"id":1}');
   assert.strictEqual(encodeUdpPayload('é'.repeat(32753), 'delimited', true).length, 65507);
   assert.throws(() => encodeUdpPayload('é'.repeat(32753) + 'x', 'delimited', true), /65507/);

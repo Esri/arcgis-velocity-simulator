@@ -223,7 +223,7 @@ const APP_DEFAULTS = {
   udpFormat: DEFAULT_SOCKET_PAYLOAD_FORMAT,
   udpAddressFamily: 'ipv4',
   udpInputHasHeader: false,
-  udpAppendNewline: false,
+  udpAppendNewline: true,
   udpXField: null,
   udpYField: null,
   udpWkid: 4326,
@@ -717,7 +717,7 @@ const CLI_PARAMETER_DEFINITIONS = [
     options: ['true', 'false'],
     example: 'udpAppendNewline=true',
     requiredInHeadless: 'No',
-    purpose: 'Append LF to each delimited UDP payload for receivers that require newline framing, including Velocity UDP feeds. Defaults to false; ignored for structured formats. The LF counts toward the 65,507-byte datagram limit.',
+    purpose: 'Ensure each delimited UDP payload ends with LF for compatibility with Velocity sampling and newline-framed receivers. Defaults to true; an existing trailing LF is preserved, and structured formats are unchanged. The LF counts toward the 65,507-byte datagram limit.',
   },
   {
     key: 'udpInputHasHeader',

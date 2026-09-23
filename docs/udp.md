@@ -81,11 +81,13 @@ feeds and both UDP output types have IPv6-capable addressing, but operating
 system, deployment, and network configuration must also permit IPv6.
 Socket support alone does not verify a deployed Velocity endpoint.
 
-For Delimited feeds, **Apply** enables **Append LF**. UDP Server feeds require
-LF-terminated records; without LF, records can remain buffered and subsequent
-datagrams can be concatenated. LF also supports UDP Client feed sampling.
-Structured formats do not need this terminator. The option is off by default
-for generic connections and local application-pair presets.
+**Append LF** is enabled by default for delimited UDP publishing, including
+generic connections, local application-pair presets, and **Apply** for
+delimited feeds. This supports Velocity sampling and newline-framed receivers.
+UDP Server feed delimited extraction requires LF-terminated records; without
+LF, records can remain buffered and subsequent datagrams can be concatenated.
+LF-terminated records are also compatible with UDP Client feeds.
+Structured formats do not need this terminator and are unchanged.
 
 ## Formats and datagrams
 
@@ -99,6 +101,13 @@ Oversize payloads are rejected
 before send, and one event is never split across datagrams. Practical network,
 platform, and receiver limits may be lower.
 
+With **Append LF** enabled, a delimited payload gets one trailing LF when it
+does not already end with LF. Existing LF or CRLF endings are preserved rather
+than doubled. Turn it off, or set `udpAppendNewline=false`, for a receiver that
+needs the original datagram bytes. An explicitly saved `false` remains off;
+an omitted setting uses the enabled default. The Logger preserves the received
+datagram, including its terminator; it has no sending **Append LF** option.
+
 XML is not a UDP format choice. It remains supported by HTTP and WebSocket.
 
 ## UI controls
@@ -110,7 +119,7 @@ Open **Settings** and use these UDP-specific sections:
 | Basics | Format | Selects Delimited (CSV), JSON, GeoJSON, or Esri JSON. |
 | Basics | Address family | IPv4 or IPv6; does not rewrite Host. |
 | Advanced | CSV header row | Uses the first logical CSV record as field names and does not publish it. Off by default. |
-| Advanced | Append LF | Appends LF to delimited payloads only. Off by default; enabled when applying a delimited Velocity UDP feed. |
+| Advanced | Append LF | Ensures a trailing LF for delimited payloads only. On by default; preserves an existing LF or CRLF ending. |
 | Advanced | X field | Optional X-coordinate field. Configure it together with Y. |
 | Advanced | Y field | Optional Y-coordinate field. Configure it together with X. |
 | Advanced | WKID | Spatial reference for generated point geometry. Defaults to 4326. |
