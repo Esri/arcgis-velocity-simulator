@@ -73,11 +73,17 @@ function startUdpClientRegistration(socket, {
   };
   const renew = () => {
     if (stopped) return;
-    registerUdpClient(socket)
-      .catch((error) => {
-        if (!stopped) onError(error);
-      })
-      .finally(schedule);
+    registerUdpClient(socket).then(schedule, (error) => {
+      if (stopped) return;
+      try {
+        onError(error);
+      } catch (callbackError) {
+        stop();
+        queueMicrotask(() => { throw callbackError; });
+        return;
+      }
+      schedule();
+    });
   };
   const stop = () => {
     if (stopped) return;

@@ -1,4 +1,6 @@
 const assert = require('assert');
+const { spawnSync } = require('child_process');
+const path = require('path');
 const {
   DEFAULT_UDP_CLIENT_REGISTRATION_INTERVAL_MS,
   MAX_UDP_CLIENT_REGISTRATION_INTERVAL_MS,
@@ -75,6 +77,54 @@ async function testRenewalErrorsAreSurfaced() {
   assert.ok(errors.length >= 1);
 }
 
+async function testInitialFailureStopsRenewal() {
+  let sends = 0;
+  const socket = {
+    send(_bytes, callback) {
+      sends += 1;
+      callback(new Error('initial failure'));
+    },
+  };
+  const registration = startUdpClientRegistration(socket, {
+    intervalMs: 5,
+    onError: () => {
+      throw new Error('Renewal callback must not handle initial failure');
+    },
+  });
+  await assert.rejects(registration.ready, /initial failure/);
+  await delay(15);
+  assert.strictEqual(sends, 1);
+}
+
+function testThrowingErrorCallbackStopsAndSurfaces() {
+  const modulePath = path.resolve(__dirname, '../src/udp-utils.js');
+  const script = `
+    const { startUdpClientRegistration } = require(${JSON.stringify(modulePath)});
+    let sends = 0;
+    let surfaced = '';
+    process.once('uncaughtException', (error) => {
+      surfaced = error.message;
+      setTimeout(() => {
+        if (surfaced !== 'callback failure' || sends !== 2) process.exit(2);
+        process.exit(0);
+      }, 20);
+    });
+    const registration = startUdpClientRegistration({
+      send(_bytes, callback) {
+        sends += 1;
+        callback(sends === 1 ? null : new Error('renewal failure'));
+      },
+    }, {
+      intervalMs: 5,
+      onError() { throw new Error('callback failure'); },
+    });
+    registration.ready.catch(() => process.exit(3));
+    setTimeout(() => process.exit(4), 200);
+  `;
+  const result = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8' });
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+}
+
 (async () => {
   assert.strictEqual(DEFAULT_UDP_CLIENT_REGISTRATION_INTERVAL_MS, 30000);
   assert.strictEqual(MAX_UDP_CLIENT_REGISTRATION_INTERVAL_MS, 2147483647);
@@ -99,6 +149,8 @@ async function testRenewalErrorsAreSurfaced() {
   await testRenewalDoesNotOverlapAndStops();
   await testStopBeforeInitialCallback();
   await testRenewalErrorsAreSurfaced();
+  await testInitialFailureStopsRenewal();
+  testThrowingErrorCallbackStopsAndSurfaces();
   console.log('udp-utils tests passed');
 })().catch((error) => {
   console.error(error);
