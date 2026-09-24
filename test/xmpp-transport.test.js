@@ -267,6 +267,55 @@ async function signInWithPlain(port, username, password, domain = 'localhost') {
 }
 
 async function run() {
+  await test('server advertises MUC discovery with correctly addressed replies and errors', async () => {
+    const { XmppServerCore, NS } = require('../src/xmpp-server-core');
+    const { XmppClientCore } = require('../src/xmpp-client-core');
+    const { xml } = require('@xmpp/xml');
+    const server = new XmppServerCore({
+      host: '127.0.0.1', port: 0, domain: 'localhost', tlsPolicy: 'disabled',
+      externalAccount: { username: 'velocity', password: 'disco-secret' },
+    });
+    const started = await server.listen();
+    const client = new XmppClientCore({
+      service: `xmpp://127.0.0.1:${started.address.port}`, domain: 'localhost',
+      username: 'velocity', password: 'disco-secret', resource: 'receiver',
+      tlsPolicy: 'disabled',
+    });
+    try {
+      await client.connect();
+      const response = await client.entity.iqCaller.request(xml('iq', {
+        type: 'get', to: 'conference.localhost',
+      }, xml('query', { xmlns: NS.DISCO_INFO })), 1000);
+      const query = response.getChild('query', NS.DISCO_INFO);
+      assert(response.attrs.from === 'conference.localhost', 'Discovery response must come from the conference service');
+      assert(response.attrs.to === client.entity.jid.toString(), 'Discovery response must address the bound client');
+      assert(query.getChild('identity').attrs.category === 'conference', 'Discovery identity must be a conference');
+      assert(query.getChild('identity').attrs.type === 'text', 'Discovery identity must be text');
+      assert(query.getChild('identity').attrs.name === 'ArcGIS Velocity Simulator', 'Discovery identity must name the Simulator');
+      assert(query.getChildren('feature').some(feature => feature.attrs.var === NS.MUC), 'Discovery must advertise MUC');
+
+      for (const to of [undefined, 'unsupported.localhost']) {
+        const id = to ? 'addressed-error' : 'default-domain-error';
+        let reply;
+        const receive = stanza => { if (stanza.attrs.id === id) reply = stanza; };
+        client.entity.on('stanza', receive);
+        try {
+          await client.entity.send(xml('iq', { type: 'get', id, ...(to ? { to } : {}) },
+            xml('query', { xmlns: NS.DISCO_INFO })));
+          await waitFor(() => reply);
+          assert(reply.attrs.type === 'error', 'Other discovery destinations must remain unsupported');
+          assert(reply.attrs.from === (to || 'localhost'), 'IQ error must identify the requested service or default domain');
+          assert(reply.attrs.to === client.entity.jid.toString(), 'IQ error must address the bound client');
+          assert(reply.getChild('error').getChild('service-unavailable', NS.STANZA_ERROR), 'IQ error must use the shared stanza error namespace');
+        } finally {
+          client.entity.removeListener('stanza', receive);
+        }
+      }
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
   console.log('\n=== XMPP Transport Tests ===');
 
   await test('a present-but-empty XMPP password is accepted while identities stay required', async () => {

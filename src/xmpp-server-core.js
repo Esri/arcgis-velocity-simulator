@@ -618,6 +618,22 @@ class XmppServerCore extends EventEmitter {
     }
     const bind = stanza.getChild('bind', NS.BIND);
     if (type === 'set' && bind) return this._bind(connection, stanza, bind);
+    const discoInfo = stanza.getChild('query', NS.DISCO_INFO);
+    if (type === 'get' && discoInfo && stanza.attrs.to === this.muc.mucDomain) {
+      this._sendTracked(connection, xml('iq', {
+        type: 'result',
+        id: stanza.attrs.id,
+        from: this.muc.mucDomain,
+        to: connection.fullJid,
+      }, xml('query', { xmlns: NS.DISCO_INFO },
+        xml('identity', {
+          category: 'conference',
+          type: 'text',
+          name: 'ArcGIS Velocity Simulator',
+        }),
+        xml('feature', { var: NS.MUC }))));
+      return;
+    }
     const ping = stanza.getChild('ping', NS.PING);
     if (type === 'get' && ping) {
       this._sendTracked(connection, xml('iq', {
@@ -930,9 +946,8 @@ class XmppServerCore extends EventEmitter {
   }
 
   _iqError(connection, request, condition, errorType = 'cancel') {
-    const attrs = { type: 'error', id: request.attrs.id };
+    const attrs = { type: 'error', id: request.attrs.id, from: request.attrs.to || this.options.domain };
     if (connection.fullJid) attrs.to = connection.fullJid;
-    if (request.attrs.to) attrs.from = request.attrs.to;
     this._sendTracked(connection, xml('iq', attrs,
       xml('error', { type: errorType }, xml(condition, {
         xmlns: NS.STANZA_ERROR,

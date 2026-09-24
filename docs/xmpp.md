@@ -467,6 +467,7 @@ Implemented and tested:
 
 - RFC 6120 stream negotiation, STARTTLS, SASL, binding, and clean close;
 - RFC 6121 direct `chat` bodies;
+- XEP-0030 discovery information for the conference service, identifying it as a text conference and advertising MUC support;
 - XEP-0045 focused MUC join, leave, nickname, password, status `110`/`201`, groupchat, and self echo;
 - XEP-0199 ping;
 - XEP-0198 enable and acknowledgement counters.
@@ -481,7 +482,7 @@ XEP-0198 support is **acknowledgement-only**:
 - an automatic reconnect after `xmppReconnectDelayMs` is therefore a brand new session, and nothing published while the stream was down is replayed to the receiver.
 
 The built-in server intentionally does not provide server-to-server federation,
-roster or presence subscriptions, service discovery, offline storage,
+roster or presence subscriptions, discovery beyond conference-service information, offline storage,
 archive/history, receipts, carbons, typing notifications, registration, password
 changes, administration, clustering, persistence, anonymous SASL, certificate
 authentication, SASL2/FAST/Bind2, SCRAM channel binding, moderated/configurable

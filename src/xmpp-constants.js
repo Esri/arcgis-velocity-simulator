@@ -40,6 +40,7 @@ const XMPP_NS = Object.freeze({
   BIND: 'urn:ietf:params:xml:ns:xmpp-bind',
   SM: 'urn:xmpp:sm:3',
   PING: 'urn:xmpp:ping',
+  DISCO_INFO: 'http://jabber.org/protocol/disco#info',
   MUC: 'http://jabber.org/protocol/muc',
   MUC_USER: 'http://jabber.org/protocol/muc#user',
 });
