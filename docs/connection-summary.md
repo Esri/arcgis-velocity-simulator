@@ -206,6 +206,8 @@ Logger reports the identity it receives on.
 | `csvHeader` | CSV header row | TCP, UDP. |
 | `udpAppendNewline` | Append LF | UDP publishing; see [UDP transport](udp.md). |
 | `tcpAddressFamily` | Address family | TCP Auto, IPv4, or IPv6. |
+| `tcpHandshakeText` | Handshake text | TCP only; Empty or Set (hidden), including whitespace-only values. |
+| `tcpHandshakeUseEscapes` | Use escapes | TCP greeting escape interpretation, enabled by default. |
 | `udpAddressFamily` | Address family | UDP IPv4 or IPv6. |
 | `expectedDestination` | Expected destination | Shared UDP output-routing metadata when supplied; separate from the local bind endpoint. |
 | `pointFields` | Point fields | TCP, UDP. |

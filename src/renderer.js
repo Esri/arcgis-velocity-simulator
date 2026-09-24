@@ -73,6 +73,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const connectionPresetSelect = document.getElementById('connection-preset');
   const connectionPresetState = document.getElementById('connection-preset-state');
   const tcpFormatSelect = document.getElementById('tcp-format');
+  const tcpHandshakeTextInput = document.getElementById('tcp-handshake-text');
+  const tcpHandshakeUseEscapesCheckbox = document.getElementById('tcp-handshake-use-escapes');
+  function setTcpHandshakeText(value) {
+    tcpHandshakeTextInput.tcpHandshakeRawValue = value;
+    tcpHandshakeTextInput.value = value;
+  }
+  function getTcpHandshakeText() {
+    const raw = tcpHandshakeTextInput.tcpHandshakeRawValue;
+    return typeof raw === 'string' && tcpHandshakeTextInput.value === raw.replace(/\r\n?/g, '\n')
+      ? raw : tcpHandshakeTextInput.value;
+  }
+  tcpHandshakeTextInput.addEventListener('input', () => {
+    tcpHandshakeTextInput.tcpHandshakeRawValue = tcpHandshakeTextInput.value;
+  });
   const tcpAddressFamilySelect = document.getElementById('tcp-address-family');
   const tcpFormatGroup = document.getElementById('tcp-format-group');
   const tcpInputHasHeaderCheckbox = document.getElementById('tcp-input-has-header');
@@ -953,7 +967,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const snapshot = {};
     getProtocolSettingsControls().forEach((control) => {
       if (!control.id) return;
-      snapshot[control.id] = control.type === 'checkbox' ? control.checked : control.value;
+      snapshot[control.id] = control === tcpHandshakeTextInput ? getTcpHandshakeText()
+        : control.type === 'checkbox' ? control.checked : control.value;
     });
     return snapshot;
   }
@@ -964,7 +979,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return getProtocolSettingsControls().some((control) => {
       if (!control.id || !(control.id in protocolSettingsOpenSnapshot)) return false;
       const previous = protocolSettingsOpenSnapshot[control.id];
-      return control.type === 'checkbox' ? control.checked !== previous : control.value !== previous;
+      return control === tcpHandshakeTextInput ? getTcpHandshakeText() !== previous
+        : control.type === 'checkbox' ? control.checked !== previous : control.value !== previous;
     });
   }
 
@@ -977,7 +993,10 @@ document.addEventListener('DOMContentLoaded', () => {
       getProtocolSettingsControls().forEach((control) => {
         if (!control.id || !(control.id in snapshot)) return;
         const previous = snapshot[control.id];
-        if (control.type === 'checkbox') {
+        if (control === tcpHandshakeTextInput) {
+          if (getTcpHandshakeText() === previous) return;
+          setTcpHandshakeText(previous);
+        } else if (control.type === 'checkbox') {
           if (control.checked === previous) return;
           control.checked = previous;
         } else {
@@ -1489,7 +1508,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!control) return;
     const element = document.getElementById(control.elementId);
     if (!element) return;
-    if (control.kind === 'checked') {
+    if (field === 'tcpHandshakeText') {
+      setTcpHandshakeText(value ?? '');
+    } else if (control.kind === 'checked') {
       element.checked = value === true;
     } else {
       element.value = value === null || value === undefined ? '' : String(value);
@@ -1601,7 +1622,8 @@ document.addEventListener('DOMContentLoaded', () => {
       Object.entries(controls).forEach(([field, control]) => {
         const element = document.getElementById(control.elementId);
         if (!element) return;
-        state[field] = control.kind === 'checked' ? element.checked : element.value;
+        state[field] = field === 'tcpHandshakeText' ? getTcpHandshakeText()
+          : control.kind === 'checked' ? element.checked : element.value;
       });
     } else {
       state.connectionType = connectionTypeSelect.value;
@@ -2348,6 +2370,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const result = await window.api.connect({
       protocol, mode, ip, port,
       tcpFormat: tcpPayload.format,
+      tcpHandshakeText: getTcpHandshakeText(),
+      tcpHandshakeUseEscapes: tcpHandshakeUseEscapesCheckbox.checked,
       tcpAddressFamily: tcpAddressFamilySelect.value,
       tcpInputHasHeader: tcpPayload.hasHeaderRow,
       tcpXField: tcpPayload.xField,
@@ -2370,7 +2394,8 @@ document.addEventListener('DOMContentLoaded', () => {
       handleConnectionStatusChange('disconnected');
       const message = result.error || 'The connection could not be started.';
       if (protocol === 'tcp' || protocol === 'udp') {
-        showProtocolValidationError(protocol === 'tcp' ? tcpAddressFamilySelect : udpAddressFamilySelect, message);
+        showProtocolValidationError(protocol === 'tcp'
+          ? (/handshake/i.test(message) ? tcpHandshakeTextInput : tcpAddressFamilySelect) : udpAddressFamilySelect, message);
       } else {
         logStatus(`❌ ${message}`);
       }
@@ -2959,6 +2984,8 @@ document.addEventListener('DOMContentLoaded', () => {
         tcpFormatSelect.value = presets.tcpFormat;
         tcpFormatSelect.dispatchEvent(new Event('change'));
       }
+      if (presets.tcpHandshakeText !== undefined) setTcpHandshakeText(presets.tcpHandshakeText);
+      if (presets.tcpHandshakeUseEscapes !== undefined) tcpHandshakeUseEscapesCheckbox.checked = presets.tcpHandshakeUseEscapes === true || presets.tcpHandshakeUseEscapes === 'true';
       if (presets.tcpAddressFamily !== undefined) {
         tcpAddressFamilySelect.value = presets.tcpAddressFamily;
         tcpAddressFamilySelect.dispatchEvent(new Event('change'));

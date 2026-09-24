@@ -133,6 +133,17 @@ test('credential-bearing WebSocket fields report presence only', () => {
     wsSubscriptionMsg: '{"token":"do-not-print-me"}',
     wsHeaders: '{"Authorization":"do-not-print-me"}',
   });
+  test('TCP greetings are hidden including whitespace and default fields are unchanged', () => {
+    for (const value of ['', '  ', String.raw`secret-auth\r\n`]) {
+      const summary = buildConnectionSummary({ ...BASE, connectionType: 'tcp-client', tcpHandshakeText: value });
+      const field = rowsByKey(summary).tcpHandshakeText;
+      assert.strictEqual(field.value, value.length ? 'Set (hidden)' : 'Empty');
+      assert.strictEqual(field.secret, true);
+      assert.strictEqual(field.isDefault, value.length === 0);
+      assert.strictEqual(summary.changedCount, value.length ? 1 : 0);
+      assert.doesNotMatch(formatConnectionSummaryText(summary), /secret-auth/);
+    }
+  });
   const rows = rowsByKey(summary);
   assert.strictEqual(rows.wsHeaders.value, 'Set (hidden)');
   assert.strictEqual(rows.wsHeaders.secret, true);

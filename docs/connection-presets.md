@@ -39,6 +39,8 @@ TCP and UDP provide a format in Basics and CSV schema and geometry controls in
 Advanced. Their Address family selectors also stay in Basics; all local presets
 retain TCP Auto, UDP IPv4, and host `127.0.0.1`. UDP also offers the Simulator-only **Append LF** publishing control,
 on in all local presets; see [UDP transport](udp.md).
+All local presets reset TCP Handshake text to empty and Use escapes to on.
+The controls remain in TCP Advanced; see [Connection greeting](tcp.md#connection-greeting).
 Their configured-state count remains hidden while every value is at
 its documented default. A compact warning alert appears only when the current
 values need attention.

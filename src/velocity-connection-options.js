@@ -225,6 +225,8 @@
         ip: configuredHost,
         port,
         tcpAddressFamily: connectorServer ? 'ipv4' : tcpAddressFamily,
+        tcpHandshakeText: '',
+        tcpHandshakeUseEscapes: true,
         [`${protocol}Format`]: socketFormat(item.format),
       };
     }

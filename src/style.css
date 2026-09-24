@@ -1826,6 +1826,20 @@ body:not(.show-gestures) #live-gesture-received {
   height: 18px;
 }
 
+#tcp-handshake-text {
+  text-align: left;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  resize: vertical;
+  color: var(--text-color);
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 6px;
+  font: inherit;
+}
+
 .protocol-settings-empty {
   margin: 0 0 10px;
   font-size: 0.8em;

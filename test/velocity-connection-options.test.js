@@ -89,18 +89,18 @@ test('TCP connector role inversion is unchanged', () => {
     feedType: 'tcp-server', serverApiUrl: 'https://velocity.example.com/arcgis',
     port: '17011', format: 'delimited',
   }), {
-    connectionType: 'tcp-client', ip: 'velocity.example.com', port: 17011, tcpFormat: 'delimited', tcpAddressFamily: 'ipv4',
+    connectionType: 'tcp-client', ip: 'velocity.example.com', port: 17011, tcpFormat: 'delimited', tcpAddressFamily: 'ipv4', tcpHandshakeText: '', tcpHandshakeUseEscapes: true,
   });
   assert.deepStrictEqual(build({
     outputType: 'tcp-client', host: 'logger.example.com', port: 17013, format: 'esri-json',
   }), {
-    connectionType: 'tcp-server', ip: 'logger.example.com', port: 17013, tcpFormat: 'esri-json', tcpAddressFamily: 'auto',
+    connectionType: 'tcp-server', ip: 'logger.example.com', port: 17013, tcpFormat: 'esri-json', tcpAddressFamily: 'auto', tcpHandshakeText: '', tcpHandshakeUseEscapes: true,
   });
   assert.deepStrictEqual(build({
     outputType: 'tcp-server', serverApiUrl: 'https://velocity.example.com:7143/arcgis',
     port: 17011, format: 'json',
   }), {
-    connectionType: 'tcp-client', ip: 'velocity.example.com', port: 17011, tcpFormat: 'json', tcpAddressFamily: 'ipv4',
+    connectionType: 'tcp-client', ip: 'velocity.example.com', port: 17011, tcpFormat: 'json', tcpAddressFamily: 'ipv4', tcpHandshakeText: '', tcpHandshakeUseEscapes: true,
   });
   assert.throws(() => build({
     outputType: 'tcp-server', port: 17011, format: 'json',
@@ -147,6 +147,17 @@ test('advertised IPv6 selects family only for capable Velocity connectors', () =
   for (const protocol of ['tcp', 'udp']) {
     assert.throws(() => build({ feedType: `${protocol}-client`, host: '::1', port: 17009, [`${protocol}AddressFamily`]: 'ipv4' }), /family/);
     assert.throws(() => build({ feedType: `${protocol}-client`, host: '127.0.0.1', port: 17009, [`${protocol}AddressFamily`]: 'ipv6' }), /family/);
+  }
+});
+
+test('every TCP mapping clears a previous greeting instead of exposing it to a new endpoint', () => {
+  for (const direction of ['feedType', 'outputType']) {
+    for (const type of ['tcp', 'tcp-client', 'tcp-server']) {
+      const options = build({ [direction]: type, host: 'new.example.com', port: 5565,
+        tcpHandshakeText: 'secret-from-another-endpoint', tcpHandshakeUseEscapes: false });
+      assert.strictEqual(options.tcpHandshakeText, '');
+      assert.strictEqual(options.tcpHandshakeUseEscapes, true);
+    }
   }
 });
 
@@ -246,6 +257,10 @@ test('main renderer validates atomically, honors transport locks, and never conn
     assert(writes.some(([key, value]) => key === 'udpAppendNewline' && value === true));
     assert(writes.some(([key, value]) => key === 'host' && value === 'data.example.com'));
   }
+  writes.length = 0;
+  callback({ feedType: 'tcp-client', host: 'new.example.com', port: 5565 });
+  assert(writes.some(([key, value]) => key === 'tcpHandshakeText' && value === ''));
+  assert(writes.some(([key, value]) => key === 'tcpHandshakeUseEscapes' && value === true));
   assert(!/\.connect\(/.test(block));
   dom.window.close();
 });

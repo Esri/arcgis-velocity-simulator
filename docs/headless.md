@@ -223,6 +223,11 @@ For a local IPv6 pair, set `ip=::1` and the protocol's family option,
 conversion, replay controls, or completion artifacts. Full option values and
 defaults are in the [Command-line reference](command-line.md).
 
+TCP headless sessions also honor `tcpHandshakeText` and
+`tcpHandshakeUseEscapes` for both roles. The greeting completes before the
+first local replay record on each connection; it never waits for a response.
+See [Connection greeting](tcp.md#connection-greeting) for framing and limits.
+
 ### gRPC client with default header path
 
 ```bash

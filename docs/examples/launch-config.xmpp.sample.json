@@ -16,6 +16,8 @@
     "protocol": "xmpp",
     "_socketPayload_comment": "These inactive defaults document the Simulator-only CSV source conversion keys used when protocol is TCP or UDP. Formats default to delimited; header flags default to false; X/Y fields are optional but paired; WKID defaults to 4326.",
     "tcpFormat": "delimited",
+    "tcpHandshakeText": "",
+    "tcpHandshakeUseEscapes": true,
     "tcpAddressFamily": "auto",
     "tcpInputHasHeader": false,
     "tcpXField": null,

@@ -78,6 +78,8 @@
     port: { elementId: 'port', kind: 'value' },
 
     tcpFormat: { elementId: 'tcp-format', kind: 'value' },
+    tcpHandshakeText: { elementId: 'tcp-handshake-text', kind: 'value' },
+    tcpHandshakeUseEscapes: { elementId: 'tcp-handshake-use-escapes', kind: 'checked' },
     tcpAddressFamily: { elementId: 'tcp-address-family', kind: 'value' },
     tcpInputHasHeader: { elementId: 'tcp-input-has-header', kind: 'checked' },
     tcpXField: { elementId: 'tcp-x-field', kind: 'value' },
@@ -156,6 +158,8 @@
     port: 5565,
 
     tcpFormat: 'delimited',
+    tcpHandshakeText: '',
+    tcpHandshakeUseEscapes: true,
     tcpAddressFamily: 'auto',
     tcpInputHasHeader: false,
     tcpXField: '',

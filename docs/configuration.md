@@ -283,6 +283,7 @@ mode](headless.md).
 - `startLine`
 - `stdout`
 - `tcpFormat`, `tcpAddressFamily`, `tcpInputHasHeader`, `tcpXField`, `tcpYField`, `tcpWkid`
+- `tcpHandshakeText`, `tcpHandshakeUseEscapes`
 - `udpFormat`, `udpAddressFamily`, `udpInputHasHeader`, `udpXField`, `udpYField`, `udpWkid`
 - `waitForClient`
 - `wsFormat`, `wsTls`, `wsPath`, `wsTlsCaPath`, `wsTlsCertPath`, `wsTlsKeyPath`, `wsSubscriptionMsg`, `wsIgnoreFirstMsg`, `wsHeaders`, `wsAllowUnverifiedTls`
@@ -315,6 +316,13 @@ controls, including TCP and UDP payload conversion settings and the three
 verification options. `tcpFormat` and `udpFormat` default to `delimited`;
 existing files that omit them therefore retain Delimited (CSV) behavior.
 `tcpAddressFamily` defaults to `auto`; `udpAddressFamily` defaults to `ipv4`.
+`tcpHandshakeText` defaults to the empty string and `tcpHandshakeUseEscapes`
+defaults to `true`. Explicit false, literal line breaks, and surrounding
+whitespace round-trip through JSON. Exported configurations include greeting
+text unredacted; protect the file if it contains credentials. See
+[Connection greeting](tcp.md#connection-greeting).
+Summary masking does not encrypt stored text; command-line values may also
+appear in shell history or process listings.
 Saving a launch configuration captures both Basics selectors. Omitting these
 keys preserves the existing protocol defaults. See [TCP transport](tcp.md) and
 [UDP transport](udp.md) for addressing and bind behavior.

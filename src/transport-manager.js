@@ -53,6 +53,7 @@ const {
   finishTcpPayloadReceiver,
 } = require('./socket-payload-receiver');
 const { isUdpClientRegistrationMessage, encodeUdpPayload } = require('./udp-utils');
+const { decodeTcpHandshake, writeTcpHandshake } = require('./tcp-handshake-utils');
 const { resolveUdpEndpoint, udpEndpointKey, formatUdpEndpoint, resolveSocketEndpoint, tcpSocketOptions, formatSocketEndpoint } = require('./socket-address-utils');
 
 /**
@@ -81,6 +82,8 @@ class TransportManager extends EventEmitter {
     this.ip = null;
     this.port = null;
     this.tcpClientSockets = [];
+    this._tcpPendingSockets = new Set();
+    this._tcpAbortController = null;
     this.udpServerClients = new Map();
     this._recipientWaiters = new Set();
   }
@@ -251,8 +254,8 @@ class TransportManager extends EventEmitter {
 
     if (protocol === 'tcp') {
       return mode === 'server'
-        ? this.connectTcpServer({ ip, port, connectTimeoutMs, format: tcpFormat, tcpAddressFamily })
-        : this.connectTcpClient({ ip, port, connectTimeoutMs, connectWaitForServer, connectRetryIntervalMs, format: tcpFormat, tcpAddressFamily });
+        ? this.connectTcpServer({ ...options, ip, port, connectTimeoutMs, format: tcpFormat, tcpAddressFamily })
+        : this.connectTcpClient({ ...options, ip, port, connectTimeoutMs, connectWaitForServer, connectRetryIntervalMs, format: tcpFormat, tcpAddressFamily });
     }
 
     return mode === 'server'
@@ -495,19 +498,20 @@ class TransportManager extends EventEmitter {
    * - In headless server mode, the simulation engine may wait until a first client appears.
    * - Any inbound client messages are surfaced through `data-received` for observability.
    */
-  async connectTcpServer({ ip, port, connectTimeoutMs, format = 'delimited', tcpAddressFamily = 'auto' }) {
+  async connectTcpServer({ ip, port, connectTimeoutMs, format = 'delimited', tcpAddressFamily = 'auto', tcpHandshakeText = '', tcpHandshakeUseEscapes = true }) {
+    const greeting = decodeTcpHandshake(tcpHandshakeText, { useEscapes: tcpHandshakeUseEscapes });
+    const controller = new AbortController();
+    this._tcpAbortController = controller;
     this.log('info', `[Transport] Resolving TCP ${tcpAddressFamily} bind host ${ip}`);
     const endpoint = await resolveSocketEndpoint(ip, tcpAddressFamily, { bind: true });
+    if (controller.signal.aborted) throw new Error('TCP connection cancelled.');
     return new Promise((resolve, reject) => {
       let settled = false;
       let timeout = null;
 
       const server = net.createServer((socket) => {
-        this.tcpClientSockets.push(socket);
+        this._tcpPendingSockets.add(socket);
         const clientKey = formatSocketEndpoint({ address: socket.remoteAddress, port: socket.remotePort });
-        this.log('info', `TCP client connected: ${clientKey}`);
-        this.emit('client-connected', { protocol: 'tcp', mode: 'server', clientKey });
-        this.resolveRecipientWaiters();
 
         attachTcpPayloadReceiver(socket, {
           format,
@@ -521,15 +525,32 @@ class TransportManager extends EventEmitter {
 
         socket.on('close', () => {
           finishTcpPayloadReceiver(socket);
+          this._tcpPendingSockets.delete(socket);
           this.tcpClientSockets = this.tcpClientSockets.filter((entry) => entry !== socket);
           this.log('info', `TCP client disconnected: ${clientKey}`);
           this.emit('client-disconnected', { protocol: 'tcp', mode: 'server', clientKey });
         });
 
         socket.on('error', (error) => {
-          this.log('warn', `TCP client socket error (${clientKey}): ${error.message}`);
-          this.emit('socket-error', { protocol: 'tcp', mode: 'server', error, clientKey });
+          const reported = this._tcpPendingSockets.has(socket) && greeting.length
+            ? Object.assign(new Error('TCP handshake could not be sent.'), { code: 'TCP_HANDSHAKE_FAILED' }) : error;
+          this.log('warn', `TCP client socket error (${clientKey}): ${reported.message}`);
+          this.emit('socket-error', { protocol: 'tcp', mode: 'server', error: reported, clientKey });
         });
+        const ready = () => {
+          if (socket.destroyed || controller.signal.aborted) return;
+          this._tcpPendingSockets.delete(socket);
+          this.tcpClientSockets.push(socket);
+          this.log('info', `TCP client connected: ${clientKey}`);
+          this.emit('client-connected', { protocol: 'tcp', mode: 'server', clientKey });
+          this.resolveRecipientWaiters();
+        };
+        if (greeting.length) {
+          this.log('info', `[Transport] Sending TCP handshake to ${clientKey} (${greeting.length} bytes).`);
+          writeTcpHandshake(socket, greeting, { signal: controller.signal, timeoutMs: connectTimeoutMs || 0 }).then(ready, error => {
+            this.log('warn', `[Transport] ${error.message}`);
+          });
+        } else ready();
       });
 
       const finishError = (error) => {
@@ -582,20 +603,51 @@ class TransportManager extends EventEmitter {
    * error) at `connectRetryIntervalMs` intervals until the server accepts the connection.
    * `connectTimeoutMs > 0` sets an overall deadline; `connectTimeoutMs = 0` waits forever.
    */
-  async connectTcpClient({ ip, port, connectTimeoutMs, connectWaitForServer = false, connectRetryIntervalMs = 1000, format = 'delimited', tcpAddressFamily = 'auto' }) {
+  async connectTcpClient({ ip, port, connectTimeoutMs, connectWaitForServer = false, connectRetryIntervalMs = 1000, format = 'delimited', tcpAddressFamily = 'auto', tcpHandshakeText = '', tcpHandshakeUseEscapes = true }) {
+    const greeting = decodeTcpHandshake(tcpHandshakeText, { useEscapes: tcpHandshakeUseEscapes });
+    const controller = new AbortController();
+    this._tcpAbortController = controller;
     const deadline = connectTimeoutMs > 0 ? Date.now() + connectTimeoutMs : null;
     const target = formatSocketEndpoint({ address: ip, port });
 
     const attemptOnce = async () => {
       const endpoint = await resolveSocketEndpoint(ip, tcpAddressFamily);
+      if (controller.signal.aborted) throw new Error('TCP connection cancelled.');
       return new Promise((resolve, reject) => {
+        let settled = false;
+        let sendingGreeting = false;
+        const finishError = error => {
+          if (settled) return;
+          settled = true;
+          this._tcpPendingSockets.delete(client);
+          client.destroy();
+          reject(error);
+        };
         const client = net.createConnection(tcpSocketOptions(endpoint, port), () => {
-          this.connection = client;
-          this.emitStatus('connected', `TCP client connected to ${target} from local port ${client.localPort} [${format}]`);
-          client.on('close', () => {
+          const ready = () => {
+            if (settled || client.destroyed || controller.signal.aborted) return;
+            settled = true;
+            this._tcpPendingSockets.delete(client);
+            this.connection = client;
+            this.emitStatus('connected', `TCP client connected to ${target} from local port ${client.localPort} [${format}]`);
+            resolve({ protocol: 'tcp', mode: 'client', format });
+          };
+          if (greeting.length) {
+            sendingGreeting = true;
+            this.log('info', `[Transport] Sending TCP handshake to ${target} (${greeting.length} bytes).`);
+            writeTcpHandshake(client, greeting, { signal: controller.signal, timeoutMs: deadline ? Math.max(1, deadline - Date.now()) : 0 }).then(ready, finishError);
+          } else ready();
+        });
+        this._tcpPendingSockets.add(client);
+        client.on('close', () => {
+          this._tcpPendingSockets.delete(client);
+          finishTcpPayloadReceiver(client);
+          if (!settled && !sendingGreeting) finishError(new Error('TCP connection closed before it was ready.'));
+          if (this.connection === client) {
             this.connection = null;
             this.emitStatus('disconnected', 'TCP client disconnected.');
-          });
+          }
+        });
           attachTcpPayloadReceiver(client, {
             format,
             context: { clientKey: target },
@@ -605,11 +657,8 @@ class TransportManager extends EventEmitter {
             },
             onWarning: (message, context) => this.log('warn', `TCP payload warning (${context.clientKey}): ${message}`),
           });
-          resolve({ protocol: 'tcp', mode: 'client', format });
-        });
         client.once('error', (error) => {
-          client.destroy();
-          reject(error);
+          finishError(sendingGreeting ? new Error('TCP handshake could not be sent.') : error);
         });
       });
     };
@@ -622,7 +671,7 @@ class TransportManager extends EventEmitter {
       } catch (error) {
         attempt += 1;
         const errorCode = error.code || (error.cause && error.cause.code);
-        const isRetryable = connectWaitForServer && (
+        const isRetryable = !controller.signal.aborted && connectWaitForServer && (
           errorCode === 'ECONNREFUSED' ||
           errorCode === 'ECONNRESET' ||
           errorCode === 'ETIMEDOUT' ||
@@ -644,7 +693,7 @@ class TransportManager extends EventEmitter {
         this.emitStatus('connecting', `Waiting for server at ${target}. Retry in ${retryDelay}ms.`);
 
         // eslint-disable-next-line no-await-in-loop
-        await new Promise((res) => setTimeout(res, retryDelay));
+        await require('timers/promises').setTimeout(retryDelay, undefined, { signal: controller.signal });
 
         if (deadline && Date.now() >= deadline) {
           throw new Error(`Timed out waiting for TCP server at ${target} after ${connectTimeoutMs}ms (${attempt} attempt(s)).`);
@@ -948,6 +997,10 @@ class TransportManager extends EventEmitter {
    * Safe to call during normal shutdown and after failures.
    */
   async disconnect() {
+    this._tcpAbortController?.abort();
+    this._tcpAbortController = null;
+    for (const socket of this._tcpPendingSockets) socket.destroy();
+    this._tcpPendingSockets.clear();
     this.rejectRecipientWaiters(new Error('Transport disconnected while waiting for a recipient.'));
     if (!this.connection) {
       return;

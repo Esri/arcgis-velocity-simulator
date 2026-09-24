@@ -37,6 +37,8 @@ const testSuites = [
   { file: 'udp-utils.test.js', description: 'UDP Registration Lifecycle Tests' },
   { file: 'socket-address-utils.test.js', description: 'TCP and UDP Address Family Tests' },
   { file: 'socket-ipv6.test.js', description: 'TCP and UDP IPv4 and IPv6 Loopback Tests' },
+  { file: 'tcp-handshake-utils.test.js', description: 'TCP Handshake Encoding and Write Tests' },
+  { file: 'tcp-handshake.test.js', description: 'TCP Handshake Wire and Lifecycle Tests' },
   { file: 'ws-transport.test.js', description: '🌐 WebSocket Transport Tests' },
   { file: 'xmpp-core.test.js', description: '💬 XMPP Core Tests' },
   { file: 'xmpp-transport.test.js', description: '📨 XMPP Transport Integration Tests' },

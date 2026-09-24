@@ -603,6 +603,60 @@ function enableConnect(document) {
     assert.strictEqual(tcp.udpFormat, 'delimited');
     assert.strictEqual(tcp.udpAppendNewline, true);
   });
+  await uiTest('TCP greeting raw config round-trips, reverts, locks and resets without revealing summary secrets', async ({ document, window, state }) => {
+    const text = document.getElementById('tcp-handshake-text');
+    const escapes = document.getElementById('tcp-handshake-use-escapes');
+    const raw = '  secret-auth\r\nnext  ';
+    assert.strictEqual(text.tagName, 'TEXTAREA');
+    assert.strictEqual(text.maxLength, 1048576);
+    assert.strictEqual(text.closest('[data-section]').dataset.section, 'advanced');
+    state.listeners.get('cli-presets')({ protocol: 'tcp', mode: 'client', ip: '127.0.0.1', port: 5565,
+      tcpHandshakeText: raw, tcpHandshakeUseEscapes: false });
+    assert.strictEqual(text.value, raw.replace(/\r\n/g, '\n'));
+    assert.strictEqual(escapes.checked, false);
+    document.getElementById('protocol-settings-btn').click();
+    text.value = 'changed';
+    text.dispatchEvent(new window.Event('input', { bubbles: true }));
+    document.getElementById('protocol-settings-revert').click();
+    assert.strictEqual(text.tcpHandshakeRawValue, raw);
+    const vm = require('vm');
+    const mainSource = fs.readFileSync(path.join(SRC, 'main.js'), 'utf8');
+    const mainContext = {
+      mainWindow: { webContents: { executeJavaScript: async script => window.eval(script) } },
+      appConfig: {}, DEFAULT_LOG_LEVEL: 'info',
+    };
+    vm.createContext(mainContext);
+    vm.runInContext(mainSource.slice(mainSource.indexOf('async function getCurrentLaunchConfig()'), mainSource.indexOf('let launchConfigWindow')), mainContext);
+    const exported = await mainContext.getCurrentLaunchConfig();
+    assert.strictEqual(exported.connection.tcpHandshakeText, raw);
+    assert.strictEqual(exported.connection.tcpHandshakeUseEscapes, false);
+    assert.doesNotMatch(document.getElementById('protocol-settings-summary-rows').textContent, /secret-auth/);
+    enableConnect(document).click();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.strictEqual(state.connects.at(-1).tcpHandshakeText, raw);
+    state.listeners.get('connection-status')('connected', '');
+    assert.strictEqual(text.disabled, true);
+    assert.strictEqual(escapes.disabled, true);
+    state.listeners.get('connection-status')('disconnected', '');
+    const preset = document.getElementById('connection-preset');
+    preset.value = 'local-tcp-logger-server';
+    preset.dispatchEvent(new window.Event('change'));
+    assert.strictEqual(text.value, '');
+    assert.strictEqual(escapes.checked, true);
+    const guide = fs.readFileSync(path.join(__dirname, '../docs/tcp.md'), 'utf8');
+    for (const control of [text, escapes, document.querySelector('label[for="tcp-handshake-text"]'), document.querySelector('label[for="tcp-handshake-use-escapes"]')]) {
+      assert(guide.includes(control.dataset.tooltip));
+      assert(control.getAttribute('aria-label'));
+    }
+  });
+  await uiTest('Applying a TCP feed clears an existing greeting before changing endpoint', async ({ document, window, state }) => {
+    window.VelocityConnectionOptions = require('../src/velocity-connection-options');
+    state.listeners.get('cli-presets')({ tcpHandshakeText: 'secret-from-old-endpoint', tcpHandshakeUseEscapes: false });
+    state.listeners.get('feed-applied')({ feedType: 'tcp-client', host: 'new.example.com', port: 5565 });
+    assert.strictEqual(document.getElementById('tcp-handshake-text').value, '');
+    assert.strictEqual(document.getElementById('tcp-handshake-text').tcpHandshakeRawValue, '');
+    assert.strictEqual(document.getElementById('tcp-handshake-use-escapes').checked, true);
+  });
 
   await uiTest('UDP LF framing reaches Connect from CLI prepopulation', async ({ document, state }) => {
     state.listeners.get('cli-presets')({ protocol: 'udp', mode: 'client', ip: '127.0.0.1', port: 17009, udpAppendNewline: true });

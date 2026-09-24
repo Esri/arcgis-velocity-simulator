@@ -14,6 +14,8 @@
     "protocol": "tcp",
     "_socketPayload_comment": "These Simulator-only settings convert logical CSV source records for TCP or UDP. Formats default to delimited; header flags default to false so the first record remains an event; X/Y fields are optional but must be set together; WKID defaults to 4326.",
     "tcpFormat": "delimited",
+    "tcpHandshakeText": "",
+    "tcpHandshakeUseEscapes": true,
     "tcpAddressFamily": "auto",
     "tcpInputHasHeader": false,
     "tcpXField": null,

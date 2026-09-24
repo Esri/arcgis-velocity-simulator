@@ -34,6 +34,21 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { decodeTcpHandshake } = require('./tcp-handshake-utils');
+
+function parseTcpHandshakeOptions(values, target, errors) {
+  if (values.tcpHandshakeText !== undefined) target.tcpHandshakeText = values.tcpHandshakeText;
+  if (values.tcpHandshakeUseEscapes !== undefined) {
+    const booleanErrors = [];
+    target.tcpHandshakeUseEscapes = parseBoolean(values.tcpHandshakeUseEscapes, 'tcpHandshakeUseEscapes', booleanErrors);
+    if (booleanErrors.length) errors.push('tcpHandshakeUseEscapes must be true or false.');
+  }
+  try {
+    decodeTcpHandshake(target.tcpHandshakeText, { useEscapes: target.tcpHandshakeUseEscapes });
+  } catch (error) {
+    errors.push(error.message);
+  }
+}
 const { normalizeSocketAddressFamily } = require('./socket-address-utils');
 
 function parseSocketAddressFamilies(values, target, errors) {
@@ -122,6 +137,8 @@ const CLI_OPTION_KEYS = new Set([
   'doneFile',
   'runId',
   'tcpFormat',
+  'tcpHandshakeText',
+  'tcpHandshakeUseEscapes',
   'tcpAddressFamily',
   'tcpInputHasHeader',
   'tcpXField',
@@ -192,6 +209,7 @@ const CLI_OPTION_KEYS = new Set([
 
 const CLI_OPTION_ALIASES = new Set(['h', 'rateMs', 'silent']);
 const SECRET_OPTION_KEYS = new Set([
+  'tcpHandshakeText',
   'xmppPassword',
   'xmppExternalPassword',
   'xmppRoomPassword',
@@ -215,6 +233,8 @@ const APP_DEFAULTS = {
   intervalMs: 1000,
   loop: false,
   tcpFormat: DEFAULT_SOCKET_PAYLOAD_FORMAT,
+  tcpHandshakeText: '',
+  tcpHandshakeUseEscapes: true,
   tcpAddressFamily: 'auto',
   tcpInputHasHeader: false,
   tcpXField: null,
@@ -654,6 +674,22 @@ const CLI_PARAMETER_DEFINITIONS = [
     example: 'tcpAddressFamily=ipv6',
     requiredInHeadless: 'No',
     purpose: 'TCP address family. Auto preserves the operating system and Node.js address selection. IPv4 or IPv6 explicitly resolves hostnames to that family; explicit IPv6 listeners accept IPv6 only.',
+  },
+  {
+    key: 'tcpHandshakeText',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.tcpHandshakeText,
+    options: ['UTF-8 text', 'empty'],
+    example: 'tcpHandshakeText=HELLO\\r\\n',
+    requiredInHeadless: 'No',
+    purpose: 'Optional greeting sent once on every new TCP client or accepted server connection before local replay. Empty sends nothing. Whitespace is preserved; no delimiter is added and no reply is awaited. Decoded UTF-8 limit: 1 MiB. Stored launch configs contain the text; diagnostics hide it.',
+  },
+  {
+    key: 'tcpHandshakeUseEscapes',
+    defaultValue: DEFAULT_HEADLESS_OPTIONS.tcpHandshakeUseEscapes,
+    options: ['true', 'false'],
+    example: 'tcpHandshakeUseEscapes=false',
+    requiredInHeadless: 'No',
+    purpose: 'Interpret Java-style control, quote, backslash, Unicode, and octal escapes in the TCP greeting. Enabled by default. When false, send text literally; malformed escapes are rejected without displaying text.',
   },
   {
     key: 'tcpFormat',
@@ -2030,6 +2066,7 @@ function validateHeadlessOptions(values, errors, warnings) {
   }
 
   parseSocketAddressFamilies(normalized, options, errors);
+  parseTcpHandshakeOptions(normalized, options, errors);
   for (const key of ['tcpFormat', 'udpFormat']) {
     if (normalized[key] === undefined) continue;
     const format = String(normalized[key]).trim().toLowerCase();
@@ -2568,6 +2605,7 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
 
   if (!headlessRequested) {
     parseSocketAddressFamilies(mergedValues, mergedValues, errors);
+    parseTcpHandshakeOptions(mergedValues, mergedValues, errors);
     for (const key of ['tcpFormat', 'udpFormat']) {
       if (mergedValues[key] === undefined) continue;
       const format = String(mergedValues[key]).trim().toLowerCase();
@@ -2600,7 +2638,7 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
     // Keys that can prepopulate the UI when passed in UI mode.
     const uiPresetKeys = new Set([
       'protocol', 'mode', 'ip', 'port',
-      'tcpFormat', 'tcpAddressFamily', 'tcpInputHasHeader', 'tcpXField', 'tcpYField', 'tcpWkid',
+      'tcpFormat', 'tcpAddressFamily', 'tcpHandshakeText', 'tcpHandshakeUseEscapes', 'tcpInputHasHeader', 'tcpXField', 'tcpYField', 'tcpWkid',
       'udpFormat', 'udpAddressFamily', 'udpInputHasHeader', 'udpAppendNewline', 'udpXField', 'udpYField', 'udpWkid',
       'grpcSerialization', 'grpcSendMethod',
       'grpcHeaderPath', 'grpcHeaderPathKey', 'useTls', 'tlsCaPath', 'tlsCertPath', 'tlsKeyPath',
@@ -2724,6 +2762,8 @@ function formatExplainOutput(cliOptions) {
       ['ip', (presets && presets.ip) || `(default: ${d.ip})`],
       ['port', (presets && presets.port) || `(default: ${d.port})`],
       ['tcpFormat', (presets && presets.tcpFormat) || `(default: ${d.tcpFormat})`],
+      ['tcpHandshakeText', presets?.tcpHandshakeText ? 'Set (hidden)' : 'Empty'],
+      ['tcpHandshakeUseEscapes', presets?.tcpHandshakeUseEscapes ?? d.tcpHandshakeUseEscapes],
       ['tcpAddressFamily', (presets && presets.tcpAddressFamily) || `(default: ${d.tcpAddressFamily})`],
       ['tcpInputHasHeader', presets && presets.tcpInputHasHeader !== undefined ? presets.tcpInputHasHeader : `(default: ${d.tcpInputHasHeader})`],
       ['tcpXField', (presets && presets.tcpXField) || `(default: ${d.tcpXField || 'not set'})`],
@@ -2820,6 +2860,8 @@ function formatExplainOutput(cliOptions) {
       ['ip', h.ip],
       ['port', h.port],
       ['tcpFormat', h.tcpFormat],
+      ['tcpHandshakeText', h.tcpHandshakeText ? 'Set (hidden)' : 'Empty'],
+      ['tcpHandshakeUseEscapes', h.tcpHandshakeUseEscapes],
       ['tcpAddressFamily', h.tcpAddressFamily],
       ['tcpInputHasHeader', h.tcpInputHasHeader],
       ['tcpXField', h.tcpXField || '(not set)'],

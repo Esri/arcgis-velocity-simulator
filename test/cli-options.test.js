@@ -223,6 +223,24 @@ async function runCliOptionsTests() {
   runTest('Explain output includes warnings section when there are warnings', () => warnExplainOutput.includes('Warnings') && warnExplainOutput.includes("'doneFile'") && warnExplainOutput.includes("'maxLines'"));
 
   console.log('\n--- Test 7: TCP and UDP payload formats ---');
+  runTest('TCP greeting preserves whitespace and redacts UI/headless diagnostics', () => {
+    const text = String.raw`  secret-auth\r\n  `;
+    for (const mode of ['ui', 'headless']) {
+      const parsed = parseCommandLineArgs(createArgv([`runMode=${mode}`, 'filename=./data.csv',
+        `tcpHandshakeText=${text}`, 'tcpHandshakeUseEscapes=false']));
+      const options = mode === 'ui' ? parsed.ui.presets : parsed.headless;
+      if (options.tcpHandshakeText !== text || options.tcpHandshakeUseEscapes !== false) return false;
+      const explained = formatExplainOutput(parsed);
+      if (explained.includes('secret-auth') || !explained.includes('Set (hidden)')) return false;
+    }
+    const defaults = parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv'])).headless;
+    return defaults.tcpHandshakeText === '' && defaults.tcpHandshakeUseEscapes === true;
+  });
+  runTest('Malformed TCP greeting errors do not disclose values', () => {
+    const parsed = parseCommandLineArgs(createArgv([String.raw`tcpHandshakeText=secret-auth\q`]));
+    return parsed.mode === 'error' && !JSON.stringify(parsed.errors).includes('secret-auth')
+      && parseCommandLineArgs(createArgv(['tcpHandshakeText=  '])).ui.presets.tcpHandshakeText === '  ';
+  });
   runTest('TCP and UDP address-family defaults preserve existing behavior', () => {
     const result = parseCommandLineArgs(createArgv(['runMode=headless', 'filename=./data.csv']));
     return result.headless.tcpAddressFamily === 'auto' && result.headless.udpAddressFamily === 'ipv4';

@@ -11,6 +11,7 @@ formats](data-formats.md) for the shared conversion and schema rules.
 
 - [Roles and defaults](#roles-and-defaults)
 - [Address family](#address-family)
+- [Connection greeting](#connection-greeting)
 - [Formats and framing](#formats-and-framing)
 - [UI controls](#ui-controls)
 - [Tooltip reference](#tooltip-reference)
@@ -57,6 +58,46 @@ selects IPv4 and rejects an advertised IPv6 endpoint. Other TCP connectors
 can use advertised IPv6 addresses when the deployment supports them;
 application socket support is not a guarantee of deployment reachability.
 
+## Connection greeting
+
+**Handshake text** is an optional greeting sent once on each new TCP client
+connection and each accepted server connection, including reconnects. Empty
+text disables it. Whitespace-only text sends those spaces. Incoming data is
+read immediately; this is send-only configuration, not authentication,
+negotiation, or a wait for an acknowledgement.
+
+Applying a Velocity TCP feed clears any previous handshake text and restores
+Use escapes to on. Velocity does not supply a greeting through this automatic
+mapping; configure one explicitly afterward if the receiver needs it.
+
+The greeting is UTF-8, independent of payload format, and is written before
+locally published replay records. No newline or other delimiter is appended.
+Each accepted peer has its own greeting and readiness state. A write failure
+closes that connection and reports a content-free error. Disconnect cancels a
+pending greeting. A positive `connectTimeoutMs` bounds the greeting write;
+server peers each receive that timeout, while a headless client uses the
+remaining connection deadline.
+
+**Use escapes** defaults to enabled. Supported Java-style escapes are `\b`,
+`\t`, `\n`, `\f`, `\r`, `\\`, `\"`, `\'`, `\uXXXX`, and octal escapes.
+Unicode escapes may contain repeated `u` characters; surrogate pairs must be
+valid. Octal escapes consume at most three digits when the first digit is
+`0`–`3`, otherwise at most two. Unknown or incomplete escapes are errors.
+With escapes disabled, backslashes are literal. The decoded UTF-8 limit is
+1 MiB. Entered text is additionally limited to 1,048,576 UTF-16 code units;
+escaped text may reach that input limit before the decoded byte limit.
+Include `\r\n` or `\n` explicitly if the peer needs a terminator.
+
+Loaded raw text, including CRLF, is preserved until edited. The multiline
+editor uses LF when a user edits actual line breaks; use escaped `\r\n` with
+**Use escapes** enabled when editing CRLF bytes. Leading and trailing spaces
+are never trimmed. Summary, clipboard summary, and startup diagnostics hide
+the greeting. Launch configuration exports contain its exact text, so protect
+those files if the greeting contains credentials. Command-line arguments may
+also be visible in shell history or process listings. Masked summaries and
+diagnostics do not encrypt the greeting.
+TCP is unsecure; handshake text is transmitted without encryption.
+
 ## Formats and framing
 
 Choose Delimited (CSV), JSON, GeoJSON, or Esri JSON. Delimited preserves the
@@ -85,6 +126,8 @@ Open **Settings** and use these TCP-specific sections:
 |---|---|---|
 | Basics | Format | Selects Delimited (CSV), JSON, GeoJSON, or Esri JSON. |
 | Basics | Address family | Auto, IPv4, or IPv6; does not rewrite Host. |
+| Advanced | Handshake text | Optional UTF-8 greeting, empty by default, sent once before replay on each new TCP connection. |
+| Advanced | Use escapes | Interpret supported Java-style escapes; enabled by default. |
 | Advanced | CSV header row | Uses the first logical CSV record as field names and does not publish it. Off by default. |
 | Advanced | X field | Optional X-coordinate field. Configure it together with Y. |
 | Advanced | Y field | Optional Y-coordinate field. Configure it together with X. |
@@ -99,6 +142,8 @@ The following text matches the TCP controls:
 
 | Control | Tooltip |
 |---|---|
+| Handshake text label and control | Optional TCP greeting sent as UTF-8 once on each new client connection or accepted server connection, including reconnects. Blank sends nothing. Whitespace is preserved; no newline is appended and no reply is awaited. Decoded maximum: 1 MiB. |
+| Use escapes label and control | `Interpret Java-style escapes in the TCP greeting (enabled by default): \r\n sends CRLF; \t, \b, \f, \\, escaped quotes, \uXXXX, and octal escapes are supported. When off, backslashes are sent literally. Whitespace is preserved; malformed escapes are rejected without displaying the greeting.` |
 | Address family label and initial selector | Choose Auto, IPv4, or IPv6 for TCP. Auto preserves system address selection. Explicit IPv6 listeners accept IPv6 only. |
 | Auto | Auto - preserve the operating system and Node.js TCP address selection. This is the default. |
 | Host input and label, client | Destination address: enter a reachable peer IP address or DNS name matching the selected address family. Do not use 0.0.0.0 or :: as a destination. |
@@ -137,6 +182,12 @@ For a local IPv6 receiver:
 
 ```bash
 npm run start:headless -- filename=./data.csv protocol=tcp mode=client ip=::1 port=5565 tcpAddressFamily=ipv6
+```
+
+For a receiver expecting a one-time line greeting:
+
+```bash
+npm run start:headless -- filename=./data.csv protocol=tcp mode=client ip=127.0.0.1 port=5565 'tcpHandshakeText=HELLO\r\n' tcpHandshakeUseEscapes=true
 ```
 
 ## Troubleshooting

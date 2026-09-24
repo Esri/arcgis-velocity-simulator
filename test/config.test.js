@@ -154,7 +154,7 @@ async function runConfigTests() {
     'xmppExternalPassword', 'xmppPassword', 'xmppRoomPassword',
   ];
   const socketPayloadKeys = [
-    'tcpFormat', 'tcpAddressFamily', 'tcpInputHasHeader', 'tcpXField', 'tcpYField', 'tcpWkid',
+    'tcpFormat', 'tcpAddressFamily', 'tcpHandshakeText', 'tcpHandshakeUseEscapes', 'tcpInputHasHeader', 'tcpXField', 'tcpYField', 'tcpWkid',
     'udpFormat', 'udpAddressFamily', 'udpAppendNewline', 'udpInputHasHeader', 'udpXField', 'udpYField', 'udpWkid',
   ];
   runTest('Every launch-config sample includes TCP and UDP payload conversion settings', () =>
@@ -199,6 +199,19 @@ async function runConfigTests() {
 
   const { parseCommandLineArgs } = require('../src/cli-options.js');
   const roundTripPath = path.join(os.tmpdir(), `avs-xmpp-launch-config-${process.pid}.json`);
+  runTest('TCP greeting JSON preserves literal CRLF and whitespace with escapes disabled', () => {
+    const file = path.join(os.tmpdir(), `avs-tcp-handshake-${process.pid}.json`);
+    const greeting = '  secret-auth\r\nnext  ';
+    try {
+      fs.writeFileSync(file, JSON.stringify({ connection: {
+        protocol: 'tcp', tcpHandshakeText: greeting, tcpHandshakeUseEscapes: false,
+      } }));
+      const parsed = parseCommandLineArgs(['node', 'main.js', `config=${file}`, 'runMode=headless', `filename=${__filename}`]);
+      return parsed.mode === 'headless' && parsed.headless.tcpHandshakeText === greeting && parsed.headless.tcpHandshakeUseEscapes === false;
+    } finally {
+      fs.rmSync(file, { force: true });
+    }
+  });
   runTest('Launch configs preserve explicit LF off and use on when missing in UI and headless', () => {
     const file = path.join(os.tmpdir(), `avs-udp-lf-config-${process.pid}.json`);
     try {

@@ -147,6 +147,8 @@
   const PROTOCOL_SETTING_FIELDS = Object.freeze({
     tcp: Object.freeze([
       { field: 'tcpFormat', defaultValue: 'delimited' },
+      { field: 'tcpHandshakeText', defaultValue: '' },
+      { field: 'tcpHandshakeUseEscapes', defaultValue: true },
       { field: 'tcpAddressFamily', defaultValue: 'auto' },
       { field: 'tcpInputHasHeader', defaultValue: false },
       { field: 'tcpXField', defaultValue: '', spatialOnly: true },
@@ -602,6 +604,13 @@
         isDefault: formatValue === 'delimited',
       }));
       if (protocol === 'tcp') {
+        rows.push(row('tcpHandshakeText', 'Handshake text', state.tcpHandshakeText ? SECRET_SET : SECRET_EMPTY, {
+          kind: 'secret', secret: true, isDefault: !state.tcpHandshakeText,
+          detail: 'Sent once per new connection before local replay; no reply is awaited.',
+        }));
+        rows.push(row('tcpHandshakeUseEscapes', 'Use escapes', describeToggle(state.tcpHandshakeUseEscapes ?? true), {
+          isDefault: isTruthy(state.tcpHandshakeUseEscapes ?? true),
+        }));
         const family = state.tcpAddressFamily || 'auto';
         rows.push(row('tcpAddressFamily', 'Address family', { auto: 'Auto', ipv4: 'IPv4', ipv6: 'IPv6' }[family] || family, {
           isDefault: family === 'auto',
