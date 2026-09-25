@@ -7,6 +7,7 @@ const {
   UDP_CLIENT_REGISTRATION_MESSAGE,
   startUdpClientRegistration,
   encodeUdpPayload,
+  normalizeUdpConnectionMode,
 } = require('../src/udp-utils.js');
 
 function delay(milliseconds) {
@@ -127,6 +128,9 @@ function testThrowingErrorCallbackStopsAndSurfaces() {
 }
 
 (async () => {
+  assert.strictEqual(normalizeUdpConnectionMode(), 'direct');
+  assert.strictEqual(normalizeUdpConnectionMode('registered'), 'registered');
+  assert.throws(() => normalizeUdpConnectionMode('other'), /direct or registered/);
   assert.deepStrictEqual(encodeUdpPayload('1,café', 'delimited'), Buffer.from('1,café\n'));
   assert.deepStrictEqual(encodeUdpPayload('1,café\n', 'delimited'), Buffer.from('1,café\n'));
   assert.deepStrictEqual(encodeUdpPayload('1,café\r\n', 'delimited'), Buffer.from('1,café\r\n'));

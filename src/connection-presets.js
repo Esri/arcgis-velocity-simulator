@@ -87,6 +87,9 @@
     tcpWkid: { elementId: 'tcp-wkid', kind: 'value' },
 
     udpFormat: { elementId: 'udp-format', kind: 'value' },
+    udpConnectionMode: { elementId: 'udp-connection-mode', kind: 'value' },
+    udpLocalHost: { elementId: 'udp-local-host', kind: 'value' },
+    udpLocalPort: { elementId: 'udp-local-port', kind: 'value' },
     udpAddressFamily: { elementId: 'udp-address-family', kind: 'value' },
     udpInputHasHeader: { elementId: 'udp-input-has-header', kind: 'checked' },
     udpAppendNewline: { elementId: 'udp-append-newline', kind: 'checked' },
@@ -167,6 +170,9 @@
     tcpWkid: 4326,
 
     udpFormat: 'delimited',
+    udpConnectionMode: 'direct',
+    udpLocalHost: '127.0.0.1',
+    udpLocalPort: 0,
     udpAddressFamily: 'ipv4',
     udpInputHasHeader: false,
     udpAppendNewline: true,
@@ -283,6 +289,7 @@
       summary: 'The Simulator binds UDP 127.0.0.1:5565 and the Logger receives datagrams as a UDP client.',
       fields: {
         connectionType: 'udp-server',
+        udpConnectionMode: 'registered',
         port: CONNECTION_PRESET_PORTS.udp,
       },
     },

@@ -41,7 +41,7 @@ async function exercise(protocol, mode, family, udpAppendNewline, udpFormat = 'd
       port = receiver.address().port;
     } else {
       const result = await manager.connect({
-        protocol, mode, ip: host, port: 0, [`${protocol}AddressFamily`]: family, udpAppendNewline, udpFormat,
+        protocol, mode, ip: host, port: 0, [`${protocol}AddressFamily`]: family, udpAppendNewline, udpFormat, udpConnectionMode: 'registered',
       });
       port = result.address.port;
       if (protocol === 'tcp') {

@@ -834,7 +834,7 @@ test('Protocol Settings is the only connection-dialog shortcut in the applicatio
     assert.strictEqual(subtitle.textContent, 'Publishing to wss://example.com:9443/');
     select('connection-type', 'udp-server');
     assert.strictEqual(title.textContent, 'UDP Server settings');
-    assert.strictEqual(subtitle.textContent, 'Listening on example.com:9443');
+    assert.strictEqual(subtitle.textContent, 'Publishing to example.com:9443');
   });
 
   console.log(`\n${passed} passed`);

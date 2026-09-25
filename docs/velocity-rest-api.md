@@ -247,8 +247,12 @@ are rejected instead of saving temporary credentials in connection fields.
 A WebSocket feed connects outward, so applying it selects **WebSocket Server**
 for the feed to connect to. A GET-based HTTP Poller selects **HTTP Server**
 with GET polling enabled. TCP feed roles are inverted so the Simulator
-uses the complementary client or server role. Both UDP feed types select
-Simulator UDP Client using the advertised data host, never the management URL.
+uses the complementary client or server role, with a safe local bind when the
+Simulator listens and advertised destination metadata retained separately.
+Passive UDP feeds select Simulator UDP Client, while explicitly Registered
+Client feeds select Simulator UDP Server in Registered mode. Unannotated UDP
+Client contracts require manual configuration; the management URL is never
+substituted for a UDP data endpoint.
 See [Velocity feeds](udp.md#velocity-feeds) for endpoint validation and framing.
 
 Review the populated settings in

@@ -101,8 +101,10 @@ unsupported types. A WebSocket feed connects outward to a source, so it is
 paired with the Simulator's WebSocket Server role. A GET-based HTTP Poller is
 paired with HTTP Server polling mode. TCP connector roles are inverted:
 a Velocity server connector selects a Simulator client, while a Velocity
-client connector selects a Simulator server. Both UDP feed types are receiving
-endpoints and select Simulator UDP Client. See
+client connector selects a Simulator server with a safe local bind and separate
+advertised endpoint metadata. UDP mapping requires the receiving contract:
+passive feeds select Simulator UDP Client, and explicitly Registered feeds
+select UDP Server in Registered mode. See
 [Velocity feeds](udp.md#velocity-feeds) for routing and framing requirements.
 If the list contains only unsupported sources, the status reports the actual
 total and prompts you to choose **All** beside **Supported**; an empty
@@ -127,7 +129,7 @@ icon and a color:
 | ▲ | `kafka` — Kafka | `#e53935` | No. |
 | ◗ | `tcp`, `tcp-client` — TCP client | `#546e7a` | Yes, as a Simulator TCP Server. |
 | ◗ | `tcp-server` — TCP server | `#455a64` | Yes, as a Simulator TCP Client. |
-| ◖ | `udp-client` — UDP Client (receiving feed) | `#78909c` | Yes, as a Simulator UDP Client with a valid advertised endpoint. |
+| ◖ | `udp-client` — UDP Client (receiving feed) | `#78909c` | Requires explicit Direct or Registered contract metadata; otherwise configure manually. |
 | ◖ | `udp-server` — UDP Server (receiving feed) | `#607d8b` | Yes, as a Simulator UDP Client with a valid advertised endpoint. |
 | ❖ | `azure-event-hub` — Azure Event Hub | `#0078d4` | No. |
 | ❖ | `azure-service-bus` — Azure Service Bus | `#0062ad` | No. |

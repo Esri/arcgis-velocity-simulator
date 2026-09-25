@@ -603,6 +603,22 @@ function enableConnect(document) {
     assert.strictEqual(tcp.udpFormat, 'delimited');
     assert.strictEqual(tcp.udpAppendNewline, true);
   });
+
+  await uiTest('UDP readiness labels remain local-only while controls stay locked', async ({ document, window, state }) => {
+    for (const [mode, label] of [['client', 'Ready'], ['server', 'Listening']]) {
+      state.listeners.get('connection-status')('disconnected', '');
+      const type = document.getElementById('connection-type');
+      type.value = `udp-${mode}`;
+      type.dispatchEvent(new window.Event('change'));
+      document.getElementById('udp-connection-mode').value = 'registered';
+      document.getElementById('udp-connection-mode').dispatchEvent(new window.Event('change'));
+      state.listeners.get('connection-status')('connected', 'Local UDP socket ready.');
+      assert.strictEqual(document.getElementById('app-state').textContent, label);
+      assert.strictEqual(type.disabled, true);
+      assert.strictEqual(document.getElementById('udp-format').disabled, true);
+      assert.strictEqual(document.getElementById('protocol-settings-readonly').textContent, `${label}. Disconnect to change these settings.`);
+    }
+  });
   await uiTest('TCP greeting raw config round-trips, reverts, locks and resets without revealing summary secrets', async ({ document, window, state }) => {
     const text = document.getElementById('tcp-handshake-text');
     const escapes = document.getElementById('tcp-handshake-use-escapes');
@@ -656,6 +672,17 @@ function enableConnect(document) {
     assert.strictEqual(document.getElementById('tcp-handshake-text').value, '');
     assert.strictEqual(document.getElementById('tcp-handshake-text').tcpHandshakeRawValue, '');
     assert.strictEqual(document.getElementById('tcp-handshake-use-escapes').checked, true);
+    assert.strictEqual(document.getElementById('ip-address').value, '127.0.0.1');
+    const rows = document.getElementById('protocol-settings-summary-rows').textContent;
+    assert.match(rows, /new\.example\.com:5565/);
+    assert.match(rows, /choose a local interface/);
+    document.getElementById('ip-address').value = '192.0.2.10';
+    document.getElementById('ip-address').dispatchEvent(new window.Event('change'));
+    assert.match(document.getElementById('protocol-settings-summary-rows').textContent, /new\.example\.com:5565/);
+    const type = document.getElementById('connection-type');
+    type.value = 'udp-client';
+    type.dispatchEvent(new window.Event('change'));
+    assert.doesNotMatch(document.getElementById('protocol-settings-summary-rows').textContent, /new\.example\.com/);
   });
 
   await uiTest('UDP LF framing reaches Connect from CLI prepopulation', async ({ document, state }) => {
@@ -737,6 +764,10 @@ function enableConnect(document) {
       const guide = fs.readFileSync(path.join(__dirname, `../docs/${protocol}.md`), 'utf8');
       type.value = `${protocol}-server`;
       type.dispatchEvent(new window.Event('change'));
+      if (protocol === 'udp') {
+        document.getElementById('udp-connection-mode').value = 'registered';
+        document.getElementById('udp-connection-mode').dispatchEvent(new window.Event('change'));
+      }
       const family = document.getElementById(`${protocol}-address-family`);
       for (const value of protocol === 'tcp' ? ['auto', 'ipv4', 'ipv6'] : ['ipv4', 'ipv6']) {
         family.value = value;

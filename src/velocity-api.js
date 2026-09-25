@@ -153,6 +153,12 @@ function parseItem(item, direction) {
       parsed.yField = text(properties[`${formatPrefix}.yField`]);
     }
     if (name.startsWith('udp-')) {
+      if (name === 'udp-client') {
+        if (properties['udp-client.connectionMode'] !== undefined) parsed.udpConnectionMode = text(properties['udp-client.connectionMode']);
+        if (properties['udp-client.localHost'] !== undefined) parsed.udpLocalHost = text(properties['udp-client.localHost']);
+        if (properties['udp-client.localPort'] !== undefined) parsed.udpLocalPort = properties['udp-client.localPort'];
+        if (properties['udp-client.sourceHost'] !== undefined) parsed.udpSourceHost = text(properties['udp-client.sourceHost']);
+      }
       if (properties[`${name}.addressFamily`] !== undefined) {
         parsed.udpAddressFamily = text(properties[`${name}.addressFamily`]);
       }
