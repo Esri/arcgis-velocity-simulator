@@ -165,12 +165,18 @@
     }
     if (['udp-client', 'udp-server'].includes(type)) {
       const isFeed = Boolean(item.feedType);
-      if (!item.host || item.host === '0.0.0.0' || item.host === '*') {
+      const clientFeed = item.feedType === 'udp-client';
+      if (clientFeed && !['direct', 'registered'].includes(item.udpConnectionMode)) {
+        throw new Error('This UDP Client feed does not advertise its receiving contract. Configure manually: use UDP Client for a stable Direct receiver, or UDP Server in Registered mode for a registration-aware feed.');
+      }
+      const advertisedHost = clientFeed && item.udpConnectionMode === 'direct' ? item.udpLocalHost : item.host;
+      const advertisedPort = clientFeed && item.udpConnectionMode === 'direct' ? item.udpLocalPort : item.port;
+      if (!advertisedHost || advertisedHost === '0.0.0.0' || advertisedHost === '*') {
         throw new Error(isFeed
           ? 'This UDP feed needs a routable data host. Configure UDP Client manually with the reachable feed host, address family, and advertised port; the management API URL is not a data endpoint.'
           : 'This UDP output needs an advertised destination host. Ensure its destination routes to the Logger; the management API URL is not a data endpoint.');
       }
-      const configuredHost = socketHost(item.host, 'UDP');
+      const configuredHost = socketHost(advertisedHost, 'UDP');
       const literalIpv6 = configuredHost.includes(':');
       const udpAddressFamily = item.udpAddressFamily ?? (literalIpv6 ? 'ipv6' : 'ipv4');
       if (!['ipv4', 'ipv6'].includes(udpAddressFamily)) throw new Error('UDP address family must be ipv4 or ipv6.');
@@ -183,15 +189,21 @@
       if (item.feedType === 'udp-server' && udpAddressFamily === 'ipv6') {
         throw new Error('Velocity UDP Server feeds bind IPv4 only. Use an advertised IPv4 data host or an IPv4 forwarding endpoint.');
       }
-      const port = socketPort(item.port, 'UDP');
+      const port = socketPort(advertisedPort, 'UDP');
+      const registeredFeed = clientFeed && item.udpConnectionMode === 'registered';
       const options = {
-        connectionType: isFeed ? 'udp-client' : 'udp-server',
-        ip: isFeed ? configuredHost : udpAddressFamily === 'ipv6' ? '::1' : '127.0.0.1',
+        connectionType: isFeed && !registeredFeed ? 'udp-client' : 'udp-server',
+        ip: isFeed && !registeredFeed ? configuredHost : udpAddressFamily === 'ipv6' ? '::1' : '127.0.0.1',
         port,
+        udpConnectionMode: registeredFeed ? 'registered' : 'direct',
         udpAddressFamily,
         udpFormat: socketFormat(item.format),
       };
       if (isFeed) options.udpAppendNewline = options.udpFormat === 'delimited';
+      if (registeredFeed) {
+        options.expectedDestination = { host: configuredHost, port, family: udpAddressFamily };
+        options.routingWarning = `The Registered UDP feed contacts ${literalIpv6 ? `[${configuredHost}]` : configuredHost}:${port}. The Simulator bind address defaults to ${options.ip}; choose a local interface and ensure that endpoint routes to this Simulator. Only the compatibility registration marker adds a recipient; it is not a delivery acknowledgment.`;
+      }
       if (!isFeed) {
         options.expectedDestination = { host: configuredHost, port, family: udpAddressFamily };
         options.routingWarning = `Velocity sends UDP datagrams to ${literalIpv6 ? `[${configuredHost}]` : configuredHost}:${port}. The Logger bind address defaults to ${options.ip}; choose a local interface and ensure the advertised destination routes to this Logger.`
@@ -220,15 +232,21 @@
         throw new Error('Velocity TCP Server feeds and outputs bind IPv4 only. Use an advertised IPv4 data host or an IPv4 forwarding endpoint.');
       }
       const port = socketPort(item.port, protocol.toUpperCase());
-      return {
+      const options = {
         connectionType: `${protocol}-${connectorServer ? 'client' : 'server'}`,
-        ip: configuredHost,
+        ip: connectorServer ? configuredHost : tcpAddressFamily === 'ipv6' ? '::1' : '127.0.0.1',
         port,
         tcpAddressFamily: connectorServer ? 'ipv4' : tcpAddressFamily,
         tcpHandshakeText: '',
         tcpHandshakeUseEscapes: true,
         [`${protocol}Format`]: socketFormat(item.format),
       };
+      if (!connectorServer) {
+        const app = item.feedType ? 'Simulator' : 'Logger';
+        options.expectedDestination = { host: configuredHost, port, family: tcpAddressFamily };
+        options.routingWarning = `Velocity connects to ${ipv6 ? `[${configuredHost}]` : configuredHost}:${port}. The ${app} bind address defaults to ${options.ip}; choose a local interface and ensure the advertised destination routes to this ${app}.`;
+      }
+      return options;
     }
     throw new Error('This item does not advertise a supported data endpoint.');
   }

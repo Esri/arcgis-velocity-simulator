@@ -209,7 +209,9 @@ Logger reports the identity it receives on.
 | `tcpHandshakeText` | Handshake text | TCP only; Empty or Set (hidden), including whitespace-only values. |
 | `tcpHandshakeUseEscapes` | Use escapes | TCP greeting escape interpretation, enabled by default. |
 | `udpAddressFamily` | Address family | UDP IPv4 or IPv6. |
-| `expectedDestination` | Expected destination | Shared UDP output-routing metadata when supplied; separate from the local bind endpoint. |
+| `udpConnectionMode` | UDP mode | Direct or Registered for UDP Server publishing. |
+| `udpLocalEndpoint` | Local bind | Direct publisher bind, separate from destination. Port zero is assigned by the operating system. |
+| `expectedDestination` | Expected destination | TCP or UDP routing metadata when supplied; separate from the local bind endpoint. |
 | `pointFields` | Point fields | TCP, UDP. |
 | `wkid` | Geometry WKID | TCP, UDP. |
 | `path` | Path | HTTP, WebSocket. |
@@ -229,6 +231,10 @@ Logger reports the identity it receives on.
 | `xmppNickname` | Nickname | XMPP in Multi-User Chat. |
 | `xmppRoomPassword` | Room password | XMPP in Multi-User Chat. |
 | `xmppTiming` | Timing | XMPP. |
+
+UDP status is **Ready** for direct publishing and **Listening** for a Registered
+server socket. It reports local readiness only, not a confirmed remote peer or
+record delivery. TCP and other protocol status labels are unchanged.
 
 Each row carries `key`, `label`, `value`, `group`, `kind`, `severity`, `secret`,
 `isDefault`, and `detail`. The groups are `Security`, `Connection`, `Protocol`,

@@ -22,9 +22,17 @@ formats](data-formats.md) for shared conversion and schema rules.
 ## Roles and defaults
 
 **UDP Client** sends datagrams to the selected remote address and port without
-a handshake or acknowledgement. **UDP Server** binds the selected address and
-learns recipient endpoints from inbound datagrams before publishing replayed
-records to them. A paired Logger UDP client sends the literal
+a handshake or acknowledgement. **UDP Server** supports two explicit modes.
+**Direct**, the default for new UI and CLI sessions, sends to the main Host and
+Port destination and binds its own socket using **Local host** and **Local port**
+in Advanced. Local port `0` chooses an ephemeral sender port; the receiver must
+listen on the stable destination port. Incoming datagrams never change that
+destination, and no registration or acknowledgement is required.
+
+**Registered** preserves the custom recipient-learning publisher. In this mode,
+main Host and Port are the local bind endpoint, and only the exact registration
+marker adds a recipient. Ordinary incoming payloads do not register a receiver.
+A paired Logger UDP client sends the literal
 `UDP Client connected` registration datagram when it starts and renews it
 every 30 seconds by default while connected. The Logger controls the renewal
 interval; there is no Simulator registration-sender setting.
@@ -36,12 +44,27 @@ reconnect. Renewals stop when the Logger disconnects.
 Registration and renewal are not acknowledgements, delivery confirmation, or
 liveness checks. The Simulator filters the exact marker from payload records,
 does not reply to it, and retains learned endpoints until the server disconnects.
-Velocity UDP feeds do not register recipients, and the Simulator UDP Client
+Passive Velocity UDP feeds do not register recipients. Explicit Registered
+feed configurations use the compatibility exchange. The Simulator UDP Client
 never sends a registration or renewal datagram.
 
 The shared default address is `127.0.0.1`, the default port is `5565`, and the
 default format is Delimited. Local presets fill the paired role and address but
 do not connect or start playback.
+
+While a local UDP socket is open, the application shows **Ready** for direct
+publishing and **Listening** for a Registered server. These are local lifecycle states, not evidence
+that a remote peer is connected or has received a record. A successful send
+callback is not a delivery acknowledgement. The existing playback controls
+remain available and connection fields remain read-only until disconnected.
+
+Saved UDP Server launch configurations without `udpConnectionMode` retain
+Registered behavior when loaded. Set the mode explicitly to Direct to migrate,
+then review both the destination and local bind fields before connecting.
+The existing **Local UDP — Simulator Server / Logger Client** preset remains
+explicitly Registered. New manually configured sessions default to Direct.
+Logger Direct receivers use local port `5565` by default; Simulator Direct
+publishers use local port `0`, so the pair can run on the same machine.
 
 ## Address family
 
@@ -60,10 +83,17 @@ The custom registration convention works identically on either family.
 
 ## Velocity feeds
 
-Both **UDP Client** and **UDP Server** Velocity feeds receive datagrams.
-Use **UDP Client** in the Simulator for either feed type. **Apply** selects that
-role and the advertised data host and port; it never waits for registration.
-The first outbound datagram is a replay payload, not a probe or handshake.
+Both Velocity UDP feed types receive data, but their endpoint contracts differ.
+A **UDP Server** feed is passive and maps to Simulator **UDP Client**. An
+explicit **Direct UDP Client** feed maps to Simulator UDP Client using its
+advertised local listening endpoint. An explicit **Registered UDP Client**
+feed maps to Simulator UDP Server in Registered mode with a safe local bind
+and separate advertised destination guidance. A Client feed without explicit
+contract metadata cannot be applied automatically: choose the correct manual
+mode after confirming how the feed receives. The management API URL is never
+used to guess a data endpoint.
+
+Direct sending begins with the replay payload, not a probe or handshake.
 
 The advertised `hostName` is preferred over `hostname` and `host`. The owning
 management API URL and `webContextURL` do not identify UDP data routing and are
@@ -118,6 +148,9 @@ Open **Settings** and use these UDP-specific sections:
 |---|---|---|
 | Basics | Format | Selects Delimited (CSV), JSON, GeoJSON, or Esri JSON. |
 | Basics | Address family | IPv4 or IPv6; does not rewrite Host. |
+| Basics | UDP mode | Direct or Registered; shown for UDP Server publishing. |
+| Advanced | Local host | Direct UDP Server local bind interface, default `127.0.0.1`. |
+| Advanced | Local port | Direct UDP Server local bind port, default `0` (ephemeral). |
 | Advanced | CSV header row | Uses the first logical CSV record as field names and does not publish it. Off by default. |
 | Advanced | Append LF | Ensures a trailing LF for delimited payloads only. On by default; preserves an existing LF or CRLF ending. |
 | Advanced | X field | Optional X-coordinate field. Configure it together with Y. |
@@ -133,6 +166,11 @@ The following text matches the UDP controls:
 
 | Control | Tooltip |
 |---|---|
+| UDP mode label and initial selector | Choose Direct configured endpoints or Registered compatibility pairing. No UDP mode confirms remote delivery. |
+| Direct | Direct - use configured endpoints without registration or acknowledgment. |
+| Registered | Registered - compatibility pairing using the existing UDP registration marker; not standard UDP behavior. |
+| Local host label and control | Local UDP interface to bind in Direct mode. Loopback is local-only; choose another interface explicitly for remote traffic. |
+| Local port label and control | Local UDP bind port in Direct mode. Receivers require a stable port; a publisher may use 0 for an ephemeral port. |
 | Address family label and initial selector | Choose IPv4 or IPv6 for UDP. The host must match the selected family. IPv6 sockets accept IPv6 only. |
 | IPv4 | IPv4 - use IPv4 addresses and resolve hostnames to IPv4. This is the default. |
 | IPv6 | IPv6 - use IPv6 addresses and resolve hostnames to IPv6. IPv4-mapped addresses are not supported. |

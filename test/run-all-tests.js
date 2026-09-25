@@ -35,6 +35,7 @@ const testSuites = [
   { file: 'payload-format-utils.test.js', description: '🧩 TCP and UDP Payload Format Tests' },
   { file: 'socket-payload-receiver.test.js', description: '📥 TCP and UDP Payload Receiver Tests' },
   { file: 'udp-utils.test.js', description: 'UDP Registration Lifecycle Tests' },
+  { file: 'udp-direct.test.js', description: 'UDP Direct and Registered Mode Tests' },
   { file: 'socket-address-utils.test.js', description: 'TCP and UDP Address Family Tests' },
   { file: 'socket-ipv6.test.js', description: 'TCP and UDP IPv4 and IPv6 Loopback Tests' },
   { file: 'tcp-handshake-utils.test.js', description: 'TCP Handshake Encoding and Write Tests' },

@@ -157,6 +157,9 @@
     ]),
     udp: Object.freeze([
       { field: 'udpFormat', defaultValue: 'delimited' },
+      { field: 'udpConnectionMode', defaultValue: 'direct', serverOnly: true },
+      { field: 'udpLocalHost', defaultValue: '127.0.0.1', serverOnly: true },
+      { field: 'udpLocalPort', defaultValue: 0, serverOnly: true },
       { field: 'udpAddressFamily', defaultValue: 'ipv4' },
       { field: 'udpInputHasHeader', defaultValue: false },
       { field: 'udpAppendNewline', defaultValue: true },
@@ -618,12 +621,19 @@
         }));
       }
       if (protocol === 'udp') {
+        if (mode === 'server') {
+          const direct = state.udpConnectionMode !== 'registered';
+          rows.push(row('udpConnectionMode', 'UDP mode', direct ? 'Direct' : 'Registered', { isDefault: direct }));
+          if (direct) rows.push(row('udpLocalEndpoint', 'Local bind', formatEndpoint(state.udpLocalHost || '127.0.0.1', state.udpLocalPort ?? 0), {
+            group: 'Connection', kind: 'endpoint', detail: 'A zero local port is assigned by the operating system.',
+          }));
+        }
         rows.push(row('udpAddressFamily', 'Address family', state.udpAddressFamily === 'ipv6' ? 'IPv6' : 'IPv4', {
           isDefault: state.udpAddressFamily !== 'ipv6',
           detail: 'UDP socket and DNS address family; IPv6 sockets accept IPv6 only.',
         }));
       }
-      if (protocol === 'udp' && state.expectedDestination
+      if (state.expectedDestination
           && typeof state.expectedDestination === 'object') {
         rows.push(row(
           'expectedDestination',
@@ -768,8 +778,16 @@
    */
   function describeConnectionRole(state, protocol, mode) {
     const target = buildConnectionUrl(state);
+    if (protocol === 'udp' && mode === 'server' && state.udpConnectionMode !== 'registered') return `Publishing to ${target}`;
     if (mode === 'server') return `Listening on ${target}`;
     return `Publishing to ${target}`;
+  }
+
+  function describeConnectionState(state = {}) {
+    const status = CONNECTION_STATE_LABELS[state.connectionState] ? state.connectionState : 'disconnected';
+    const { protocol, mode } = splitConnectionType(state.connectionType);
+    if (protocol === 'udp' && status === 'connected') return mode === 'server' && state.udpConnectionMode === 'registered' ? 'Listening' : 'Ready';
+    return CONNECTION_STATE_LABELS[status];
   }
 
   /**
@@ -784,6 +802,7 @@
     const normalized = { ...state, connectionType };
     const { protocol, mode } = splitConnectionType(connectionType);
     const connectionState = CONNECTION_STATE_LABELS[state.connectionState] ? state.connectionState : 'disconnected';
+    const connectionStateLabel = describeConnectionState(normalized);
     const preset = normalizePreset(state.preset);
     const url = buildConnectionUrl(normalized);
 
@@ -791,8 +810,12 @@
     const rows = [
       ...warnings,
       row('connection', 'Connection', CONNECTION_TYPE_LABELS[connectionType], { group: 'Connection', kind: 'state' }),
-      row('endpoint', mode === 'server' ? 'Listening on' : 'Publishing to', url, { group: 'Connection', kind: 'endpoint' }),
-      row('status', 'Status', CONNECTION_STATE_LABELS[connectionState], { group: 'Session', kind: 'state' }),
+      row('endpoint', mode === 'server' && !(protocol === 'udp' && normalized.udpConnectionMode !== 'registered') ? 'Listening on' : 'Publishing to', url, { group: 'Connection', kind: 'endpoint' }),
+      row('status', 'Status', connectionStateLabel, {
+        group: 'Session', kind: 'state',
+        detail: protocol === 'udp' && connectionState === 'connected'
+          ? 'The local UDP socket is ready. This does not confirm a remote peer or data delivery.' : '',
+      }),
       row('preset', 'Preset', preset.label, { group: 'Session', kind: 'preset', isDefault: !preset.modified }),
       ...buildTlsRows(normalized, protocol, mode),
       ...buildProtocolRows(normalized, protocol, mode),
@@ -812,7 +835,7 @@
       encrypted: isEncryptionEnabled(normalized, protocol),
       supportsProtocolSettings: DIALOG_PROTOCOLS.includes(protocol),
       connectionState,
-      connectionStateLabel: CONNECTION_STATE_LABELS[connectionState],
+      connectionStateLabel,
       preset,
       warnings,
       warningCount: warnings.length,
@@ -888,5 +911,6 @@
     buildConnectionSummary,
     formatConnectionSummaryText,
     describeConfiguredState,
+    describeConnectionState,
   };
 }));
