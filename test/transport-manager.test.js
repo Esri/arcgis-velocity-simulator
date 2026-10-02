@@ -241,7 +241,7 @@ async function run() {
     client.on('message', data => replies.push(data));
     try {
       const listening = await server.connect({
-        protocol: 'udp', mode: 'server', ip: '127.0.0.1', port: 0, udpFormat: 'json',
+        protocol: 'udp', mode: 'server', ip: '127.0.0.1', port: 0, udpFormat: 'json', udpConnectionMode: 'registered',
       });
       await new Promise((resolve, reject) => {
         client.send(Buffer.from('UDP Client connected'), listening.address.port, '127.0.0.1', error => error ? reject(error) : resolve());

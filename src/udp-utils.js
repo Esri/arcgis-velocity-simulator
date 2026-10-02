@@ -20,6 +20,11 @@ const DEFAULT_UDP_CLIENT_REGISTRATION_INTERVAL_MS = 30000;
 const MAX_UDP_CLIENT_REGISTRATION_INTERVAL_MS = 2147483647;
 const { assertUdpPayloadSize } = require('./payload-format-utils');
 
+function normalizeUdpConnectionMode(value = 'direct') {
+  if (value !== 'direct' && value !== 'registered') throw new Error('UDP connection mode must be direct or registered.');
+  return value;
+}
+
 function encodeUdpPayload(data, format, appendNewline = true) {
   const payload = appendNewline && format === 'delimited' && !data.endsWith('\n') ? `${data}\n` : data;
   assertUdpPayloadSize(payload);
@@ -104,6 +109,7 @@ function startUdpClientRegistration(socket, {
 }
 
 module.exports = {
+  normalizeUdpConnectionMode,
   encodeUdpPayload,
   DEFAULT_UDP_CLIENT_REGISTRATION_INTERVAL_MS,
   MAX_UDP_CLIENT_REGISTRATION_INTERVAL_MS,

@@ -177,6 +177,13 @@
                     </div>
                   </div>
                   <div class="protocol-settings-group" data-protocol="udp" data-section="basics">
+                    <div class="control-group aligned-group payload-format-row" id="udp-connection-mode-group">
+                      <label for="udp-connection-mode" title="Choose Direct configured endpoints or Registered compatibility pairing. No UDP mode confirms remote delivery.">UDP mode:</label>
+                      <select id="udp-connection-mode" title="Choose Direct configured endpoints or Registered compatibility pairing. No UDP mode confirms remote delivery.">
+                        <option value="direct" selected title="Direct - use configured endpoints without registration or acknowledgment.">Direct</option>
+                        <option value="registered" title="Registered - compatibility pairing using the existing UDP registration marker; not standard UDP behavior.">Registered</option>
+                      </select>
+                    </div>
                     <div class="control-group aligned-group payload-format-row" id="udp-address-family-group">
                       <label for="udp-address-family" data-tooltip="Choose IPv4 or IPv6 for UDP. The host must match the selected family. IPv6 sockets accept IPv6 only." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="UDP address family">Address family:</label>
                       <select id="udp-address-family" data-tooltip="Choose IPv4 or IPv6 for UDP. The host must match the selected family. IPv6 sockets accept IPv6 only." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="UDP address family">
@@ -431,6 +438,14 @@
                     </div>
                   </div>
                   <div class="protocol-settings-group payload-conversion-group" id="udp-advanced" data-protocol="udp" data-section="advanced">
+                    <div class="control-group aligned-group" id="udp-local-host-group">
+                      <label for="udp-local-host" title="Local UDP interface to bind in Direct mode. Loopback is local-only; choose another interface explicitly for remote traffic.">Local host:</label>
+                      <input id="udp-local-host" type="text" value="127.0.0.1" title="Local UDP interface to bind in Direct mode. Loopback is local-only; choose another interface explicitly for remote traffic.">
+                    </div>
+                    <div class="control-group aligned-group" id="udp-local-port-group">
+                      <label for="udp-local-port" title="Local UDP bind port in Direct mode. Receivers require a stable port; a publisher may use 0 for an ephemeral port.">Local port:</label>
+                      <input id="udp-local-port" type="number" min="0" max="65535" value="0" title="Local UDP bind port in Direct mode. Receivers require a stable port; a publisher may use 0 for an ephemeral port.">
+                    </div>
                     <div class="control-group aligned-group" id="udp-append-newline-group">
                       <label for="udp-append-newline" data-tooltip="Append LF to each delimited UDP payload. Required by Velocity UDP feeds; ignored for structured formats. The LF counts toward the 65,507-byte datagram limit." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="Append LF to UDP payloads">Append LF:</label>
                       <input type="checkbox" id="udp-append-newline" checked data-tooltip="Append LF to each delimited UDP payload. Required by Velocity UDP feeds; ignored for structured formats. The LF counts toward the 65,507-byte datagram limit." data-tooltip-icon="⇄" data-tooltip-kind="info" aria-label="Append LF to UDP payloads">

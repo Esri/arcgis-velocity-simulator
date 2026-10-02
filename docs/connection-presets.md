@@ -165,6 +165,10 @@ Each label names which application listens. In this repository:
 
 ## What each preset fills
 
+The inverse UDP preset uses **Registered** mode explicitly to preserve the
+compatibility pairing. Manually configured UDP Server sessions default to
+**Direct** configured-destination publishing; see [UDP transport](udp.md).
+
 | Protocol | Values |
 |---|---|
 | TCP, UDP | Host `127.0.0.1`, port `5565`, Delimited (CSV), no header row, no geometry mapping, WKID 4326. |

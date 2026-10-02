@@ -223,6 +223,12 @@ For a local IPv6 pair, set `ip=::1` and the protocol's family option,
 conversion, replay controls, or completion artifacts. Full option values and
 defaults are in the [Command-line reference](command-line.md).
 
+A new UDP Server headless session defaults to Direct publishing: `ip` and
+`port` identify the receiving destination, while `udpLocalHost` and
+`udpLocalPort` identify the local bind. For the legacy recipient-learning
+publisher, choose `udpConnectionMode=registered` explicitly. Old saved
+UDP Server configurations without that key preserve Registered behavior.
+
 TCP headless sessions also honor `tcpHandshakeText` and
 `tcpHandshakeUseEscapes` for both roles. The greeting completes before the
 first local replay record on each connection; it never waits for a response.

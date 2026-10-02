@@ -35,6 +35,23 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { decodeTcpHandshake } = require('./tcp-handshake-utils');
+const { normalizeUdpConnectionMode } = require('./udp-utils');
+
+function parseUdpPairingOptions(values, target, errors) {
+  if (values.udpConnectionMode !== undefined) {
+    try { target.udpConnectionMode = normalizeUdpConnectionMode(values.udpConnectionMode); }
+    catch (error) { errors.push(error.message); }
+  }
+  if (values.udpLocalHost !== undefined) {
+    if (typeof values.udpLocalHost !== 'string' || !values.udpLocalHost.trim()) errors.push('udpLocalHost must be a local IP address or hostname.');
+    else target.udpLocalHost = values.udpLocalHost.trim();
+  }
+  if (values.udpLocalPort !== undefined) {
+    const port = Number(values.udpLocalPort);
+    if (!Number.isInteger(port) || port < 0 || port > 65535 || values.udpLocalPort === '') errors.push('udpLocalPort must be an integer between 0 and 65535.');
+    else target.udpLocalPort = port;
+  }
+}
 
 function parseTcpHandshakeOptions(values, target, errors) {
   if (values.tcpHandshakeText !== undefined) target.tcpHandshakeText = values.tcpHandshakeText;
@@ -145,6 +162,9 @@ const CLI_OPTION_KEYS = new Set([
   'tcpYField',
   'tcpWkid',
   'udpFormat',
+  'udpConnectionMode',
+  'udpLocalHost',
+  'udpLocalPort',
   'udpAddressFamily',
   'udpInputHasHeader',
   'udpAppendNewline',
@@ -241,6 +261,9 @@ const APP_DEFAULTS = {
   tcpYField: null,
   tcpWkid: 4326,
   udpFormat: DEFAULT_SOCKET_PAYLOAD_FORMAT,
+  udpConnectionMode: 'direct',
+  udpLocalHost: '127.0.0.1',
+  udpLocalPort: 0,
   udpAddressFamily: 'ipv4',
   udpInputHasHeader: false,
   udpAppendNewline: true,
@@ -738,6 +761,21 @@ const CLI_PARAMETER_DEFINITIONS = [
     example: 'udpAddressFamily=ipv6',
     requiredInHeadless: 'No',
     purpose: 'UDP socket and DNS address family. Defaults to ipv4. The host must match the family; IPv6 sockets accept IPv6 only. Use ::1 for local IPv6 or :: for an explicit all-interface IPv6 bind.',
+  },
+  {
+    key: 'udpConnectionMode', defaultValue: 'direct', options: ['direct', 'registered'],
+    example: 'udpConnectionMode=direct', requiredInHeadless: 'No',
+    purpose: 'UDP Server publishing mode. Direct sends to ip:port without registration. Registered preserves the explicit compatibility pairing and learns recipients only from the existing registration marker. Old saved UDP Server configurations without this key retain Registered.',
+  },
+  {
+    key: 'udpLocalHost', defaultValue: '127.0.0.1', options: ['local IP address or hostname'],
+    example: 'udpLocalHost=127.0.0.1', requiredInHeadless: 'No',
+    purpose: 'Local bind interface for a Direct UDP Server publisher, separate from destination ip:port. Loopback is local-only; choose non-loopback explicitly.',
+  },
+  {
+    key: 'udpLocalPort', defaultValue: 0, options: ['0-65535'],
+    example: 'udpLocalPort=0', requiredInHeadless: 'No',
+    purpose: 'Local bind port for a Direct UDP Server publisher. Zero selects an ephemeral sender port; the receiving application must use a stable destination port.',
   },
   {
     key: 'udpFormat',
@@ -2066,6 +2104,7 @@ function validateHeadlessOptions(values, errors, warnings) {
   }
 
   parseSocketAddressFamilies(normalized, options, errors);
+  parseUdpPairingOptions(normalized, options, errors);
   parseTcpHandshakeOptions(normalized, options, errors);
   for (const key of ['tcpFormat', 'udpFormat']) {
     if (normalized[key] === undefined) continue;
@@ -2583,6 +2622,11 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
   let configLoad = { path: null, values: {} };
   if (rawValues.config) {
     configLoad = loadRunConfig(rawValues.config, errors);
+    if (String(configLoad.values.protocol || '').toLowerCase() === 'udp'
+        && String(configLoad.values.mode || 'server').toLowerCase() === 'server'
+        && configLoad.values.udpConnectionMode === undefined) {
+      configLoad.values.udpConnectionMode = 'registered';
+    }
   }
 
   const mergedValues = {
@@ -2605,6 +2649,7 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
 
   if (!headlessRequested) {
     parseSocketAddressFamilies(mergedValues, mergedValues, errors);
+    parseUdpPairingOptions(mergedValues, mergedValues, errors);
     parseTcpHandshakeOptions(mergedValues, mergedValues, errors);
     for (const key of ['tcpFormat', 'udpFormat']) {
       if (mergedValues[key] === undefined) continue;
@@ -2639,7 +2684,7 @@ function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
     const uiPresetKeys = new Set([
       'protocol', 'mode', 'ip', 'port',
       'tcpFormat', 'tcpAddressFamily', 'tcpHandshakeText', 'tcpHandshakeUseEscapes', 'tcpInputHasHeader', 'tcpXField', 'tcpYField', 'tcpWkid',
-      'udpFormat', 'udpAddressFamily', 'udpInputHasHeader', 'udpAppendNewline', 'udpXField', 'udpYField', 'udpWkid',
+      'udpFormat', 'udpConnectionMode', 'udpLocalHost', 'udpLocalPort', 'udpAddressFamily', 'udpInputHasHeader', 'udpAppendNewline', 'udpXField', 'udpYField', 'udpWkid',
       'grpcSerialization', 'grpcSendMethod',
       'grpcHeaderPath', 'grpcHeaderPathKey', 'useTls', 'tlsCaPath', 'tlsCertPath', 'tlsKeyPath',
       'allowUnverifiedTls', 'httpAllowUnverifiedTls', 'wsAllowUnverifiedTls',
@@ -2770,6 +2815,9 @@ function formatExplainOutput(cliOptions) {
       ['tcpYField', (presets && presets.tcpYField) || `(default: ${d.tcpYField || 'not set'})`],
       ['tcpWkid', (presets && presets.tcpWkid) || `(default: ${d.tcpWkid})`],
       ['udpFormat', (presets && presets.udpFormat) || `(default: ${d.udpFormat})`],
+      ['udpConnectionMode', presets?.udpConnectionMode ?? d.udpConnectionMode],
+      ['udpLocalHost', presets?.udpLocalHost ?? d.udpLocalHost],
+      ['udpLocalPort', presets?.udpLocalPort ?? d.udpLocalPort],
       ['udpAddressFamily', (presets && presets.udpAddressFamily) || `(default: ${d.udpAddressFamily})`],
       ['udpInputHasHeader', presets && presets.udpInputHasHeader !== undefined ? presets.udpInputHasHeader : `(default: ${d.udpInputHasHeader})`],
       ['udpAppendNewline', presets && presets.udpAppendNewline !== undefined ? presets.udpAppendNewline : `(default: ${d.udpAppendNewline})`],
@@ -2868,6 +2916,9 @@ function formatExplainOutput(cliOptions) {
       ['tcpYField', h.tcpYField || '(not set)'],
       ['tcpWkid', h.tcpWkid],
       ['udpFormat', h.udpFormat],
+      ['udpConnectionMode', h.udpConnectionMode],
+      ['udpLocalHost', h.udpLocalHost],
+      ['udpLocalPort', h.udpLocalPort],
       ['udpAddressFamily', h.udpAddressFamily],
       ['udpInputHasHeader', h.udpInputHasHeader],
       ['udpAppendNewline', h.udpAppendNewline],

@@ -29,6 +29,7 @@ async function run() {
           id: 'receiving-feed',
           feed: { name: type, formatName: format, properties: {
             [`${type}.hostName`]: host, [`${type}.port`]: receiver.address().port,
+            [`${type}.connectionMode`]: 'direct', [`${type}.localHost`]: host, [`${type}.localPort`]: receiver.address().port,
           } },
         });
         const options = buildVelocityConnectionOptions({

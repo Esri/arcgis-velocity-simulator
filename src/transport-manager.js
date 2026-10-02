@@ -52,7 +52,7 @@ const {
   createUdpPayloadReceiver,
   finishTcpPayloadReceiver,
 } = require('./socket-payload-receiver');
-const { isUdpClientRegistrationMessage, encodeUdpPayload } = require('./udp-utils');
+const { isUdpClientRegistrationMessage, encodeUdpPayload, normalizeUdpConnectionMode } = require('./udp-utils');
 const { decodeTcpHandshake, writeTcpHandshake } = require('./tcp-handshake-utils');
 const { resolveUdpEndpoint, udpEndpointKey, formatUdpEndpoint, resolveSocketEndpoint, tcpSocketOptions, formatSocketEndpoint } = require('./socket-address-utils');
 
@@ -259,7 +259,7 @@ class TransportManager extends EventEmitter {
     }
 
     return mode === 'server'
-      ? this.connectUdpServer({ ip, port, connectTimeoutMs, format: udpFormat, udpAddressFamily })
+      ? this.connectUdpServer({ ...options, ip, port, connectTimeoutMs, format: udpFormat, udpAddressFamily })
       : this.connectUdpClient({ ip, port, connectTimeoutMs, connectWaitForServer, connectRetryIntervalMs, format: udpFormat, udpAddressFamily });
   }
 
@@ -709,9 +709,16 @@ class TransportManager extends EventEmitter {
    * lazily from inbound datagrams. Once a sender is observed, that endpoint can be
    * treated as a recipient for future outbound replay traffic.
    */
-  async connectUdpServer({ ip, port, connectTimeoutMs, format = 'delimited', udpAddressFamily = 'ipv4' }) {
+  async connectUdpServer({ ip, port, connectTimeoutMs, format = 'delimited', udpAddressFamily = 'ipv4',
+    udpConnectionMode = 'direct', udpLocalHost = '127.0.0.1', udpLocalPort = 0 }) {
+    const direct = normalizeUdpConnectionMode(udpConnectionMode) === 'direct';
+    if (direct && (!Number.isInteger(udpLocalPort) || udpLocalPort < 0 || udpLocalPort > 65535)) {
+      throw new Error('udpLocalPort must be an integer between 0 and 65535.');
+    }
     this.log('info', `[Transport] Resolving UDP ${udpAddressFamily} bind host ${ip}`);
-    const endpoint = await resolveUdpEndpoint(ip, udpAddressFamily, { bind: true });
+    const endpoint = await resolveUdpEndpoint(direct ? udpLocalHost : ip, udpAddressFamily, { bind: true });
+    const destination = direct ? await resolveUdpEndpoint(ip, udpAddressFamily) : null;
+    if (direct && (!Number.isInteger(port) || port < 1 || port > 65535)) throw new Error('UDP destination port must be between 1 and 65535.');
     this.udpServerClients.clear();
     return new Promise((resolve, reject) => {
       let settled = false;
@@ -719,7 +726,7 @@ class TransportManager extends EventEmitter {
       const socket = dgram.createSocket(endpoint.socketOptions);
       const receiveUdpPayload = createUdpPayloadReceiver({
         format,
-        isControlDatagram: isUdpClientRegistrationMessage,
+        isControlDatagram: direct ? undefined : isUdpClientRegistrationMessage,
         onRecord: (text, clientKey) => {
           this.emit('data-received', { protocol: 'udp', mode: 'server', data: text, clientKey });
           this.log('debug', `Received from UDP client ${clientKey}: ${text}`);
@@ -742,17 +749,23 @@ class TransportManager extends EventEmitter {
 
       socket.on('listening', () => {
         const address = socket.address();
-        this.connection = { socket, protocol: 'udp', mode: 'server' };
+        this.connection = { socket, protocol: 'udp', mode: 'server', udpConnectionMode };
+        if (destination) {
+          const recipient = { address: destination.address, port };
+          this.udpServerClients.set(udpEndpointKey(recipient), recipient);
+        }
         settled = true;
         if (timeout) clearTimeout(timeout);
-        this.emitStatus('connected', `UDP server listening on ${formatUdpEndpoint(address)} [${format}, ${udpAddressFamily}]`);
+        this.emitStatus('connected', direct
+          ? `UDP publisher ready on ${formatUdpEndpoint(address)} for ${formatUdpEndpoint({ address: destination.address, port })} [direct]. Local socket only; remote delivery is not confirmed.`
+          : `UDP server listening on ${formatUdpEndpoint(address)} [registered]. Awaiting the compatibility registration marker; remote delivery is not confirmed.`);
         resolve({ protocol: 'udp', mode: 'server', address, format });
       });
 
       socket.on('message', (message, remoteInfo) => {
         const endpointKey = udpEndpointKey(remoteInfo);
         const clientKey = formatUdpEndpoint(remoteInfo);
-        if (!this.udpServerClients.has(endpointKey)) {
+        if (!direct && isUdpClientRegistrationMessage(message) && !this.udpServerClients.has(endpointKey)) {
           this.udpServerClients.set(endpointKey, { address: remoteInfo.address, port: remoteInfo.port });
           this.log('info', `UDP client detected: ${clientKey}`);
           this.emit('client-connected', { protocol: 'udp', mode: 'server', clientKey });
@@ -762,7 +775,7 @@ class TransportManager extends EventEmitter {
         receiveUdpPayload(message, clientKey);
       });
 
-      socket.bind(port, endpoint.address);
+      socket.bind(direct ? udpLocalPort : port, endpoint.address);
 
       if (connectTimeoutMs > 0) {
         timeout = setTimeout(() => {
@@ -821,7 +834,7 @@ class TransportManager extends EventEmitter {
         this.connection = { socket, protocol: 'udp', mode: 'client', ip: endpoint.address, port };
         settled = true;
         if (timeout) clearTimeout(timeout);
-        this.emitStatus('connected', `UDP client ready to send to ${formatUdpEndpoint({ address: endpoint.address, port })} from local port ${localAddress.port} [${format}, ${udpAddressFamily}]`);
+        this.emitStatus('connected', `UDP client ready to send to ${formatUdpEndpoint({ address: endpoint.address, port })} from local port ${localAddress.port} [${format}, ${udpAddressFamily}]. Local socket only; remote delivery is not confirmed.`);
         resolve({ protocol: 'udp', mode: 'client', address: localAddress, format });
       });
 

@@ -58,6 +58,13 @@ selects IPv4 and rejects an advertised IPv6 endpoint. Other TCP connectors
 can use advertised IPv6 addresses when the deployment supports them;
 application socket support is not a guarantee of deployment reachability.
 
+Applying a Velocity TCP Client feed selects Simulator TCP Server with a safe
+loopback bind (`127.0.0.1`, or `::1` for IPv6). Its advertised destination is
+shown separately in Summary rather than being used as a local interface.
+Choose a local bind interface and ensure the feed's configured destination
+routes to this Simulator. Applying another connection type clears that routing
+context; editing the local bind does not change the feed's advertised endpoint.
+
 ## Connection greeting
 
 **Handshake text** is an optional greeting sent once on each new TCP client

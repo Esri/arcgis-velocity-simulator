@@ -47,7 +47,7 @@ const {
   createUdpPayloadReceiver,
   finishTcpPayloadReceiver,
 } = require(path.join(basePath, 'socket-payload-receiver.js'));
-const { isUdpClientRegistrationMessage, encodeUdpPayload } = require(path.join(basePath, 'udp-utils.js'));
+const { isUdpClientRegistrationMessage, encodeUdpPayload, normalizeUdpConnectionMode } = require(path.join(basePath, 'udp-utils.js'));
 const { decodeTcpHandshake, writeTcpHandshake } = require(path.join(basePath, 'tcp-handshake-utils.js'));
 const { resolveUdpEndpoint, udpEndpointKey, formatUdpEndpoint, resolveSocketEndpoint, tcpSocketOptions, formatSocketEndpoint } = require(path.join(basePath, 'socket-address-utils.js'));
 
@@ -1610,6 +1610,11 @@ async function applyLaunchConfigFrom() {
         }
       }
       if (Object.keys(presets).length > 0 && mainWindow) {
+        if (String(presets.protocol || '').toLowerCase() === 'udp'
+            && String(presets.mode || 'server').toLowerCase() === 'server'
+            && presets.udpConnectionMode === undefined) {
+          presets.udpConnectionMode = 'registered';
+        }
         decodeTcpHandshake(presets.tcpHandshakeText, {
           useEscapes: presets.tcpHandshakeUseEscapes === undefined ? true : presets.tcpHandshakeUseEscapes,
         });
@@ -1657,6 +1662,9 @@ async function getCurrentLaunchConfig() {
         tcpYField: getVal('tcp-y-field') || null,
         tcpWkid: getInteger('tcp-wkid', 4326),
         udpFormat: getVal('udp-format') || 'delimited',
+        udpConnectionMode: getVal('udp-connection-mode') || 'direct',
+        udpLocalHost: getVal('udp-local-host') || '127.0.0.1',
+        udpLocalPort: getInteger('udp-local-port', 0),
         udpAddressFamily: getVal('udp-address-family') || 'ipv4',
         udpInputHasHeader: getChecked('udp-input-has-header'),
         udpAppendNewline: getChecked('udp-append-newline'),
@@ -1735,6 +1743,9 @@ async function getCurrentLaunchConfig() {
       tcpYField: s.tcpYField,
       tcpWkid: s.tcpWkid,
       udpFormat: s.udpFormat,
+      udpConnectionMode: s.udpConnectionMode,
+      udpLocalHost: s.udpLocalHost,
+      udpLocalPort: s.udpLocalPort,
       udpAddressFamily: s.udpAddressFamily,
       udpInputHasHeader: s.udpInputHasHeader,
       udpAppendNewline: s.udpAppendNewline,
@@ -2439,6 +2450,7 @@ ipcMain.handle('get-microphone-support-state', () => {
 ipcMain.handle('connect', async (event, options) => {
   const {
     protocol, mode, ip, port, tcpFormat = 'delimited', tcpAddressFamily = 'auto', udpFormat = 'delimited', udpAppendNewline = true, udpAddressFamily = 'ipv4',
+    udpConnectionMode = 'direct', udpLocalHost = '127.0.0.1', udpLocalPort = 0,
     tcpHandshakeText = '', tcpHandshakeUseEscapes = true, connectTimeoutMs = 0,
     grpcSerialization, grpcSendMethod, headerPathKey, headerPath,
     useTls, tlsCaPath, tlsCertPath, tlsKeyPath, allowUnverifiedTls,
@@ -2563,8 +2575,13 @@ ipcMain.handle('connect', async (event, options) => {
         });
       }
     } else if (protocol === 'udp') {
+      const directServer = mode === 'server' && normalizeUdpConnectionMode(udpConnectionMode) === 'direct';
+      if (directServer && (!Number.isInteger(udpLocalPort) || udpLocalPort < 0 || udpLocalPort > 65535)) {
+        throw new Error('udpLocalPort must be an integer between 0 and 65535.');
+      }
       velocityLog('info', `[Transport] Resolving UDP ${udpAddressFamily} ${mode === 'server' ? 'bind host' : 'destination'} ${ip}`);
-      const endpoint = await resolveUdpEndpoint(ip, udpAddressFamily, { bind: mode === 'server' });
+      const endpoint = await resolveUdpEndpoint(directServer ? udpLocalHost : ip, udpAddressFamily, { bind: mode === 'server' });
+      const destination = directServer ? await resolveUdpEndpoint(ip, udpAddressFamily) : null;
       const socket = dgram.createSocket(endpoint.socketOptions);
       socket.on('error', (err) => {
         emitConnectionStatus('disconnected', `UDP ${mode} error: ${err.message}`);
@@ -2575,31 +2592,37 @@ ipcMain.handle('connect', async (event, options) => {
         udpServerClients = new Map();
         const receiveUdpPayload = createUdpPayloadReceiver({
           format: udpFormat,
-          isControlDatagram: isUdpClientRegistrationMessage,
+          isControlDatagram: directServer ? undefined : isUdpClientRegistrationMessage,
           onRecord: (data, clientKey) => logStatus(`Received from ${clientKey}: ${data}`),
           onWarning: (message, clientKey) => logStatus(`UDP payload warning (${clientKey}): ${message}`),
         });
         socket.on('listening', () => {
           const address = socket.address();
-          connection = { socket, protocol, mode, udpAppendNewline: udpAppendNewline === true };
+          connection = { socket, protocol, mode, udpConnectionMode, udpAppendNewline: udpAppendNewline === true };
+          if (destination) {
+            const recipient = { address: destination.address, port };
+            udpServerClients.set(udpEndpointKey(recipient), recipient);
+          }
           logStatus(`UDP Server successfully bound and listening on ${formatUdpEndpoint(address)}`);
-          emitConnectionStatus('connected', `UDP Server listening on ${formatUdpEndpoint(address)} [${udpFormat}, ${udpAddressFamily}]`);
+          emitConnectionStatus('connected', directServer
+            ? `UDP publisher ready on ${formatUdpEndpoint(address)} for ${formatUdpEndpoint({ address: destination.address, port })} [direct]. Local socket only; remote delivery is not confirmed.`
+            : `UDP Server listening on ${formatUdpEndpoint(address)} [registered]. Awaiting the compatibility registration marker; remote delivery is not confirmed.`);
         });
         socket.on('message', (msg, rinfo) => {
           const endpointKey = udpEndpointKey(rinfo);
           const clientKey = formatUdpEndpoint(rinfo);
-          if (!udpServerClients.has(endpointKey)) {
+          if (!directServer && isUdpClientRegistrationMessage(msg) && !udpServerClients.has(endpointKey)) {
             udpServerClients.set(endpointKey, { address: rinfo.address, port: rinfo.port });
             logStatus(`New UDP client detected: ${clientKey}`);
           }
           receiveUdpPayload(msg, clientKey);
         });
-        socket.bind(port, endpoint.address);
+        socket.bind(directServer ? udpLocalPort : port, endpoint.address);
       } else { // UDP Client
         socket.bind(() => {
           const localAddress = socket.address();
           connection = { socket, protocol, mode, ip: endpoint.address, port, udpAppendNewline: udpAppendNewline === true };
-          emitConnectionStatus('connected', `UDP Client ready to send to ${formatUdpEndpoint({ address: endpoint.address, port })} from local port ${localAddress.port} [${udpFormat}, ${udpAddressFamily}]`);
+          emitConnectionStatus('connected', `UDP Client ready to send to ${formatUdpEndpoint({ address: endpoint.address, port })} from local port ${localAddress.port} [${udpFormat}, ${udpAddressFamily}]. Local socket only; remote delivery is not confirmed.`);
         });
       }
     } else if (protocol === 'grpc') {

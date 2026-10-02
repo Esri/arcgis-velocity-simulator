@@ -578,6 +578,7 @@ select {
 #tcp-address-family,
 #udp-format,
 #udp-address-family,
+#udp-connection-mode,
 #http-format {
   text-align: left;
   text-align-last: left;
@@ -1838,6 +1839,10 @@ body:not(.show-gestures) #live-gesture-received {
   border-radius: 4px;
   padding: 6px;
   font: inherit;
+}
+
+#udp-local-host {
+  text-align: left;
 }
 
 .protocol-settings-empty {

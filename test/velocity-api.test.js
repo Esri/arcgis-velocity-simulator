@@ -104,7 +104,7 @@ async function main() {
         } },
       });
       assert.strictEqual(parsed.id, 'same-feed-id');
-      assert.strictEqual(parsed.supported, true);
+      assert.strictEqual(parsed.supported, type !== 'udp-client');
       assert.strictEqual(parsed.host, 'data.example.com');
     }
     for (const [host, port, format, reason] of [
@@ -115,17 +115,37 @@ async function main() {
       const parsed = api.parseFeedItem({ id: 'bad-feed', feed: { name: type, formatName: format,
         properties: { [`${type}.hostName`]: host, [`${type}.port`]: port } } });
       assert.strictEqual(parsed.supported, false);
-      assert.match(parsed.reason, reason);
+      assert.match(parsed.reason, type === 'udp-client' ? /receiving contract/ : reason);
     }
     const ipv6 = api.parseFeedItem({ id: 'ipv6-feed', feed: { name: type, formatName: 'json',
       properties: { [`${type}.hostName`]: '[::1]', [`${type}.port`]: 17009 } } });
-    assert.strictEqual(ipv6.supported, type === 'udp-client');
-    if (!ipv6.supported) assert.match(ipv6.reason, /bind IPv4 only/);
+    assert.strictEqual(ipv6.supported, false);
+    assert.match(ipv6.reason, type === 'udp-client' ? /receiving contract/ : /bind IPv4 only/);
   }
   const tcpClient = api.parseFeedItem({
     id: 'tcp',
     feed: { name: 'tcp', formatName: 'json', properties: { 'tcp.host': 'receiver.example.com', 'tcp.port': 17013 } },
   });
+  for (const [connectionMode, localHost, localPort, supported] of [
+    ['direct', '192.0.2.20', 17009, true],
+    ['direct', '', 17009, false],
+    ['direct', '192.0.2.20', undefined, false],
+    ['registered', undefined, undefined, true],
+    [undefined, '192.0.2.20', 17009, false],
+  ]) {
+    const properties = { 'udp-client.hostname': 'publisher.example.com', 'udp-client.port': 5565 };
+    if (connectionMode !== undefined) properties['udp-client.connectionMode'] = connectionMode;
+    if (localHost !== undefined) properties['udp-client.localHost'] = localHost;
+    if (localPort !== undefined) properties['udp-client.localPort'] = localPort;
+    properties['udp-client.sourceHost'] = '192.0.2.30';
+    const parsed = api.parseFeedItem({ id: 'explicit-udp-client', feed: { name: 'udp-client', properties } });
+    assert.strictEqual(parsed.supported, supported);
+    assert.strictEqual(parsed.udpConnectionMode, connectionMode);
+    assert.strictEqual(parsed.udpLocalHost, localHost);
+    assert.strictEqual(parsed.udpLocalPort, localPort);
+    assert.strictEqual(parsed.udpSourceHost, '192.0.2.30');
+    assert.strictEqual(parsed.host, 'publisher.example.com', 'Remote and local endpoint metadata stay distinct');
+  }
   assert.strictEqual(tcpClient.supported, true);
   assert.strictEqual(tcpClient.host, 'receiver.example.com');
   for (const authority of [

@@ -54,7 +54,7 @@ test('covers all twelve connection modes with a title, endpoint, and status', ()
     assert.ok(summary.title.endsWith(' settings'), `${connectionType} title`);
     assert.ok(rows.connection && rows.endpoint && rows.status && rows.preset, `${connectionType} core rows`);
     assert.strictEqual(rows.status.value, 'Disconnected');
-    assert.match(summary.headline, summary.mode === 'server' ? /^Listening on / : /^Publishing to /);
+    assert.match(summary.headline, summary.mode === 'server' && summary.protocol !== 'udp' ? /^Listening on / : /^Publishing to /);
     assert.ok(summary.rows.length >= 4, `${connectionType} must report rows`);
   });
 });
@@ -97,6 +97,17 @@ test('composes HTTP and WebSocket URLs from TLS, host, port, and path', () => {
 test('reports missing endpoint parts instead of inventing them', () => {
   const summary = buildConnectionSummary({ connectionType: 'tcp-server', host: '', port: '' });
   assert.strictEqual(rowsByKey(summary).endpoint.value, 'Not set:Not set');
+});
+
+test('UDP ready state describes the local socket without claiming a connection or delivery', () => {
+  for (const [mode, label] of [['client', 'Ready'], ['server', 'Listening']]) {
+    const summary = buildConnectionSummary({ ...BASE, connectionType: `udp-${mode}`, connectionState: 'connected', udpConnectionMode: 'registered' });
+    assert.strictEqual(summary.connectionState, 'connected', 'Internal lifecycle state still locks the controls');
+    assert.strictEqual(summary.connectionStateLabel, label);
+    assert.strictEqual(rowsByKey(summary).status.value, label);
+    assert.match(rowsByKey(summary).status.detail, /does not confirm a remote peer or data delivery/);
+    assert.doesNotMatch(formatConnectionSummaryText(summary), /Status: Connected/);
+  }
 });
 
 test('never exposes a secret value', () => {

@@ -285,6 +285,7 @@ mode](headless.md).
 - `tcpFormat`, `tcpAddressFamily`, `tcpInputHasHeader`, `tcpXField`, `tcpYField`, `tcpWkid`
 - `tcpHandshakeText`, `tcpHandshakeUseEscapes`
 - `udpFormat`, `udpAddressFamily`, `udpInputHasHeader`, `udpXField`, `udpYField`, `udpWkid`
+- `udpConnectionMode`, `udpLocalHost`, `udpLocalPort`
 - `waitForClient`
 - `wsFormat`, `wsTls`, `wsPath`, `wsTlsCaPath`, `wsTlsCertPath`, `wsTlsKeyPath`, `wsSubscriptionMsg`, `wsIgnoreFirstMsg`, `wsHeaders`, `wsAllowUnverifiedTls`
 - `httpFormat`, `httpPolling`, `httpTls`, `httpPath`, `httpTlsCaPath`, `httpTlsCertPath`, `httpTlsKeyPath`, `httpAllowUnverifiedTls`
@@ -316,6 +317,11 @@ controls, including TCP and UDP payload conversion settings and the three
 verification options. `tcpFormat` and `udpFormat` default to `delimited`;
 existing files that omit them therefore retain Delimited (CSV) behavior.
 `tcpAddressFamily` defaults to `auto`; `udpAddressFamily` defaults to `ipv4`.
+New sessions default `udpConnectionMode` to `direct`, with local host
+`127.0.0.1` and local port `0` for the Simulator publisher. Loading a saved UDP
+Server configuration missing the mode preserves `registered`; explicit
+`direct` opts into configured-destination publishing. See [UDP transport](udp.md)
+before changing the mode, because main Host and Port have different meanings.
 `tcpHandshakeText` defaults to the empty string and `tcpHandshakeUseEscapes`
 defaults to `true`. Explicit false, literal line breaks, and surrounding
 whitespace round-trip through JSON. Exported configurations include greeting

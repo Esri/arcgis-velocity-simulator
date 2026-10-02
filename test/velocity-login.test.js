@@ -85,7 +85,8 @@ async function test(name, run) {
   await test('both UDP receiving feeds show actual data host and apply without registration', async () => {
     for (const type of ['udp-client', 'udp-server']) {
       const item = { ...sourcedFeed('server-a'), feedType: type, url: undefined,
-        host: 'data.example.com', port: 17009, format: 'delimited', serverApiUrl: ROOT };
+        host: 'data.example.com', port: 17009, format: 'delimited', serverApiUrl: ROOT,
+        udpConnectionMode: 'direct', udpLocalHost: 'data.example.com', udpLocalPort: 17009 };
       const app = await harness({ listItems: async () => list([item]), getItemDetails: async () => item });
       await app.signIn();
       await app.selectFeed();
