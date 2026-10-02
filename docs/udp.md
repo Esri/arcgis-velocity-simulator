@@ -12,6 +12,7 @@ formats](data-formats.md) for shared conversion and schema rules.
 - [Roles and defaults](#roles-and-defaults)
 - [Address family](#address-family)
 - [Velocity feeds](#velocity-feeds)
+- [Registered feed workflow](#registered-feed-workflow)
 - [Formats and datagrams](#formats-and-datagrams)
 - [UI controls](#ui-controls)
 - [Tooltip reference](#tooltip-reference)
@@ -36,13 +37,15 @@ A paired Logger UDP client sends the literal
 `UDP Client connected` registration datagram when it starts and renews it
 every 30 seconds by default while connected. The Logger controls the renewal
 interval; there is no Simulator registration-sender setting.
-This is a custom application-pair convention,
-not a UDP standard or a Velocity handshake. It lets a restarted Simulator
-server relearn a still-running Logger client without waiting for a Logger
-reconnect. Renewals stop when the Logger disconnects.
+This is an application-level compatibility convention, not a UDP standard.
+Registration-based Velocity UDP Client feeds can use this publisher as well;
+confirm the behavior of the installed feed instead of assuming all UDP inputs
+are passive. The paired Logger renews its registration so a restarted Simulator
+can relearn it without a Logger reconnect. That renewal interval belongs to
+the Logger, not to the Simulator or every Velocity feed.
 
 Registration and renewal are not acknowledgements, delivery confirmation, or
-liveness checks. The Simulator filters the exact marker from payload records,
+liveness checks. In Registered mode the Simulator filters the exact marker from payload records,
 does not reply to it, and retains learned endpoints until the server disconnects.
 Passive Velocity UDP feeds do not register recipients. Explicit Registered
 feed configurations use the compatibility exchange. The Simulator UDP Client
@@ -95,21 +98,33 @@ used to guess a data endpoint.
 
 Direct sending begins with the replay payload, not a probe or handshake.
 
-The advertised `hostName` is preferred over `hostname` and `host`. The owning
-management API URL and `webContextURL` do not identify UDP data routing and are
-never substituted for a missing UDP host. A UDP Client feed's hostname is its
-Velocity-local bind address. If it is missing, wildcard (`0.0.0.0`), or
-unreachable from the Simulator, configure UDP Client manually with a reachable
-data host or DNS name, matching address family, and the feed port. Review
-firewall and forwarding rules. XML payloads are not supported.
+For a UDP Server feed, advertised `hostName` is preferred over `hostname` and
+`host`. For a UDP Client feed, Apply reads the explicit
+`udp-client.connectionMode`: Direct uses `udp-client.localHost` and
+`udp-client.localPort`; Registered uses `udp-client.hostname` and
+`udp-client.port` as the remote publisher endpoint. In Registered mode that
+hostname is **not** the Velocity machine's local bind address.
+
+The owning management API URL and `webContextURL` are never substituted for a
+missing UDP data host. A wildcard local listening address is not a routable
+destination; enter a reachable receiver address manually for passive/Direct
+feeds. For a Registered feed, bind the Simulator to one of its own interfaces
+and configure the feed to contact that reachable publisher address. Review
+firewall and forwarding rules in either direction. XML payloads are not
+supported by the Simulator UDP formatter.
 
 An advertised IPv6 literal selects IPv6 for a UDP Client feed. DNS names
 default to IPv4 unless an address family is explicitly supplied; the
-application does not assume that a hostname has an IPv6 route. Velocity UDP
-Server feeds bind IPv4 only, so Apply rejects IPv6 for that type. UDP Client
-feeds and both UDP output types have IPv6-capable addressing, but operating
+application does not assume that a hostname has an IPv6 route. Apply treats
+Velocity UDP Server feeds as IPv4-only and rejects IPv6 for that type. The
+mapper accepts IPv6 for explicit UDP Client feed contracts and UDP outputs, but operating
 system, deployment, and network configuration must also permit IPv6.
 Socket support alone does not verify a deployed Velocity endpoint.
+
+These metadata mappings describe what the Simulator can apply, not features
+guaranteed to exist in every installed Velocity version. If a deployed UDP
+Client feed advertises no mode, Apply refuses to guess; use the installed
+feed's documented contract and the manual workflow below.
 
 **Append LF** is enabled by default for delimited UDP publishing, including
 generic connections, local application-pair presets, and **Apply** for
@@ -118,6 +133,34 @@ UDP Server feed delimited extraction requires LF-terminated records; without
 LF, records can remain buffered and subsequent datagrams can be concatenated.
 LF-terminated records are also compatible with UDP Client feeds.
 Structured formats do not need this terminator and are unchanged.
+
+## Registered feed workflow
+
+For a deployed registration-based UDP Client feed:
+
+1. Select **UDP Server** in the Simulator;
+2. open **Settings → Basics** and select **Registered** explicitly;
+3. set main Host to the Simulator's local listening interface and Port to the
+   publisher port the feed will contact;
+4. select the payload format; for delimited records leave **Append LF** on and
+   choose the source header setting described in [Data formats](data-formats.md#fields-and-geometry);
+5. select **Connect**, then start the feed's sample or runtime session so it
+   registers its receiving endpoint; and
+6. select **Play** after the recipient is registered, or use
+   `waitForClient=true` in a headless run.
+
+Do not leave this publisher in the new-session Direct default: Direct sends
+to a configured destination and does not register a receiver from inbound
+traffic. The registered receiver may use an ephemeral source port; do not
+assume its configured remote publisher port is also its local receiving port.
+
+Sampling and runtime behavior depend on the installed Velocity version.
+Successful JSON runtime/sample delivery or header-free LF-terminated delimited
+sampling does not establish that header-derived schemas or unterminated
+delimited samples work. The Simulator does not repair a remote sampler. If
+sampling returns zero derived records or rejects a sample, compare the exact
+sent header and terminator bytes with the feed's format settings and inspect
+Velocity's sampler diagnostics.
 
 ## Formats and datagrams
 
@@ -174,22 +217,22 @@ The following text matches the UDP controls:
 | Address family label and initial selector | Choose IPv4 or IPv6 for UDP. The host must match the selected family. IPv6 sockets accept IPv6 only. |
 | IPv4 | IPv4 - use IPv4 addresses and resolve hostnames to IPv4. This is the default. |
 | IPv6 | IPv6 - use IPv6 addresses and resolve hostnames to IPv6. IPv4-mapped addresses are not supported. |
-| Host input and label, client | Destination address: enter a reachable peer IP address or DNS name matching the selected address family. Do not use 0.0.0.0 or :: as a destination. |
-| Host input and label, server IPv4 | Local bind address: 127.0.0.1 accepts same-machine traffic only. A local LAN IP restricts listening to that interface. Use 0.0.0.0 to listen on all local IPv4 interfaces for remote peers or multiple interfaces. This expands network exposure; firewall rules still apply. |
-| Host input and label, server IPv6 | Local bind address: ::1 accepts same-machine traffic only. A local IPv6 address restricts listening to that interface. Use :: to listen on all local IPv6 interfaces for remote peers or multiple interfaces. Explicit IPv6 listeners accept IPv6 only. This expands network exposure; firewall rules still apply. |
-| Format label | Choose how each logical CSV record is encoded for UDP. |
-| Format | UDP payload format. Each converted CSV record is sent as one complete UTF-8 datagram and must fit within 65,507 bytes. |
+| Host input and label, Client or Direct Server | Destination address: enter a reachable peer IP address or DNS name matching the selected address family. Do not use 0.0.0.0 or :: as a destination. |
+| Host input and label, Registered Server IPv4 | Local bind address: 127.0.0.1 accepts same-machine traffic only. A local LAN IP restricts listening to that interface. Use 0.0.0.0 to listen on all local IPv4 interfaces for remote peers or multiple interfaces. This expands network exposure; firewall rules still apply. |
+| Host input and label, Registered Server IPv6 | Local bind address: ::1 accepts same-machine traffic only. A local IPv6 address restricts listening to that interface. Use :: to listen on all local IPv6 interfaces for remote peers or multiple interfaces. Explicit IPv6 listeners accept IPv6 only. This expands network exposure; firewall rules still apply. |
+| Format label and initial selector | UDP payload format. Each converted CSV record is sent as one complete UTF-8 datagram and must fit within 65,507 bytes. |
+| Selected Delimited format | UDP Format: Delimited (CSV). Send each logical CSV record as UTF-8 text. This is the default and preserves the existing replay workflow. |
+| Selected JSON format | UDP Format: JSON. Convert each logical CSV record to a JSON object using the header row or generated field names. |
+| Selected GeoJSON format | UDP Format: GeoJSON. Convert each logical CSV record to an RFC 7946 Feature. Set X and Y fields for point geometry, or leave them empty for null geometry. |
+| Selected Esri JSON format | UDP Format: Esri JSON. Convert each logical CSV record to an Esri JSON feature with attributes and optional point geometry. |
 | Delimited (CSV) | Delimited (CSV) - send each logical CSV record as one UTF-8 datagram. This is the default and preserves existing replay behavior. |
 | JSON | JSON - convert each CSV record to one JSON object per datagram. |
 | GeoJSON | GeoJSON - convert each CSV record to one GeoJSON Feature per datagram. Configure X and Y fields to create point geometry. |
 | Esri JSON | Esri JSON - convert each CSV record to one Esri JSON feature per datagram. Configure X and Y fields to create point geometry. |
 | CSV header row | Treat the first logical CSV record as field names and do not send it as an event. Leave off to preserve the existing behavior and generate field_1, field_2, and similar names for structured formats. |
 | Append LF | Append LF to each delimited UDP payload. Required by Velocity UDP feeds; ignored for structured formats. The LF counts toward the 65,507-byte datagram limit. |
-| X field label | Optional CSV field used as the point X coordinate. |
 | X field | Optional CSV field containing the point X coordinate. Set both X and Y for GeoJSON or Esri JSON point geometry. GeoJSON requires WKID 4326. |
-| Y field label | Optional CSV field used as the point Y coordinate. |
 | Y field | Optional CSV field containing the point Y coordinate. Set both X and Y for GeoJSON or Esri JSON point geometry. |
-| WKID label | Spatial reference WKID used for generated point geometry. |
 | WKID | Spatial reference WKID for generated point geometry. GeoJSON requires 4326; Esri JSON includes the configured WKID. |
 
 ## Headless and Launch Config
@@ -205,22 +248,35 @@ For a local IPv6 receiver, use `ip=::1 udpAddressFamily=ipv6` with the same
 command. Existing launch configurations that omit the family remain IPv4.
 
 The CSV header, coordinate mapping, and WKID controls are also honored by
-headless and Launch Config workflows when configured. In server mode, use
-`waitForClient=true` to hold the first replay record until a recipient
-registers. This waiting mode is for the custom application-pair convention,
-not for a Velocity UDP feed.
+headless and Launch Config workflows when configured. In Registered server
+mode, `waitForClient=true` holds the first replay record until a receiver's
+registration arrives. Direct mode already has its configured destination;
+waiting does not probe or confirm that receiver.
 
-For a delimited Velocity feed, use the reachable data host and enable framing:
+For a passive or explicitly Direct feed, send to its reachable listening endpoint:
 
 ```bash
 npm run start:headless -- filename=./data.csv protocol=udp mode=client ip=feed.example.com port=17009 udpFormat=delimited udpAppendNewline=true
 ```
 
+For a registration-based Client feed, start a local publisher instead:
+
+```bash
+npm run start:headless -- filename=./data.csv protocol=udp mode=server ip=0.0.0.0 port=17009 udpConnectionMode=registered udpFormat=delimited udpAppendNewline=true waitForClient=true
+```
+
+`0.0.0.0` intentionally exposes all local IPv4 interfaces. Prefer a specific
+local interface when possible, and configure the feed with a reachable address
+of that machine, never `0.0.0.0`.
+
 ## Troubleshooting
 
 | Symptom | Check |
 |---|---|
-| A generic server has no recipients | Start the paired Logger UDP client; after a Simulator restart, allow up to the next renewal for rediscovery (30 seconds by default). Registration can be lost like any UDP datagram. For a Velocity feed, use Simulator UDP Client instead. |
+| A Registered server has no recipients | Confirm the receiver uses the registration contract and contacts this publisher's reachable bind endpoint. A paired Logger renews every 30 seconds by default; another receiver may need its sample or runtime session restarted. |
+| A Direct server publishes but nothing arrives | Check the destination in main Host/Port and the actual receiver's listening port; Local host/port are the publisher's bind, not the destination. |
+| A registration-based Velocity Client feed cannot sample | Select Simulator UDP Server with Registered explicitly, then start the sample session before replay. See [Registered feed workflow](#registered-feed-workflow). |
+| Header-based sampling derives no schema | Confirm whether a header was actually transmitted. Simulator CSV header row on consumes it; off sends it. Then inspect the remote sampler's diagnostics rather than assuming transport readiness proves sampling. |
 | A delimited Velocity feed receives no records | Enable Append LF and verify the advertised host and port are reachable; a ready UDP socket does not confirm delivery. |
 | A record exceeds the limit | Reduce it below 65,507 UTF-8 bytes and account for lower practical limits. |
 | The receiver expects several datagrams per event | Reconfigure it for one complete event per datagram; there is no reassembly. |

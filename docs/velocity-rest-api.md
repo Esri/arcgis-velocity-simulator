@@ -253,6 +253,11 @@ Passive UDP feeds select Simulator UDP Client, while explicitly Registered
 Client feeds select Simulator UDP Server in Registered mode. Unannotated UDP
 Client contracts require manual configuration; the management URL is never
 substituted for a UDP data endpoint.
+The supported UDP Client metadata keys are `udp-client.connectionMode`,
+`udp-client.localHost`, and `udp-client.localPort` for Direct receiving, or
+`udp-client.hostname` and `udp-client.port` for the remote publisher in
+Registered mode. An installed service may omit the mode; Apply rejects that
+ambiguity rather than treating new metadata support as a deployment guarantee.
 See [Velocity feeds](udp.md#velocity-feeds) for endpoint validation and framing.
 
 Review the populated settings in

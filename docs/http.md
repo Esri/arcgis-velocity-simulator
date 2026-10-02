@@ -61,15 +61,17 @@ TLS is enabled by default (`Use TLS` checkbox checked), making the connection
 HTTPS. When TLS is enabled:
 
 - **Client mode**: Uses the OS certificate store (macOS Keychain, Windows certificate store, or Linux CA bundles) plus Node.js bundled root certificates to verify the server. Custom CA, client cert, and key can be provided for mutual TLS or enterprise CAs.
-- **Server mode**: Requires a TLS certificate and private key to be provided. The OS certificate store cannot provide a server identity certificate.
+- **Server mode**: Uses a provided certificate/key pair, or generates an
+  in-memory self-signed pair when both paths are empty. The OS trust store is
+  not a source of server identity. See [Automatic self-signed certificates](tls.md#server-mode-tls-automatic-self-signed-certificate).
 
 When TLS is enabled, additional certificate path fields appear:
 
 | Field | Description |
 |-------|-------------|
 | **CA cert path** | Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store automatically. Only needed for enterprise or self-signed CAs not in the system trust store. |
-| **TLS cert path** | Path to a client or server certificate file (PEM). Required for server-mode TLS. For client mode, only needed for mutual TLS (mTLS) authentication. |
-| **TLS key path** | Path to the private key file (PEM) corresponding to the TLS certificate. Required for server-mode TLS and client-side mTLS. |
+| **TLS cert path** | Optional custom client or server certificate (PEM); configure it together with its key. An empty server pair uses an automatic self-signed certificate. |
+| **TLS key path** | Private key (PEM) paired with the custom certificate. |
 | **httpAllowUnverifiedTls** | Client mode only. Explicitly accept an unverified server certificate (default: `false`). The bypass applies to any host, not only localhost. |
 
 ## Default ports
@@ -114,10 +116,9 @@ GET polling is off by default, preserving existing HTTP Server behavior.
 
 ## UI controls
 
-When HTTP is selected in the **Mode** dropdown, a **HTTP Settings…** button
-appears in the compact **Setup** toolbar. It opens Protocol Settings,
-which holds every HTTP-specific control, and it carries a concise configured
-state, such as `Defaults` or `2 changed`. Connection warnings remain visible
+When HTTP is selected in the **Mode** dropdown, the **Settings** button in the
+**Setup** toolbar opens the HTTP Protocol Settings. Its badge shows only a
+changed-setting count, such as `2`, and is absent at defaults. Connection warnings remain visible
 beneath the toolbar. Open Settings
 with the button or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on Windows
 and Linux. Its
@@ -140,8 +141,8 @@ offers Advanced:
 
 - **Use TLS** - Checkbox to enable TLS (HTTPS). When checked, the connection uses HTTPS and the port defaults to `8443`. When unchecked, uses plain HTTP with port `8080`. Toggling this checkbox also reveals or hides the certificate path fields.
 - **CA cert** - Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store. Only needed for enterprise or self-signed CAs. Client mode only.
-- **TLS cert** - Path to a client or server certificate file (PEM). Required for server-mode TLS; only needed in client mode for mutual TLS (mTLS).
-- **TLS key** - Path to the private key file (PEM). Required for server-mode TLS and client-side mTLS.
+- **TLS cert** - Optional custom client or server certificate file (PEM). An empty server certificate/key pair uses an automatic self-signed pair.
+- **TLS key** - Private key (PEM) paired with the custom certificate.
 - **Allow unverified** - Client-only warning checkbox, shown when TLS is enabled. Accepts an unverified server certificate for any host. Off by default; see [TLS and SSL security](tls.md#explicit-certificate-verification-bypass).
 
 **Advanced**
@@ -187,28 +188,15 @@ UI. These are also set dynamically via `HTTP_FORMAT_TOOLTIPS` and
 | CA cert path | Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store automatically. Only needed for enterprise or self-signed CAs not in the system trust store. |
 | TLS cert path | Path to a client or server certificate file (PEM). Required for server-mode TLS. For client mode, only needed for mutual TLS (mTLS) authentication. |
 | TLS key path | Path to the private key file (PEM) corresponding to the TLS certificate. Required for server-mode TLS and client-side mTLS. |
-| HTTP Settings… | Open HTTP settings (Cmd+Shift+P / Ctrl+Shift+P).<br>---<br>Everything specific to HTTP is edited in the dialog: format, HTTP path, TLS, and certificates.<br>Configured: &lt;state&gt;.<br>Nothing is sent until you select Connect. |
 | Allow unverified | Warning: accept any HTTPS server certificate<br>---<br>Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing. |
 | HTTP path | HTTP endpoint URL path appended after the host:port (e.g. /receiver/feed-id). In server mode, only POST requests matching this path are accepted; all others return 404. In client mode, this path is used in the outgoing POST request URL. Default is /. |
 | GET polling | Serve the latest replay payload to GET requests at the configured HTTP path.<br>---<br>Off: GET requests provide status or Server-Sent Events.<br>On: each ordinary GET receives the latest replay payload using the selected format.<br>Default is off. |
 
-### TLS Trust Badge
-
-When connected, the status bar displays a lock icon reflecting the trust level
-at a glance. The icon **shape** and **colour** both encode the trust level so it
-is unambiguous for colour-blind users. No text label is shown beside the icon -
-hover or click the badge for full details.
-
-| Icon | Colour | Trust Level | Meaning |
-|------|--------|-------------|---------|
-| 🔓 | Grey / dimmed | off | No TLS - plaintext, unsecure connection. |
-| 🔒 | Amber | on | TLS on - OS certificate store, trust level not fully determined. |
-| 🔒⚠ | Amber | self-signed | TLS on, self-signed or cert-chain not verified. |
-| 🔒✓ | Green | ca-verified | TLS on, CA-verified certificate chain. |
-| 🔐 | Blue / cyan | mtls | Mutual TLS - both client and server present certificates. |
-
-See [TLS and SSL security](tls.md) for full TLS concepts, certificate file
-formats, OS trust store behaviour, and setup guides.
+The certificate tooltips above are the current UI strings. Although they say
+server paths are required, the runtime supports an automatic self-signed pair
+when both paths are empty. For actual trust behavior and the shared badge, see
+[TLS and SSL security](tls.md). The Settings action tooltip belongs to
+[Protocol settings and presets](connection-presets.md#tooltip-reference).
 
 ## CLI parameters
 
@@ -246,9 +234,9 @@ the peer is reachable again. Only an explicit disconnect ends the connection.
 
 ## Metadata logging
 
-When "Show Metadata" is enabled, HTTP connections log request metadata:
+HTTP transport diagnostics can include request metadata, for example:
 
-```json
+```text
 [metadata] protocol=HTTP mode=server method=POST path=/ content-type=application/json content-length=245 tls=on (HTTPS) remote=127.0.0.1:52341 format=json
 ```
 

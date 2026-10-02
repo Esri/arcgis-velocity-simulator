@@ -31,6 +31,7 @@
     "tcpWkid": 4326,
     "udpFormat": "delimited",
     "udpConnectionMode": "direct",
+    "_udpMode_comment": "When selecting UDP Server Direct, ip/port identify the receiving destination, not this publisher's bind. Replace wildcard ip with a reachable receiver address; udpLocalHost/udpLocalPort are the local bind. Registered mode uses ip/port as the publisher bind instead.",
     "udpLocalHost": "127.0.0.1",
     "udpLocalPort": 0,
     "udpAddressFamily": "ipv4",

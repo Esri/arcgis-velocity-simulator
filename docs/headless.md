@@ -54,7 +54,7 @@ Bare-flag and `=true` forms are equivalent, e.g. `help-detailed=true` or
 
 Unknown CLI parameters are treated as startup errors. When an unsupported
 parameter or bare positional argument is provided, the app logs a clear console
-error, prints the help text, and exits gracefully without starting the run.
+error, shows how to request help, and exits without starting the run.
 
 Inapplicable parameters for the current mode are **warnings, not errors**: they
 are logged with an explanation and the run continues normally.
@@ -97,13 +97,13 @@ reference stay aligned.
 | `help-table-narrow` | `true`, `false` | `false` | No | `help-table-narrow=true` | Print CLI help in a narrower ASCII-table layout for smaller terminals, then exit. |
 | `help-table-wide` | `true`, `false` | `false` | No | `help-table-wide=true` | Print CLI help in a wide ASCII-table layout for larger terminals, then exit. |
 | `help-wide` | `true`, `false` | `false` | No | `help-wide=true` | Print a compact ASCII-table parameter summary (name, values, default, example, purpose) and exit without running the app. |
-| `ip` | IP address or hostname | `127.0.0.1` | No | `ip=192.168.1.25` | Bind address for server mode or destination address for client mode. See [TCP transport](tcp.md) and [UDP transport](udp.md) for IPv6 family selection. |
+| `ip` | IP address or hostname | `127.0.0.1` | No | `ip=192.168.1.25` | Peer or bind address according to the transport. UDP Server Direct uses it as the destination, with `udpLocalHost` for binding. See [UDP transport](udp.md). |
 | `linesPerInterval` | `integer >= 1` | `1` | No | `linesPerInterval=5` | Number of lines processed during each scheduler tick. |
 | `logFile` | `path`, `omitted` | `(none)` | No | `logFile=./logs/run.log` | Optional file path for persisted headless logs. |
 | `logLevel` | `error`, `warn`, `info`, `debug` | `info` | No | `logLevel=debug` | Minimum log level written to stdout/logFile in headless mode. |
 | `loop` | `true`, `false` | `false` | No | `loop=true` | Restart from `startLine` after reaching `endLine`. |
 | `maxLines` | `integer >= 1`, `null/omitted` | `(none)` | No | `maxLines=1000` | Optional cap on successfully processed lines. |
-| `mode` | `server`, `client` | `server` | No | `mode=client` | Choose whether the simulator binds locally or connects outward. |
+| `mode` | `server`, `client` | `server` | No | `mode=client` | Select the transport role; UDP Server Direct sends to a configured destination rather than waiting for inbound recipients. |
 | `onError` | `exit`, `continue`, `pause` | `exit` | No | `onError=continue` | Choose how send failures are handled: exit, continue, or pause. |
 | `port` | `1-65535` | `5565` | No | `port=6000` | Target or bind port. |
 | `protocol` | `tcp`, `udp`, `grpc`, `http`, `ws`, `xmpp` | `tcp` | No | `protocol=xmpp` | Choose the network transport for headless replay. XMPP overrides the role/port defaults to client/5222 only after it is selected. |
@@ -122,8 +122,8 @@ Transports use the following protocol-specific settings. All are optional:
 
 | Transport | Parameters | Defaults / behavior |
 |---|---|---|
-| TCP | `tcpFormat`, `tcpInputHasHeader`, `tcpXField`, `tcpYField`, `tcpWkid` | Delimited, no header row, no geometry mapping, WKID 4326. TCP publishes newline-separated logical payloads. |
-| UDP | `udpFormat`, `udpInputHasHeader`, `udpXField`, `udpYField`, `udpWkid` | Delimited, no header row, no geometry mapping, WKID 4326. UDP publishes one complete payload per datagram, with a 65,507-byte UTF-8 maximum. |
+| TCP | See [TCP transport](tcp.md). | Format, address family, optional greeting, CSV header consumption, and geometry settings. |
+| UDP | See [UDP transport](udp.md). | Direct/Registered mode, separate local binding, address family, delimited LF, CSV header consumption, and geometry settings. |
 | HTTP | `httpFormat`, `httpPolling`, `httpPath`, `httpTls`, `httpTlsCaPath`, `httpTlsCertPath`, `httpTlsKeyPath`, `httpAllowUnverifiedTls` | `delimited`, polling off, `/`, TLS on, system CA/no client identity, verification on. Formats are `delimited`, `json`, `esri-json`, `geo-json`, and `xml`. Client mode sends POST requests; server mode broadcasts to SSE watchers or serves the latest payload to GET-based pollers. |
 | WebSocket | `wsFormat`, `wsPath`, `wsTls`, `wsTlsCaPath`, `wsTlsCertPath`, `wsTlsKeyPath`, `wsAllowUnverifiedTls`, `wsSubscriptionMsg`, `wsIgnoreFirstMsg`, `wsHeaders` | `delimited`, `/`, TLS on, system CA/no client identity, verification on, no subscription, do not ignore the first message, and no custom headers. Client mode sends text frames; server mode broadcasts to connected sockets. |
 
@@ -134,7 +134,7 @@ requirements are in [Command-line reference](command-line.md):
 |---|---|---|
 | Address | `xmppDomain`, `xmppResource` | `localhost`, `velocity-simulator`; the network host is the shared `ip` key (there is no `xmppHost`) and is independent of `xmppDomain`. |
 | TLS | `xmppTlsPolicy`, `xmppTlsCaPath`, `xmppTlsCertPath`, `xmppTlsKeyPath`, `xmppAllowUnverifiedTls` | Required; client OS/custom CA; server cert/key pair or automatic self-signed; the bypass is an explicit opt-in that applies to any host. |
-| Client auth | `xmppUsername`, `xmppPassword` | Both required in client role; password whitespace is significant and is never trimmed. |
+| Client auth | `xmppUsername`, `xmppPassword` | Username required; an empty password is accepted. Password whitespace is significant and is never trimmed. |
 | Server auth | `xmppExternalUsername`, `xmppExternalPassword`, `xmppAllowRemote` | Account values are paired; the account may not canonically collide with the reserved `velocity-simulator` identity; remote bind is opt-in. |
 | Conversation | `xmppConversation`, `xmppDestination`, `xmppRoom`, `xmppNickname`, `xmppRoomPassword` | Direct; destinations are bare JIDs; room is required for MUC. |
 | Timing | `xmppConnectTimeoutMs`, `xmppReplyTimeoutMs`, `xmppPingIntervalMs`, `xmppReconnectDelayMs` | 30000 / 15000 / 60000 / 60000 ms; every one is a positive integer, so zero is rejected rather than treated as "disabled" or "wait forever" |
@@ -150,10 +150,12 @@ requirements are in [Command-line reference](command-line.md):
 The default `ip` value is **`127.0.0.1`**.
 
 - Use **`127.0.0.1`** for loopback/local-only testing on the same machine.
-- Use **`0.0.0.0`** in **server mode** when you want the simulator to listen on all interfaces so other machines can connect.
+- Use **`0.0.0.0`** as a listening bind when deliberately accepting traffic on
+  all local IPv4 interfaces. For UDP Server Direct, set `udpLocalHost=0.0.0.0`
+  instead: its main `ip` remains the receiving destination.
 
-That is why the default remains `127.0.0.1`, while some server-mode examples use
-`ip=0.0.0.0`.
+Never use a wildcard as a destination. See the transport guide for the chosen
+mode before using an all-interface bind.
 
 ## Examples
 
@@ -211,12 +213,12 @@ Omitting `udpInputHasHeader`, coordinate fields, and `udpWkid` preserves the
 header as an event, generates deterministic names for a structured payload,
 uses null geometry, and defaults WKID to 4326.
 
-For a Velocity UDP feed, use client mode. Delimited UDP publishing defaults to
-`udpAppendNewline=true`; set it explicitly to `false` only when a receiver needs
-unterminated datagrams. Structured payloads are unchanged. For a generic paired
-Logger client, server mode can use
-`waitForClient=true`. See [UDP transport](udp.md) for the custom registration
-convention and Velocity framing requirements.
+For a passive Velocity UDP feed, use client mode. For a registration-based
+UDP Client feed, use Server with `udpConnectionMode=registered` explicitly;
+`waitForClient=true` holds replay until its registration arrives. See
+[Registered feed workflow](udp.md#registered-feed-workflow) and
+[Data formats](data-formats.md#fields-and-geometry) for mode selection,
+delimited LF, and matching source/receiver header settings.
 
 For a local IPv6 pair, set `ip=::1` and the protocol's family option,
 `tcpAddressFamily=ipv6` or `udpAddressFamily=ipv6`. This does not change file
@@ -329,8 +331,9 @@ Mode-specific and protocol-specific templates are also available:
 
 ### Launch the sample templates
 
-Use these commands as a starting point for scheduled jobs, cron tasks, or CI
-workflows:
+Copy a sample and replace its placeholder filename and endpoint before use.
+The following commands illustrate how to load the templates; they are not
+ready-to-run connections without that configuration:
 
 #### Generic template
 
@@ -401,14 +404,16 @@ line range, and the completion timestamp.
 ## Notes
 
 - Headless mode does not create the splash screen or the main application window.
-- In server mode, the simulation starts sending immediately by default without waiting for clients to connect. Data sent before any client connects is silently discarded.
+- Without `waitForClient=true`, a server with no recipients reports that state
+  and advances through replay. Direct UDP already has a configured destination,
+  but this does not verify delivery.
 - `waitForClient=true` prevents file advancement while no server-side recipients are available.
 - For HTTP server mode, recipients are active SSE watchers. For WebSocket server mode, recipients are open WebSocket clients.
 - `connectWaitForServer=true` (client mode only) retries the outbound connection at `connectRetryIntervalMs` intervals until the server accepts it. If the server is stopped and restarted during a run, the simulator detects the lost connection and reconnects automatically without failing the run.
 - `connectTimeoutMs=0` means no deadline — the simulator will keep retrying indefinitely. Set a positive value (e.g. `connectTimeoutMs=60000`) to give up after a fixed period.
 - `onError=continue` skips failed sends and continues with the next line.
 - `onError=pause` stops the scheduler and leaves the process running until it is externally stopped.
-- Unknown CLI parameters — including bare positional arguments without `name=value` syntax — abort startup immediately with a clear error, print the help text, and exit the app. Use `electron . help=true` to review the valid parameter set.
+- Unknown CLI parameters — including bare positional arguments without `name=value` syntax — abort startup with a clear error and help instructions. Use `electron . --help` to review the valid parameter set.
 - Inapplicable parameters in the correct mode are **warnings, not errors**. Examples: `connectRetryIntervalMs` logs a warning and is ignored when `connectWaitForServer=false`; `waitForClient` logs a warning and is ignored in client mode; `connectWaitForServer` logs a warning and is ignored in server mode. The run continues normally.
 
 ## Related documentation
@@ -417,6 +422,5 @@ line range, and the completion timestamp.
 |----------|---------|
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
 | [Configuration](configuration.md) | App Config and Launch Config settings, storage locations, and reset steps. |
-| [Configuration](configuration.md) | App Config and Launch Config settings, storage locations, and the launch configuration samples. |
 | [Developer guide](developer-guide.md) | Repository structure, local development, tests, debugging, and extension points. |
 | [TLS and SSL security](tls.md) | Certificate types, trust stores, mutual TLS, and the TLS Trust Badge. |

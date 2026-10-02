@@ -114,6 +114,11 @@ Missing or invalid advertised endpoint properties are errors, not a reason
 to reuse the previous feed's fields. For endpoint mapping rules, see
 [Apply connection settings](velocity-rest-api.md#apply-connection-settings).
 
+An installed UDP Client feed may use registration-based receiving without
+advertising the explicit mode metadata expected by Apply. That is not evidence
+that it is a passive listener or that it cannot be used manually. Confirm the
+deployed contract and follow [Registered feed workflow](udp.md#registered-feed-workflow).
+
 ## Feed type reference
 
 Dropdowns and the detail panel identify each type with a geometric Unicode

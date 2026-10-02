@@ -44,7 +44,7 @@ Key modules:
 |--------|----------------|
 | `src/main.js` | Application lifecycle, windows, menus, dialogs, file access, configuration, IPC handlers, headless bootstrap, and logging. |
 | `src/renderer.js` | User interface state, controls, tooltips, themes, gesture and voice integration, and streaming controls. |
-| `src/preload.js` | The context-isolated bridge; the renderer has no direct Node.js access and every channel is validated here. |
+| `src/preload.js` | The context-isolated bridge exposing approved channels; main-process handlers validate requests and sender identity where required. |
 | `src/config.js` | Persisted application configuration: defaults, load, save, import, export, and merge. |
 | `src/cli-options.js` | The single source of truth for command-line parameter metadata; feeds terminal help, the in-application reference dialog, and the documentation. |
 | `src/simulation-engine.js` | Replay scheduling, line ranges, loops, `waitForClient`, error modes, and completion semantics, with no renderer dependency. |
@@ -53,7 +53,7 @@ Key modules:
 | `src/payload-format-utils.js` | CSV logical-record parsing and typed Delimited, JSON, GeoJSON, and Esri JSON payload conversion shared by TCP and UDP. See [Data formats](data-formats.md). |
 | `src/xmpp-*.js` | XMPP protocol layers: constants, client core, server core, SASL, shared SCRAM-SHA-1 primitives, Multi-User Chat, accounts, and utilities. |
 | `src/connection-presets.js` | The twelve paired Simulator and Logger connection presets shared with the sister repository; loaded by the renderer and by the tests. See [Protocol settings and presets](connection-presets.md). |
-| `src/connection-summary.js` | The pure generator behind every read-only description of a connection: the warning-only alert, status-bar Summary button, the read-only Summary section, and the configured-state count. No DOM access, so it runs unchanged in Node. See [Connection summary](connection-summary.md). |
+| `src/connection-summary.js` | The pure generator behind the warning-only alert, read-only Summary section, and configured-state count. No DOM access, so it runs in Node. See [Connection summary](connection-summary.md). |
 | `src/protocol-settings-window-manager.js` | The secure main-process owner of the detached Protocol Settings `BrowserWindow`: window creation, focus-on-reopen, bounds resolution and persistence, and sanitized IPC for state, commands, and events. Byte-identical in the Logger. |
 | `src/protocol-settings-mirror.js` | Dependency-free DOM mirroring primitives shared by the main renderer and the detached window: serializes the authoritative Protocol Settings subtree into minimal patches and replays them exactly, so no form rule is ever duplicated. Byte-identical in the Logger. |
 | `src/protocol-settings-window.js`, `src/protocol-settings-preload.js` | The detached window's controller and its narrowly scoped preload — state in, edits out, nothing else. Byte-identical in the Logger. |
@@ -65,6 +65,8 @@ Key modules:
 | `src/velocity-preferences.js`, `src/velocity-connection-options.js` | Non-secret preference allowlisting and validation before applying connection fields. |
 | `src/network-address-utils.js` | Shared IPv4, DNS, and bracketed IPv6 authority formatting for gRPC and WebSocket transports. |
 | `src/socket-address-utils.js` | Shared TCP and UDP family selection, literal normalization, DNS resolution, socket options, and structured UDP recipient keys. |
+| `src/tcp-handshake-utils.js` | Bounded Java-style greeting decoding and ordered socket writes with cancellation, timeout, and content-free errors. |
+| `src/udp-utils.js` | Delimited LF framing and the explicit Registered compatibility marker; Direct publishing does not require registration. |
 | `src/run-logger.js` | The `RunLogger` used for console and log-file output in both modes. |
 
 Shared logic belongs in a shared module. When behavior is needed by more than
@@ -186,10 +188,11 @@ The command must print `ok` and exit 0. See
 | Check | Command | Expected result |
 |-------|---------|-----------------|
 | Help layouts | `npm run help:cli`, `npm run help:cli:wide`, `npm run help:cli:narrow` | Each prints without errors and exits 0. |
-| Launcher help | `npm start -- help=true`, `npm start -- -h`, `npm start -- help-table-wide=true`, `npm start -- help-table-narrow=true` | Same output as the matching script. |
+| Launcher help | `npm start -- --help`, `npm start -- --help-table-wide`, `npm start -- --help-table-narrow` | Same output as the matching script. |
 | User interface launch | `npm start` | The window opens with the saved theme, size, position, and view, and the startup explanation is printed. |
-| Invalid parameters | `npm start -- mysteryOption=true`, `npm start -- hhh` | A clear error plus help, then exit. |
-| Ignored parameters | `npm start -- port=6000 protocol=udp` | The interface launches and one warning per ignored parameter is logged. |
+| Invalid parameters | `npm start -- mysteryOption=true`, `npm start -- hhh` | A clear error and how to request help, then exit. |
+| UI prepopulation | `npm start -- port=6000 protocol=udp` | The interface launches with those connection fields populated, without connecting. |
+| Ignored parameters | `npm start -- maxLines=10` | The interface launches with a warning that the headless-only replay limit is ignored. |
 | Headless session | `npm run start:headless -- filename=./data.csv` | The file streams and the process exits cleanly. |
 | Reference dialog | `F3` in the running application | The dialog lists every parameter; search, quick chips, active pills, sortable columns, copy, and export all respond. |
 | Tooltips | Hold the pointer nearly stationary over a new control | The custom tooltip appears after the intent delay with the expected icon, color, and wrapping; movement, interaction, focus alone, and modal dialogs do not open it. |

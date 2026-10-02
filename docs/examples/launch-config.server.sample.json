@@ -2,7 +2,7 @@
   "_comment": "Sample headless SERVER run configuration. Use this when the simulator should bind locally and replay data. By default, data is sent immediately without waiting for clients to connect. Set waitForClient=true if you need to wait for downstream consumers first.",
   "_usage": "Copy this file, adjust the values, then launch with config=/absolute/path/to/your-launch-config.json. CLI values override config-file values.",
   "connection": {
-    "_comment": "Server mode binds to a local address/port. Set waitForClient=true to wait for clients before advancing through the file.",
+    "_comment": "This TCP Server sample binds locally. If switching to UDP Server Direct, ip/port instead identify the receiver destination; replace wildcard ip and use udpLocalHost/udpLocalPort for the local publisher bind. Registered UDP uses ip/port as its bind and can wait for a registered recipient.",
     "connectTimeoutMs": 30000,
     "httpFormat": "delimited",
     "httpPolling": false,

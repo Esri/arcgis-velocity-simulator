@@ -9,7 +9,7 @@ example.
 
 It is written for users and developers who script the Simulator or drive it from
 a terminal. The same parameter metadata is surfaced in the in-app Command Line
-Interface dialog (`F3`), so this guide and the dialog always agree.
+Interface dialog (`F3`); this guide describes the same supported options.
 
 ## Table of contents
 
@@ -55,8 +55,8 @@ Interface** window. You can also open it from **Help → Command Line Interface*
 or from the main window context menu. This non-modal reference window uses
 native close, minimize, and maximize controls, focuses its existing instance,
 and restores its last size and position within the current display. The window
-is generated from the same metadata used by terminal help output and this
-markdown guide, so the in-app table and the CLI docs stay aligned.
+is generated from the same metadata used by terminal help output. This
+maintained reference also explains protocol-specific caveats.
 
 The Command Line Interface dialog supports:
 
@@ -82,11 +82,14 @@ errors also show how to open help (for example `electron . help=true` or
 verbose.
 
 **Inapplicable parameters in the correct mode are warnings, not errors.** When a
-headless-only parameter (e.g. `port=6000`, `protocol=udp`, `logLevel=debug`) is
+headless-only parameter (for example `maxLines=6000` or `doneFile=run.json`) is
 passed in UI mode, the app logs a `CLI warning:` line per parameter explaining
 why it has no effect, then continues to launch normally. The same applies in
 headless mode for parameters that don't apply to the selected sub-configuration
 (e.g. `connectRetryIntervalMs` when `connectWaitForServer=false`).
+
+`protocol`, `mode`, `ip`, `port`, and supported transport settings prepopulate
+the UI; `logLevel` and `logFile` configure logging in both modes.
 
 ## Required vs optional parameters
 
@@ -135,13 +138,13 @@ terminal help, the dialog, and this guide use the same terminology.
 | `httpTlsCertPath` | `path`, `omitted` | `(none)` | No | `httpTlsCertPath=./certs/server.pem` | HTTPS client mTLS or server identity certificate PEM. Pair it with `httpTlsKeyPath`. |
 | `httpTlsKeyPath` | `path`, `omitted` | `(none)` | No | `httpTlsKeyPath=./certs/server-key.pem` | Private key PEM corresponding to `httpTlsCertPath`. |
 | `intervalMs` | `integer >= 1` | `1000` | No | `intervalMs=250` | Delay in milliseconds between scheduler ticks. |
-| `ip` | IP address or hostname | `127.0.0.1` | No | `ip=192.168.1.25` | Bind address for server mode or destination address for client mode. Default `127.0.0.1` is loopback/local-only. TCP and UDP also accept IPv6 subject to their address-family setting. |
+| `ip` | IP address or hostname | `127.0.0.1` | No | `ip=192.168.1.25` | Peer or bind address according to the transport role. UDP Server Direct uses it as the destination; its bind is `udpLocalHost`. Default `127.0.0.1` is loopback/local-only. TCP and UDP also accept IPv6 subject to their address-family setting. |
 | `linesPerInterval` | `integer >= 1` | `1` | No | `linesPerInterval=5` | Number of lines processed during each scheduler tick. |
 | `logFile` | `path`, `omitted` | `(none)` | No | `logFile=./logs/run.log` | Optional file path for persisted headless logs. |
 | `logLevel` | `error`, `warn`, `info`, `debug` | `info` | No | `logLevel=debug` | Minimum log level written to stdout/logFile in headless mode. |
 | `loop` | `true`, `false` | `false` | No | `loop=true` | Restart from `startLine` after reaching `endLine`. |
 | `maxLines` | `integer >= 1`, `null/omitted` | `(none)` | No | `maxLines=1000` | Optional cap on successfully processed lines. |
-| `mode` | `server`, `client` | `server` | No | `mode=client` | Choose whether the simulator binds locally or connects outward. |
+| `mode` | `server`, `client` | `server` | No | `mode=client` | Select the transport role. TCP Server listens; UDP Server Direct publishes to a configured destination, while Registered learns compatible receivers. XMPP defaults to Client when selected. |
 | `onError` | `exit`, `continue`, `pause` | `exit` | No | `onError=continue` | Choose how send failures are handled: exit, continue, or pause. |
 | `port` | `1-65535` | `5565` | No | `port=6000` | Target or bind port. |
 | `protocol` | `tcp`, `udp`, `grpc`, `http`, `ws`, `xmpp` | `tcp` | No | `protocol=udp` | Choose the network transport for headless replay. See [gRPC transport](grpc.md), [HTTP and HTTPS transport](http.md), [WebSocket transport](websocket.md), and [XMPP transport](xmpp.md) for protocol details. When `protocol=xmpp`, the role defaults to `client` and the port defaults to `5222` unless `mode` or `port` is given explicitly. |
@@ -155,6 +158,10 @@ terminal help, the dialog, and this guide use the same terminology.
 | `stdout` | `true`, `false` | `true` | No | `stdout=false` | Enable or disable console log output during headless runs. |
 | `tcpFormat` | `delimited`, `json`, `geo-json`, `esri-json` | `delimited` | No | `tcpFormat=json` | TCP payload format. The Simulator converts each logical CSV record before sending it; Delimited preserves the existing newline-terminated CSV behavior. Only applies when `protocol=tcp`. See [Data formats](data-formats.md) and [TCP transport](tcp.md). |
 | `tcpAddressFamily` | `auto`, `ipv4`, `ipv6` | `auto` | No | `tcpAddressFamily=ipv6` | TCP DNS and socket family; Auto preserves existing Node.js selection. Explicit IPv6 listeners accept IPv6 only. See [Address family](tcp.md#address-family). |
+| `useTls` | `true`, `false` | `true` | No | `useTls=false` | gRPC TLS switch. HTTP, WebSocket, and XMPP use their own protocol-specific options. |
+| `tlsCaPath` | PEM path, omitted | `(none)` | No | `tlsCaPath=/certs/ca.pem` | gRPC custom CA certificate; an omitted client CA uses system and Node trust. |
+| `tlsCertPath` | PEM path, omitted | `(none)` | No | `tlsCertPath=/certs/client.pem` | gRPC client identity or server certificate, paired with `tlsKeyPath`. A server with neither path generates a self-signed pair. |
+| `tlsKeyPath` | PEM path, omitted | `(none)` | No | `tlsKeyPath=/certs/client-key.pem` | gRPC private key paired with `tlsCertPath`. See [TLS and SSL security](tls.md). |
 | `tcpHandshakeText` | UTF-8 string, empty | empty | No | `'tcpHandshakeText=HELLO\r\n'` | One-time greeting for each client or accepted server connection; whitespace is preserved, no delimiter is added, and no reply is awaited. Decoded limit: 1 MiB. Diagnostics hide it; saved configurations contain it. See [Connection greeting](tcp.md#connection-greeting). |
 | `tcpHandshakeUseEscapes` | `true`, `false` | `true` | No | `tcpHandshakeUseEscapes=false` | Interpret Java-style escapes in the greeting; false sends literal text. Invalid escapes fail without displaying the value. |
 | `tcpInputHasHeader` | `true`, `false` | `false` | No | `tcpInputHasHeader=true` | Treat the first logical CSV record as TCP field names and do not send it as an event. When false, structured formats use deterministic names such as `field_1` and `field_2`. |
@@ -242,6 +249,10 @@ Quick rule of thumb:
 - Use `127.0.0.1` for local-only testing
 - Use `0.0.0.0` for server-mode listening when remote clients should be allowed
 
+UDP Server **Direct** is the exception: its main `ip`/`port` identify the
+receiver, while `udpLocalHost`/`udpLocalPort` identify the publisher's bind.
+Never set a destination to `0.0.0.0` or `::`. See [UDP transport](udp.md).
+
 ## Aliases and shortcuts
 
 - `runMode=silent` is treated the same as `runMode=headless`
@@ -252,7 +263,7 @@ Quick rule of thumb:
 - `--help-table-narrow` and `help-table-narrow=true` print the narrow table help layout
 - `--help-wide` and `help-wide=true` print the compact ASCII-table help with the example column
 - Unknown `name=value` parameters, unknown bare flags, and bare positional arguments all abort startup with an error and exit the app. Close misspellings include `Did you mean ...?` suggestions. Unknown-parameter errors show a help command instead of printing the full help table automatically.
-- Headless-only parameters supplied in UI mode (e.g. `port`, `protocol`, `logLevel`) are **not** errors; a `CLI warning:` line is logged per parameter explaining why it is ignored, and the app continues to launch normally
+- Headless-only parameters supplied in UI mode (for example `maxLines` and `doneFile`) produce warnings rather than errors; protocol and endpoint parameters prepopulate the UI, and logging options apply in both modes.
 - In headless mode, `connectRetryIntervalMs` is warned and ignored when `connectWaitForServer=false`; `waitForClient` is warned and ignored in client mode; `connectWaitForServer` is warned and ignored in server mode
 - If multiple help layouts are requested together, `help-table-narrow` wins, then `help-table-wide`, then `help-detailed`, then `help-wide`, then `help`
 
@@ -545,7 +556,7 @@ Expected behavior:
 ### UI mode with connection presets
 
 ```bash
-npm start -- protocol=grpc mode=client ip=mcstest492.esri.com port=7145 useTls=true grpcHeaderPath=dedicated.abc123
+npm start -- protocol=grpc mode=client ip=receiver.example.com port=7145 useTls=true grpcHeaderPath=replace.with.feed.route
 ```
 
 Expected behavior:

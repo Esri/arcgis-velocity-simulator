@@ -9,7 +9,7 @@ usable in restricted or disconnected environments.
 
 This guide is written for users who want hands-free control and for developers
 extending the recognizer. It covers setup, the supported commands, the audio
-processing pipeline, configuration, troubleshooting, measured performance, the
+processing pipeline, configuration, troubleshooting, the
 integration points inside the application, and the limitations of a
 frequency-based approach. A working microphone and enabled microphone support
 are required.
@@ -24,9 +24,7 @@ are required.
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
 - [Security and privacy](#security-and-privacy)
-- [Performance benchmarks](#performance-benchmarks)
 - [Limitations](#limitations)
-- [Future enhancements](#future-enhancements)
 - [Support](#support)
 - [Related documentation](#related-documentation)
 
@@ -103,10 +101,11 @@ When microphone logging is enabled, you'll see:
 ## Configuration
 
 ### Speech recognition settings
-- **Microphone Source**: Select input device (if multiple available)
-- **Sensitivity**: Adjust audio threshold for detection
-- **Confidence Threshold**: Adjust recognition sensitivity
-- **Logging**: Enable/disable detailed console logging
+
+Microphone support and command logging are application controls. Select the
+default input device through operating-system settings. Sensitivity,
+confidence thresholds, and frequency bands are implementation constants in
+`src/simple-offline-speech.js`, not user-interface preferences.
 
 ### Advanced settings
 - **Sample Rate**: Audio sampling rate (default: 44100 Hz)
@@ -239,7 +238,8 @@ output.
 ### Data privacy
 - **No Cloud Processing**: All speech recognition happens locally in browser
 - **No Data Transmission**: Audio never leaves your device
-- **No Logging**: Speech data is not stored or logged
+- **Logging**: Raw audio is not stored; enabling command logging exposes
+  recognition and frequency-analysis diagnostics locally.
 - **Browser-Based**: Uses standard Web Audio API
 
 ### Security features
@@ -247,26 +247,6 @@ output.
 - **No External APIs**: No third-party speech services
 - **Standard APIs**: Uses well-established Web Audio API
 - **Privacy-First**: No audio data collection or transmission
-
-## Performance benchmarks
-
-### Recognition accuracy
-- **Clear Speech**: ~70-80% accuracy with optimal conditions
-- **Noise Tolerance**: Moderate performance in background noise
-- **Command Distinction**: Good separation between different commands
-- **Language Support**: Optimized for English patterns
-
-### Resource usage
-- **CPU**: 2-8% on modern systems
-- **Memory**: 10-50MB for audio processing
-- **Latency**: 50-200ms for command recognition
-- **Startup Time**: Immediate (no model loading required)
-
-### Browser compatibility
-- **Chrome**: Full support
-- **Firefox**: Full support
-- **Safari**: Full support
-- **Edge**: Full support
 
 ## Limitations
 
@@ -287,21 +267,6 @@ output.
 | **Setup Complexity** | Simple | Complex |
 | **Privacy** | Excellent | Varies |
 | **Offline Capability** | Yes | Yes |
-
-## Future enhancements
-
-### Planned features
-- **Machine Learning Integration**: Add ML-based pattern recognition
-- **Custom Commands**: User-defined voice commands
-- **Voice Profiles**: Personalized recognition for different users
-- **Advanced Audio Processing**: Better noise reduction and filtering
-- **Gesture Integration**: Combined voice and gesture control
-
-### Technical improvements
-- **Advanced Pattern Matching**: More sophisticated frequency analysis
-- **Multi-threading**: Parallel audio processing
-- **GPU Acceleration**: Hardware-accelerated audio processing
-- **Real-time Learning**: Adaptive pattern recognition
 
 ## Support
 

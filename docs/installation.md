@@ -31,9 +31,10 @@ Download packages only from the repository's official GitHub release page.
 | Linux | `arcgis-velocity-simulator-<version>-linux.AppImage` | Portable launch on AppImage-compatible distributions. |
 | Debian and Ubuntu | `arcgis-velocity-simulator-<version>-linux.deb` | Installation through `apt` or `dpkg`. |
 
-Check the release's architecture before downloading. The v1.0.6 macOS packages
-are for Apple silicon (`arm64`), Windows packages are `x64`, and Linux packages
-are `arm64`. An Intel Mac requires an `x64` or universal macOS package; an
+Check the selected release's architecture before downloading; filenames alone
+do not encode the architecture. Apple silicon uses `arm64`, Windows packages
+use `x64`, and Linux packages must match the host architecture.
+An Intel Mac requires an `x64` or universal macOS package; an
 `x86_64` Linux system requires a matching Linux package.
 
 ## Install and launch
@@ -54,7 +55,7 @@ Alternatively, extract the macOS ZIP and move `VelocitySimulator.app` into
 installed application rather than a copy inside the mounted DMG.
 
 To check the downloaded DMG, set `VERSION` to the version you downloaded
-(for example, `1.0.6`):
+(use the version shown on the selected release):
 
 ```bash
 VERSION=x.y.z
@@ -158,7 +159,7 @@ usual default.
 | Symptom | Cause and action |
 |---|---|
 | macOS says the application is damaged. | Check disk-image integrity and the published SHA-256 digest first. Do not bypass a checksum mismatch. For an intact, trusted official package blocked by Gatekeeper, see [Unsigned package workaround](#unsigned-package-workaround). |
-| macOS shows `ENOENT: no such file or directory, mkdir '/logs'`. | Install v1.0.6 or later and launch the copy in `/Applications`. Default logs no longer depend on Finder's working directory. If the error persists, check for an explicit `logFile` override; do not create `/logs` or run the app with `sudo`. |
+| macOS shows `ENOENT: no such file or directory, mkdir '/logs'`. | Install a current release and launch the copy in `/Applications`. Packaged default logs do not depend on Finder's working directory. If the error persists, check for an explicit `logFile` override; do not create `/logs` or run the app with `sudo`. |
 | macOS says the application is unsupported. | The package architecture does not match the Mac. The current package requires Apple silicon. |
 | Windows shows a SmartScreen warning. | Confirm the package came from the official release page and verify its publisher before continuing. |
 | Linux cannot execute the AppImage. | Add execute permission with `chmod +x` and confirm the distribution supports AppImage. |

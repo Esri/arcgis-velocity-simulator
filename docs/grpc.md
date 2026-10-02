@@ -259,7 +259,7 @@ electron . runMode=headless filename=./data.csv protocol=grpc mode=client ip=127
 electron . runMode=headless filename=./data.csv protocol=grpc mode=client ip=127.0.0.1 port=50051 grpcHeaderPathKey=grpc-path grpcHeaderPath=my.feed.dedicated.uid
 
 # gRPC client mode with TLS (for connecting to Velocity endpoints with SSL)
-electron . runMode=headless filename=./data.csv protocol=grpc mode=client ip=mcstest492.esri.com port=7145 useTls=true grpcHeaderPathKey=grpc-path grpcHeaderPath=dedicated.c7bf318b252a4b55bf63bb13da8721fd
+electron . runMode=headless filename=./data.csv protocol=grpc mode=client ip=receiver.example.com port=7145 useTls=true grpcHeaderPathKey=grpc-path grpcHeaderPath=replace.with.feed.route
 
 # gRPC client mode with TLS and custom CA certificate
 electron . runMode=headless filename=./data.csv protocol=grpc mode=client ip=myserver.example.com port=7145 useTls=true tlsCaPath=./certs/ca.pem
@@ -281,7 +281,7 @@ electron . runMode=headless filename=./data.csv protocol=grpc mode=server ip=0.0
 | `grpcHeaderPath` | Value sent as the gRPC endpoint header path (default: `replace.with.dedicated.uid`). Client mode only. |
 | `grpcHeaderPathKey` | Key name for the gRPC endpoint header path metadata entry (default: `grpc-path`). Client mode only. |
 | `mode=client` | Connect as a gRPC client to send features. |
-| `mode=server` | Host a gRPC server and receive features. |
+| `mode=server` | Host a gRPC server and publish features to Watch subscribers. |
 | `port` | Bind port (server mode) or target port (client mode). |
 | `protocol=grpc` | Select gRPC transport. |
 | `grpcSerialization=protobuf` | Use Velocity external GrpcFeed protocol with typed Any-wrapped attributes (default). |
@@ -290,18 +290,17 @@ electron . runMode=headless filename=./data.csv protocol=grpc mode=server ip=0.0
 | `grpcSendMethod=stream` | Client Streaming RPC - multiplexes all messages over a single persistent HTTP/2 stream (default). Higher throughput, lower per-message overhead. Client mode only. |
 | `grpcSendMethod=unary` | Unary RPC - sends each message as a discrete request/response round-trip. Simpler to trace and debug. Client mode only. |
 | `ip` | Bind address (server mode) or target address (client mode). |
-| `useTls` | Use TLS (SSL) for the gRPC connection (default: `false`). When `true`, uses SSL credentials instead of plaintext. |
+| `useTls` | Use TLS (SSL) for the gRPC connection (default: `true`). Set false explicitly for an unsecure local endpoint. |
 | `tlsCaPath` | Path to a custom CA certificate file (PEM). When omitted with `useTls=true`, OS root certificates are loaded automatically (see [TLS and certificate stores](#tls-and-certificate-stores)). |
-| `tlsCertPath` | Path to a client/server certificate file (PEM) for mutual TLS. Required for TLS server mode. |
-| `tlsKeyPath` | Path to a private key file (PEM) for mutual TLS. Required for TLS server mode. |
+| `tlsCertPath` | Optional custom client/server certificate (PEM), paired with `tlsKeyPath`. A server with both paths empty uses an automatic self-signed certificate. |
+| `tlsKeyPath` | Private key (PEM) paired with the custom certificate. |
 | `allowUnverifiedTls` | Client mode only. Explicitly accept an unverified server certificate (default: `false`). The bypass applies to any host, not only localhost. |
 
 ## UI usage
 
-When gRPC is selected in the **Mode** dropdown, a **gRPC Settings…** button
-appears in the compact **Setup** toolbar. It opens Protocol Settings,
-which holds every gRPC-specific control, and it carries a concise configured
-state, such as `Defaults` or `2 changed`. Connection warnings remain visible
+When gRPC is selected in the **Mode** dropdown, **Settings** in the
+**Setup** toolbar opens its Protocol Settings. The badge shows only a changed
+count, such as `2`, and is absent at defaults. Connection warnings remain visible
 beneath the toolbar. Open Settings
 with the button or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on Windows
 and Linux. Its
@@ -312,14 +311,13 @@ are described in
 Host, port, and the connection mode stay in the panel, because they apply to
 every protocol.
 
-Protocol Settings offers two sections for gRPC:
+Protocol Settings offers Basics and Security for both gRPC roles, Advanced
+for the client, and a read-only Summary:
 
 **Basics**
 
 - **Serialization** - `Protobuf` (default), `Kryo`, or `Text`
 - **RPC type** - `Client Streaming` (default) or `Unary`. Selects the gRPC call pattern for sending data. Client Streaming opens a persistent stream for high-throughput ingestion. Unary sends each message as an independent request/response round-trip. See [Send Methods (RPC Types)](#send-methods-rpc-types) for details. Only applies in gRPC Client mode. **Locked while connected** (the streaming vs. unary choice is baked into the transport at connect time).
-- **Header path key** - gRPC endpoint header path key (default: `grpc-path`). Sent as gRPC metadata on every outgoing call. **Visible only in gRPC Client mode.**
-- **Header path** - gRPC endpoint header path value (default: `replace.with.dedicated.uid`). Sent as gRPC metadata on every outgoing call. **Visible only in gRPC Client mode.**
 
 **Security**
 
@@ -329,8 +327,12 @@ Protocol Settings offers two sections for gRPC:
 - **TLS key** - Path to a private key file (PEM) for mutual TLS.
 - **Allow unverified** - Client-only warning checkbox, shown when TLS is enabled. Accepts an unverified server certificate for any host. Off by default; see [TLS and SSL security](tls.md#explicit-certificate-verification-bypass).
 
-gRPC has no Advanced section, because every gRPC setting belongs to Basics or
-Security.
+**Advanced**
+
+- **Header path key** - gRPC routing metadata key (default: `grpc-path`).
+- **Header path** - Routing metadata value (default: `replace.with.dedicated.uid`).
+
+Both header controls apply only to gRPC Client.
 
 The serialization and TLS controls are shown for both client and server modes.
 The header controls are shown only when **gRPC Client** is selected, since they
@@ -359,7 +361,6 @@ UI. These are set dynamically via `GRPC_SERIALIZATION_TOOLTIPS` and
 
 | Control | Tooltip |
 |---------|---------|
-| gRPC Settings… | Open gRPC settings (Cmd+Shift+P / Ctrl+Shift+P).<br>---<br>Everything specific to gRPC is edited in the dialog: serialization, RPC type, header path, TLS, and certificates.<br>Configured: &lt;state&gt;.<br>Nothing is sent until you select Connect. |
 | Allow unverified | Warning: accept any gRPC server certificate<br>---<br>Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing. |
 
 #### RPC type tooltips
@@ -376,7 +377,7 @@ prepopulate the UI controls. For example:
 
 ```bash
 # Launch UI with gRPC client preset and TLS enabled
-electron . protocol=grpc mode=client ip=mcstest492.esri.com port=7145 useTls=true grpcHeaderPath=dedicated.c7bf318b252a4b55bf63bb13da8721fd
+electron . protocol=grpc mode=client ip=receiver.example.com port=7145 useTls=true grpcHeaderPath=replace.with.feed.route
 ```
 
 Supported UI-prepopulable parameters: `protocol`, `mode`, `ip`, `port`,
@@ -388,7 +389,7 @@ Supported UI-prepopulable parameters: `protocol`, `mode`, `ip`, `port`,
 
 - Works with ArcGIS Velocity and ArcGIS GeoEvent Server receivers that use the matching gRPC service and serialization format
 - **Protobuf** format is compatible with ArcGIS Velocity external gRPC feed endpoints
-- **Kryo/Text** formats are compatible with ArcGIS Velocity internal gRPC feature service endpoints
+- **Text** requires an endpoint accepting UTF-8 feature bytes; **Kryo** requires pre-serialized compatible bytes. CSV replay in Kryo mode is not a Kryo serializer and does not establish internal-endpoint compatibility.
 - Uses `@grpc/grpc-js` + `protobufjs` (pure JavaScript, no native compilation required)
 - Supports both plaintext (unsecure) and TLS (SSL) connections
 
@@ -410,7 +411,7 @@ connection log shows the cert breakdown on connect. Examples:
 
 **Client mode - OS root CAs (no custom cert):**
 ```text
-gRPC client connected to mcstest492.esri.com:7145 [protobuf] grpc-path=dedicated.abc123
+gRPC client connected to receiver.example.com:7145 [protobuf] grpc-path=dedicated.abc123
   tls=on, 429 trusted CAs loaded, node-bundled=144, os=Windows certificate store (285)
 ```
 

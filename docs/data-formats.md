@@ -65,17 +65,25 @@ floating-point representation, leading-zero values, dates, and negative zero
 also remain strings.
 
 All user interface, headless, and Launch Config workflows use Delimited when
-the protocol-specific option is absent. Existing configurations therefore keep
-their current behavior.
+the protocol-specific format option is absent. Framing and UDP endpoint mode
+have their own defaults; see [UDP transport](udp.md).
 
 ## Fields and geometry
 
 The **CSV header row** setting controls schema selection:
 
-- Off, the default, preserves backward compatibility. Structured payloads use
-  deterministic names such as `field_1`, `field_2`, and `field_3`.
-- On, the first logical CSV record supplies the field names and is not sent as
-  an event.
+- Off, the default, sends the first logical record as data. If the file starts
+  with a header, that header is therefore transmitted. Structured payloads use
+  deterministic names such as `field_1`, `field_2`, and `field_3`;
+- on, the first logical record supplies field names and is consumed rather than
+  transmitted, for Delimited as well as structured payload formats.
+
+The Simulator's source-header control is not Velocity's incoming-data
+**Has Header Row** setting (`delimited.hasHeaderRow`). Enable that receiver setting only when the
+actual transmitted stream includes a header. If the Simulator consumes the
+header, configure the receiver for header-free records. With JSON, GeoJSON, or
+Esri JSON, field names are carried by the generated payload instead of a CSV
+header row.
 
 **X field** and **Y field** are optional, but they must be configured together
 to produce point geometry. With neither mapping, GeoJSON uses null geometry and
@@ -147,7 +155,7 @@ required.
 
 | Symptom | Check |
 |---|---|
-| The header appears as an event | Enable **CSV header row** for a structured format. |
+| The header appears as an event | Enable **CSV header row** to consume it in the Simulator, or leave it off intentionally and configure the receiving delimited parser to expect that transmitted header. |
 | Generated names such as `field_1` appear | Enable **CSV header row**, or configure the receiver for the deterministic generated names. |
 | Geometry is null or absent | Set both **X field** and **Y field**, and confirm both values are valid coordinates. |
 | GeoJSON conversion is rejected | Set WKID to `4326` and verify the coordinate mappings. |

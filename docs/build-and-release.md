@@ -111,9 +111,9 @@ Output is written to `dist/`.
 | `npm run package:seq:max:clean` | All three, sequentially | maximum | Cleans `dist/` first. |
 | `npm run clean` | — | — | Deletes `dist/`. |
 
-Build only for the current host while iterating; cross-building a Windows
-installer from macOS or Linux is supported but unsigned, and `.dmg` requires a
-macOS host.
+Build only for the current host while iterating. Windows cross-builds from
+macOS or Linux need a configured signing workflow to be signed; `.dmg`
+packaging requires macOS.
 
 Compression defaults to `normal`. The `:max` scripts pass
 `--config.compression=maximum` at invocation time, producing the same formats in
@@ -180,8 +180,8 @@ script-friendly downloads.
 | AppImage | `arcgis-velocity-simulator-{version}-linux.AppImage` | Self-contained portable executable. |
 | DEB | `arcgis-velocity-simulator-{version}-linux.deb` | Debian and Ubuntu package installed with `apt` or `dpkg`. |
 
-Use the AppImage for broad distribution: it needs no root, runs on any x86_64
-distribution with glibc 2.17 or newer, and is removed by deleting the file. Use
+Use an AppImage whose architecture and runtime requirements match the target
+distribution; it needs no package installation and is removed by deleting the file. Use
 the DEB on Debian-family distributions where application-menu integration and
 `apt` management matter. Linux builds are produced for the build machine's own
 architecture; other architectures require a matching host or continuous
@@ -196,7 +196,7 @@ integration environment.
 | Windows | ❌ | ❌ | ✅ | ⚠️ via WSL | ⚠️ via WSL |
 
 macOS notarization requires a macOS host and a paid Apple Developer account.
-Windows signing requires the Windows signing variables regardless of host. The
+Windows signing requires certificate configuration or the external signer. The
 release script uploads whichever artifacts were actually produced; missing
 platforms are skipped rather than failing the release.
 
@@ -290,7 +290,7 @@ or from a release:
 ```bash
 ./scripts/release.sh v1.2.3 \
   --sign-script /absolute/path/to/sign.sh \
-  --sign-share-dir '\\storm\upload\DigitalSign\Velocity' \
+  --sign-share-dir '\\fileserver\signing\Velocity' \
   --sign-product-names "ArcGIS Velocity Simulator"
 ```
 
@@ -425,6 +425,14 @@ version prefixed with `v`, for example `v1.2.3`.
 6. Preview with `./scripts/release.sh --dry-run <version>` and read the artifact list and release notes.
 7. Publish with `./scripts/release.sh <version>`, or with `--prepare-only` followed by `--upload-only`.
 8. Confirm the published release with `./scripts/release.sh --list` and download one artifact per platform to verify it launches.
+
+For a complete seven-format release, verify the exact installer, portable EXE,
+Windows ZIP, AppImage, DEB, DMG, and macOS ZIP files rather than assuming a
+successful script produced every target. Check each embedded application
+version and source against the same committed revision, verify Windows
+Authenticode signatures and macOS bundle signatures as applicable, and record
+architecture, size, and SHA-256 for every uploaded asset. Do not upload stale
+files, block maps, build logs, or unpacked directories as installable packages.
 
 ## Troubleshooting
 

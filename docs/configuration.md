@@ -112,9 +112,10 @@ normal UI mode and restores saved UI behavior from configuration, including
 - **dialogSizes.launchConfig**: Remembered width, height, and position (x, y) of the Launch Config dialog
 - **dialogSizes.velocityLogin**: Remembered width, height, and position (x, y) of the Velocity Login & Feed Picker dialog (default: 590 x 840)
 - **dialogSizes.protocolSettings**: Remembered width, height, and position (x, y) of the detached Protocol Settings window (default: 700 x 720)
+- **dialogSizes.help** and **dialogSizes.commandLine**: Remembered bounds of the Help and Command Line Interface reference windows.
 
-Size and position are saved automatically when the user resizes or moves either
-dialog, and restored on next open. When `x` and `y` are `null` (the default),
+Size and position are saved automatically when the user resizes or moves these
+windows, and restored on next open. When `x` and `y` are `null` (the default),
 the dialog is centered by the OS.
 
 ## Available fonts
@@ -227,13 +228,14 @@ application never reads them at run time.
 
 | Sample | Purpose |
 |--------|---------|
-| [Generic sample](examples/launch-config.sample.json) | Every supported section and key, including TCP and UDP source conversion defaults. |
-| [Server-mode sample](examples/launch-config.server.sample.json) | Binds locally, replays immediately, and lists the complete transport key set. |
-| [Client-mode sample](examples/launch-config.client.sample.json) | Connects to an existing endpoint and lists the complete transport key set. |
+| [Generic sample](examples/launch-config.sample.json) | Grouped connection, replay, and output settings, including TCP and UDP defaults. |
+| [Server-mode sample](examples/launch-config.server.sample.json) | TCP listening workflow with representative protocol settings. |
+| [Client-mode sample](examples/launch-config.client.sample.json) | Connection to an existing endpoint with representative protocol settings. |
 | [XMPP sample](examples/launch-config.xmpp.sample.json) | Signs in as an XMPP client on port 5222 and retains inactive TCP and UDP defaults for a complete key reference. |
 
-Every sample includes both TCP and UDP conversion key groups so it can also
-serve as a complete reference. Only the group matching `protocol` is active.
+Every sample includes both TCP and UDP conversion key groups. They are
+editable workflow templates, not an exhaustive option reference; see
+[Command-line reference](command-line.md). Only the group matching `protocol` is active.
 These are Simulator source conversion settings, not Logger capture or export
 settings.
 
@@ -284,7 +286,7 @@ mode](headless.md).
 - `stdout`
 - `tcpFormat`, `tcpAddressFamily`, `tcpInputHasHeader`, `tcpXField`, `tcpYField`, `tcpWkid`
 - `tcpHandshakeText`, `tcpHandshakeUseEscapes`
-- `udpFormat`, `udpAddressFamily`, `udpInputHasHeader`, `udpXField`, `udpYField`, `udpWkid`
+- `udpFormat`, `udpAddressFamily`, `udpInputHasHeader`, `udpAppendNewline`, `udpXField`, `udpYField`, `udpWkid`
 - `udpConnectionMode`, `udpLocalHost`, `udpLocalPort`
 - `waitForClient`
 - `wsFormat`, `wsTls`, `wsPath`, `wsTlsCaPath`, `wsTlsCertPath`, `wsTlsKeyPath`, `wsSubscriptionMsg`, `wsIgnoreFirstMsg`, `wsHeaders`, `wsAllowUnverifiedTls`
@@ -368,12 +370,14 @@ never copied to logs, done files, or CLI `explain` output.
 The default headless `ip` value is **`127.0.0.1`**.
 
 - **`127.0.0.1`** is the loopback/local-only address. It is the default because it is the safest option for local testing.
-- **`0.0.0.0`** is typically used in **server** mode when the simulator should bind to all local interfaces and accept connections from other machines.
+- **`0.0.0.0`** binds all local IPv4 interfaces when supplied as a listening
+  address. For UDP Server Direct, that address is `udpLocalHost`; `ip` is the
+  receiver destination and must not be a wildcard.
 
 In other words:
 
 - use `127.0.0.1` for same-machine testing
-- use `0.0.0.0` for server-mode listening beyond localhost
+- use an all-interface bind only when intentionally exposing that listener.
 
 ### Supported shapes
 
@@ -473,7 +477,7 @@ cp ~/.config/arcgis-velocity-simulator/config.json ~/Desktop/backup.json
 | [ArcGIS Velocity REST API](velocity-rest-api.md) | Public API URL selection, contexts, and endpoint discovery. |
 | [ArcGIS Velocity sign-in and feed picker](velocity-login.md) | Sign-in controls and separately stored endpoint preferences. |
 | [Command-line reference](command-line.md) | Every command-line parameter, its default, and a worked example. |
-| [Connection presets](connection-presets.md) | Paired Simulator and Logger field presets and the Essentials plus Advanced layout. |
+| [Connection presets](connection-presets.md) | Paired Simulator and Logger presets and the existing Protocol Settings sections. |
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
 | [Installation](installation.md) | Install a release package and locate deployed application logs. |
 | [Developer guide](developer-guide.md) | Repository structure, local development, tests, debugging, and how to add a theme or a control. |

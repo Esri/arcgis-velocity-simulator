@@ -49,7 +49,7 @@ for macOS (`Cmd`); both forms appear in every table.
 | `Ctrl+D` (Windows/Linux)<br>`Cmd+D` (macOS) | **Disconnect** | Disconnects from current connection |
 | `Ctrl+Delete` (Windows/Linux)<br>`Cmd+Delete` (macOS) | **Clear Status Log** | Clears the status/log area |
 | `Ctrl+Shift+O` (Windows/Linux)<br>`Cmd+Shift+O` (macOS) | **Toggle Status Log Sort Order** | Switch between Ascending and Descending order (default: Ascending) |
-| `Ctrl+Shift+P` (Windows/Linux)<br>`Cmd+Shift+P` (macOS) | **Protocol Settings...** | Opens the Protocol Settings window for the selected protocol, or focuses it if it is already open. TCP and UDP expose payload format, CSV schema, and geometry settings there. |
+| `Ctrl+Shift+P` (Windows/Linux)<br>`Cmd+Shift+P` (macOS) | **Protocol Settings...** | Opens or focuses the selected protocol's settings, including socket modes, address families, optional TCP greetings, and payload controls. |
 
 ## Standard text editing
 
@@ -105,7 +105,7 @@ These keys apply while the Protocol Settings window is open.
 
 | Shortcut | Action | Description |
 |----------|--------|-------------|
-| `Arrow Up` / `Arrow Down` / `Arrow Left` / `Arrow Right` | **Previous / next section** | Moves between Basics, Security, and Advanced, wrapping around at either end |
+| `Arrow Up` / `Arrow Down` / `Arrow Left` / `Arrow Right` | **Previous / next section** | While a section tab is focused, moves among the offered Basics, Security, Advanced, and Summary sections, wrapping around at either end. |
 | `Home` | **First section** | Selects the first section offered for the protocol |
 | `End` | **Last section** | Selects the last section offered for the protocol |
 | `Tab` | **Move into the section** | The section tablist has a single tab stop, so `Tab` moves into the controls rather than through every section name |

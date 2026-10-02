@@ -67,9 +67,9 @@ protocol and role:
 
 | Protocol | Basics | Security | Advanced |
 |---|---|---|---|
-| TCP | Format | — | CSV header row, X field, Y field, WKID |
-| UDP | Format | — | CSV header row, X field, Y field, WKID |
-| HTTP | Format, HTTP path | TLS, CA/cert/key paths, Allow unverified | — |
+| TCP | Format, address family | — | Handshake text, Use escapes, CSV header row, X field, Y field, WKID |
+| UDP | Format, address family, Server UDP mode | — | Direct Server local host/port, Append LF, CSV header row, X field, Y field, WKID |
+| HTTP | Format, HTTP path | TLS, CA/cert/key paths, Allow unverified | GET polling, for a server |
 | WebSocket | Format, WS path | TLS, CA/cert/key paths, Allow unverified | Subscribe, Ignore 1st msg, Headers |
 | gRPC | Serialization, RPC type | TLS, CA/cert/key paths, Allow unverified | Header path key and value, for a client |
 | XMPP | Conversation, domain, account, destination or room, Copy Client Settings | STARTTLS, CA/cert/key paths, Allow unverified, Allow remote | Timeouts, ping interval, reconnect delay |
@@ -104,7 +104,7 @@ focus returns to the **Settings** button when Protocol Settings closes.
 |---|---|
 | Disconnected | Every control is editable. |
 | Connecting | It opens, every control is read-only, and the banner reads `Connecting. Disconnect to change these settings.` The shared preset, connection type, host, and port are locked with it. |
-| Connected | It opens on the read-only **Summary** section with the banner `Connected. Disconnect to change these settings.` |
+| Active transport | It opens on the read-only **Summary** section. The banner uses Connected for connection-oriented transports, Ready for direct UDP publishing, or Listening for Registered UDP Server. |
 
 While an XMPP server is connected, **Copy Client Settings** and **Include
 password** stay available, because that is the only state in which the bound
@@ -217,8 +217,8 @@ Start the Logger first, then the Simulator.
 
 1. In the Logger, select the preset **Local XMPP — Logger Server / Simulator
    Client**, then select **Connect**.
-2. In the Simulator, select the preset with the same name, choose the FAA
-   sample file, then select **Connect** and **Play**.
+2. In the Simulator, select the preset with the same name, choose your local
+   data file, then select **Connect** and **Play**.
 
 The equivalent command line uses empty passwords and no other options.
 
@@ -231,7 +231,7 @@ npm start -- protocol=xmpp mode=server ip=127.0.0.1 xmppExternalUsername=simulat
 **Terminal 2 — Simulator:**
 
 ```bash
-npm start -- filename=/Users/hano4470/Backup/data/faa.csv protocol=xmpp mode=client ip=127.0.0.1 xmppUsername=simulator xmppPassword= xmppDestination=velocity-logger@localhost xmppAllowUnverifiedTls=true
+npm start -- filename=./data.csv protocol=xmpp mode=client ip=127.0.0.1 xmppUsername=simulator xmppPassword= xmppDestination=velocity-logger@localhost xmppAllowUnverifiedTls=true
 ```
 
 `xmppAllowUnverifiedTls=true` lets the Simulator accept the Logger's automatic
@@ -246,7 +246,7 @@ testing.
 | Preset | Pre-fills the connection fields for a paired local Simulator and Logger test. Defaults to Custom. |
 | Modified badge | Appears after a populated field is edited; names the preset the fields started from. |
 | Settings | Opens Protocol Settings and carries the configured state. |
-| Summary | Opens the read-only Summary section and carries the warning count. |
+| Summary tab | Opens the read-only Summary section inside Protocol Settings. |
 | Section tabs | Basics, Security, and Advanced, offered only where the section holds a control. |
 | Done | Closes Protocol Settings and keeps the edits. |
 | Revert changes | Restores the values the fields held when Protocol Settings was opened. |
@@ -278,9 +278,9 @@ Protocol Settings holds the following controls for each protocol:
 
 | Protocol | Contents |
 |---|---|
-| TCP | `format, CSV header row, X field, Y field, and WKID` |
-| UDP | `format, CSV header row, X field, Y field, and WKID` |
-| HTTP | `format, HTTP path, TLS, and certificates` |
+| TCP | Format, address family, greeting text and escapes, CSV header row, X field, Y field, and WKID. |
+| UDP | Format, address family, Server mode, Direct local bind, Append LF, CSV header row, X field, Y field, and WKID. |
+| HTTP | Format, HTTP path, TLS, certificates, and Server GET polling. |
 | WebSocket | `format, WS path, TLS, certificates, subscription message, and headers` |
 | gRPC | `serialization, RPC type, header path, TLS, and certificates` |
 | XMPP | `conversation, domain, account, destinations, STARTTLS, and timings` |

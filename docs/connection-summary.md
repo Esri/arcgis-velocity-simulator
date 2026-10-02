@@ -33,7 +33,7 @@ The connection row holds only the fields that every protocol shares:
 
 | Inline | Moved into Protocol Settings |
 |---|---|
-| File selection, then the **Setup** toolbar: Preset, **Modified**, and Settings. | TCP and UDP format, CSV header row, coordinate fields, and WKID. |
+| File selection, then the **Setup** toolbar: Preset, **Modified**, and Settings. | TCP/UDP format and address family, TCP greeting, UDP mode and local binding, CSV header row, coordinate fields, and WKID. |
 | Connection type. | gRPC serialization, RPC type, and endpoint header. |
 | Host and Port. | HTTP format and path. |
 | **Connect**, **Disconnect**, **Play/Pause**, and **Step**. | WebSocket format, path, subscription message, **Skip 1st**, and headers. |
@@ -78,14 +78,14 @@ selected protocol and mode are not offered:
 
 | Section | Holds | Offered for |
 |---|---|---|
-| Basics | Format, path, serialization, RPC type, XMPP domain, conversation, account, and room fields. | TCP, UDP, gRPC, HTTP, WebSocket, XMPP. |
+| Basics | Format, TCP/UDP address family, UDP Server mode, path, serialization, RPC type, XMPP domain, conversation, account, and room fields. | TCP, UDP, gRPC, HTTP, WebSocket, XMPP. |
 | Security | TLS or the STARTTLS policy, certificate verification, the CA, certificate, and key paths, and XMPP **Allow remote**. | gRPC, HTTP, WebSocket, XMPP. |
-| Advanced | TCP and UDP CSV schema and geometry, gRPC endpoint header, WebSocket subscription message, **Skip 1st**, headers, and XMPP timing values. | TCP, UDP, gRPC Client, WebSocket, XMPP. |
+| Advanced | TCP greeting, TCP/UDP CSV schema and geometry, UDP local bind and Append LF, HTTP GET polling, gRPC endpoint header, WebSocket subscription message, **Skip 1st**, headers, and XMPP timings. | TCP, UDP, HTTP Server, gRPC Client, WebSocket, XMPP. |
 | Summary | Every connection setting as a read-only list, warnings first. | Every mode. |
 
-TCP and UDP offer Basics, Advanced, and Summary. HTTP has no Advanced settings,
-and a gRPC Server has none either because the endpoint header applies to client
-mode only.
+TCP and UDP offer Basics, Advanced, and Summary. HTTP Server has GET polling
+in Advanced; HTTP Client has no Advanced settings. A gRPC Server has none
+either because the endpoint header applies to client mode only.
 
 Sections use `tablist`, `tab`, and `tabpanel` semantics with a roving tab stop:
 only the selected tab is in the tab order, `←`, `→`, `↑`, and `↓` move between
@@ -124,8 +124,10 @@ warning-valued setting is the first thing shown the next time it opens. See
 | Connected | Protocol Settings opens directly in read-only summary mode with only the **Summary** section offered. |
 
 The read-only banner reads `Connected. Disconnect to change these settings.`
-while connected and `Connecting. Disconnect to change these settings.` while a
-connection is being established.
+for connection-oriented transports and `Connecting. Disconnect to change these
+settings.` while a connection is being established. UDP instead uses
+`Ready. Disconnect to change these settings.` for direct publishing or
+`Listening. Disconnect to change these settings.` for Registered Server mode.
 
 Locking is applied by querying the authoritative controls rather than by
 listing them, so every protocol control is locked — including the HTTP,
@@ -253,11 +255,15 @@ and XMPP. A blank host or port is reported as `Not set` rather than guessed.
 
 ## Secrets
 
-A password-like value is never placed in a row, a tooltip, the clipboard, or a
-log. This covers the XMPP account, external, and room passwords, and it also
+A password-like value is never placed in a summary row, summary tooltip, or
+copied summary. This covers TCP handshake text and XMPP account, external, and
+room passwords, and it also
 covers the two WebSocket fields documented as carriers of credentials — the
 subscription message and the upgrade headers — because either may hold a token
-or an `Authorization` value. The summary reports exactly one of three strings:
+or an `Authorization` value. This does not hide the editable field, encrypt
+network traffic, or remove secrets from a Launch Config export. See
+[Configuration](configuration.md#credentials-in-launch-config-files).
+The summary reports exactly one of three strings:
 
 | Reported | Meaning |
 |---|---|

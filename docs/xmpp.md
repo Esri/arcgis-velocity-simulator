@@ -251,10 +251,9 @@ rejects the zero-length HMAC key produced by an empty password.
 
 ## UI controls
 
-When XMPP is selected in the **Mode** dropdown, an **XMPP Settings…** button
-appears in the compact **Setup** toolbar. It opens Protocol Settings,
-which holds every XMPP-specific control, and it carries a concise configured
-state, such as `Defaults` or `2 changed`. Connection warnings remain visible
+When XMPP is selected in the **Mode** dropdown, **Settings** in the
+**Setup** toolbar opens its Protocol Settings. The badge shows only a changed
+count, such as `2`, and is absent at defaults. Connection warnings remain visible
 beneath the toolbar. Open Settings
 with the button or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on Windows
 and Linux. Its
@@ -338,7 +337,6 @@ shown as spaces):
 - **TLS cert:** `Path to the server certificate file (PEM) presented during STARTTLS. Leave empty to let the app generate an automatic self-signed certificate for local testing. Requires a matching private key.`
 - **TLS key:** `Path to the private key file (PEM) that matches the XMPP server certificate. Required whenever a certificate path is set. Leave empty to use the automatic self-signed certificate.`
 - **Allow unverified:** `Warning: accept any XMPP server certificate --- Certificate verification is disabled for every host, not only localhost. STARTTLS still encrypts the stream, but the server identity is not checked. Use only for local self-signed testing.`
-- **XMPP Settings…:** `Open XMPP settings (Cmd+Shift+P / Ctrl+Shift+P). --- Everything specific to XMPP is edited in the dialog: conversation, domain, account, destinations, STARTTLS, and timings. Configured: <state>. Nothing is sent until you select Connect.`
 - **Basics tab:** `Basics: the settings that decide what is sent and where it is delivered.`
 - **Security tab:** `Security: TLS, certificates, certificate verification, and who may connect.`
 - **Advanced tab:** `Advanced: the settings most connections can leave at their defaults.`
@@ -383,7 +381,7 @@ npm start -- protocol=xmpp mode=server ip=127.0.0.1 xmppExternalUsername=simulat
 Start the Simulator in a second terminal:
 
 ```bash
-npm start -- filename=/Users/hano4470/Backup/data/faa.csv protocol=xmpp mode=client ip=127.0.0.1 xmppUsername=simulator xmppPassword= xmppDestination=velocity-logger@localhost xmppAllowUnverifiedTls=true
+npm start -- filename=./data.csv protocol=xmpp mode=client ip=127.0.0.1 xmppUsername=simulator xmppPassword= xmppDestination=velocity-logger@localhost xmppAllowUnverifiedTls=true
 ```
 
 In the Logger, select **Connect**. Then select **Connect** and **Play** in the
@@ -562,7 +560,7 @@ Regression coverage for the hardening rules above:
 | Per-address auth rate limiting | 10 attempts / 60 s | Each `<auth/>` is charged before SCRAM key derivation; only a successful exchange refunds its own charge. Further attempts receive `<temporary-auth-failure/>`. |
 | Per-connection auth limit | 3 initiations | Further `<auth/>` initiations receive `<temporary-auth-failure/>`; a second `<auth/>` ends the active exchange as malformed without deriving another challenge. |
 | Loopback-safe binding | `127.0.0.1` | Binding a non-loopback host requires **Allow remote** / `xmppAllowRemote=true`. |
-| TLS verification bypass | off | Requires **Skip cert check** / `xmppAllowUnverifiedTls=true` **and** a loopback host. |
+| TLS verification bypass | off | Explicit **Allow unverified** / `xmppAllowUnverifiedTls=true` disables certificate verification for any host, not only loopback. |
 | Secret logging | never | Passwords, room passwords, and SASL payloads never reach the status log, the log file, a done file, or `explain` output, which prints `<redacted:NB>` markers instead. |
 | Secret persistence | never written | Saved launch configurations omit `xmppPassword`, `xmppExternalPassword`, and `xmppRoomPassword`. |
 | Clipboard | password withheld | **Copy Client Settings** omits the account password unless **Include password** is checked, and emits canonical `option=value` lines keyed on `ip`, never `host` or `xmppHost`. |
@@ -575,6 +573,10 @@ Regression coverage for the hardening rules above:
 | UTF-8 framing | safe | A `StringDecoder` per stream means a multi-byte code point split across TCP segments is never corrupted. |
 
 ### Credentials in launch-config files
+
+The password-field tooltips reproduced above are the current UI strings.
+Their statement that export includes passwords does not match the current
+exporter: the behavior below is authoritative.
 
 `xmppPassword`, `xmppExternalPassword`, and `xmppRoomPassword` are **read** from
 a launch-config file so automated runs can supply credentials from a secret
@@ -612,8 +614,7 @@ receiver's replies reach the Simulator's status log.
 | Symptom | Cause and fix |
 |---------|---------------|
 | `STARTTLS is set to Required but … did not negotiate an encrypted stream` | The peer does not offer STARTTLS. Fix the server, or lower the policy to Preferred and accept an unencrypted stream. |
-| `self-signed certificate` / `unable to verify the first certificate` | The server uses an automatic self-signed certificate. Supply it as **CA cert**, or tick **Skip cert check** when the host is loopback. |
-| `TLS verification bypass is restricted to loopback hosts` | **Skip cert check** only applies to `127.0.0.0/8`, `::1`, or `localhost`. Supply a CA certificate for remote hosts. |
+| `self-signed certificate` / `unable to verify the first certificate` | Supply the trusted certificate/CA as **CA cert**. For an intentional test, **Allow unverified** bypasses validation for any host; it does not establish the server's identity. |
 | `The XMPP server binds a loopback address unless …` | Tick **Allow remote** (or pass `xmppAllowRemote=true`) before binding `0.0.0.0` or a LAN address. |
 | `not-authorized` when entering a room | The room password is wrong or missing. The stream stays in any room it already occupies. |
 | `conflict` when entering a room | The nickname is taken. Choose a different **Nickname**. |
@@ -651,5 +652,4 @@ publish into it.
 | [Headless mode](headless.md) | No-UI replay sessions, parameters, and the completion artifact. |
 | [Data formats](data-formats.md) | Shared input-versus-payload concepts for socket replay. |
 | [Configuration](configuration.md) | App Config and Launch Config settings, storage locations, and reset steps. |
-| [Configuration](configuration.md) | App Config and Launch Config settings, storage locations, and the launch configuration samples. |
 | [Developer guide](developer-guide.md) | Repository structure, local development, tests, debugging, and extension points. |

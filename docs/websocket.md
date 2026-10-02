@@ -53,8 +53,9 @@ unhandled error.
 
 ## Format options
 
-The WebSocket Format dropdown controls the Content-Type associated with each
-message. **Delimited (CSV) is the default**, matching Velocity's ordering.
+The WebSocket Format dropdown describes the payload format used for validation
+and diagnostics. WebSocket text frames do not carry an HTTP `Content-Type`
+header per message. **Delimited (CSV) is the default**.
 These choices are independent of TCP and UDP payload conversion; XML remains
 available here but is not a TCP or UDP choice. See [Data
 formats](data-formats.md) for the shared distinction:
@@ -74,13 +75,14 @@ use the secure `wss://` protocol. When unchecked, the unsecure `ws://` protocol
 is used.
 
 - **Client mode**: Uses the OS certificate store (macOS Keychain, Windows certificate store, or Linux CA bundles) plus Node.js bundled root certificates to verify the server. Custom CA, client cert, and key can be provided for mutual TLS or enterprise CAs.
-- **Server mode**: Requires a TLS certificate and private key to be provided.
+- **Server mode**: Uses a custom certificate/key pair, or an automatic
+  in-memory self-signed pair when both paths are empty.
 
 | Field | Description |
 |-------|-------------|
 | **CA cert path** | Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store. |
-| **TLS cert path** | Path to a client or server certificate file (PEM). Required for server-mode TLS. |
-| **TLS key path** | Path to the private key file (PEM). Required for server-mode TLS. |
+| **TLS cert path** | Optional custom client or server certificate (PEM), paired with its key. |
+| **TLS key path** | Private key (PEM) paired with the custom certificate; an empty server pair uses an automatic self-signed certificate. |
 | **wsAllowUnverifiedTls** | Client mode only. Explicitly accept an unverified server certificate (default: `false`). The bypass applies to any host, not only localhost. |
 
 ## Default ports
@@ -134,11 +136,11 @@ Useful for authentication tokens or API keys required by the WebSocket endpoint.
 
 ## UI controls
 
-When WebSocket is selected in the **Mode** dropdown, a **WebSocket Settings…**
-action appears in the compact **Setup** toolbar. It opens Protocol
-Settings, which holds every WebSocket-specific control, and it carries a
-concise configured state, such as `Defaults` or `2 changed`. The adjacent
-**Summary** action carries the warning count. Open Settings with the button
+When WebSocket is selected in the **Mode** dropdown, **Settings** in the
+**Setup** toolbar opens its Protocol Settings. The badge shows only a changed
+count, such as `2`, and is absent at defaults. A warning alert appears below the
+toolbar when needed; Summary is a tab inside Protocol Settings, not a separate
+toolbar action. Open Settings with the button
 or with `Cmd+Shift+P` on macOS and `Ctrl+Shift+P` on Windows and Linux.
 Its layout, sections, and the Done, Revert changes, and Reset to
 preset actions are described in
@@ -199,7 +201,6 @@ shows a secret value.
 | CA cert path | Path to a custom CA certificate file (PEM). Leave empty to use the OS certificate store automatically. |
 | TLS cert path | Path to a client or server certificate file (PEM). Required for server-mode TLS. |
 | TLS key path | Path to the private key file (PEM). Required for server-mode TLS and client-side mTLS. |
-| WebSocket Settings… | Open WebSocket settings (Cmd+Shift+P / Ctrl+Shift+P).<br>---<br>Everything specific to WebSocket is edited in the dialog: format, WS path, TLS, certificates, subscription message, and headers.<br>Configured: &lt;state&gt;.<br>Nothing is sent until you select Connect. |
 | Allow unverified | Warning: accept any WSS server certificate<br>---<br>Certificate verification is disabled for every host, not only localhost. Traffic stays encrypted, but the server identity is not checked. Use only for local self-signed testing. |
 | WS path | WebSocket endpoint URL path appended after the host:port (e.g. /feed/stream-id). Default is /. |
 | Subscribe | Optional subscription message sent to the WebSocket server immediately after connecting. Leave empty if not needed. |
@@ -207,6 +208,12 @@ shows a secret value.
 | Headers | Custom HTTP headers for the WebSocket upgrade handshake as JSON (e.g. {"Authorization":"Bearer token"}). |
 
 ### TLS Trust Badge
+
+The certificate tooltips above are the current UI strings. Although they say
+server paths are required, the runtime supports an automatic self-signed pair
+when both paths are empty. For trust behavior, see
+[TLS and SSL security](tls.md). The Settings action tooltip belongs to
+[Protocol settings and presets](connection-presets.md#tooltip-reference).
 
 When connected, the status bar displays a lock icon reflecting the trust level
 at a glance. The icon **shape** and **colour** both encode the trust level so it
@@ -248,7 +255,7 @@ Client connection retry and restart recovery honor `connectWaitForServer`,
 
 ## Metadata logging
 
-When "Show Metadata" is enabled, WebSocket connections log message metadata:
+WebSocket transport diagnostics can include message metadata, for example:
 
 ```json
 [metadata] protocol=WebSocket mode=server path=/ content-type=text/plain tls=on (WSS) remote=127.0.0.1:52341 format=delimited

@@ -53,8 +53,9 @@ accepted; enter the port separately. Status endpoints display `[host]:port`.
 Changing the selector never changes Host, and local presets retain
 `127.0.0.1` with Auto.
 
-Velocity TCP Server feeds and outputs listen on IPv4 only. Applying one
-selects IPv4 and rejects an advertised IPv6 endpoint. Other TCP connectors
+The automatic mapping treats Velocity TCP Server feeds and outputs as
+IPv4-only listeners: applying one selects IPv4 and rejects an advertised IPv6
+endpoint. Verify the installed service's capabilities separately. Other TCP connectors
 can use advertised IPv6 addresses when the deployment supports them;
 application socket support is not a guarantee of deployment reachability.
 
@@ -159,18 +160,18 @@ The following text matches the TCP controls:
 | Host input and label, server IPv6 | Local bind address: ::1 accepts same-machine traffic only. A local IPv6 address restricts listening to that interface. Use :: to listen on all local IPv6 interfaces for remote peers or multiple interfaces. Explicit IPv6 listeners accept IPv6 only. This expands network exposure; firewall rules still apply. |
 | IPv4 | IPv4 - use IPv4 addresses and resolve hostnames to IPv4. |
 | IPv6 | IPv6 - use IPv6 addresses and resolve hostnames to IPv6. Explicit IPv6 listeners accept IPv6 only. |
-| Format label | Choose how each logical CSV record is encoded for TCP. |
-| Format | TCP payload format. The Simulator converts each logical record from the loaded CSV file before sending it. Delimited (CSV) preserves the existing comma-delimited workflow. |
+| Format label and initial selector | TCP payload format. The Simulator converts each logical record from the loaded CSV file before sending it. Delimited (CSV) preserves the existing comma-delimited workflow. |
+| Selected Delimited format | TCP Format: Delimited (CSV). Send each logical CSV record as UTF-8 text. This is the default and preserves the existing replay workflow. |
+| Selected JSON format | TCP Format: JSON. Convert each logical CSV record to a JSON object using the header row or generated field names. |
+| Selected GeoJSON format | TCP Format: GeoJSON. Convert each logical CSV record to an RFC 7946 Feature. Set X and Y fields for point geometry, or leave them empty for null geometry. |
+| Selected Esri JSON format | TCP Format: Esri JSON. Convert each logical CSV record to an Esri JSON feature with attributes and optional point geometry. |
 | Delimited (CSV) | Delimited (CSV) - send each logical CSV record as UTF-8 text terminated by a newline. This is the default and preserves existing replay behavior. |
 | JSON | JSON - convert each CSV record to a JSON object using the header row or generated field names. |
 | GeoJSON | GeoJSON - convert each CSV record to a GeoJSON Feature. Configure X and Y fields to create point geometry, or leave them empty for null geometry. |
 | Esri JSON | Esri JSON - convert each CSV record to an Esri JSON feature with attributes. Configure X and Y fields to create point geometry. |
 | CSV header row | Treat the first logical CSV record as field names and do not send it as an event. Leave off to preserve the existing behavior and generate field_1, field_2, and similar names for structured formats. |
-| X field label | Optional CSV field used as the point X coordinate. |
 | X field | Optional CSV field containing the point X coordinate. Set both X and Y for GeoJSON or Esri JSON point geometry. GeoJSON requires WKID 4326. |
-| Y field label | Optional CSV field used as the point Y coordinate. |
 | Y field | Optional CSV field containing the point Y coordinate. Set both X and Y for GeoJSON or Esri JSON point geometry. |
-| WKID label | Spatial reference WKID used for generated point geometry. |
 | WKID | Spatial reference WKID for generated point geometry. GeoJSON requires 4326; Esri JSON includes the configured WKID. |
 
 ## Headless and Launch Config
