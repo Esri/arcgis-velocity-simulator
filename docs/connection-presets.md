@@ -68,7 +68,7 @@ protocol and role:
 | Protocol | Basics | Security | Advanced |
 |---|---|---|---|
 | TCP | Format, address family | — | Handshake text, Use escapes, CSV header row, X field, Y field, WKID |
-| UDP | Format, address family, Server UDP mode | — | Direct Server local host/port, Append LF, CSV header row, X field, Y field, WKID |
+| UDP | Format, address family | — | Server local host/port, Append LF, CSV header row, X field, Y field, WKID |
 | HTTP | Format, HTTP path | TLS, CA/cert/key paths, Allow unverified | GET polling, for a server |
 | WebSocket | Format, WS path | TLS, CA/cert/key paths, Allow unverified | Subscribe, Ignore 1st msg, Headers |
 | gRPC | Serialization, RPC type | TLS, CA/cert/key paths, Allow unverified | Header path key and value, for a client |
@@ -88,6 +88,10 @@ into the section rather than through every section name.
 Edits take effect in the application as you make them, but nothing reaches the
 network until you select **Connect**.
 
+Revert and Reset update both the authoritative form and the detached window.
+An edit still in transit cannot bypass the connection lock or leave a stale
+local value over a restored value.
+
 | Action | Result |
 |---|---|
 | **Done** | Closes Protocol Settings and keeps the edits. |
@@ -104,7 +108,7 @@ focus returns to the **Settings** button when Protocol Settings closes.
 |---|---|
 | Disconnected | Every control is editable. |
 | Connecting | It opens, every control is read-only, and the banner reads `Connecting. Disconnect to change these settings.` The shared preset, connection type, host, and port are locked with it. |
-| Active transport | It opens on the read-only **Summary** section. The banner uses Connected for connection-oriented transports, Ready for direct UDP publishing, or Listening for Registered UDP Server. |
+| Active transport | It opens on the read-only **Summary** section. The banner uses Connected for connection-oriented transports and Ready for UDP publishing. Disconnect restores the editable section when Summary was forced by the active connection. |
 
 While an XMPP server is connected, **Copy Client Settings** and **Include
 password** stay available, because that is the only state in which the bound
@@ -165,9 +169,10 @@ Each label names which application listens. In this repository:
 
 ## What each preset fills
 
-The inverse UDP preset uses **Registered** mode explicitly to preserve the
-compatibility pairing. Manually configured UDP Server sessions default to
-**Direct** configured-destination publishing; see [UDP transport](udp.md).
+Both UDP presets use configured receiving endpoints without registration.
+For **Local UDP — Simulator Server / Logger Client**, the Simulator targets
+`127.0.0.1:5565` and binds `127.0.0.1:0`; the Logger receives on stable port
+`5565`. The preset identifiers and labels remain unchanged.
 
 | Protocol | Values |
 |---|---|
@@ -279,7 +284,7 @@ Protocol Settings holds the following controls for each protocol:
 | Protocol | Contents |
 |---|---|
 | TCP | Format, address family, greeting text and escapes, CSV header row, X field, Y field, and WKID. |
-| UDP | Format, address family, Server mode, Direct local bind, Append LF, CSV header row, X field, Y field, and WKID. |
+| UDP | Format, address family, Server local bind, Append LF, CSV header row, X field, Y field, and WKID. |
 | HTTP | Format, HTTP path, TLS, certificates, and Server GET polling. |
 | WebSocket | `format, WS path, TLS, certificates, subscription message, and headers` |
 | gRPC | `serialization, RPC type, header path, TLS, and certificates` |

@@ -99,7 +99,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const tcpYFieldInput = document.getElementById('tcp-y-field');
   const tcpWkidInput = document.getElementById('tcp-wkid');
   const udpFormatSelect = document.getElementById('udp-format');
-  const udpConnectionModeSelect = document.getElementById('udp-connection-mode');
   const udpLocalHostInput = document.getElementById('udp-local-host');
   const udpLocalPortInput = document.getElementById('udp-local-port');
   const udpAddressFamilySelect = document.getElementById('udp-address-family');
@@ -245,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const [protocol, mode] = connectionTypeSelect.value.split('-');
     const family = protocol === 'tcp' ? tcpAddressFamilySelect.value : udpAddressFamilySelect.value;
     const text = protocol === 'tcp' || protocol === 'udp'
-      ? SOCKET_HOST_TOOLTIPS[mode === 'client' || (protocol === 'udp' && udpConnectionModeSelect.value === 'direct') ? 'client' : family] : null;
+      ? SOCKET_HOST_TOOLTIPS[mode === 'client' || protocol === 'udp' ? 'client' : family] : null;
     initialHostTooltips.forEach(({ control, text: initialText, ariaLabel }) => {
       if (!control) return;
       control.removeAttribute('title');
@@ -266,19 +265,15 @@ document.addEventListener('DOMContentLoaded', () => {
   connectionTypeSelect.addEventListener('change', updateSocketHostTooltip);
   [tcpAddressFamilySelect, udpAddressFamilySelect].forEach(control => control.addEventListener('change', updateSocketHostTooltip));
   updateSocketHostTooltip();
-  function updateUdpModeControls() {
+  function updateUdpLocalControls() {
     const inverse = connectionTypeSelect.value === 'udp-server';
-    document.getElementById('udp-connection-mode-group').style.display = inverse ? '' : 'none';
     for (const id of ['udp-local-host-group', 'udp-local-port-group']) {
-      document.getElementById(id).style.display = inverse && udpConnectionModeSelect.value === 'direct' ? '' : 'none';
+      document.getElementById(id).style.display = inverse ? '' : 'none';
     }
-    udpConnectionModeSelect.dataset.tooltip = udpConnectionModeSelect.selectedOptions[0].dataset.tooltip || udpConnectionModeSelect.selectedOptions[0].title;
-    udpConnectionModeSelect.setAttribute('aria-label', udpConnectionModeSelect.dataset.tooltip);
     updateSocketHostTooltip();
   }
-  connectionTypeSelect.addEventListener('change', updateUdpModeControls);
-  udpConnectionModeSelect.addEventListener('change', updateUdpModeControls);
-  updateUdpModeControls();
+  connectionTypeSelect.addEventListener('change', updateUdpLocalControls);
+  updateUdpLocalControls();
   const portInput = document.getElementById('port');
   const clearLogsButton = document.getElementById('clear-logs-button');
 
@@ -374,6 +369,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let modifiedFromPresetId = '';
   let applyingPresetValues = false;
   let protocolSettingsActiveSection = 'basics';
+  let protocolSettingsForcedSummary = false;
+  let protocolSettingsEditableSection = 'basics';
   let protocolSettingsOpenSnapshot = null;
   let protocolSettingsOpenPresetState = null;
   let protocolSettingsReturnFocus = null;
@@ -429,7 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const CONNECTION_MODE_TOOLTIPS = {
     'tcp-server': 'TCP Server - listens on the specified port and accepts incoming TCP connections from clients.',
     'tcp-client': 'TCP Client - connects to a remote TCP server at the specified host and port.',
-    'udp-server': 'UDP Server - binds to the specified port and receives incoming UDP datagrams.',
+    'udp-server': 'UDP Server - sends datagrams to the specified destination using a separate local bind.',
     'udp-client': 'UDP Client - sends UDP datagrams to the specified host and port.',
     'http-client': 'HTTP Client - sends data via HTTP/HTTPS POST requests to a remote endpoint.',
     'http-server': 'HTTP Server - starts a local HTTP/HTTPS server that accepts POST requests from clients.',
@@ -1034,6 +1031,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function revertProtocolSettings() {
     if (!protocolSettingsOpenSnapshot) return false;
     const changed = restoreProtocolSettings(protocolSettingsOpenSnapshot);
+    if (protocolSettingsSource) protocolSettingsSource.reset();
     if (protocolSettingsOpenPresetState) {
       activePresetId = protocolSettingsOpenPresetState.activePresetId;
       modifiedFromPresetId = protocolSettingsOpenPresetState.modifiedFromPresetId;
@@ -1057,13 +1055,20 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateProtocolSettingsMode() {
     if (!protocolSettingsDialog) return;
     const state = getConnectionLockState();
+    if (state === 'connected' && !protocolSettingsForcedSummary && protocolSettingsActiveSection !== 'summary') {
+      protocolSettingsEditableSection = protocolSettingsActiveSection;
+      protocolSettingsForcedSummary = true;
+    } else if (state === 'disconnected' && protocolSettingsForcedSummary) {
+      protocolSettingsActiveSection = protocolSettingsEditableSection;
+      protocolSettingsForcedSummary = false;
+    }
     const locked = state !== 'disconnected';
     protocolSettingsDialog.dataset.readOnly = locked ? 'true' : 'false';
     protocolSettingsDialog.dataset.mode = state === 'connected' ? 'summary' : 'edit';
     if (protocolSettingsReadonlyBanner) {
       protocolSettingsReadonlyBanner.hidden = !locked;
       if (state === 'connected') {
-        const label = connectionSummaryApi.describeConnectionState({ connectionType: connectionTypeSelect.value, connectionState: state, udpConnectionMode: udpConnectionModeSelect.value });
+        const label = connectionSummaryApi.describeConnectionState({ connectionType: connectionTypeSelect.value, connectionState: state });
         protocolSettingsReadonlyBanner.textContent = `${label}. Disconnect to change these settings.`;
       } else if (state === 'connecting') {
         protocolSettingsReadonlyBanner.textContent = 'Connecting. Disconnect to change these settings.';
@@ -1250,6 +1255,12 @@ document.addEventListener('DOMContentLoaded', () => {
           message.revision,
         );
       }
+      if (control.disabled || control.readOnly
+          || (getConnectionLockState() !== 'disconnected' && control !== xmppCopyPasswordCheckbox)) {
+        protocolSettingsSource.reset();
+        scheduleProtocolSettingsSync();
+        return;
+      }
       if (control.type === 'checkbox' || control.type === 'radio') {
         if (typeof message.checked === 'boolean') control.checked = message.checked;
       } else if (typeof message.value === 'string') {
@@ -1265,6 +1276,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     if (message.type === 'keydown' && message.key) {
+      if (control.disabled || control.readOnly
+          || (getConnectionLockState() !== 'disconnected' && control.getAttribute('role') !== 'tablist')) {
+        protocolSettingsSource.reset();
+        scheduleProtocolSettingsSync();
+        return;
+      }
       control.dispatchEvent(new KeyboardEvent('keydown', {
         key: message.key,
         bubbles: true,
@@ -1280,6 +1297,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (useProtocolSettingsWindow) {
     protocolSettingsHost.onReady(() => {
       protocolSettingsWindowReady = true;
+      protocolSettingsAcknowledgedRevision = 0;
       protocolSettingsSource.reset();
       scheduleProtocolSettingsSync();
     });
@@ -1558,6 +1576,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       applyingPresetValues = false;
     }
+    // A reset can return to the last sent value before an edit is mirrored.
+    if (protocolSettingsSource) protocolSettingsSource.reset();
     activePresetId = presetId;
     modifiedFromPresetId = '';
     updateXmppOptionsVisibility();
@@ -2113,7 +2133,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let stateAttribute = '';
     const connectionLabel = connectionSummaryApi.describeConnectionState({
       connectionType: connectionTypeSelect.value, connectionState: isConnected ? 'connected' : 'disconnected',
-      udpConnectionMode: udpConnectionModeSelect.value,
     });
     
     if (!isConnected) {
@@ -2402,7 +2421,6 @@ document.addEventListener('DOMContentLoaded', () => {
       tcpYField: tcpPayload.yField,
       tcpWkid: tcpPayload.wkid,
       udpFormat: udpPayload.format,
-      udpConnectionMode: udpConnectionModeSelect.value,
       udpLocalHost: udpLocalHostInput.value,
       udpLocalPort: Number(udpLocalPortInput.value),
       udpAddressFamily: udpAddressFamilySelect.value,
@@ -3023,10 +3041,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (presets.udpFormat !== undefined) {
         udpFormatSelect.value = presets.udpFormat;
         udpFormatSelect.dispatchEvent(new Event('change'));
-      }
-      if (presets.udpConnectionMode !== undefined) {
-        udpConnectionModeSelect.value = presets.udpConnectionMode;
-        udpConnectionModeSelect.dispatchEvent(new Event('change'));
       }
       if (presets.udpLocalHost !== undefined) udpLocalHostInput.value = presets.udpLocalHost;
       if (presets.udpLocalPort !== undefined) udpLocalPortInput.value = presets.udpLocalPort;

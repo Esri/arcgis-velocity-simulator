@@ -223,6 +223,9 @@ async function runCliOptionsTests() {
   runTest('Explain output includes warnings section when there are warnings', () => warnExplainOutput.includes('Warnings') && warnExplainOutput.includes("'doneFile'") && warnExplainOutput.includes("'maxLines'"));
 
   console.log('\n--- Test 7: TCP and UDP payload formats ---');
+  runTest('Retired UDP registration CLI options are unsupported', () =>
+    ['udpConnectionMode=registered', 'udpConnectionMode=direct', 'udpRegistrationIntervalMs=30000'].every(option =>
+      parseCommandLineArgs(createArgv([option])).mode === 'error'));
   runTest('TCP greeting preserves whitespace and redacts UI/headless diagnostics', () => {
     const text = String.raw`  secret-auth\r\n  `;
     for (const mode of ['ui', 'headless']) {

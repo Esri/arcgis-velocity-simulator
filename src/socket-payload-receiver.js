@@ -98,15 +98,10 @@ function createUdpPayloadReceiver({
   format = DEFAULT_SOCKET_PAYLOAD_FORMAT,
   onRecord,
   onWarning,
-  isControlDatagram,
 }) {
   assertSocketPayloadFormat(format, 'udpFormat');
   requireCallbacks(onRecord, onWarning);
-  if (isControlDatagram !== undefined && typeof isControlDatagram !== 'function') {
-    throw new TypeError('isControlDatagram must be a function when provided.');
-  }
   return (buffer, context) => {
-    if (isControlDatagram && isControlDatagram(buffer, context)) return;
     const result = decodeUdpDatagram(buffer, { format });
     deliverRecords(result.record === null ? [] : [result.record], result.warnings, onRecord, onWarning, context);
   };

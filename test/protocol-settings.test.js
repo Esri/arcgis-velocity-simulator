@@ -438,6 +438,82 @@ test('Protocol Settings is the only connection-dialog shortcut in the applicatio
     assert.strictEqual(document.getElementById('protocol-settings-btn').getAttribute('aria-expanded'), 'false');
   }, { detached: true });
 
+  for (const action of ['protocol-settings-revert', 'protocol-settings-reset']) {
+    await uiTest(`${action} resends values when an edit and reset share a frame`, async ({ document, select, state }) => {
+      select('connection-preset', 'local-udp-simulator-server');
+      document.getElementById('protocol-settings-btn').click();
+      state.protocolWindow.listeners.get('ready')();
+      await new Promise(resolve => setTimeout(resolve, 30));
+      const event = state.protocolWindow.listeners.get('event');
+      const before = state.protocolWindow.syncs.length;
+      event({ type: 'input', id: 'udp-local-host', value: 'localhost', revision: 1 });
+      event({ type: 'change', id: 'udp-local-host', value: 'localhost', revision: 2 });
+      event({ type: 'click', id: action });
+      assert.strictEqual(document.getElementById('udp-local-host').value, '127.0.0.1');
+      await new Promise(resolve => setTimeout(resolve, 30));
+      const entries = state.protocolWindow.syncs.slice(before).flatMap(update => update.entries);
+      assert(entries.some(({ e }) => e.a.id === 'udp-local-host' && e.v === '127.0.0.1'),
+        'The mirror must receive the reset value even if it equals the prior capture');
+    }, { detached: true });
+  }
+
+  await uiTest('detached edits traverse preload, manager validation, host and acknowledgment before reset', async ({ document, select, state }) => {
+    const { sanitizeWindowEvent, sanitizeStatePayload } = require('../src/protocol-settings-window-manager.js');
+    const detached = new JSDOM('<div id="protocol-settings-root"></div>', {
+      runScripts: 'outside-only', pretendToBeVisual: true,
+    });
+    const listeners = new Map();
+    const revisions = [];
+    const acknowledgments = [];
+    const ipcRenderer = {
+      on: (channel, callback) => listeners.set(channel, callback),
+      removeListener: (channel) => listeners.delete(channel),
+      send(channel, payload) {
+        if (channel === 'protocol-settings:window-ready') state.protocolWindow.listeners.get('ready')();
+        if (channel === 'protocol-settings:window-event') {
+          const safe = sanitizeWindowEvent(payload);
+          assert(safe, 'The manager must accept the preload event');
+          if (safe.revision) revisions.push(safe.revision);
+          state.protocolWindow.listeners.get('event')(safe);
+        }
+      },
+    };
+    Function('require', fs.readFileSync(path.join(SRC, 'protocol-settings-preload.js'), 'utf8'))(() => ({
+      ipcRenderer,
+      contextBridge: { exposeInMainWorld: (name, api) => { detached.window[name] = api; } },
+    }));
+    const syncs = state.protocolWindow.syncs;
+    syncs.push = function (payload) {
+      const safe = sanitizeStatePayload(payload);
+      assert(safe, 'The manager must accept the authoritative state');
+      acknowledgments.push(safe.ackRevision);
+      listeners.get('protocol-settings:state')?.({}, safe);
+      return Array.prototype.push.call(this, payload);
+    };
+    try {
+      select('connection-preset', 'local-udp-simulator-server');
+      document.getElementById('protocol-settings-btn').click();
+      detached.window.eval(fs.readFileSync(path.join(SRC, 'protocol-settings-mirror.js'), 'utf8'));
+      detached.window.eval(fs.readFileSync(path.join(SRC, 'protocol-settings-window.js'), 'utf8'));
+      await new Promise(resolve => setTimeout(resolve, 40));
+      const field = detached.window.document.getElementById('udp-local-host');
+      field.value = 'localhost';
+      field.dispatchEvent(new detached.window.Event('input', { bubbles: true }));
+      field.dispatchEvent(new detached.window.Event('change', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 40));
+      assert.deepStrictEqual(revisions, [1, 2], 'The preload must not strip edit revisions');
+      assert(acknowledgments.includes(2), 'The window must receive the host acknowledgment');
+      assert.strictEqual(document.getElementById('udp-local-host').value, 'localhost');
+      detached.window.document.getElementById('protocol-settings-reset').click();
+      await new Promise(resolve => setTimeout(resolve, 40));
+      assert.strictEqual(document.getElementById('udp-local-host').value, '127.0.0.1');
+      assert.strictEqual(detached.window.document.getElementById('udp-local-host').value, '127.0.0.1',
+        'Acknowledged local edits must not overlay the reset');
+    } finally {
+      detached.window.close();
+    }
+  }, { detached: true });
+
   await uiTest('Escape closes the dialog and keeps the edits', async ({ document, select, key }) => {
     select('connection-type', 'ws-client');
     document.getElementById('protocol-settings-btn').click();
@@ -726,6 +802,50 @@ test('Protocol Settings is the only connection-dialog shortcut in the applicatio
     assert.ok(!document.querySelector('.connection-controls-group').classList.contains('hidden'));
     assert.strictEqual(document.getElementById('protocol-settings-dialog').open, true);
   });
+
+  for (const detached of [false, true]) {
+    await uiTest(`UDP settings unlock and restore only connection-forced Summary (detached=${detached})`, async ({ document, select, state }) => {
+      select('connection-type', 'udp-server');
+      document.getElementById('protocol-settings-btn').click();
+      if (detached) state.protocolWindow.listeners.get('ready')();
+      document.getElementById('protocol-settings-tab-advanced').click();
+      const host = document.getElementById('udp-local-host');
+      const port = document.getElementById('udp-local-port');
+      assert.strictEqual(document.getElementById('udp-connection-mode'), null);
+      state.listeners.get('onConnectionStatusChanged')('connecting', '');
+      assert.strictEqual(host.disabled, true);
+      state.listeners.get('onConnectionStatusChanged')('connected', '');
+      assert.strictEqual(port.disabled, true);
+      assert.strictEqual(document.getElementById('protocol-settings-tab-summary').getAttribute('aria-selected'), 'true');
+      if (detached) {
+        const events = state.protocolWindow.listeners.get('event');
+        events({ type: 'input', id: 'udp-local-host', value: '192.0.2.99', revision: 12 });
+        events({ type: 'change', id: 'udp-local-port', value: '12345', revision: 13 });
+        assert.strictEqual(host.value, '127.0.0.1');
+        assert.strictEqual(port.value, '0');
+        await new Promise(resolve => setTimeout(resolve, 25));
+        const update = state.protocolWindow.syncs.at(-1);
+        assert.strictEqual(update.ackRevision, 13);
+        assert(update.entries.length || update.patches.length, 'Rejected edit must resend authoritative content, not just ack');
+        state.protocolWindow.listeners.get('ready')();
+        await new Promise(resolve => setTimeout(resolve, 25));
+        assert.strictEqual(state.protocolWindow.syncs.at(-1).ackRevision, 0,
+          'A newly mounted window starts its own edit revision sequence');
+      }
+      state.listeners.get('onConnectionStatusChanged')('disconnected', '');
+      assert.strictEqual(host.disabled, false);
+      assert.strictEqual(port.disabled, false);
+      assert.strictEqual(document.getElementById('protocol-settings-tab-advanced').getAttribute('aria-selected'), 'true');
+      document.getElementById('protocol-settings-tab-summary').click();
+      state.listeners.get('onConnectionStatusChanged')('connected', '');
+      state.listeners.get('onConnectionStatusChanged')('disconnected', '');
+      assert.strictEqual(document.getElementById('protocol-settings-tab-summary').getAttribute('aria-selected'), 'true', 'Explicit Summary selection must not bounce');
+      document.getElementById('protocol-settings-tab-basics').click();
+      state.listeners.get('onConnectionStatusChanged')('connecting', '');
+      state.listeners.get('onConnectionStatusChanged')('disconnected', 'Failed to bind');
+      assert.strictEqual(document.getElementById('udp-address-family').disabled, false);
+    }, { detached });
+  }
 
   await uiTest('connecting locks every protocol control and the shared connection fields', async ({ document, select, state }) => {
     select('connection-type', 'ws-server');

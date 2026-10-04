@@ -166,11 +166,11 @@
     if (['udp-client', 'udp-server'].includes(type)) {
       const isFeed = Boolean(item.feedType);
       const clientFeed = item.feedType === 'udp-client';
-      if (clientFeed && !['direct', 'registered'].includes(item.udpConnectionMode)) {
-        throw new Error('This UDP Client feed does not advertise its receiving contract. Configure manually: use UDP Client for a stable Direct receiver, or UDP Server in Registered mode for a registration-aware feed.');
+      if (Object.hasOwn(item, 'udpConnectionMode') || Object.hasOwn(item, 'udpRegistrationIntervalMs')) {
+        throw new Error('This UDP endpoint advertises obsolete registration settings. UDP uses configured endpoints only. Review the receiver local endpoint and configure it manually.');
       }
-      const advertisedHost = clientFeed && item.udpConnectionMode === 'direct' ? item.udpLocalHost : item.host;
-      const advertisedPort = clientFeed && item.udpConnectionMode === 'direct' ? item.udpLocalPort : item.port;
+      const advertisedHost = clientFeed ? item.udpLocalHost : item.host;
+      const advertisedPort = clientFeed ? item.udpLocalPort : item.port;
       if (!advertisedHost || advertisedHost === '0.0.0.0' || advertisedHost === '*') {
         throw new Error(isFeed
           ? 'This UDP feed needs a routable data host. Configure UDP Client manually with the reachable feed host, address family, and advertised port; the management API URL is not a data endpoint.'
@@ -190,20 +190,14 @@
         throw new Error('Velocity UDP Server feeds bind IPv4 only. Use an advertised IPv4 data host or an IPv4 forwarding endpoint.');
       }
       const port = socketPort(advertisedPort, 'UDP');
-      const registeredFeed = clientFeed && item.udpConnectionMode === 'registered';
       const options = {
-        connectionType: isFeed && !registeredFeed ? 'udp-client' : 'udp-server',
-        ip: isFeed && !registeredFeed ? configuredHost : udpAddressFamily === 'ipv6' ? '::1' : '127.0.0.1',
+        connectionType: isFeed ? 'udp-client' : 'udp-server',
+        ip: isFeed ? configuredHost : udpAddressFamily === 'ipv6' ? '::1' : '127.0.0.1',
         port,
-        udpConnectionMode: registeredFeed ? 'registered' : 'direct',
         udpAddressFamily,
         udpFormat: socketFormat(item.format),
       };
       if (isFeed) options.udpAppendNewline = options.udpFormat === 'delimited';
-      if (registeredFeed) {
-        options.expectedDestination = { host: configuredHost, port, family: udpAddressFamily };
-        options.routingWarning = `The Registered UDP feed contacts ${literalIpv6 ? `[${configuredHost}]` : configuredHost}:${port}. The Simulator bind address defaults to ${options.ip}; choose a local interface and ensure that endpoint routes to this Simulator. Only the compatibility registration marker adds a recipient; it is not a delivery acknowledgment.`;
-      }
       if (!isFeed) {
         options.expectedDestination = { host: configuredHost, port, family: udpAddressFamily };
         options.routingWarning = `Velocity sends UDP datagrams to ${literalIpv6 ? `[${configuredHost}]` : configuredHost}:${port}. The Logger bind address defaults to ${options.ip}; choose a local interface and ensure the advertised destination routes to this Logger.`

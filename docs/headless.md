@@ -97,13 +97,13 @@ reference stay aligned.
 | `help-table-narrow` | `true`, `false` | `false` | No | `help-table-narrow=true` | Print CLI help in a narrower ASCII-table layout for smaller terminals, then exit. |
 | `help-table-wide` | `true`, `false` | `false` | No | `help-table-wide=true` | Print CLI help in a wide ASCII-table layout for larger terminals, then exit. |
 | `help-wide` | `true`, `false` | `false` | No | `help-wide=true` | Print a compact ASCII-table parameter summary (name, values, default, example, purpose) and exit without running the app. |
-| `ip` | IP address or hostname | `127.0.0.1` | No | `ip=192.168.1.25` | Peer or bind address according to the transport. UDP Server Direct uses it as the destination, with `udpLocalHost` for binding. See [UDP transport](udp.md). |
+| `ip` | IP address or hostname | `127.0.0.1` | No | `ip=192.168.1.25` | Peer or bind address according to the transport. Both UDP roles use it as the destination; UDP Server uses `udpLocalHost` for binding. See [UDP transport](udp.md). |
 | `linesPerInterval` | `integer >= 1` | `1` | No | `linesPerInterval=5` | Number of lines processed during each scheduler tick. |
 | `logFile` | `path`, `omitted` | `(none)` | No | `logFile=./logs/run.log` | Optional file path for persisted headless logs. |
 | `logLevel` | `error`, `warn`, `info`, `debug` | `info` | No | `logLevel=debug` | Minimum log level written to stdout/logFile in headless mode. |
 | `loop` | `true`, `false` | `false` | No | `loop=true` | Restart from `startLine` after reaching `endLine`. |
 | `maxLines` | `integer >= 1`, `null/omitted` | `(none)` | No | `maxLines=1000` | Optional cap on successfully processed lines. |
-| `mode` | `server`, `client` | `server` | No | `mode=client` | Select the transport role; UDP Server Direct sends to a configured destination rather than waiting for inbound recipients. |
+| `mode` | `server`, `client` | `server` | No | `mode=client` | Select the transport role; both UDP roles send to a configured destination rather than waiting for inbound recipients. |
 | `onError` | `exit`, `continue`, `pause` | `exit` | No | `onError=continue` | Choose how send failures are handled: exit, continue, or pause. |
 | `port` | `1-65535` | `5565` | No | `port=6000` | Target or bind port. |
 | `protocol` | `tcp`, `udp`, `grpc`, `http`, `ws`, `xmpp` | `tcp` | No | `protocol=xmpp` | Choose the network transport for headless replay. XMPP overrides the role/port defaults to client/5222 only after it is selected. |
@@ -123,7 +123,7 @@ Transports use the following protocol-specific settings. All are optional:
 | Transport | Parameters | Defaults / behavior |
 |---|---|---|
 | TCP | See [TCP transport](tcp.md). | Format, address family, optional greeting, CSV header consumption, and geometry settings. |
-| UDP | See [UDP transport](udp.md). | Direct/Registered mode, separate local binding, address family, delimited LF, CSV header consumption, and geometry settings. |
+| UDP | See [UDP transport](udp.md). | Configured destinations, separate local binding, address family, delimited LF, CSV header consumption, and geometry settings. |
 | HTTP | `httpFormat`, `httpPolling`, `httpPath`, `httpTls`, `httpTlsCaPath`, `httpTlsCertPath`, `httpTlsKeyPath`, `httpAllowUnverifiedTls` | `delimited`, polling off, `/`, TLS on, system CA/no client identity, verification on. Formats are `delimited`, `json`, `esri-json`, `geo-json`, and `xml`. Client mode sends POST requests; server mode broadcasts to SSE watchers or serves the latest payload to GET-based pollers. |
 | WebSocket | `wsFormat`, `wsPath`, `wsTls`, `wsTlsCaPath`, `wsTlsCertPath`, `wsTlsKeyPath`, `wsAllowUnverifiedTls`, `wsSubscriptionMsg`, `wsIgnoreFirstMsg`, `wsHeaders` | `delimited`, `/`, TLS on, system CA/no client identity, verification on, no subscription, do not ignore the first message, and no custom headers. Client mode sends text frames; server mode broadcasts to connected sockets. |
 
@@ -151,7 +151,7 @@ The default `ip` value is **`127.0.0.1`**.
 
 - Use **`127.0.0.1`** for loopback/local-only testing on the same machine.
 - Use **`0.0.0.0`** as a listening bind when deliberately accepting traffic on
-  all local IPv4 interfaces. For UDP Server Direct, set `udpLocalHost=0.0.0.0`
+  all local IPv4 interfaces. For UDP Server, set `udpLocalHost=0.0.0.0`
   instead: its main `ip` remains the receiving destination.
 
 Never use a wildcard as a destination. See the transport guide for the chosen
@@ -213,10 +213,9 @@ Omitting `udpInputHasHeader`, coordinate fields, and `udpWkid` preserves the
 header as an event, generates deterministic names for a structured payload,
 uses null geometry, and defaults WKID to 4326.
 
-For a passive Velocity UDP feed, use client mode. For a registration-based
-UDP Client feed, use Server with `udpConnectionMode=registered` explicitly;
-`waitForClient=true` holds replay until its registration arrives. See
-[Registered feed workflow](udp.md#registered-feed-workflow) and
+For a Velocity UDP feed, use its stable receiving endpoint. Neither Simulator
+UDP role sends or waits for registration traffic. See
+[Velocity feeds](udp.md#velocity-feeds) and
 [Data formats](data-formats.md#fields-and-geometry) for mode selection,
 delimited LF, and matching source/receiver header settings.
 
@@ -225,11 +224,10 @@ For a local IPv6 pair, set `ip=::1` and the protocol's family option,
 conversion, replay controls, or completion artifacts. Full option values and
 defaults are in the [Command-line reference](command-line.md).
 
-A new UDP Server headless session defaults to Direct publishing: `ip` and
+Every UDP Server headless session publishes to configured endpoints: `ip` and
 `port` identify the receiving destination, while `udpLocalHost` and
-`udpLocalPort` identify the local bind. For the legacy recipient-learning
-publisher, choose `udpConnectionMode=registered` explicitly. Old saved
-UDP Server configurations without that key preserve Registered behavior.
+`udpLocalPort` identify the local bind. Obsolete registration options are
+rejected, not migrated; see [Obsolete settings](udp.md#obsolete-settings).
 
 TCP headless sessions also honor `tcpHandshakeText` and
 `tcpHandshakeUseEscapes` for both roles. The greeting completes before the
@@ -405,7 +403,7 @@ line range, and the completion timestamp.
 
 - Headless mode does not create the splash screen or the main application window.
 - Without `waitForClient=true`, a server with no recipients reports that state
-  and advances through replay. Direct UDP already has a configured destination,
+  and advances through replay. UDP already has a configured destination,
   but this does not verify delivery.
 - `waitForClient=true` prevents file advancement while no server-side recipients are available.
 - For HTTP server mode, recipients are active SSE watchers. For WebSocket server mode, recipients are open WebSocket clients.

@@ -605,13 +605,12 @@ function enableConnect(document) {
   });
 
   await uiTest('UDP readiness labels remain local-only while controls stay locked', async ({ document, window, state }) => {
-    for (const [mode, label] of [['client', 'Ready'], ['server', 'Listening']]) {
+    for (const [mode, label] of [['client', 'Ready'], ['server', 'Ready']]) {
       state.listeners.get('connection-status')('disconnected', '');
       const type = document.getElementById('connection-type');
       type.value = `udp-${mode}`;
       type.dispatchEvent(new window.Event('change'));
-      document.getElementById('udp-connection-mode').value = 'registered';
-      document.getElementById('udp-connection-mode').dispatchEvent(new window.Event('change'));
+      assert.strictEqual(document.getElementById('udp-connection-mode'), null);
       state.listeners.get('connection-status')('connected', 'Local UDP socket ready.');
       assert.strictEqual(document.getElementById('app-state').textContent, label);
       assert.strictEqual(type.disabled, true);
@@ -764,17 +763,15 @@ function enableConnect(document) {
       const guide = fs.readFileSync(path.join(__dirname, `../docs/${protocol}.md`), 'utf8');
       type.value = `${protocol}-server`;
       type.dispatchEvent(new window.Event('change'));
-      if (protocol === 'udp') {
-        document.getElementById('udp-connection-mode').value = 'registered';
-        document.getElementById('udp-connection-mode').dispatchEvent(new window.Event('change'));
-      }
       const family = document.getElementById(`${protocol}-address-family`);
       for (const value of protocol === 'tcp' ? ['auto', 'ipv4', 'ipv6'] : ['ipv4', 'ipv6']) {
         family.value = value;
         family.dispatchEvent(new window.Event('change'));
         assert.strictEqual(host.dataset.tooltip, label.dataset.tooltip);
-        assert.match(host.dataset.tooltip, /firewall rules still apply/);
-        assert.match(host.dataset.tooltip, value === 'ipv6' ? /Use :: to listen on all local IPv6/ : /0\.0\.0\.0/);
+        if (protocol === 'tcp') {
+          assert.match(host.dataset.tooltip, /firewall rules still apply/);
+          assert.match(host.dataset.tooltip, value === 'ipv6' ? /Use :: to listen on all local IPv6/ : /0\.0\.0\.0/);
+        } else assert.match(host.dataset.tooltip, /Destination address/);
         assert(guide.includes(host.dataset.tooltip), 'The owning guide must retain exact dynamic text');
         assert.strictEqual(host.getAttribute('aria-label'), host.dataset.tooltip);
       }

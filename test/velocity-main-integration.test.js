@@ -140,6 +140,7 @@ const request = (name, params = {}, eventSender = sender) => handlers.get(name)(
     velocityConnectionBusy: false, logStatus: message => logs.push(['status', message]),
     SOCKET_PAYLOAD_FORMAT_SET: new Set(['delimited', 'json', 'geo-json', 'esri-json']),
     activeSocketPayloadFormat: null,
+    assertDirectUdpOptions: require('../src/udp-utils').assertDirectUdpOptions,
   };
   vm.runInNewContext(source.slice(connectStart, connectEnd), connectContext);
   for (const invalidConnection of [{ protocol: 'unknown', mode: 'client' }, { protocol: 'tcp', mode: 'unknown' }]) {
@@ -154,6 +155,14 @@ const request = (name, params = {}, eventSender = sender) => handlers.get(name)(
   assert.strictEqual(invalidFormat.success, false);
   assert.match(invalidFormat.error, /payload format/);
   assert.strictEqual(connectContext.velocityConnectionBusy, false);
+  for (const obsolete of [{ udpConnectionMode: 'direct' }, { udpRegistrationIntervalMs: 1000 }]) {
+    const result = await handlers.get('connect')({}, {
+      protocol: 'udp', mode: 'server', ip: '127.0.0.1', port: 5565, ...obsolete,
+    });
+    assert.strictEqual(result.success, false);
+    assert.match(result.error, /no longer supported/);
+    assert.strictEqual(connectContext.velocityConnectionBusy, false);
+  }
   const actualSession = new VelocitySession({
     request: async (url) => {
       if (url.endsWith('/sharing/rest/generateToken')) return { token: 'synthetic-session-token', expires: Date.now() + 3600000 };

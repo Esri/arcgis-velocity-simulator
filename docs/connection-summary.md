@@ -33,7 +33,7 @@ The connection row holds only the fields that every protocol shares:
 
 | Inline | Moved into Protocol Settings |
 |---|---|
-| File selection, then the **Setup** toolbar: Preset, **Modified**, and Settings. | TCP/UDP format and address family, TCP greeting, UDP mode and local binding, CSV header row, coordinate fields, and WKID. |
+| File selection, then the **Setup** toolbar: Preset, **Modified**, and Settings. | TCP/UDP format and address family, TCP greeting, UDP local binding, CSV header row, coordinate fields, and WKID. |
 | Connection type. | gRPC serialization, RPC type, and endpoint header. |
 | Host and Port. | HTTP format and path. |
 | **Connect**, **Disconnect**, **Play/Pause**, and **Step**. | WebSocket format, path, subscription message, **Skip 1st**, and headers. |
@@ -78,7 +78,7 @@ selected protocol and mode are not offered:
 
 | Section | Holds | Offered for |
 |---|---|---|
-| Basics | Format, TCP/UDP address family, UDP Server mode, path, serialization, RPC type, XMPP domain, conversation, account, and room fields. | TCP, UDP, gRPC, HTTP, WebSocket, XMPP. |
+| Basics | Format, TCP/UDP address family, path, serialization, RPC type, XMPP domain, conversation, account, and room fields. | TCP, UDP, gRPC, HTTP, WebSocket, XMPP. |
 | Security | TLS or the STARTTLS policy, certificate verification, the CA, certificate, and key paths, and XMPP **Allow remote**. | gRPC, HTTP, WebSocket, XMPP. |
 | Advanced | TCP greeting, TCP/UDP CSV schema and geometry, UDP local bind and Append LF, HTTP GET polling, gRPC endpoint header, WebSocket subscription message, **Skip 1st**, headers, and XMPP timings. | TCP, UDP, HTTP Server, gRPC Client, WebSocket, XMPP. |
 | Summary | Every connection setting as a read-only list, warnings first. | Every mode. |
@@ -126,8 +126,10 @@ warning-valued setting is the first thing shown the next time it opens. See
 The read-only banner reads `Connected. Disconnect to change these settings.`
 for connection-oriented transports and `Connecting. Disconnect to change these
 settings.` while a connection is being established. UDP instead uses
-`Ready. Disconnect to change these settings.` for direct publishing or
-`Listening. Disconnect to change these settings.` for Registered Server mode.
+`Ready. Disconnect to change these settings.` for both publishing roles.
+After disconnect, the last editable section is restored if the connection
+forced Summary; a Summary tab that the user chose explicitly remains selected.
+Late detached-window edits cannot change disabled/read-only controls.
 
 Locking is applied by querying the authoritative controls rather than by
 listing them, so every protocol control is locked — including the HTTP,
@@ -211,8 +213,7 @@ Logger reports the identity it receives on.
 | `tcpHandshakeText` | Handshake text | TCP only; Empty or Set (hidden), including whitespace-only values. |
 | `tcpHandshakeUseEscapes` | Use escapes | TCP greeting escape interpretation, enabled by default. |
 | `udpAddressFamily` | Address family | UDP IPv4 or IPv6. |
-| `udpConnectionMode` | UDP mode | Direct or Registered for UDP Server publishing. |
-| `udpLocalEndpoint` | Local bind | Direct publisher bind, separate from destination. Port zero is assigned by the operating system. |
+| `udpLocalEndpoint` | Local bind | Publisher bind, separate from destination. Port zero is assigned by the operating system. |
 | `expectedDestination` | Expected destination | TCP or UDP routing metadata when supplied; separate from the local bind endpoint. |
 | `pointFields` | Point fields | TCP, UDP. |
 | `wkid` | Geometry WKID | TCP, UDP. |
@@ -234,8 +235,8 @@ Logger reports the identity it receives on.
 | `xmppRoomPassword` | Room password | XMPP in Multi-User Chat. |
 | `xmppTiming` | Timing | XMPP. |
 
-UDP status is **Ready** for direct publishing and **Listening** for a Registered
-server socket. It reports local readiness only, not a confirmed remote peer or
+UDP status is **Ready** for both publishing roles. It reports local readiness
+only, not a confirmed remote peer or
 record delivery. TCP and other protocol status labels are unchanged.
 
 Each row carries `key`, `label`, `value`, `group`, `kind`, `severity`, `secret`,

@@ -287,7 +287,7 @@ mode](headless.md).
 - `tcpFormat`, `tcpAddressFamily`, `tcpInputHasHeader`, `tcpXField`, `tcpYField`, `tcpWkid`
 - `tcpHandshakeText`, `tcpHandshakeUseEscapes`
 - `udpFormat`, `udpAddressFamily`, `udpInputHasHeader`, `udpAppendNewline`, `udpXField`, `udpYField`, `udpWkid`
-- `udpConnectionMode`, `udpLocalHost`, `udpLocalPort`
+- `udpLocalHost`, `udpLocalPort`
 - `waitForClient`
 - `wsFormat`, `wsTls`, `wsPath`, `wsTlsCaPath`, `wsTlsCertPath`, `wsTlsKeyPath`, `wsSubscriptionMsg`, `wsIgnoreFirstMsg`, `wsHeaders`, `wsAllowUnverifiedTls`
 - `httpFormat`, `httpPolling`, `httpTls`, `httpPath`, `httpTlsCaPath`, `httpTlsCertPath`, `httpTlsKeyPath`, `httpAllowUnverifiedTls`
@@ -319,11 +319,11 @@ controls, including TCP and UDP payload conversion settings and the three
 verification options. `tcpFormat` and `udpFormat` default to `delimited`;
 existing files that omit them therefore retain Delimited (CSV) behavior.
 `tcpAddressFamily` defaults to `auto`; `udpAddressFamily` defaults to `ipv4`.
-New sessions default `udpConnectionMode` to `direct`, with local host
-`127.0.0.1` and local port `0` for the Simulator publisher. Loading a saved UDP
-Server configuration missing the mode preserves `registered`; explicit
-`direct` opts into configured-destination publishing. See [UDP transport](udp.md)
-before changing the mode, because main Host and Port have different meanings.
+Both UDP roles publish to main Host and Port. UDP Server uses local host
+`127.0.0.1` and local port `0` for its separate sender bind.
+`udpConnectionMode` and `udpRegistrationIntervalMs` are unsupported in saved
+files and on the command line; remove them and review endpoint meanings rather
+than expecting automatic migration. See [UDP transport](udp.md#obsolete-settings).
 `tcpHandshakeText` defaults to the empty string and `tcpHandshakeUseEscapes`
 defaults to `true`. Explicit false, literal line breaks, and surrounding
 whitespace round-trip through JSON. Exported configurations include greeting
@@ -371,7 +371,7 @@ The default headless `ip` value is **`127.0.0.1`**.
 
 - **`127.0.0.1`** is the loopback/local-only address. It is the default because it is the safest option for local testing.
 - **`0.0.0.0`** binds all local IPv4 interfaces when supplied as a listening
-  address. For UDP Server Direct, that address is `udpLocalHost`; `ip` is the
+  address. For UDP Server, that address is `udpLocalHost`; `ip` is the
   receiver destination and must not be a wildcard.
 
 In other words:

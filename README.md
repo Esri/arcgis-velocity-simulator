@@ -16,8 +16,8 @@ implement the selected protocol.
 
 ## Key features
 
-- Client and server transport roles, with explicit Direct and Registered UDP
-  publishing contracts;
+- Client and server transport roles, with UDP publishing only to configured
+  receiving endpoints;
 - CSV-first TCP/UDP conversion to Delimited, JSON, GeoJSON, or Esri JSON, and
   protocol-specific HTTP, WebSocket, gRPC, and XMPP payload choices;
 - optional TCP connection greetings, IPv4/IPv6 socket settings, and TLS on
@@ -75,9 +75,8 @@ npm run start:headless -- filename=./data.csv protocol=tcp mode=client ip=127.0.
 
 Use [Headless mode](docs/headless.md) for unattended workflows and
 [Command-line reference](docs/command-line.md) for every option. A UDP Client
-feed in Velocity may use registration-based receiving; select the matching
-[UDP workflow](docs/udp.md#velocity-feeds), not a role inferred only from its
-name.
+feed must expose a stable receiving endpoint for [UDP publishing](docs/udp.md#velocity-feeds);
+registration-based receivers are not supported.
 
 ### In-app help
 
@@ -109,7 +108,7 @@ guide purposes and audiences. The catalog below links every current guide.
 | [Headless mode](docs/headless.md) | No-UI replay workflows and completion artifacts. |
 | [Installation](docs/installation.md) | Package selection, first launch, security warnings, and deployed logs. |
 | [TCP transport](docs/tcp.md) | Roles, address families, greetings, framing, and controls. |
-| [UDP transport](docs/udp.md) | Direct/Registered modes, feed compatibility, endpoints, and datagrams. |
+| [UDP transport](docs/udp.md) | Configured endpoints, feed compatibility, local binding, and datagrams. |
 | [gRPC transport](docs/grpc.md) | Serialization, RPC types, routing metadata, and TLS. |
 | [HTTP and HTTPS transport](docs/http.md) | POST/SSE, GET polling, formats, paths, and TLS. |
 | [WebSocket transport](docs/websocket.md) | Frames, subscriptions, headers, paths, and TLS. |

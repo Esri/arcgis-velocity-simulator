@@ -336,6 +336,7 @@ test('the dedicated preload exposes only the narrow allowlisted API', () => {
       id: 'grpc-tls',
       value: undefined,
       checked: true,
+      revision: undefined,
       key: undefined,
       shiftKey: false,
       altKey: false,
@@ -343,6 +344,15 @@ test('the dedicated preload exposes only the narrow allowlisted API', () => {
       metaKey: false,
     },
   });
+  exposed.emit({ type: 'input', id: 'udp-local-host', value: 'localhost', revision: 7 });
+  assert.strictEqual(sends.at(-1).payload.revision, 7);
+  assert.strictEqual(sanitizeWindowEvent(sends.at(-1).payload).revision, 7);
+  for (const revision of [0, -1, 1.5, '7', Number.MAX_SAFE_INTEGER + 1]) {
+    exposed.emit({ type: 'change', id: 'udp-local-host', value: 'localhost', revision });
+    assert.strictEqual(sends.at(-1).payload.revision, undefined);
+  }
+  exposed.emit({ type: 'click', id: 'protocol-settings-reset', revision: 7 });
+  assert.strictEqual(sends.at(-1).payload.revision, undefined);
   let received;
   const unsubscribe = exposed.onState((payload) => { received = payload; });
   listeners.get('protocol-settings:state')({}, { entries: [] });
@@ -487,6 +497,22 @@ test('the detached renderer applies state and reports edits, tabs, buttons, focu
   assert.strictEqual(window.document.activeElement, field);
   window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
   assert.strictEqual(closeRequests, 1);
+  field.value = 'unacknowledged';
+  field.dispatchEvent(new window.Event('input', { bubbles: true }));
+  const beforeLock = emitted.length;
+  stateListener({
+    ackRevision: 1,
+    entries: [{ p: '1', e: { a: { id: 'field', value: 'old' }, h: false, v: 'authoritative', d: true } }],
+  });
+  assert.strictEqual(field.value, 'authoritative', 'Lock must discard pending local edit overlays');
+  field.value = 'late disabled input';
+  field.dispatchEvent(new window.Event('input', { bubbles: true }));
+  field.dispatchEvent(new window.Event('change', { bubbles: true }));
+  assert.strictEqual(emitted.length, beforeLock, 'Disabled controls must not emit edit events');
+  field.disabled = false;
+  field.readOnly = true;
+  field.dispatchEvent(new window.Event('input', { bubbles: true }));
+  assert.strictEqual(emitted.length, beforeLock, 'Read-only controls must not emit edit events');
   window.close();
 });
 

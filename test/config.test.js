@@ -199,17 +199,22 @@ async function runConfigTests() {
 
   const { parseCommandLineArgs } = require('../src/cli-options.js');
   const roundTripPath = path.join(os.tmpdir(), `avs-xmpp-launch-config-${process.pid}.json`);
-  runTest('Legacy UDP Server configs retain Registered while new CLI and explicit Direct use stable destinations', () => {
+  runTest('UDP uses configured endpoints and rejects obsolete registration settings without migration', () => {
     const file = path.join(os.tmpdir(), `avs-udp-mode-${process.pid}.json`);
     try {
       fs.writeFileSync(file, JSON.stringify({ connection: { protocol: 'udp', mode: 'server', ip: '127.0.0.1', port: 5565 } }));
-      const legacy = parseCommandLineArgs(['node', 'main.js', `config=${file}`, 'runMode=headless', `filename=${__filename}`]);
-      const direct = parseCommandLineArgs(['node', 'main.js', `config=${file}`, 'runMode=headless', `filename=${__filename}`, 'udpConnectionMode=direct']);
+      const loaded = parseCommandLineArgs(['node', 'main.js', `config=${file}`, 'runMode=headless', `filename=${__filename}`]);
       const fresh = parseCommandLineArgs(['node', 'main.js', 'protocol=udp', 'mode=server', 'runMode=headless', `filename=${__filename}`]);
-      return legacy.headless.udpConnectionMode === 'registered'
-        && direct.headless.udpConnectionMode === 'direct'
-        && fresh.headless.udpConnectionMode === 'direct'
-        && fresh.headless.udpLocalPort === 0;
+      if (loaded.mode !== 'headless' || fresh.mode !== 'headless' || loaded.headless.udpLocalPort !== 0) return false;
+      if ('udpConnectionMode' in loaded.headless || 'udpConnectionMode' in fresh.headless) return false;
+      for (const retired of [{ udpConnectionMode: 'registered' }, { udpConnectionMode: 'direct' }, { udpRegistrationIntervalMs: 30000 }]) {
+        fs.writeFileSync(file, JSON.stringify({ connection: { protocol: 'udp', mode: 'server', ...retired } }));
+        for (const runMode of ['ui', 'headless']) {
+          const result = parseCommandLineArgs(['node', 'main.js', `config=${file}`, `runMode=${runMode}`, `filename=${__filename}`]);
+          if (result.mode !== 'error' || !result.errors.some(error => /no longer supported/.test(error))) return false;
+        }
+      }
+      return true;
     } finally { fs.rmSync(file, { force: true }); }
   });
   runTest('TCP greeting JSON preserves literal CRLF and whitespace with escapes disabled', () => {

@@ -165,25 +165,10 @@ test('TCP oversized incomplete input warns and does not poison the next record',
   assert.ok(state.records.some((record) => record.raw === '{"next":1}'));
 });
 
-test('UDP injected control packets are excluded before format inspection', () => {
-  const state = capture('json');
-  const control = Buffer.from('test-control-packet');
-  const receive = createUdpPayloadReceiver({
-    ...state.options,
-    isControlDatagram: (buffer) => buffer.equals(control),
-  });
-  receive(control);
-  assert.deepStrictEqual(state.records, []);
-  assert.deepStrictEqual(state.warnings, []);
-});
-
-test('UDP has no application-specific control policy without an injected predicate', () => {
+test('UDP treats marker-looking bytes as ordinary application payload', () => {
   const state = capture();
   createUdpPayloadReceiver(state.options)(Buffer.from('test-control-packet'));
   assert.strictEqual(state.records[0].raw, 'test-control-packet');
-  assert.throws(() => createUdpPayloadReceiver({
-    ...state.options, isControlDatagram: true,
-  }), /isControlDatagram/);
 });
 
 test('UDP preserves raw documents and sender context without joining datagrams', () => {

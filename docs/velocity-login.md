@@ -102,9 +102,8 @@ paired with the Simulator's WebSocket Server role. A GET-based HTTP Poller is
 paired with HTTP Server polling mode. TCP connector roles are inverted:
 a Velocity server connector selects a Simulator client, while a Velocity
 client connector selects a Simulator server with a safe local bind and separate
-advertised endpoint metadata. UDP mapping requires the receiving contract:
-passive feeds select Simulator UDP Client, and explicitly Registered feeds
-select UDP Server in Registered mode. See
+advertised endpoint metadata. Both UDP feed types select Simulator UDP Client
+with a valid advertised receiving endpoint. See
 [Velocity feeds](udp.md#velocity-feeds) for routing and framing requirements.
 If the list contains only unsupported sources, the status reports the actual
 total and prompts you to choose **All** beside **Supported**; an empty
@@ -114,10 +113,9 @@ Missing or invalid advertised endpoint properties are errors, not a reason
 to reuse the previous feed's fields. For endpoint mapping rules, see
 [Apply connection settings](velocity-rest-api.md#apply-connection-settings).
 
-An installed UDP Client feed may use registration-based receiving without
-advertising the explicit mode metadata expected by Apply. That is not evidence
-that it is a passive listener or that it cannot be used manually. Confirm the
-deployed contract and follow [Registered feed workflow](udp.md#registered-feed-workflow).
+An installed UDP Client feed must expose a stable local receiving endpoint.
+Missing local endpoint metadata requires manual configuration; registration-based
+receivers are not supported. See [Velocity feeds](udp.md#velocity-feeds).
 
 ## Feed type reference
 
@@ -134,7 +132,7 @@ icon and a color:
 | ▲ | `kafka` — Kafka | `#e53935` | No. |
 | ◗ | `tcp`, `tcp-client` — TCP client | `#546e7a` | Yes, as a Simulator TCP Server. |
 | ◗ | `tcp-server` — TCP server | `#455a64` | Yes, as a Simulator TCP Client. |
-| ◖ | `udp-client` — UDP Client (receiving feed) | `#78909c` | Requires explicit Direct or Registered contract metadata; otherwise configure manually. |
+| ◖ | `udp-client` — UDP Client (receiving feed) | `#78909c` | Yes, as a Simulator UDP Client with a valid advertised local receiving endpoint. |
 | ◖ | `udp-server` — UDP Server (receiving feed) | `#607d8b` | Yes, as a Simulator UDP Client with a valid advertised endpoint. |
 | ❖ | `azure-event-hub` — Azure Event Hub | `#0078d4` | No. |
 | ❖ | `azure-service-bus` — Azure Service Bus | `#0062ad` | No. |

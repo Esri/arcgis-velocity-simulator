@@ -107,6 +107,10 @@
       pendingValues.forEach((state, id) => {
         const element = document.getElementById(id);
         if (!element) return;
+        if (element.disabled || element.readOnly) {
+          pendingEdits.delete(id);
+          return;
+        }
         if (typeof state.value === 'string') element.value = state.value;
         if (typeof state.checked === 'boolean') element.checked = state.checked;
       });
@@ -134,7 +138,7 @@
 
   /** Reports one edit against the mirrored control id. */
   function reportValue(type, target) {
-    if (applying || !target || !target.id) return;
+    if (applying || !target || !target.id || target.disabled || target.readOnly) return;
     const isCheckbox = target.type === 'checkbox' || target.type === 'radio';
     editRevision += 1;
     pendingEdits.set(target.id, editRevision);

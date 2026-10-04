@@ -66,7 +66,7 @@ Key modules:
 | `src/network-address-utils.js` | Shared IPv4, DNS, and bracketed IPv6 authority formatting for gRPC and WebSocket transports. |
 | `src/socket-address-utils.js` | Shared TCP and UDP family selection, literal normalization, DNS resolution, socket options, and structured UDP recipient keys. |
 | `src/tcp-handshake-utils.js` | Bounded Java-style greeting decoding and ordered socket writes with cancellation, timeout, and content-free errors. |
-| `src/udp-utils.js` | Delimited LF framing and the explicit Registered compatibility marker; Direct publishing does not require registration. |
+| `src/udp-utils.js` | Delimited LF framing and explicit rejection of obsolete registration options. UDP sends only to configured endpoints. |
 | `src/run-logger.js` | The `RunLogger` used for console and log-file output in both modes. |
 
 Shared logic belongs in a shared module. When behavior is needed by more than

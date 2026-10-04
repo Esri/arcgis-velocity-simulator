@@ -25,7 +25,7 @@ async function exercise(protocol, mode, family, udpAppendNewline, udpFormat = 'd
   let tcpPeer;
   let port;
   try {
-    if (mode === 'client') {
+    if (mode === 'client' || protocol === 'udp') {
       if (protocol === 'tcp') {
         receiver = net.createServer(socket => {
           tcpPeer = socket;
@@ -39,22 +39,19 @@ async function exercise(protocol, mode, family, udpAppendNewline, udpFormat = 'd
       }
       await once(receiver, 'listening');
       port = receiver.address().port;
-    } else {
+    }
+    if (mode === 'server') {
       const result = await manager.connect({
-        protocol, mode, ip: host, port: 0, [`${protocol}AddressFamily`]: family, udpAppendNewline, udpFormat, udpConnectionMode: 'registered',
+        protocol, mode, ip: host, port: protocol === 'udp' ? port : 0,
+        udpLocalHost: host, udpLocalPort: 0,
+        [`${protocol}AddressFamily`]: family, udpAppendNewline, udpFormat,
       });
       port = result.address.port;
       if (protocol === 'tcp') {
         receiver = net.createConnection({ host, port });
         receiver.on('data', data => chunks.push(data));
         await once(receiver, 'connect');
-      } else {
-        receiver = dgram.createSocket(family === 'ipv6' ? { type: 'udp6', ipv6Only: true } : 'udp4');
-        receiver.on('message', data => chunks.push(data));
-        receiver.bind(0, host);
-        await once(receiver, 'listening');
-        await new Promise((resolve, reject) => receiver.send('UDP Client connected', port, host, error => error ? reject(error) : resolve()));
-      }
+      } else assert(result.address.port > 0, 'A zero local port must select an ephemeral source port');
       await manager.waitForRecipients({ timeoutMs: 2000 });
     }
     if (mode === 'client') await manager.connect({
@@ -63,7 +60,7 @@ async function exercise(protocol, mode, family, udpAppendNewline, udpFormat = 'd
     assert.strictEqual(manager.isConnected(), true);
     if (protocol === 'udp') {
       await new Promise(resolve => setTimeout(resolve, 20));
-      assert.deepStrictEqual(chunks, [], 'UDP clients send no probe and servers send no registration acknowledgement');
+      assert.deepStrictEqual(chunks, [], 'Neither UDP publishing role sends a probe or marker');
     }
     for (const payload of payloads) await manager.send(payload);
     const appendLf = protocol === 'tcp' || (udpFormat === 'delimited' && udpAppendNewline !== false);
@@ -81,7 +78,7 @@ async function exercise(protocol, mode, family, udpAppendNewline, udpFormat = 'd
     else if (receiver && !(receiver instanceof net.Socket)) await new Promise(resolve => receiver.close(resolve));
   }
   assert.strictEqual(manager.isConnected(), false);
-  assert.strictEqual(manager.udpServerClients.size, 0);
+  assert.strictEqual(manager.hasRecipients(), false);
 }
 
 async function exerciseDnsRecovery(family, code) {

@@ -29,12 +29,13 @@ async function run() {
           id: 'receiving-feed',
           feed: { name: type, formatName: format, properties: {
             [`${type}.hostName`]: host, [`${type}.port`]: receiver.address().port,
-            [`${type}.connectionMode`]: 'direct', [`${type}.localHost`]: host, [`${type}.localPort`]: receiver.address().port,
+            [`${type}.localHost`]: host, [`${type}.localPort`]: receiver.address().port,
           } },
         });
         const options = buildVelocityConnectionOptions({
           ...item, serverApiUrl: 'https://management.invalid/context',
         });
+        assert.strictEqual(Object.hasOwn(options, 'udpConnectionMode'), false);
         const [protocol, mode] = options.connectionType.split('-');
         const payloads = format === 'delimited' ? ['1,café', '2,water'] : ['{"id":1}', '{"id":2}'];
         const engine = new SimulationEngine({
@@ -50,7 +51,6 @@ async function run() {
         const deadline = Date.now() + 2000;
         while (received.length < 2 && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 5));
         assert.deepStrictEqual(received, payloads.map(payload => format === 'delimited' ? `${payload}\n` : payload));
-        assert.strictEqual(transport.udpServerClients.size, 0, 'No inbound registration is needed');
         if (format === 'delimited') {
           await assert.rejects(transport.send('x'.repeat(65507)), /65507/);
           assert.strictEqual(received.length, 2, 'An oversized framed payload must not be sent');

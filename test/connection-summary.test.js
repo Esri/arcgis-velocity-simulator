@@ -100,8 +100,8 @@ test('reports missing endpoint parts instead of inventing them', () => {
 });
 
 test('UDP ready state describes the local socket without claiming a connection or delivery', () => {
-  for (const [mode, label] of [['client', 'Ready'], ['server', 'Listening']]) {
-    const summary = buildConnectionSummary({ ...BASE, connectionType: `udp-${mode}`, connectionState: 'connected', udpConnectionMode: 'registered' });
+  for (const [mode, label] of [['client', 'Ready'], ['server', 'Ready']]) {
+    const summary = buildConnectionSummary({ ...BASE, connectionType: `udp-${mode}`, connectionState: 'connected' });
     assert.strictEqual(summary.connectionState, 'connected', 'Internal lifecycle state still locks the controls');
     assert.strictEqual(summary.connectionStateLabel, label);
     assert.strictEqual(rowsByKey(summary).status.value, label);

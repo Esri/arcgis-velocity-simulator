@@ -85,8 +85,9 @@ async function test(name, run) {
   await test('both UDP receiving feeds show actual data host and apply without registration', async () => {
     for (const type of ['udp-client', 'udp-server']) {
       const item = { ...sourcedFeed('server-a'), feedType: type, url: undefined,
-        host: 'data.example.com', port: 17009, format: 'delimited', serverApiUrl: ROOT,
-        udpConnectionMode: 'direct', udpLocalHost: 'data.example.com', udpLocalPort: 17009 };
+        host: type === 'udp-client' ? 'publisher.example.com' : 'data.example.com',
+        port: type === 'udp-client' ? 5565 : 17009, format: 'delimited', serverApiUrl: ROOT,
+        udpLocalHost: 'data.example.com', udpLocalPort: 17009 };
       const app = await harness({ listItems: async () => list([item]), getItemDetails: async () => item });
       await app.signIn();
       await app.selectFeed();
@@ -99,6 +100,26 @@ async function test(name, run) {
       await settle();
       assert.strictEqual(app.calls.find(([name]) => name === 'applyItem')[1].id, item.id);
       app.close();
+    }
+  });
+
+  await test('obsolete UDP modes cannot be applied even with valid receiving endpoints', async () => {
+    for (const udpConnectionMode of ['direct', 'registered']) {
+      const item = { ...feed(), feedType: 'udp-client', url: undefined,
+        host: 'publisher.example.com', port: 5565, udpLocalHost: 'receiver.example.com',
+        udpLocalPort: 17009, udpConnectionMode };
+      const app = await harness({ listItems: async () => list([item]), getItemDetails: async () => item });
+      try {
+        await app.signIn();
+        await app.selectFeed();
+        assert.strictEqual(app.element('apply-btn').disabled, true);
+        assert.match(app.element('status-banner-text').textContent, /obsolete|no longer supported/i);
+        app.element('apply-btn').click();
+        await settle();
+        assert(!app.calls.some(([name]) => name === 'applyItem'));
+      } finally {
+        app.close();
+      }
     }
   });
 

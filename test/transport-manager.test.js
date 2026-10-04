@@ -230,7 +230,7 @@ async function run() {
     }
   });
 
-  await test('UDP manager excludes registration control traffic and preserves datagrams', async () => {
+  await test('UDP manager preserves marker-looking JSON bytes without learning recipients', async () => {
     const server = new TransportManager({ logger });
     const records = [];
     const recipients = [];
@@ -238,28 +238,39 @@ async function run() {
     server.on('data-received', ({ data }) => records.push(data));
     server.on('client-connected', ({ clientKey }) => recipients.push(clientKey));
     const client = dgram.createSocket('udp4');
+    const receiver = dgram.createSocket('udp4');
+    const outbound = [];
     client.on('message', data => replies.push(data));
+    receiver.on('message', data => outbound.push(data));
+    await new Promise(resolve => receiver.bind(0, '127.0.0.1', resolve));
     try {
       const listening = await server.connect({
-        protocol: 'udp', mode: 'server', ip: '127.0.0.1', port: 0, udpFormat: 'json', udpConnectionMode: 'registered',
+        protocol: 'udp', mode: 'server', ip: '127.0.0.1', port: receiver.address().port, udpFormat: 'json',
+      });
+      assert.strictEqual(server.hasRecipients(), true);
+      const initialNotifications = recipients.length;
+      await new Promise((resolve, reject) => {
+        client.send(Buffer.from('"UDP Client connected"'), listening.address.port, '127.0.0.1', error => error ? reject(error) : resolve());
       });
       await new Promise((resolve, reject) => {
-        client.send(Buffer.from('UDP Client connected'), listening.address.port, '127.0.0.1', error => error ? reject(error) : resolve());
-      });
-      await new Promise((resolve, reject) => {
-        client.send(Buffer.from('UDP Client connected'), listening.address.port, '127.0.0.1', error => error ? reject(error) : resolve());
+        client.send(Buffer.from('"UDP Client connected"'), listening.address.port, '127.0.0.1', error => error ? reject(error) : resolve());
       });
       await new Promise((resolve, reject) => {
         client.send(Buffer.from('{"id":1}'), listening.address.port, '127.0.0.1', error => error ? reject(error) : resolve());
       });
-      await waitFor(() => records.length === 1, 'UDP payload was not received');
-      assert.deepStrictEqual(records, ['{"id":1}']);
-      assert.strictEqual(recipients.length, 1, 'Renewal must not duplicate a recipient notification');
-      assert.strictEqual(server.udpServerClients.size, 1);
-      assert.deepStrictEqual(replies, [], 'Registration renewal must not produce an acknowledgement');
+      await waitFor(() => records.length === 3, 'UDP payloads were not received');
+      assert.deepStrictEqual(records, ['"UDP Client connected"', '"UDP Client connected"', '{"id":1}']);
+      assert.strictEqual(recipients.length, initialNotifications, 'Inbound traffic must not discover recipients');
+      assert.deepStrictEqual(replies, [], 'Marker-looking data must not produce an acknowledgement');
+      assert.deepStrictEqual(outbound, [], 'Connecting sends no marker');
+      await server.send('{"sent":true}');
+      await waitFor(() => outbound.length === 1, 'Configured receiver did not receive the payload');
+      assert.deepStrictEqual(outbound, [Buffer.from('{"sent":true}')]);
+      assert.deepStrictEqual(replies, [], 'Inbound senders must never become destinations');
       await assert.rejects(server.send('not-json'), /Invalid JSON payload/);
     } finally {
       client.close();
+      receiver.close();
       await server.disconnect();
     }
   });

@@ -101,11 +101,13 @@ async function main() {
       const parsed = api.parseFeedItem({
         id: 'same-feed-id', feed: { name: type, formatName: 'delimited', properties: {
           [`${type}.${key}`]: 'data.example.com', [`${type}.port`]: '17009',
+          [`${type}.localHost`]: 'receiver.example.com', [`${type}.localPort`]: '17010',
         } },
       });
       assert.strictEqual(parsed.id, 'same-feed-id');
-      assert.strictEqual(parsed.supported, type !== 'udp-client');
+      assert.strictEqual(parsed.supported, true);
       assert.strictEqual(parsed.host, 'data.example.com');
+      assert.strictEqual(Object.hasOwn(parsed, 'udpConnectionMode'), false);
     }
     for (const [host, port, format, reason] of [
       ['', 17009, 'json', /routable/], ['0.0.0.0', 17009, 'json', /routable/],
@@ -113,25 +115,39 @@ async function main() {
       ['data.example.com', 17009, 'xml', /XML/],
     ]) {
       const parsed = api.parseFeedItem({ id: 'bad-feed', feed: { name: type, formatName: format,
-        properties: { [`${type}.hostName`]: host, [`${type}.port`]: port } } });
+        properties: { [`${type}.hostName`]: host, [`${type}.port`]: port,
+          [`${type}.localHost`]: host, [`${type}.localPort`]: port } } });
       assert.strictEqual(parsed.supported, false);
-      assert.match(parsed.reason, type === 'udp-client' ? /receiving contract/ : reason);
+      assert.match(parsed.reason, reason);
     }
     const ipv6 = api.parseFeedItem({ id: 'ipv6-feed', feed: { name: type, formatName: 'json',
-      properties: { [`${type}.hostName`]: '[::1]', [`${type}.port`]: 17009 } } });
-    assert.strictEqual(ipv6.supported, false);
-    assert.match(ipv6.reason, type === 'udp-client' ? /receiving contract/ : /bind IPv4 only/);
+      properties: { [`${type}.hostName`]: '[::1]', [`${type}.port`]: 17009,
+        [`${type}.localHost`]: '[::1]', [`${type}.localPort`]: 17009 } } });
+    assert.strictEqual(ipv6.supported, type === 'udp-client');
+    if (type === 'udp-server') assert.match(ipv6.reason, /bind IPv4 only/);
+    for (const connectionMode of ['direct', 'registered', '', null]) {
+      const obsolete = api.parseFeedItem({ id: 'obsolete-feed', feed: { name: type, properties: {
+        [`${type}.hostName`]: 'data.example.com', [`${type}.port`]: 17009,
+        [`${type}.localHost`]: 'receiver.example.com', [`${type}.localPort`]: 17010,
+        [`${type}.connectionMode`]: connectionMode,
+      } } });
+      assert.strictEqual(obsolete.supported, false, `${type}: ${connectionMode}`);
+      assert.match(obsolete.reason, /obsolete|no longer supported/i);
+    }
   }
   const tcpClient = api.parseFeedItem({
     id: 'tcp',
     feed: { name: 'tcp', formatName: 'json', properties: { 'tcp.host': 'receiver.example.com', 'tcp.port': 17013 } },
   });
   for (const [connectionMode, localHost, localPort, supported] of [
-    ['direct', '192.0.2.20', 17009, true],
+    ['direct', '192.0.2.20', 17009, false],
     ['direct', '', 17009, false],
     ['direct', '192.0.2.20', undefined, false],
-    ['registered', undefined, undefined, true],
-    [undefined, '192.0.2.20', 17009, false],
+    ['registered', undefined, undefined, false],
+    [undefined, '192.0.2.20', 17009, true],
+    [undefined, '', 17009, false],
+    [undefined, '192.0.2.20', undefined, false],
+    [undefined, undefined, undefined, false],
   ]) {
     const properties = { 'udp-client.hostname': 'publisher.example.com', 'udp-client.port': 5565 };
     if (connectionMode !== undefined) properties['udp-client.connectionMode'] = connectionMode;

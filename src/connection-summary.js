@@ -157,7 +157,6 @@
     ]),
     udp: Object.freeze([
       { field: 'udpFormat', defaultValue: 'delimited' },
-      { field: 'udpConnectionMode', defaultValue: 'direct', serverOnly: true },
       { field: 'udpLocalHost', defaultValue: '127.0.0.1', serverOnly: true },
       { field: 'udpLocalPort', defaultValue: 0, serverOnly: true },
       { field: 'udpAddressFamily', defaultValue: 'ipv4' },
@@ -622,9 +621,7 @@
       }
       if (protocol === 'udp') {
         if (mode === 'server') {
-          const direct = state.udpConnectionMode !== 'registered';
-          rows.push(row('udpConnectionMode', 'UDP mode', direct ? 'Direct' : 'Registered', { isDefault: direct }));
-          if (direct) rows.push(row('udpLocalEndpoint', 'Local bind', formatEndpoint(state.udpLocalHost || '127.0.0.1', state.udpLocalPort ?? 0), {
+          rows.push(row('udpLocalEndpoint', 'Local bind', formatEndpoint(state.udpLocalHost || '127.0.0.1', state.udpLocalPort ?? 0), {
             group: 'Connection', kind: 'endpoint', detail: 'A zero local port is assigned by the operating system.',
           }));
         }
@@ -778,7 +775,7 @@
    */
   function describeConnectionRole(state, protocol, mode) {
     const target = buildConnectionUrl(state);
-    if (protocol === 'udp' && mode === 'server' && state.udpConnectionMode !== 'registered') return `Publishing to ${target}`;
+    if (protocol === 'udp') return `Publishing to ${target}`;
     if (mode === 'server') return `Listening on ${target}`;
     return `Publishing to ${target}`;
   }
@@ -786,7 +783,7 @@
   function describeConnectionState(state = {}) {
     const status = CONNECTION_STATE_LABELS[state.connectionState] ? state.connectionState : 'disconnected';
     const { protocol, mode } = splitConnectionType(state.connectionType);
-    if (protocol === 'udp' && status === 'connected') return mode === 'server' && state.udpConnectionMode === 'registered' ? 'Listening' : 'Ready';
+    if (protocol === 'udp' && status === 'connected') return 'Ready';
     return CONNECTION_STATE_LABELS[status];
   }
 
@@ -810,7 +807,7 @@
     const rows = [
       ...warnings,
       row('connection', 'Connection', CONNECTION_TYPE_LABELS[connectionType], { group: 'Connection', kind: 'state' }),
-      row('endpoint', mode === 'server' && !(protocol === 'udp' && normalized.udpConnectionMode !== 'registered') ? 'Listening on' : 'Publishing to', url, { group: 'Connection', kind: 'endpoint' }),
+      row('endpoint', mode === 'server' && protocol !== 'udp' ? 'Listening on' : 'Publishing to', url, { group: 'Connection', kind: 'endpoint' }),
       row('status', 'Status', connectionStateLabel, {
         group: 'Session', kind: 'state',
         detail: protocol === 'udp' && connectionState === 'connected'

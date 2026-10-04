@@ -56,6 +56,9 @@ contextBridge.exposeInMainWorld('protocolSettingsClient', {
       id: message.id,
       value: typeof message.value === 'string' ? message.value.slice(0, 1024 * 1024) : undefined,
       checked: typeof message.checked === 'boolean' ? message.checked : undefined,
+      revision: (message.type === 'input' || message.type === 'change')
+        && Number.isSafeInteger(message.revision) && message.revision > 0
+        ? message.revision : undefined,
       key: typeof message.key === 'string' ? message.key : undefined,
       shiftKey: message.shiftKey === true,
       altKey: message.altKey === true,

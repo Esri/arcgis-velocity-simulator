@@ -138,13 +138,13 @@ terminal help, the dialog, and this guide use the same terminology.
 | `httpTlsCertPath` | `path`, `omitted` | `(none)` | No | `httpTlsCertPath=./certs/server.pem` | HTTPS client mTLS or server identity certificate PEM. Pair it with `httpTlsKeyPath`. |
 | `httpTlsKeyPath` | `path`, `omitted` | `(none)` | No | `httpTlsKeyPath=./certs/server-key.pem` | Private key PEM corresponding to `httpTlsCertPath`. |
 | `intervalMs` | `integer >= 1` | `1000` | No | `intervalMs=250` | Delay in milliseconds between scheduler ticks. |
-| `ip` | IP address or hostname | `127.0.0.1` | No | `ip=192.168.1.25` | Peer or bind address according to the transport role. UDP Server Direct uses it as the destination; its bind is `udpLocalHost`. Default `127.0.0.1` is loopback/local-only. TCP and UDP also accept IPv6 subject to their address-family setting. |
+| `ip` | IP address or hostname | `127.0.0.1` | No | `ip=192.168.1.25` | Peer or bind address according to the transport role. Both UDP roles use it as the destination; UDP Server binds `udpLocalHost`. Default `127.0.0.1` is loopback/local-only. TCP and UDP also accept IPv6 subject to their address-family setting. |
 | `linesPerInterval` | `integer >= 1` | `1` | No | `linesPerInterval=5` | Number of lines processed during each scheduler tick. |
 | `logFile` | `path`, `omitted` | `(none)` | No | `logFile=./logs/run.log` | Optional file path for persisted headless logs. |
 | `logLevel` | `error`, `warn`, `info`, `debug` | `info` | No | `logLevel=debug` | Minimum log level written to stdout/logFile in headless mode. |
 | `loop` | `true`, `false` | `false` | No | `loop=true` | Restart from `startLine` after reaching `endLine`. |
 | `maxLines` | `integer >= 1`, `null/omitted` | `(none)` | No | `maxLines=1000` | Optional cap on successfully processed lines. |
-| `mode` | `server`, `client` | `server` | No | `mode=client` | Select the transport role. TCP Server listens; UDP Server Direct publishes to a configured destination, while Registered learns compatible receivers. XMPP defaults to Client when selected. |
+| `mode` | `server`, `client` | `server` | No | `mode=client` | Select the transport role. TCP Server listens; both UDP roles publish to configured destinations. XMPP defaults to Client when selected. |
 | `onError` | `exit`, `continue`, `pause` | `exit` | No | `onError=continue` | Choose how send failures are handled: exit, continue, or pause. |
 | `port` | `1-65535` | `5565` | No | `port=6000` | Target or bind port. |
 | `protocol` | `tcp`, `udp`, `grpc`, `http`, `ws`, `xmpp` | `tcp` | No | `protocol=udp` | Choose the network transport for headless replay. See [gRPC transport](grpc.md), [HTTP and HTTPS transport](http.md), [WebSocket transport](websocket.md), and [XMPP transport](xmpp.md) for protocol details. When `protocol=xmpp`, the role defaults to `client` and the port defaults to `5222` unless `mode` or `port` is given explicitly. |
@@ -172,9 +172,8 @@ terminal help, the dialog, and this guide use the same terminology.
 | `udpInputHasHeader` | `true`, `false` | `false` | No | `udpInputHasHeader=true` | Treat the first logical CSV record as UDP field names and do not send it as an event. When false, structured formats use deterministic names such as `field_1` and `field_2`. |
 | `udpAppendNewline` | `true`, `false` | `true` | No | `udpAppendNewline=false` | Ensure each delimited UDP payload ends with LF without doubling an existing LF. Structured formats are unchanged. The terminator counts toward the 65,507-byte limit. Explicit `false` preserves the original bytes. See [Velocity feeds](udp.md#velocity-feeds). |
 | `udpAddressFamily` | `ipv4`, `ipv6` | `ipv4` | No | `udpAddressFamily=ipv6` | UDP DNS and socket family; IPv6 sockets accept IPv6 only. Host must match the selected family. See [Address family](udp.md#address-family). |
-| `udpConnectionMode` | `direct`, `registered` | `direct` | No | `udpConnectionMode=direct` | UDP Server publisher contract. Direct sends to `ip:port`; Registered binds there and waits for the compatibility marker. Older saved UDP Server configs missing this key retain Registered. |
-| `udpLocalHost` | local IP or hostname | `127.0.0.1` | No | `udpLocalHost=127.0.0.1` | Direct UDP Server local bind interface, separate from destination `ip:port`. |
-| `udpLocalPort` | `0`–`65535` | `0` | No | `udpLocalPort=0` | Direct UDP Server local bind port; zero selects an ephemeral sender port. |
+| `udpLocalHost` | local IP or hostname | `127.0.0.1` | No | `udpLocalHost=127.0.0.1` | UDP Server local bind interface, separate from destination `ip:port`. |
+| `udpLocalPort` | `0`–`65535` | `0` | No | `udpLocalPort=0` | UDP Server local bind port; zero selects an ephemeral sender port. |
 | `udpXField` | field name, `omitted` | `(none)` | No | `udpXField=longitude` | Optional CSV field used as the point X coordinate for UDP GeoJSON or Esri JSON conversion. Set it together with `udpYField`. |
 | `udpYField` | field name, `omitted` | `(none)` | No | `udpYField=latitude` | Optional CSV field used as the point Y coordinate for UDP GeoJSON or Esri JSON conversion. Set it together with `udpXField`. |
 | `udpWkid` | `integer >= 1` | `4326` | No | `udpWkid=4326` | Spatial reference WKID for generated UDP point geometry. GeoJSON requires 4326; Esri JSON includes the configured WKID. |
@@ -249,7 +248,7 @@ Quick rule of thumb:
 - Use `127.0.0.1` for local-only testing
 - Use `0.0.0.0` for server-mode listening when remote clients should be allowed
 
-UDP Server **Direct** is the exception: its main `ip`/`port` identify the
+UDP Server is the exception: its main `ip`/`port` identify the
 receiver, while `udpLocalHost`/`udpLocalPort` identify the publisher's bind.
 Never set a destination to `0.0.0.0` or `::`. See [UDP transport](udp.md).
 
