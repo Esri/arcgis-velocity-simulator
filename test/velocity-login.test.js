@@ -1,6 +1,8 @@
 const assert = require('assert');
 const fs = require('fs');
 const { JSDOM } = require('jsdom');
+const { listFeeds, getFeedDetails } = require('../src/velocity-api');
+const { buildVelocityConnectionOptions } = require('../src/velocity-connection-options');
 
 const html = fs.readFileSync(require.resolve('../src/velocity-login.html'), 'utf8');
 const source = fs.readFileSync(require.resolve('../src/velocity-login-renderer.js'), 'utf8');
@@ -82,6 +84,54 @@ async function test(name, run) {
 }
 
 (async () => {
+  await test('TCP feeds remain visible in the supported picker and apply the selected feed', async () => {
+    for (const type of ['tcp', 'tcp-client', 'tcp-server']) {
+      const raw = { id: `${type}-feed`, label: `${type} receiving endpoint`,
+        feed: { name: type, formatName: 'json', properties: {
+          [`${type}.hostName`]: 'data.example.com', [`${type}.port`]: 17013,
+        } } };
+      const requests = [];
+      const context = { apiBaseUrl: ROOT, profile: 'current' };
+      const request = async (url, { token }) => {
+        requests.push(url);
+        assert.strictEqual(token, 'fixture-token');
+        if (url === `${ROOT}/feed`) return [raw];
+        assert.strictEqual(url, `${ROOT}/feed/${raw.id}`);
+        return raw;
+      };
+      const app = await harness({
+        listItems: async ({ revision }) => list(await listFeeds(context, 'fixture-token', false, { request }), [], revision),
+        getItemDetails: async ({ id }) => getFeedDetails(context, id, 'fixture-token', { request }),
+      });
+      try {
+        await app.signIn();
+        assert(!app.element('picker-section').classList.contains('hidden'));
+        assert(app.element('item-type-select').querySelector(`option[value="${type}"]`));
+        assert.strictEqual(app.element('item-select').options.length, 2);
+        assert.match(app.element('item-select').options[1].textContent, new RegExp(type));
+        await app.selectFeed();
+        assert.strictEqual(app.element('info-url').textContent, 'data.example.com:17013');
+        assert.strictEqual(app.element('info-format').textContent, 'json');
+        assert.strictEqual(app.element('apply-btn').disabled, false);
+        const details = await getFeedDetails(context, raw.id, 'fixture-token', { request });
+        const options = buildVelocityConnectionOptions(details);
+        assert.strictEqual(options.connectionType, type === 'tcp-server' ? 'tcp-client' : 'tcp-server');
+        assert.strictEqual(options.ip, type === 'tcp-server' ? 'data.example.com' : '127.0.0.1');
+        assert.strictEqual(options.port, 17013);
+        assert.strictEqual(options.tcpFormat, 'json');
+        app.element('apply-btn').click();
+        await settle();
+        const applied = app.calls.find(([name]) => name === 'applyItem')[1];
+        assert.strictEqual(applied.id, raw.id);
+        assert.strictEqual(applied.revision, 7);
+        assert.deepStrictEqual(Object.keys(applied), ['id', 'revision']);
+        assert.deepStrictEqual(requests, [`${ROOT}/feed`, `${ROOT}/feed/${raw.id}`, `${ROOT}/feed/${raw.id}`]);
+      } finally {
+        app.close();
+      }
+    }
+  });
+
   await test('both UDP receiving feeds show actual data host and apply without registration', async () => {
     for (const type of ['udp-client', 'udp-server']) {
       const item = { ...sourcedFeed('server-a'), feedType: type, url: undefined,

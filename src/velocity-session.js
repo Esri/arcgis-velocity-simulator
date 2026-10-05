@@ -58,11 +58,12 @@ async function validateVelocityEndpoint(apiBaseUrl, token, { request = jsonReque
 }
 
 async function validateCustomEndpoint(base, token, options) {
+  const validateEndpoint = options.validateEndpoint || validateVelocityEndpoint;
   try {
-    return await validateVelocityEndpoint(base, token, options);
+    return await validateEndpoint(base, token, options);
   } catch (error) {
     if (!isMissingRoute(error) || !/\/iot$/i.test(new URL(base).pathname)) throw error;
-    return validateVelocityEndpoint(base, token, { ...options, profile: 'legacy' });
+    return validateEndpoint(base, token, { ...options, profile: 'legacy' });
   }
 }
 
@@ -112,7 +113,7 @@ function candidateContexts(value) {
   return contexts;
 }
 
-function candidateValidator(token, { request, onLog }) {
+function candidateValidator(token, { request, onLog, validateEndpoint = validateVelocityEndpoint }) {
   const seen = new Set();
   return async candidates => {
     for (const candidate of candidates) {
@@ -126,7 +127,7 @@ function candidateValidator(token, { request, onLog }) {
         if (seen.size >= MAX_CANDIDATES) throw endpointError(DISCOVERY_HELP, 'DISCOVERY_REQUIRED');
         seen.add(key);
         try {
-          return await validateVelocityEndpoint(context.apiBaseUrl, token, { request, onLog, profile: context.profile });
+          return await validateEndpoint(context.apiBaseUrl, token, { request, onLog, profile: context.profile });
         } catch (error) {
           if (!isMissingRoute(error)) throw error;
         }
@@ -160,9 +161,9 @@ async function mapServers(servers, callback) {
   return results;
 }
 
-async function discoverVelocityEndpoint(portalUrl, token, { request = jsonRequest, onLog } = {}) {
+async function discoverVelocityEndpoint(portalUrl, token, { request = jsonRequest, onLog, validateEndpoint = validateVelocityEndpoint } = {}) {
   const portal = normalizePortalUrl(portalUrl);
-  const tryCandidates = candidateValidator(token, { request, onLog });
+  const tryCandidates = candidateValidator(token, { request, onLog, validateEndpoint });
   log(onLog, 'info', '[API] Discovering Velocity through public Portal metadata.');
   const subscription = await readPortalMetadata(portal, 'subscriptionInfo', token, { request, onLog });
   if (subscription !== undefined) {
@@ -218,7 +219,7 @@ function serverRecord(server, source, candidateUrls) {
  * URLs are metadata only and are never requested. Validation failures are
  * retained on their server records rather than hiding other servers.
  */
-async function discoverVelocityServers(portalUrl, token, { request = jsonRequest, onLog, validate = true } = {}) {
+async function discoverVelocityServers(portalUrl, token, { request = jsonRequest, onLog, validate = true, validateEndpoint = validateVelocityEndpoint } = {}) {
   const portal = normalizePortalUrl(portalUrl);
   log(onLog, 'info', '[API] Listing Velocity servers from public Portal metadata.');
   const servers = await readPortalMetadata(portal, 'servers', token, { request, onLog });
@@ -256,7 +257,7 @@ async function discoverVelocityServers(portalUrl, token, { request = jsonRequest
     await mapServers(records, async record => {
       if (record.status === 'error') return;
       try {
-        const context = await candidateValidator(token, { request, onLog })(record.advertisedUrls);
+        const context = await candidateValidator(token, { request, onLog, validateEndpoint })(record.advertisedUrls);
         if (!context) throw endpointError(DISCOVERY_HELP, 'DISCOVERY_REQUIRED');
         record.context = context;
         record.status = 'ready';
@@ -272,10 +273,11 @@ async function discoverVelocityServers(portalUrl, token, { request = jsonRequest
 }
 
 class VelocitySession {
-  constructor({ tokenManager, request = jsonRequest, onLog } = {}) {
+  constructor({ tokenManager, request = jsonRequest, onLog, validateEndpoint = validateVelocityEndpoint } = {}) {
     this.tokenManager = tokenManager || new TokenManager({ request, onLog });
     this._request = request;
     this._onLog = onLog;
+    this._validateEndpoint = validateEndpoint;
     this._generation = 0;
     this._endpointGeneration = 0;
     this._detectGeneration = 0;
@@ -412,7 +414,10 @@ class VelocitySession {
 
   async _validateServer(server, publicApiUrl, generation) {
     const token = await this._currentToken(generation);
-    const options = { request: this._sessionRequest(generation), onLog: this._onLog };
+    const options = {
+      request: this._sessionRequest(generation), onLog: this._onLog,
+      validateEndpoint: this._validateEndpoint,
+    };
     if (!['automatic', 'custom'].includes(server.endpointMode)) throw endpointError('Choose Automatic or Custom endpoint mode.');
     let context;
     if (server.endpointMode === 'custom') {
@@ -435,6 +440,7 @@ class VelocitySession {
     const token = await this._currentToken(generation);
     return discoverVelocityServers(this._portalUrl, token, {
       request: this._sessionRequest(generation), onLog: this._onLog, validate,
+      validateEndpoint: this._validateEndpoint,
     });
   }
 
@@ -647,4 +653,4 @@ class VelocitySession {
   }
 }
 
-module.exports = { VelocitySession, discoverVelocityEndpoint, discoverVelocityServers, validateVelocityEndpoint };
+module.exports = { VelocitySession, discoverVelocityEndpoint, discoverVelocityServers, validateVelocityEndpoint, isMissingRoute };

@@ -22,7 +22,7 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-function fixture(routes = {}, now = Date.now) {
+function fixture(routes = {}, now = Date.now, sessionOptions = {}) {
   const calls = [];
   let issues = 0;
   const request = async (url, options) => {
@@ -40,11 +40,106 @@ function fixture(routes = {}, now = Date.now) {
     return typeof value === 'function' ? value(options) : value;
   };
   const tokenManager = new TokenManager({ request, now });
-  const session = new VelocitySession({ tokenManager, request });
+  const session = new VelocitySession({ tokenManager, request, ...sessionOptions });
   return { session, tokenManager, request, calls, routes, issues: () => issues };
 }
 
+async function testEndpointValidators() {
+  const base = 'https://validator.example.com/arcgis';
+  const manual = 'https://manual.example.com/iot';
+  const registry = { servers: [{ id: 'validator-server', serverType: 'ARCGIS_VELOCITY', url: base }] };
+  for (const endpointMode of ['automatic', 'custom']) {
+    for (const response of [{ outputs: [] }, [{ id: 'output', output: {} }], fail(403)]) {
+      const f = fixture({ [serversUrl]: registry, [`${base}/feed`]: response });
+      const state = await f.session.login({ ...passwordLogin, endpointMode, publicApiUrl: base });
+      assert.strictEqual(state.authenticated, true, 'Resource failure must not undo Portal authentication');
+      assert.strictEqual(state.effectiveUrl, '');
+      assert.strictEqual(state.servers[0].status, 'error');
+      assert.match(state.endpointError, response instanceof Error ? /403/ : /raw feed configuration array/);
+      assert.deepStrictEqual(f.calls.filter(call => call.url.startsWith(base)).map(call => call.url), [`${base}/feed`]);
+      assert.throws(() => f.session.context, /403|raw feed configuration array/);
+      f.session.logout();
+    }
+  }
+
+  const validations = [];
+  const onLog = () => {};
+  const validateEndpoint = async (apiBaseUrl, token, { request, onLog: logger, profile = 'current' }) => {
+    assert.strictEqual(logger, onLog);
+    assert.strictEqual(typeof request, 'function');
+    validations.push({ apiBaseUrl, token, profile });
+    const resource = profile === 'legacy' ? 'legacy-resource' : 'resource';
+    const result = await request(`${apiBaseUrl}/${resource}`, { token, onLog: logger });
+    assert.deepStrictEqual(result, { resources: [] });
+    return { apiBaseUrl, profile };
+  };
+  const routes = {
+    [serversUrl]: registry,
+    [subscriptionUrl]: { orgCapabilities: [{ id: 'velocity', velocityUrl: base }] },
+    [`${base}/resource`]: { resources: [] },
+    [`${manual}/resource`]: fail(404),
+    [`${manual}/legacy-resource`]: { resources: [] },
+  };
+  const direct = fixture({ ...routes });
+  const options = { request: direct.request, onLog, validateEndpoint };
+  assert.deepStrictEqual(await discoverVelocityEndpoint(portal, 'discovery-token', options), { apiBaseUrl: base, profile: 'current' });
+  const servers = await discoverVelocityServers(portal, 'discovery-token', options);
+  assert.strictEqual(servers[0].status, 'ready');
+  assert.deepStrictEqual(servers[0].context, { apiBaseUrl: base, profile: 'current' });
+  direct.routes[subscriptionUrl] = { orgCapabilities: [{ id: 'velocity', velocityUrl: manual }] };
+  direct.routes[serversUrl] = { servers: [{ id: 'legacy-server', serverType: 'ARCGIS_VELOCITY', url: manual }] };
+  assert.deepStrictEqual(await discoverVelocityEndpoint(portal, 'discovery-token', options), { apiBaseUrl: manual, profile: 'legacy' });
+  assert.deepStrictEqual((await discoverVelocityServers(portal, 'discovery-token', options))[0].context,
+    { apiBaseUrl: manual, profile: 'legacy' });
+  assert.deepStrictEqual(validations, [
+    { apiBaseUrl: base, token: 'discovery-token', profile: 'current' },
+    { apiBaseUrl: base, token: 'discovery-token', profile: 'current' },
+    { apiBaseUrl: manual, token: 'discovery-token', profile: 'current' },
+    { apiBaseUrl: manual, token: 'discovery-token', profile: 'legacy' },
+    { apiBaseUrl: manual, token: 'discovery-token', profile: 'current' },
+    { apiBaseUrl: manual, token: 'discovery-token', profile: 'legacy' },
+  ]);
+  assert(!direct.calls.some(call => /\/feeds?$/.test(call.url)), 'Injected discovery must not probe feeds');
+  direct.routes[`${manual}/resource`] = fail(403);
+  await assert.rejects(discoverVelocityEndpoint(portal, 'discovery-token', options), error => error.httpStatus === 403);
+  assert.strictEqual(validations.at(-1).profile, 'current', 'Permission failures must not trigger profile fallback');
+  assert.strictEqual((await discoverVelocityServers(portal, 'discovery-token', options))[0].status, 'error');
+
+  for (const endpointMode of ['automatic', 'custom']) {
+    validations.length = 0;
+    const f = fixture({ ...routes }, Date.now, { onLog, validateEndpoint });
+    const state = await f.session.login({ ...passwordLogin, endpointMode, publicApiUrl: manual });
+    assert.strictEqual(state.effectiveUrl, endpointMode === 'custom' ? manual : base);
+    assert.strictEqual(state.profile, endpointMode === 'custom' ? 'legacy' : 'current');
+    assert.deepStrictEqual(validations, endpointMode === 'custom' ? [
+      { apiBaseUrl: manual, token: 'token-1', profile: 'current' },
+      { apiBaseUrl: manual, token: 'token-1', profile: 'legacy' },
+    ] : [{ apiBaseUrl: base, token: 'token-1', profile: 'current' }]);
+    validations.length = 0;
+    const detected = await f.session.detect();
+    assert.strictEqual(detected.detectedUrl, base);
+    assert.strictEqual(detected.effectiveUrl, state.effectiveUrl, 'Detection must not replace an active endpoint');
+    assert.deepStrictEqual(validations, [{ apiBaseUrl: base, token: 'token-1', profile: 'current' }]);
+    await f.session.setEndpoint({ endpointMode: 'automatic' });
+    assert.strictEqual(f.session.state.effectiveUrl, base);
+    await f.session.setEndpoint({ endpointMode: 'custom', publicApiUrl: manual });
+    assert.strictEqual(f.session.state.profile, 'legacy');
+    assert.strictEqual(f.session.context.apiBaseUrl, manual);
+    assert.strictEqual(f.issues(), 1);
+    const beforeFailure = f.session.state;
+    f.routes[`${manual}/resource`] = fail(403);
+    validations.length = 0;
+    await assert.rejects(f.session.setEndpoint({ endpointMode: 'custom', publicApiUrl: manual }),
+      error => error.httpStatus === 403);
+    assert.deepStrictEqual(validations, [{ apiBaseUrl: manual, token: 'token-1', profile: 'current' }]);
+    assert.deepStrictEqual(f.session.state, beforeFailure, 'Failed injected validation must leave the endpoint unchanged');
+    assert(!f.calls.some(call => /\/feeds?$/.test(call.url)), 'Injected sessions must not probe feeds');
+    f.session.logout();
+  }
+}
+
 async function main() {
+  await testEndpointValidators();
   for (const base of [
     'https://velocity.example.com',
     'https://velocity.example.com:443/arcgis/velocity',
