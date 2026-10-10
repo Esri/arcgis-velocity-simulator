@@ -326,7 +326,9 @@ files and on the command line; remove them and review endpoint meanings rather
 than expecting automatic migration. See [UDP transport](udp.md#obsolete-settings).
 `tcpHandshakeText` defaults to the empty string and `tcpHandshakeUseEscapes`
 defaults to `true`. Explicit false, literal line breaks, and surrounding
-whitespace round-trip through JSON. Exported configurations include greeting
+whitespace round-trip through JSON. Before sending, edge characters
+U+0000-U+0020 are trimmed before optional escape decoding; the saved value is
+not modified. Exported configurations include greeting
 text unredacted; protect the file if it contains credentials. See
 [Connection greeting](tcp.md#connection-greeting).
 Summary masking does not encrypt stored text; command-line values may also

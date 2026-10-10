@@ -240,7 +240,7 @@ async function runCliOptionsTests() {
     return defaults.tcpHandshakeText === '' && defaults.tcpHandshakeUseEscapes === true;
   });
   runTest('Malformed TCP greeting errors do not disclose values', () => {
-    const parsed = parseCommandLineArgs(createArgv([String.raw`tcpHandshakeText=secret-auth\q`]));
+    const parsed = parseCommandLineArgs(createArgv([String.raw`tcpHandshakeText=secret-auth\u123`]));
     return parsed.mode === 'error' && !JSON.stringify(parsed.errors).includes('secret-auth')
       && parseCommandLineArgs(createArgv(['tcpHandshakeText=  '])).ui.presets.tcpHandshakeText === '  ';
   });

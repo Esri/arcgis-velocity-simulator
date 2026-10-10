@@ -18,17 +18,39 @@ function noListeners(socket) {
 
 (async () => {
   assert.strictEqual(decode().length, 0);
-  assert.strictEqual(decode(' \t ').toString(), ' \t ');
+  assert.strictEqual(decode(' \t ').length, 0);
+  const javaEdges = Array.from({ length: 33 }, (_, code) => String.fromCharCode(code)).join('');
+  for (const useEscapes of [true, false, undefined]) {
+    assert.strictEqual(decode(`${javaEdges}AUTH${javaEdges}`, { useEscapes }).toString(), 'AUTH');
+    assert.strictEqual(decode(javaEdges, { useEscapes }).length, 0);
+    assert.strictEqual(decode('\u00a0AUTH\u00a0', { useEscapes }).toString(), '\u00a0AUTH\u00a0');
+    assert.strictEqual(decode('\u0021AUTH\u0021', { useEscapes }).toString(), '!AUTH!');
+    assert.strictEqual(decode('\u2003AUTH\u2003', { useEscapes }).toString(), '\u2003AUTH\u2003');
+    assert.strictEqual(decode('AUTH \t NEXT', { useEscapes }).toString(), 'AUTH \t NEXT');
+  }
+  assert.strictEqual(decode(String.raw`  AUTH\r\n  `).toString(), 'AUTH\r\n');
+  assert.strictEqual(decode(String.raw`  AUTH\r\n  `, { useEscapes: false }).toString(), String.raw`AUTH\r\n`);
+  assert.strictEqual(decode(String.raw` \u0020AUTH\u0020 `).toString(), ' AUTH ');
+  assert.strictEqual(decode(String.raw` \t `).toString(), '\t');
   assert.strictEqual(decode('hi,café,雪').toString(), 'hi,café,雪');
   assert.strictEqual(decode(String.raw`\b\t\n\f\r\\\"\'`).toString(), '\b\t\n\f\r\\"\'');
   assert.strictEqual(decode(String.raw`\u0041\uu0042\uD83D\uDE00`).toString(), 'AB😀');
+  assert.strictEqual(decode(String.raw`\u+0041\uuu+0042`).toString(), 'AB');
+  assert.strictEqual(decode(String.raw`\q\x41\z`).toString(), 'qx41z');
+  assert.strictEqual(decode('AUTH\\').toString(), 'AUTH');
+  assert.strictEqual(decode(String.raw`\\n`).toString(), String.raw`\n`);
+  assert.strictEqual(decode(String.raw`\u005cn`).toString(), String.raw`\n`);
+  for (const text of [String.raw`\uD800`, String.raw`\uDC00`, '\ud800', '\udc00']) {
+    assert.deepStrictEqual(decode(text), Buffer.from('?'));
+  }
+  assert.deepStrictEqual(decode('\ud800A\udc00', { useEscapes: false }), Buffer.from('?A?'));
   assert.strictEqual(decode(String.raw`\0\12\377\777`).toString(), '\0\nÿ?7');
-  assert.strictEqual(decode(String.raw` hello\r\n `, { useEscapes: false }).toString(), String.raw` hello\r\n `);
+  assert.strictEqual(decode(String.raw` hello\r\n `, { useEscapes: false }).toString(), String.raw`hello\r\n`);
   assert.strictEqual(decode('x'.repeat(1024 * 1024)).length, 1024 * 1024);
   assert.throws(() => decode(String.raw`\u0041`.repeat(180000)), /character input limit/);
   assert.strictEqual(decode('é'.repeat(512 * 1024)).length, 1024 * 1024);
   assert.throws(() => decode('é'.repeat(512 * 1024) + 'x'), /1 MiB/);
-  for (const text of ['secret\\', 'secret\\q', 'secret\\uXYZ1', 'secret\\u123', 'secret\\uD800', 'secret\\uDC00']) {
+  for (const text of ['secret\\uXYZ1', 'secret\\u123', 'secret\\u+123', 'secret\\u+']) {
     assert.throws(() => decode(text), error => /TCP handshake/.test(error.message) && !error.message.includes('secret'));
   }
   assert.throws(() => decode(17), /string/);

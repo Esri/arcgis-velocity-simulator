@@ -70,7 +70,10 @@ context; editing the local bind does not change the feed's advertised endpoint.
 
 **Handshake text** is an optional greeting sent once on each new TCP client
 connection and each accepted server connection, including reconnects. Empty
-text disables it. Whitespace-only text sends those spaces. Incoming data is
+text disables it. Before optional escape decoding, leading and trailing
+characters from U+0000 through U+0020 are removed, matching Java `String.trim()`.
+Text containing only those characters sends nothing. Nonbreaking spaces and
+other Unicode whitespace are not trimmed. Incoming data is
 read immediately; this is send-only configuration, not authentication,
 negotiation, or a wait for an acknowledgement.
 
@@ -88,18 +91,27 @@ remaining connection deadline.
 
 **Use escapes** defaults to enabled. Supported Java-style escapes are `\b`,
 `\t`, `\n`, `\f`, `\r`, `\\`, `\"`, `\'`, `\uXXXX`, and octal escapes.
-Unicode escapes may contain repeated `u` characters; surrogate pairs must be
-valid. Octal escapes consume at most three digits when the first digit is
-`0`–`3`, otherwise at most two. Unknown or incomplete escapes are errors.
-With escapes disabled, backslashes are literal. The decoded UTF-8 limit is
+Unicode escapes may contain repeated `u` characters. Valid surrogate pairs
+are encoded as UTF-8; an unpaired surrogate becomes `?`. Octal escapes consume
+at most three digits when the first digit is
+`0`–`3`, otherwise at most two. Unicode escapes also accept an optional `+`
+after the last `u`. Unknown escapes discard the backslash; a trailing backslash
+is discarded. Incomplete or malformed Unicode escapes are errors. Decoding
+is not recursive: `\\n` produces literal backslash and `n`, not a newline.
+With escapes disabled, backslashes are literal, but edge trimming still
+applies. The decoded UTF-8 limit is
 1 MiB. Entered text is additionally limited to 1,048,576 UTF-16 code units;
 escaped text may reach that input limit before the decoded byte limit.
-Include `\r\n` or `\n` explicitly if the peer needs a terminator.
+Include `\r\n` or `\n` explicitly if the peer needs a terminator. For example,
+`  AUTH\r\n  ` becomes `AUTH` followed by CRLF with escapes enabled, and
+literal `AUTH\r\n` with escapes disabled. Escaped edge whitespace survives
+because trimming happens before decoding, not afterward.
 
 Loaded raw text, including CRLF, is preserved until edited. The multiline
 editor uses LF when a user edits actual line breaks; use escaped `\r\n` with
-**Use escapes** enabled when editing CRLF bytes. Leading and trailing spaces
-are never trimmed. Summary, clipboard summary, and startup diagnostics hide
+**Use escapes** enabled when editing CRLF bytes. Editing and configuration
+exports retain the entered text; trimming applies only when preparing the
+greeting bytes. Summary, clipboard summary, and startup diagnostics hide
 the greeting. Launch configuration exports contain its exact text, so protect
 those files if the greeting contains credentials. Command-line arguments may
 also be visible in shell history or process listings. Masked summaries and
@@ -150,8 +162,8 @@ The following text matches the TCP controls:
 
 | Control | Tooltip |
 |---|---|
-| Handshake text label and control | Optional TCP greeting sent as UTF-8 once on each new client connection or accepted server connection, including reconnects. Blank sends nothing. Whitespace is preserved; no newline is appended and no reply is awaited. Decoded maximum: 1 MiB. |
-| Use escapes label and control | `Interpret Java-style escapes in the TCP greeting (enabled by default): \r\n sends CRLF; \t, \b, \f, \\, escaped quotes, \uXXXX, and octal escapes are supported. When off, backslashes are sent literally. Whitespace is preserved; malformed escapes are rejected without displaying the greeting.` |
+| Handshake text label and control | Optional TCP greeting sent as UTF-8 once on each new client connection or accepted server connection, including reconnects. Empty after trimming sends nothing. Edge characters U+0000-U+0020 are removed before decoding; no newline is appended and no reply is awaited. Decoded maximum: 1 MiB. |
+| Use escapes label and control | `Interpret Java-style escapes in the TCP greeting (enabled by default): \r\n sends CRLF; \t, \b, \f, \\, escaped quotes, Unicode, and octal escapes are supported. Unknown escapes lose the backslash; a trailing backslash is removed. When off, backslashes are literal. Edge characters U+0000-U+0020 are trimmed first in either mode; invalid Unicode escapes are rejected without displaying the greeting.` |
 | Address family label and initial selector | Choose Auto, IPv4, or IPv6 for TCP. Auto preserves system address selection. Explicit IPv6 listeners accept IPv6 only. |
 | Auto | Auto - preserve the operating system and Node.js TCP address selection. This is the default. |
 | Host input and label, client | Destination address: enter a reachable peer IP address or DNS name matching the selected address family. Do not use 0.0.0.0 or :: as a destination. |

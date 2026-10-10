@@ -20,6 +20,8 @@ function decodeTcpHandshake(text = '', { useEscapes = true } = {}) {
   if (typeof text !== 'string') throw new TypeError('TCP handshake text must be a string.');
   if (text.length > DEFAULT_MAX_TCP_RECORD_BYTES) throw new Error('TCP handshake text exceeds the 1,048,576-character input limit.');
   if (typeof useEscapes !== 'boolean') throw new TypeError('TCP handshake Use escapes must be true or false.');
+  // Match Java String.trim(), not JavaScript's broader Unicode whitespace trim.
+  text = text.replace(/^[\u0000-\u0020]+|[\u0000-\u0020]+$/g, '');
   let decoded = '';
   const escapes = { b: '\b', t: '\t', n: '\n', f: '\f', r: '\r', '\\': '\\', '"': '"', "'": "'" };
   for (let i = 0; i < text.length; i++) {
@@ -28,10 +30,11 @@ function decodeTcpHandshake(text = '', { useEscapes = true } = {}) {
       decoded += character;
     } else {
       const next = text[++i];
-      if (next === undefined) throw new Error('TCP handshake contains an incomplete escape.');
+      if (next === undefined) break;
       if (Object.hasOwn(escapes, next)) decoded += escapes[next];
       else if (next === 'u') {
         while (text[i + 1] === 'u') i++;
+        if (text[i + 1] === '+') i++;
         const digits = text.slice(i + 1, i + 5);
         if (!/^[0-9a-f]{4}$/i.test(digits)) throw new Error('TCP handshake contains an invalid Unicode escape.');
         decoded += String.fromCharCode(Number.parseInt(digits, 16));
@@ -41,18 +44,22 @@ function decodeTcpHandshake(text = '', { useEscapes = true } = {}) {
         const maximum = /[0-3]/.test(next) ? 3 : 2;
         while (digits.length < maximum && /[0-7]/.test(text[i + 1] || '')) digits += text[++i];
         decoded += String.fromCharCode(Number.parseInt(digits, 8));
-      } else throw new Error('TCP handshake contains an unsupported escape.');
+      } else decoded += next;
     }
     if (decoded.length > DEFAULT_MAX_TCP_RECORD_BYTES) throw new Error('TCP handshake exceeds the 1 MiB UTF-8 limit.');
   }
+  // Java's UTF-8 encoder replaces unpaired surrogates with '?'.
+  let utf8Text = '';
   for (let i = 0; i < decoded.length; i++) {
     const code = decoded.charCodeAt(i);
     if (code >= 0xd800 && code <= 0xdbff) {
-      const low = decoded.charCodeAt(++i);
-      if (!(low >= 0xdc00 && low <= 0xdfff)) throw new Error('TCP handshake contains an invalid Unicode sequence.');
-    } else if (code >= 0xdc00 && code <= 0xdfff) throw new Error('TCP handshake contains an invalid Unicode sequence.');
+      const low = decoded.charCodeAt(i + 1);
+      if (low >= 0xdc00 && low <= 0xdfff) {
+        utf8Text += decoded[i] + decoded[++i];
+      } else utf8Text += '?';
+    } else utf8Text += code >= 0xdc00 && code <= 0xdfff ? '?' : decoded[i];
   }
-  const bytes = Buffer.from(decoded, 'utf8');
+  const bytes = Buffer.from(utf8Text, 'utf8');
   if (bytes.length > DEFAULT_MAX_TCP_RECORD_BYTES) throw new Error('TCP handshake exceeds the 1 MiB UTF-8 limit.');
   return bytes;
 }

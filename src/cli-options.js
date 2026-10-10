@@ -700,7 +700,7 @@ const CLI_PARAMETER_DEFINITIONS = [
     options: ['UTF-8 text', 'empty'],
     example: 'tcpHandshakeText=HELLO\\r\\n',
     requiredInHeadless: 'No',
-    purpose: 'Optional greeting sent once on every new TCP client or accepted server connection before local replay. Empty sends nothing. Whitespace is preserved; no delimiter is added and no reply is awaited. Decoded UTF-8 limit: 1 MiB. Stored launch configs contain the text; diagnostics hide it.',
+    purpose: 'Optional greeting sent once on every new TCP client or accepted server connection before local replay. Edge characters U+0000-U+0020 are trimmed before optional decoding; empty after trimming sends nothing. No delimiter is added and no reply is awaited. Decoded UTF-8 limit: 1 MiB. Stored launch configs contain entered text; diagnostics hide it.',
   },
   {
     key: 'tcpHandshakeUseEscapes',
@@ -708,7 +708,7 @@ const CLI_PARAMETER_DEFINITIONS = [
     options: ['true', 'false'],
     example: 'tcpHandshakeUseEscapes=false',
     requiredInHeadless: 'No',
-    purpose: 'Interpret Java-style control, quote, backslash, Unicode, and octal escapes in the TCP greeting. Enabled by default. When false, send text literally; malformed escapes are rejected without displaying text.',
+    purpose: 'Interpret Java-style control, quote, backslash, Unicode, and octal escapes after trimming the TCP greeting. Enabled by default. Unknown escapes discard the backslash; a trailing backslash is discarded. Malformed Unicode escapes are rejected without displaying text. When false, send trimmed text literally.',
   },
   {
     key: 'tcpFormat',
