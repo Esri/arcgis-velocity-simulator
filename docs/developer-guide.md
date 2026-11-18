@@ -98,6 +98,11 @@ channel in `src/preload.js` and handling it in `src/main.js`. File paths chosen
 by the user are resolved in the main process, and the renderer receives only the
 parsed result.
 
+The repository-local `.github/skills/progress-bar/` skill can display a
+session-scoped live progress panel when requested. Its templates do not install
+a global extension. Run its regressions with
+`node --test .github/skills/progress-bar/tests/progress-bar.test.mjs`.
+
 ## Windows and dialogs
 
 Use the surface role to choose window behavior. Persistent reference and

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Task progress</title>
+<script>
+const requestedTheme=new URLSearchParams(location.search).get('theme')??'auto';
+if(requestedTheme==='light'||requestedTheme==='dark'){
+  document.documentElement.setAttribute('data-progress-theme',requestedTheme);
+}
+</script>
+<style>
+:root{
+  color-scheme:dark;
+  --progress-background:var(--background-color-default,#0d1117);
+  --progress-text:var(--text-color-default,#e6edf3);
+  --progress-muted:var(--text-color-muted,#9198a1);
+  --progress-border:var(--border-color-default,#3d444d);
+  --progress-blue:var(--true-color-blue,#4493f8);
+  --progress-green:var(--true-color-green,#3fb950);
+  --progress-red:var(--true-color-red,#f85149);
+}
+:root[data-color-mode="light"]:not([data-progress-theme]){color-scheme:light}
+:root[data-progress-theme="light"]{
+  color-scheme:light;
+  --progress-background:#fff;--progress-text:#1f2328;--progress-muted:#656d76;
+  --progress-border:#d0d7de;--progress-blue:#0969da;--progress-green:#1a7f37;--progress-red:#cf222e;
+}
+:root[data-progress-theme="dark"]{
+  color-scheme:dark;
+  --progress-background:#0d1117;--progress-text:#e6edf3;--progress-muted:#9198a1;
+  --progress-border:#3d444d;--progress-blue:#4493f8;--progress-green:#3fb950;--progress-red:#f85149;
+}
+body{margin:0;padding:20px;background:var(--progress-background);color:var(--progress-text);font:14px/1.5 var(--font-sans,system-ui)}
+h1{font-size:20px;margin:0 0 2px}.muted{color:var(--progress-muted)}.small{font-size:12px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 46px 92px;gap:10px;align-items:center}
+.overall{margin:16px 0 6px}.overall .pct{font-size:24px;font-weight:600}
+.track{height:12px;border-radius:6px;overflow:hidden;background:var(--progress-border)}
+.track.thin{height:6px;margin-top:3px}
+.fill{height:100%;width:0;background:var(--progress-blue);transition:width .6s ease}
+.done .fill{background:var(--progress-green)}.blocked .fill{background:var(--progress-red)}
+#steps{list-style:none;padding:0;margin:18px 0}#steps li{padding:7px 0;border-bottom:1px solid var(--progress-border)}
+.pct,.eta{text-align:right;font-variant-numeric:tabular-nums}.eta{color:var(--progress-muted);font-size:12px}
+.running .name{font-weight:600}.pending .name{color:var(--progress-muted)}
+#error{color:var(--progress-red)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head><body>
+<h1 id="title">Task progress</h1><div id="description" class="muted small"></div>
+<div id="execution" class="muted small"></div>
+<div class="overall"><div class="row"><span id="phase">Loading...</span><span class="pct" id="percent">--%</span><span class="eta" id="eta"></span></div>
+<div class="track" role="progressbar" aria-label="Overall" aria-valuemin="0" aria-valuemax="100"><div class="fill" id="fill"></div></div></div>
+<ul id="steps"></ul>
+<p id="error" role="alert"></p>
+<p id="updated" class="muted small"></p>
+<script>
+let state,lastChecked;
+function eta(etaAt,status){
+  if(status==='blocked')return 'Blocked';
+  if(status==='done')return 'Done';
+  if(etaAt==null)return status==='pending'?'Queued':'';
+  const m=Math.ceil((etaAt-Date.now())/60000);
+  const at=new Date(etaAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  return m>0?'~'+m+' min left \u00b7 ETA '+at:'Revising ETA';
+}
+function percentage(value,done){
+  return done?100:Math.min(99,Math.round(value));
+}
+function render(){
+  if(!state)return;
+  const done=state.percent===100&&state.steps.every(s=>s.status==='done');
+  const p=percentage(state.percent,done);
+  document.querySelector('#title').textContent=state.title||'Task progress';
+  document.title=state.title||'Task progress';
+  document.querySelector('#description').textContent=state.description||'';
+  document.querySelector('#execution').textContent=state.execution||'';
+  document.querySelector('#percent').textContent=p+'%';
+  document.querySelector('#fill').style.width=p+'%';
+  document.querySelector('[role=progressbar]').setAttribute('aria-valuenow',p);
+  document.querySelector('#phase').textContent=state.phase;
+  document.querySelector('#eta').textContent=eta(state.etaAt,done?'done':'running');
+  const list=document.querySelector('#steps');list.replaceChildren();
+  for(const [i,s] of state.steps.entries()){
+    const sp=percentage(s.percent??0,s.status==='done');
+    const li=document.createElement('li');li.className=s.status;
+    const row=document.createElement('div');row.className='row';
+    const n=document.createElement('span');n.className='name';n.textContent='#'+(i+1)+'  '+s.name;
+    if(s.worker||s.model){
+      const meta=document.createElement('div');meta.className='muted small';
+      meta.textContent=[s.worker,s.model].filter(Boolean).join(' \u00b7 ');n.append(meta);
+    }
+    const pc=document.createElement('span');pc.className='pct';pc.textContent=sp+'%';
+    const et=document.createElement('span');et.className='eta';et.textContent=eta(s.etaAt,s.status);
+    row.append(n,pc,et);
+    const tr=document.createElement('div');tr.className='track thin';
+    const f=document.createElement('div');f.className='fill';f.style.width=sp+'%';tr.append(f);
+    li.append(row,tr);list.append(li);
+  }
+  document.querySelector('#updated').textContent='Checked '+new Date(lastChecked).toLocaleTimeString()+' \u00b7 updated '+new Date(state.updatedAt).toLocaleTimeString();
+}
+async function refresh(){
+  try{const r=await fetch('/state',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);
+    state=await r.json();lastChecked=Date.now();document.querySelector('#error').textContent='';render();
+  }catch(error){document.querySelector('#error').textContent='Refresh failed: '+error.message;}
+}
+refresh();setInterval(refresh,5000);setInterval(render,1000);
+</script></body></html>
