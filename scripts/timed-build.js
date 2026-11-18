@@ -8,7 +8,7 @@
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { ensureGnuArPath } = require('./binutils-path');
-const { cleanTargetArtifacts } = require('./artifact-version-utils');
+const { prepareElectronBuild } = require('./electron-build-context');
 const { buildSignEnv, describeSignOptions, parseSignOptions, withExternalWindowsSigningConfigArgs } = require('./sign-options');
 let parsed;
 try {
@@ -27,8 +27,8 @@ function isWindowsBuildStep(stepArgs) {
 // via `npm run` or directly via `node scripts/timed-build.js`.
 const bin = path.join(__dirname, '..', 'node_modules', '.bin', 'electron-builder');
 const windowsBuildStep = isWindowsBuildStep(parsed.passthroughArgs);
-const args = withExternalWindowsSigningConfigArgs(parsed.passthroughArgs, baseEnv, parsed, { disableBuiltInWindowsSigning: windowsBuildStep });
-cleanTargetArtifacts(path.join(__dirname, '..'), args);
+const build = prepareElectronBuild(path.join(__dirname, '..'), parsed.passthroughArgs);
+const args = withExternalWindowsSigningConfigArgs(build.args, baseEnv, parsed, { disableBuiltInWindowsSigning: windowsBuildStep });
 const startMs = Date.now();
 const startTime = new Date().toLocaleTimeString();
 console.log('\n\u23f1  Build started at ' + startTime);
@@ -49,6 +49,7 @@ const secs = ((elapsedMs % 60000) / 1000).toFixed(1);
 const elapsed = mins > 0 ? (mins + 'm ' + secs + 's') : (secs + 's');
 const endTime = new Date().toLocaleTimeString();
 if (result.status === 0) {
+  build.finish();
   console.log('\n\u2705 Build finished in ' + elapsed + '  (' + startTime + ' \u2192 ' + endTime + ')');
 } else {
   console.log('\n\u274c Build failed after ' + elapsed + '  (' + startTime + ' \u2192 ' + endTime + ')');

@@ -15,6 +15,10 @@ function getExternalSignSourceDirs(projectDir) {
   return [
     distDir,
     path.join(distDir, 'win-unpacked'),
+    ...['x64', 'arm64'].flatMap((arch) => {
+      const output = path.join(distDir, 'electron', `win-${arch}`);
+      return [output, path.join(output, arch === 'x64' ? 'win-unpacked' : 'win-arm64-unpacked')];
+    }),
   ];
 }
 

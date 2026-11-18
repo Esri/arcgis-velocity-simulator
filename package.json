@@ -6,6 +6,10 @@
   "main": "src/main.js",
   "homepage": "https://github.com/esri/arcgis-velocity-simulator",
   "scripts": {
+    "package:runtime": "node scripts/package-runtime.js",
+    "package:tauri": "node scripts/package-runtime.js --runtime tauri",
+    "tauri:dev": "node scripts/package-runtime.js --runtime tauri --dev",
+    "tauri:prepare": "node scripts/prepare-tauri.js",
     "start": "node scripts/start-helper.js --electron:--enable-speech-dispatcher",
     "start:headless": "node scripts/start-helper.js --electron:--enable-speech-dispatcher runMode=headless",
     "help:cli": "node scripts/start-helper.js --electron:--enable-speech-dispatcher --help",
@@ -86,13 +90,14 @@
   },
   "license": "Apache-2.0",
   "devDependencies": {
+    "@tauri-apps/cli": "^2.10.0",
     "electron": "^41.2.0",
     "electron-builder": "^26.9.0",
     "jsdom": "^29.0.2"
   },
   "build": {
     "appId": "com.esri.arcgis-velocity-simulator",
-    "productName": "ArcGIS Velocity Simulator",
+    "productName": "ArcGIS Velocity Simulator Standalone",
     "executableName": "VelocitySimulator",
     "afterSign": "scripts/external-sign.js",
     "afterAllArtifactBuild": "scripts/external-sign.js",
@@ -113,31 +118,12 @@
         "dmg",
         "zip"
       ],
-      "artifactName": "arcgis-velocity-simulator-${version}-mac.${ext}"
+      "artifactName": "arcgis-velocity-simulator-${version}-standalone-mac-${arch}.${ext}"
     },
     "win": {
       "icon": "src/assets/icon.png",
-      "artifactName": "arcgis-velocity-simulator-${version}-win.${ext}",
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64"
-          ]
-        }
-      ]
+      "artifactName": "arcgis-velocity-simulator-${version}-standalone-win-${arch}.${ext}",
+      "target": ["nsis", "portable", "zip"]
     },
     "linux": {
       "icon": "src/assets/icon.png",
@@ -147,16 +133,19 @@
       ],
       "category": "Utility",
       "maintainer": "Hanoch Kalmanovich <hkalmanovich@esri.com>",
-      "artifactName": "arcgis-velocity-simulator-${version}-linux.${ext}"
+      "artifactName": "arcgis-velocity-simulator-${version}-standalone-linux-${arch}.${ext}"
     },
     "nsis": {
-      "artifactName": "arcgis-velocity-simulator-${version}-setup.${ext}",
+      "artifactName": "arcgis-velocity-simulator-${version}-standalone-win-${arch}-setup.${ext}",
       "installerIcon": "src/assets/installerIcon.ico",
       "uninstallerIcon": "src/assets/installerIcon.ico"
     },
     "portable": {
-      "artifactName": "arcgis-velocity-simulator-${version}-portable.${ext}"
+      "artifactName": "arcgis-velocity-simulator-${version}-standalone-win-${arch}-portable.${ext}"
     }
+  },
+  "tauriRuntime": {
+    "nodeVersion": "24.19.0"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.3",

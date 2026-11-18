@@ -14,14 +14,12 @@
  */
 'use strict';
 const path = require('path');
-const fs = require('fs');
 const { spawnSync } = require('child_process');
 const { ensureGnuArPath } = require('./binutils-path');
-const { cleanTargetArtifacts } = require('./artifact-version-utils');
+const { prepareElectronBuild } = require('./electron-build-context');
 const { buildSignEnv, describeSignOptions, parseSignOptions, withExternalWindowsSigningConfigArgs } = require('./sign-options');
 
 const bin = path.join(__dirname, '..', 'node_modules', '.bin', 'electron-builder');
-const distDir = path.join(__dirname, '..', 'dist');
 
 // PATH override: prepend Homebrew binutils on macOS so electron-builder finds
 // GNU `ar` instead of BSD `ar` (required for valid .deb archives).
@@ -68,31 +66,7 @@ function formatElapsed(ms) {
 
 // ── Optional clean ────────────────────────────────────────────────────────────
 if (clean) {
-  console.log('\n🧹 Cleaning dist/ ...');
-  fs.rmSync(distDir, { recursive: true, force: true });
-  console.log('   dist/ removed.\n');
-}
-
-// ── Unpacked dir cleanup ──────────────────────────────────────────────────────
-// electron-builder leaves platform staging dirs (e.g. dist/linux-unpacked,
-// dist/mac) between steps. Subsequent platform builds can reuse stale content
-// from these dirs, producing undersized or corrupted artifacts. We wipe them
-// before each step so every platform build starts from a clean slate.
-const unpackedDirs = [
-  'linux-unpacked',
-  'linux-arm64-unpacked',
-  'win-unpacked',
-  'mac',
-  'mac-arm64',
-];
-
-function cleanUnpacked() {
-  for (const dir of unpackedDirs) {
-    const full = path.join(distDir, dir);
-    if (fs.existsSync(full)) {
-      fs.rmSync(full, { recursive: true, force: true });
-    }
-  }
+  console.log('\nCleaning only the selected Electron platform/architecture outputs.\n');
 }
 
 // ── Run steps ─────────────────────────────────────────────────────────────────
@@ -116,11 +90,11 @@ for (const def of stepDefs) {
     stepArgs.push(`--config.compression=${compressionOverride}`);
   }
 
+  const build = prepareElectronBuild(path.join(__dirname, '..'), stepArgs);
+  stepArgs = build.args;
   const windowsBuildStep = isWindowsBuildStep(stepArgs);
   stepArgs = withExternalWindowsSigningConfigArgs(stepArgs, baseChildEnv, parsedSignOptions, { disableBuiltInWindowsSigning: windowsBuildStep });
 
-  cleanUnpacked();
-  cleanTargetArtifacts(path.join(__dirname, '..'), stepArgs);
 
   const stepStart = Date.now();
   const stepStartTime = new Date().toLocaleTimeString();
@@ -139,6 +113,7 @@ for (const def of stepDefs) {
   const elapsed = Date.now() - stepStart;
   const endTime = new Date().toLocaleTimeString();
   const ok = result.status === 0;
+  if (ok) build.finish();
 
   console.log(
     `\n${ok ? '✅' : '❌'} [${label}]  ${formatElapsed(elapsed)}  (${stepStartTime} → ${endTime})`

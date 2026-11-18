@@ -28,6 +28,12 @@ full view.
 
 ## Quick start
 
+The same application parameters apply to packaged Standalone and Compact
+executables. Compact detects headless/help invocations before creating a webview,
+runs the bundled Node backend, and propagates its exit status. Keep the
+executable with its packaged resources; copying the executable alone is not
+a headless deployment. See [Installation](installation.md) for package names.
+
 ```bash
 npm run start:headless -- filename=./data.csv protocol=tcp mode=client ip=127.0.0.1 port=5565 linesPerInterval=1 intervalMs=1000 autoConnect=true autoStart=true loop=false exitOnComplete=true stdout=true
 ```

@@ -21,7 +21,7 @@
  * theme preferences, and other user settings. The configuration is stored as JSON in the user's data directory.
  */
 
-const { app } = require('electron');
+const { app } = require('./desktop-runtime');
 const fs = require('fs');
 const path = require('path');
 

@@ -175,6 +175,8 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
   assert.strictEqual(isDirectExternalSignableFile(path.join(projectDir, 'dist', 'patch.msp'), projectDir), true);
   assert.strictEqual(isDirectExternalSignableFile(path.join(projectDir, 'dist', 'installer.msi'), projectDir), true);
   assert.strictEqual(isDirectExternalSignableFile(path.join(projectDir, 'dist', 'win-unpacked', 'VelocitySimulator.exe'), projectDir), true);
+  assert.strictEqual(isDirectExternalSignableFile(path.join(projectDir, 'dist', 'electron', 'win-x64', 'win-unpacked', 'VelocitySimulator.exe'), projectDir), true);
+  assert.strictEqual(isDirectExternalSignableFile(path.join(projectDir, 'dist', 'electron', 'win-arm64', 'win-arm64-unpacked', 'resources', 'elevate.exe'), projectDir), false);
 
   assert.strictEqual(isDirectExternalSignableFile(path.join(projectDir, 'dist', 'win-unpacked', 'resources', 'elevate.exe'), projectDir), false);
   assert.strictEqual(isDirectExternalSignableFile(path.join(projectDir, 'dist', 'win-unpacked', 'resources', 'helper.msi'), projectDir), false);
@@ -184,7 +186,7 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
 (function testPackageUsesAfterSignHookForUnpackedExternalSigning() {
   const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'));
 
-  assert.strictEqual(pkg.build.productName, 'ArcGIS Velocity Simulator');
+  assert.strictEqual(pkg.build.productName, 'ArcGIS Velocity Simulator Standalone');
   assert.strictEqual(pkg.build.executableName, 'VelocitySimulator');
   assert.strictEqual(pkg.build.afterPack, undefined);
   assert.strictEqual(pkg.build.afterSign, 'scripts/external-sign.js');

@@ -20,14 +20,14 @@
  * It handles window management, application lifecycle events, native OS interactions (like dialogs and menus),
  * backend logic for all network transports, file system access, and inter-process communication (IPC) with renderer processes.
  */
-const { app, BrowserWindow, ipcMain, dialog, Menu, shell, globalShortcut, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell, globalShortcut, screen } = require('./desktop-runtime');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
 const dgram = require('dgram');
 const readline = require('readline');
 // Enable Web Speech API (SpeechRecognition)
-app.commandLine.appendSwitch('enable-speech-dispatcher');
+if (app.runtime !== 'tauri') app.commandLine.appendSwitch('enable-speech-dispatcher');
 
 // Define a base path for all resources to ensure they are found correctly.
 const basePath = __dirname;
@@ -88,7 +88,7 @@ const appLogFile = resolveAppLogFile({
   filePrefix: 'velocity-simulator',
   isPackaged: app.isPackaged,
   homePath: app.getPath('home'),
-  userDataPath: path.join(app.getPath('appData'), 'arcgis-velocity-simulator'),
+  userDataPath: app.runtime === 'tauri' ? app.getPath('userData') : path.join(app.getPath('appData'), 'arcgis-velocity-simulator'),
 });
 
 const appLogger = new RunLogger({
@@ -145,14 +145,14 @@ if (cliOptions.mode === 'error') {
 // const SpeechRecognitionHandler = require(path.join(basePath, 'speech-recognition-handler.js'));
 
 // Set a dedicated user data path to ensure write permissions
-const userDataPath = path.join(app.getPath('appData'), 'arcgis-velocity-simulator');
+const userDataPath = app.runtime === 'tauri' ? app.getPath('userData') : path.join(app.getPath('appData'), 'arcgis-velocity-simulator');
 // Create the user data directory if it doesn't exist
 if (!fs.existsSync(userDataPath)) {
   fs.mkdirSync(userDataPath, { recursive: true });
   console.log('User data directory created:', userDataPath);
 }
 // Set the user data path to the dedicated directory
-app.setPath('userData', userDataPath);
+if (app.runtime !== 'tauri') app.setPath('userData', userDataPath);
 //console.log('User data path set to:', userDataPath);
 
 // --- Global Variables ---
@@ -738,7 +738,7 @@ function createWindow() {
     protocolSettingsWindowManager.close({ restoreFocus: false });
     mainWindow = null;
     // Unregister global shortcuts when main window closes
-    globalShortcut.unregisterAll();
+    if (globalShortcut) globalShortcut.unregisterAll();
   });
 
   // Keep devToolsOpen flag and menu checkboxes in sync regardless of how DevTools was opened/closed.
@@ -1283,7 +1283,7 @@ app.on('before-quit', () => {
   // Ensure cleanup happens before app quits
   cleanupConnections();
   // Unregister all global shortcuts
-  globalShortcut.unregisterAll();
+  if (globalShortcut) globalShortcut.unregisterAll();
 });
 
 // IPC: Toggle compact/full view from renderer (e.g. double-click header)

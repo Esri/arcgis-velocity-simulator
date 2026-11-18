@@ -15,14 +15,12 @@
  */
 'use strict';
 const path = require('path');
-const fs = require('fs');
 const { spawn } = require('child_process');
 const { ensureGnuArPath } = require('./binutils-path');
-const { cleanTargetArtifacts } = require('./artifact-version-utils');
+const { prepareElectronBuild } = require('./electron-build-context');
 const { buildSignEnv, describeSignOptions, parseSignOptions, withExternalWindowsSigningConfigArgs } = require('./sign-options');
 
 const bin = path.join(__dirname, '..', 'node_modules', '.bin', 'electron-builder');
-const distDir = path.join(__dirname, '..', 'dist');
 
 // PATH override: prepend Homebrew binutils on macOS so electron-builder finds
 // GNU `ar` instead of BSD `ar` (required for valid .deb archives).
@@ -79,9 +77,7 @@ function prefix(label) {
 
 // ── Optional clean ────────────────────────────────────────────────────────────
 if (clean) {
-  console.log('\n🧹 Cleaning dist/ ...');
-  fs.rmSync(distDir, { recursive: true, force: true });
-  console.log('   dist/ removed.\n');
+  console.log('\nCleaning only the selected Electron platform/architecture outputs.\n');
 }
 
 // ── Launch all steps ──────────────────────────────────────────────────────────
@@ -104,9 +100,10 @@ const promises = stepDefs.map(def => {
     stepArgs.push(`--config.compression=${compressionOverride}`);
   }
 
+  const build = prepareElectronBuild(path.join(__dirname, '..'), stepArgs);
+  stepArgs = build.args;
   const windowsBuildStep = isWindowsBuildStep(stepArgs);
   stepArgs = withExternalWindowsSigningConfigArgs(stepArgs, baseChildEnv, parsedSignOptions, { disableBuiltInWindowsSigning: windowsBuildStep });
-  cleanTargetArtifacts(path.join(__dirname, '..'), stepArgs);
 
   const stepStart = Date.now();
   const stepStartTime = new Date().toLocaleTimeString();
@@ -143,7 +140,15 @@ const promises = stepDefs.map(def => {
     child.on('close', code => {
       const elapsed = Date.now() - stepStart;
       const endTime = new Date().toLocaleTimeString();
-      const ok = code === 0;
+      let ok = code === 0;
+      if (ok) {
+        try {
+          build.finish();
+        } catch (error) {
+          console.error(`${pfx}${error.message}`);
+          ok = false;
+        }
+      }
       console.log(
         `\n${pfx}${ok ? '✅' : '❌'}  ${formatElapsed(elapsed)}  (${stepStartTime} → ${endTime})\n`
       );

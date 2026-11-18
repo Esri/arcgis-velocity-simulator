@@ -480,36 +480,35 @@ async function runCliDryRunPreview() {
   const shareDir = process.env[SIGN_SHARE_DIR_ENV] || '';
   let invoked = false;
 
-  const unpackedDir = path.join(distDir, 'win-unpacked');
-  if (hasSignableFile(unpackedDir, DEFAULT_FILE_MASK)) {
-    await runExternalSign({
-      scriptPath: status.resolvedPath,
-      sourceDirs: [unpackedDir],
-      productName,
-      shareDir,
-      fileMask: DEFAULT_FILE_MASK,
-      phase: 'Windows unpacked app dry-run',
-      mode: '--dry-run',
-    });
-    invoked = true;
-  } else {
-    log(`Skipping Windows unpacked app dry-run; no matching files found in ${unpackedDir}.`);
-  }
-
-  const artifactPlan = getExistingArtifactSigningPlan(distDir);
-  if (artifactPlan) {
-    await runExternalSign({
-      scriptPath: status.resolvedPath,
-      sourceDirs: artifactPlan.sourceDirs,
-      productName,
-      shareDir,
-      fileMask: artifactPlan.fileMask,
-      phase: 'Windows final artifacts dry-run',
-      mode: '--dry-run',
-    });
-    invoked = true;
-  } else {
-    log(`Skipping Windows final artifacts dry-run; no signable final artifacts found in ${distDir}.`);
+  const outputs = [
+    { directory: distDir, unpacked: 'win-unpacked' },
+    ...['x64', 'arm64'].map((arch) => ({
+      directory: path.join(distDir, 'electron', `win-${arch}`),
+      unpacked: arch === 'x64' ? 'win-unpacked' : 'win-arm64-unpacked',
+    })),
+  ];
+  for (const { directory, unpacked } of outputs) {
+    const unpackedDir = path.join(directory, unpacked);
+    if (hasSignableFile(unpackedDir, DEFAULT_FILE_MASK)) {
+      await runExternalSign({
+        scriptPath: status.resolvedPath,
+        sourceDirs: [unpackedDir],
+        productName, shareDir,
+        fileMask: DEFAULT_FILE_MASK,
+        phase: 'Windows unpacked app dry-run', mode: '--dry-run',
+      });
+      invoked = true;
+    }
+    const artifactPlan = getExistingArtifactSigningPlan(directory);
+    if (artifactPlan) {
+      await runExternalSign({
+        scriptPath: status.resolvedPath,
+        sourceDirs: artifactPlan.sourceDirs,
+        productName, shareDir, fileMask: artifactPlan.fileMask,
+        phase: 'Windows final artifacts dry-run', mode: '--dry-run',
+      });
+      invoked = true;
+    }
   }
 
   if (!invoked) {

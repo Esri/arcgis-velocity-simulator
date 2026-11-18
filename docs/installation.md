@@ -6,8 +6,9 @@ This guide explains how users install and start ArcGIS Velocity Simulator from
 a release package on macOS, Windows, or Linux. It also covers first-launch
 security warnings, deployed log locations, and startup troubleshooting.
 
-Release packages include the application runtime; Node.js and npm are not
-required to run them.
+Both Standalone and Compact packages include their Node.js backend; Node.js
+and npm are not required on the receiving machine. Standalone uses Electron
+with its bundled browser; Compact uses Tauri with the operating system webview.
 
 ## Table of contents
 
@@ -23,19 +24,34 @@ Download packages only from the repository's official GitHub release page.
 
 | Platform | Package | Use |
 |---|---|---|
-| macOS | `arcgis-velocity-simulator-<version>-mac.dmg` | Drag-to-Applications installation. |
-| macOS | `arcgis-velocity-simulator-<version>-mac.zip` | Scripted extraction or environments that do not use DMG files. |
-| Windows | `arcgis-velocity-simulator-<version>-setup.exe` | Standard installation with shortcuts and an uninstaller. |
-| Windows | `arcgis-velocity-simulator-<version>-portable.exe` | Run without installation. |
-| Windows | `arcgis-velocity-simulator-<version>-win.zip` | Extract the packaged application manually. |
-| Linux | `arcgis-velocity-simulator-<version>-linux.AppImage` | Portable launch on AppImage-compatible distributions. |
-| Debian and Ubuntu | `arcgis-velocity-simulator-<version>-linux.deb` | Installation through `apt` or `dpkg`. |
+| macOS | `arcgis-velocity-simulator-<version>-<edition>-mac-<arch>.dmg` | Drag-to-Applications installation. |
+| macOS | `arcgis-velocity-simulator-<version>-<edition>-mac-<arch>.zip` | Scripted extraction or environments that do not use DMG files. |
+| Windows | `arcgis-velocity-simulator-<version>-<edition>-win-<arch>-setup.exe` | Standard installation with shortcuts and an uninstaller. |
+| Windows | `arcgis-velocity-simulator-<version>-<edition>-win-<arch>-portable.exe` | Run without installing the application. |
+| Windows | `arcgis-velocity-simulator-<version>-<edition>-win-<arch>.zip` | Extract the complete application folder. |
+| Linux | `arcgis-velocity-simulator-<version>-<edition>-linux-<arch>.AppImage` | Portable launch on compatible Linux distributions. |
+| Debian and Ubuntu | `arcgis-velocity-simulator-<version>-<edition>-linux-<arch>.deb` | Installation through `apt` or `dpkg`. |
 
-Check the selected release's architecture before downloading; filenames alone
-do not encode the architecture. Apple silicon uses `arm64`, Windows packages
-use `x64`, and Linux packages must match the host architecture.
-An Intel Mac requires an `x64` or universal macOS package; an
-`x86_64` Linux system requires a matching Linux package.
+Select `standalone` or `compact` for `<edition>`. Architecture is explicit:
+`arm64` for Apple silicon or ARM Linux/Windows, and `x64` for Intel/AMD systems.
+Only download combinations actually present in the selected release.
+The accompanying target manifest records byte sizes and SHA-256 checksums.
+
+Compact on Windows requires Microsoft WebView2. The NSIS installer can download
+the runtime if absent; portable EXE and ZIP packages require it to be installed
+already and do not provision it. The portable EXE extracts its full application
+to a temporary folder, waits for it to exit, and removes that folder.
+Portable packaging does not move configuration or logs beside the executable.
+
+On Linux, Compact DEB packages declare native webview dependencies. AppImages
+still require a compatible architecture and system-library baseline; they do
+not run on every Linux distribution. macOS uses the system WKWebView.
+Camera and speech availability depends on the selected system webview.
+
+Compact installers use a separate application identity and a display name ending
+in **Compact**. Its configuration is separate from Standalone; see
+[Configuration](configuration.md). Keep all ZIP contents together, including
+the bundled backend and Node executable.
 
 ## Install and launch
 
@@ -50,7 +66,11 @@ To install from a DMG:
 4. drag `VelocitySimulator.app` to `/Applications`; and
 5. open the application from `/Applications`.
 
-Alternatively, extract the macOS ZIP and move `VelocitySimulator.app` into
+The Standalone bundle is `VelocitySimulator.app`; the Compact bundle is
+`ArcGIS Velocity Simulator Compact.app`. Use the selected bundle name throughout
+the following examples.
+
+Alternatively, extract the macOS ZIP and move the application bundle into
 `/Applications`. Quit any running copy before replacing it, then launch the
 installed application rather than a copy inside the mounted DMG.
 
@@ -59,10 +79,12 @@ To check the downloaded DMG, set `VERSION` to the version you downloaded
 
 ```bash
 VERSION=x.y.z
+EDITION=standalone
+ARCH=arm64
 hdiutil verify \
-  "$HOME/Downloads/arcgis-velocity-simulator-${VERSION}-mac.dmg"
+  "$HOME/Downloads/arcgis-velocity-simulator-${VERSION}-${EDITION}-mac-${ARCH}.dmg"
 shasum -a 256 \
-  "$HOME/Downloads/arcgis-velocity-simulator-${VERSION}-mac.dmg"
+  "$HOME/Downloads/arcgis-velocity-simulator-${VERSION}-${EDITION}-mac-${ARCH}.dmg"
 ```
 
 `hdiutil verify` checks the disk image's internal integrity. Compare the
@@ -116,15 +138,17 @@ For an AppImage:
 
 ```bash
 VERSION=x.y.z
-chmod +x "arcgis-velocity-simulator-${VERSION}-linux.AppImage"
-"./arcgis-velocity-simulator-${VERSION}-linux.AppImage"
+EDITION=standalone
+ARCH=x64
+chmod +x "arcgis-velocity-simulator-${VERSION}-${EDITION}-linux-${ARCH}.AppImage"
+"./arcgis-velocity-simulator-${VERSION}-${EDITION}-linux-${ARCH}.AppImage"
 ```
 
 For Debian or Ubuntu:
 
 ```bash
 VERSION=x.y.z
-sudo apt install "./arcgis-velocity-simulator-${VERSION}-linux.deb"
+sudo apt install "./arcgis-velocity-simulator-${VERSION}-${EDITION}-linux-${ARCH}.deb"
 ```
 
 ## Find diagnostic logs

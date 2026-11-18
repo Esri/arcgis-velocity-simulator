@@ -35,6 +35,8 @@ are assumed. Packaging and publishing are covered in
 | `src/assets/` | Icons, screenshots, and packaging resources. |
 | `src/proto/` | Protobuf definitions used by the gRPC transports. |
 | `scripts/` | Build, prerequisite, signing, documentation, and release scripts. |
+| `src-tauri/` | Rust desktop host, native capabilities and bundle configuration. |
+| `.tauri/` | Ignored frontend staging, official Node downloads and native build cache. |
 | `test/` | Node-only test suites and the `run-all-tests.js` runner. |
 | `docs/` | Every maintained guide, plus `docs/examples/` launch configuration samples. |
 
@@ -45,6 +47,7 @@ Key modules:
 | `src/main.js` | Application lifecycle, windows, menus, dialogs, file access, configuration, IPC handlers, headless bootstrap, and logging. |
 | `src/renderer.js` | User interface state, controls, tooltips, themes, gesture and voice integration, and streaming controls. |
 | `src/preload.js` | The context-isolated bridge exposing approved channels; main-process handlers validate requests and sender identity where required. |
+| `src/desktop-runtime.js`, `src/tauri-*.js` | Runtime selection, bundled Node host, scoped frontend bridge and native IPC policy for Tauri. |
 | `src/config.js` | Persisted application configuration: defaults, load, save, import, export, and merge. |
 | `src/cli-options.js` | The single source of truth for command-line parameter metadata; feeds terminal help, the in-application reference dialog, and the documentation. |
 | `src/simulation-engine.js` | Replay scheduling, line ranges, loops, `waitForClient`, error modes, and completion semantics, with no renderer dependency. |
@@ -86,6 +89,7 @@ npm install
 npm start                                        # user interface
 npm run start:headless -- filename=./data.csv    # no-UI replay
 npm run help:cli                                 # command-line help
+npm run tauri:dev                                # native Tauri development host
 ```
 
 Command-line parameters are passed after `--`, for example
@@ -97,6 +101,15 @@ The renderer never gets Node.js access: add capabilities by exposing a validated
 channel in `src/preload.js` and handling it in `src/main.js`. File paths chosen
 by the user are resolved in the main process, and the renderer receives only the
 parsed result.
+
+Tauri runs the existing Node backend as a bundled child process. The Rust host
+owns native windows and derives sender identity from the calling webview; the
+backend applies per-document IPC allowlists. Protocol messages use bounded
+JSON lines and diagnostics use stderr. Browser assets are staged separately
+from backend source and production dependencies. Keep shared runtime files
+aligned with the Logger and preserve the authoritative Protocol Settings model.
+Native toolchain and package commands are documented in
+[Build and release](build-and-release.md#tauri-builds).
 
 The repository-local `.github/skills/progress-bar/` skill can display a
 session-scoped live progress panel when requested. Its templates do not install

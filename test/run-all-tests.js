@@ -7,6 +7,8 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 const testSuites = [
+  { file: 'package-runtime.test.js', description: 'Runtime packaging and release artifact tests' },
+  { file: 'tauri-runtime.test.js', description: 'Tauri backend replay and scoped IPC tests' },
   { file: 'config.test.js', description: '📋 Config Manager Tests' },
   { file: 'cli-options.test.js', description: '🧾 CLI Options Tests' },
   { file: 'connection-presets.test.js', description: '🎚  Connection Preset Tests' },

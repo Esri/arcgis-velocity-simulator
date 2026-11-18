@@ -28,6 +28,25 @@ ${BOLD}${WHITE}ARGUMENTS${RESET}
         Omit entirely when using ${BOLD}--upload-only${RESET} (inferred from package.json).
 
 ${BOLD}${WHITE}OPTIONS${RESET}
+  ${BOLD}--runtime electron|tauri|both${RESET}
+        Select release runtimes (default: electron). Tauri builds require a
+        matching native OS/architecture host; use --upload-only to assemble
+        previously built native targets.
+
+  ${BOLD}--platform mac|win|linux|all${RESET}
+        Select platforms. Default: all for Electron, current host for Tauri/both.
+        --upload-only validates a complete manifest for every selected platform.
+
+  ${BOLD}--arch x64|arm64${RESET}
+        Select an architecture. Builds otherwise use native architecture,
+        except Windows Electron defaults to x64. Upload-only includes available
+        architectures when this option is omitted.
+
+  ${BOLD}--distribution portable|installer|both${RESET}
+        Select package formats (default: both). Portable means mac ZIP,
+        Windows ZIP plus portable EXE, or Linux AppImage. Installers mean DMG,
+        NSIS, or DEB. Windows Tauri portable packages require existing WebView2.
+
   ${BOLD}--dry-run${RESET}  ${DIM}--simulate${RESET}
         Simulate the release without making any changes. Validates the version,
         lists each artifact that would be uploaded (with file size), and prints a
@@ -43,7 +62,7 @@ ${BOLD}${WHITE}OPTIONS${RESET}
         Skip Steps 0–4 and jump straight to Step 5 (create GitHub release + upload
         ${CYAN}dist/${RESET} artifacts). Version is read from package.json — no argument needed.
         Use after ${BOLD}--prepare-only${RESET}, or when artifacts were built externally (e.g. CI).
-        Only ${BOLD}gh${RESET} CLI is required — build tools are not checked.
+        Requires ${BOLD}Node.js, Git, and authenticated gh${RESET}; build tools are not checked.
         Stacks with ${BOLD}--re-release${RESET} and ${BOLD}--dry-run${RESET}.
 
   ${BOLD}--re-release${RESET}
@@ -75,10 +94,10 @@ ${BOLD}${WHITE}OPTIONS${RESET}
         Optional path to an external Windows signing script. Supports absolute,
         relative, and ${BOLD}~${RESET}-based paths, resolved to an absolute path before use.
         When present and found, Windows build wrappers skip electron-builder's built-in
-        Authenticode signing for direct signable files in ${CYAN}dist/win-unpacked${RESET}
-        and direct final ${CYAN}dist/*.{exe,msi,msp}${RESET} artifacts,
+        Authenticode signing for direct signable files in the selected
+        ${CYAN}dist/electron/win-<arch>/${RESET} unpacked and final artifact directories,
         leaving nested helpers eligible for signtool, then hooks call the script with ${BOLD}--run${RESET},
-        an auto-populated source folder (${CYAN}dist/win-unpacked${RESET} after resource editing,
+        an auto-populated source folder (the unpacked application after resource editing,
         or final artifact folder), and the official product name (${BOLD}ArcGIS Velocity Simulator${RESET}).
         If omitted or missing,
         the build falls back to the current electron-builder signing/unsigned behavior.
@@ -336,6 +355,10 @@ SIGN_PRODUCT_NAMES=""
 SIGN_TIMEOUT_MINUTES=""
 SIGN_PROGRESS_INTERVAL_MS=""
 SIGN_POLL_INTERVAL_MS=""
+RUNTIME="electron"
+PLATFORM=""
+ARCH=""
+DISTRIBUTION="both"
 
 # levenshtein_distance <left> <right> — minimum insert/delete/substitute edits.
 levenshtein_distance() {
@@ -386,6 +409,7 @@ closest_flag() {
     "--sign-script" "--sign-share-dir" "--sign-product-names" "--sign-timeout-minutes"
     "--sign-progress-interval-ms" "--sign-poll-interval-ms"
     "--list" "--limit" "--help"
+    "--runtime" "--platform" "--arch" "--distribution"
   )
   for flag in "${known[@]}"; do
     local f="${flag#--}"
@@ -411,6 +435,14 @@ while [[ $# -gt 0 ]]; do
     --debug-skip-clean-tree-check)       DEBUG_SKIP_CLEAN_TREE_CHECK=true; shift ;;
     --install-prereqs|--install-deps|-i) INSTALL_PREREQS=true; shift ;;
     --list|-l)                           LIST=true; shift ;;
+    --runtime=*)                        RUNTIME="${arg#--runtime=}"; shift ;;
+    --runtime)                          [[ $# -ge 2 ]] || fail "--runtime requires a value"; RUNTIME="$2"; shift 2 ;;
+    --platform=*)                       PLATFORM="${arg#--platform=}"; shift ;;
+    --platform)                         [[ $# -ge 2 ]] || fail "--platform requires a value"; PLATFORM="$2"; shift 2 ;;
+    --arch=*)                           ARCH="${arg#--arch=}"; shift ;;
+    --arch)                             [[ $# -ge 2 ]] || fail "--arch requires a value"; ARCH="$2"; shift 2 ;;
+    --distribution=*)                   DISTRIBUTION="${arg#--distribution=}"; shift ;;
+    --distribution)                     [[ $# -ge 2 ]] || fail "--distribution requires a value"; DISTRIBUTION="$2"; shift 2 ;;
     --limit=*)                           LIST_LIMIT="${arg#--limit=}"; shift ;;
     --limit)                             [[ $# -ge 2 ]] || fail "--limit requires a value"; LIST_LIMIT="$2"; shift 2 ;;
     --sign-script=*)                     SIGN_SCRIPT="${arg#--sign-script=}"; shift ;;
@@ -448,6 +480,17 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+case "$RUNTIME" in electron|tauri|both) ;; *) fail "--runtime must be electron, tauri, or both" ;; esac
+if [[ -z "$PLATFORM" ]]; then
+  if [[ "$RUNTIME" == "electron" ]]; then PLATFORM="all"
+  else PLATFORM=$(node -p '({darwin:"mac",win32:"win",linux:"linux"})[process.platform]'); fi
+fi
+case "$PLATFORM" in mac|win|linux|all) ;; *) fail "--platform must be mac, win, linux, or all" ;; esac
+case "$ARCH" in ""|x64|arm64) ;; *) fail "--arch must be x64 or arm64" ;; esac
+case "$DISTRIBUTION" in portable|installer|both) ;; *) fail "--distribution must be portable, installer, or both" ;; esac
+TARGET_ARGS=(--runtime "$RUNTIME" --platform "$PLATFORM" --distribution "$DISTRIBUTION")
+[[ -n "$ARCH" ]] && TARGET_ARGS+=(--arch "$ARCH")
 
 # ── --list: show published releases and exit ─────────────────────────────────
 if [[ "$LIST" == true ]]; then
@@ -511,6 +554,9 @@ fi
 # Normalise: ensure leading 'v'
 [[ "$VERSION" != v* ]] && VERSION="v${VERSION}"
 VERSION_BARE="${VERSION#v}"   # strip 'v' for package.json / semver math
+if [[ "$UPLOAD_ONLY" == true && "$VERSION_BARE" != "$(node -p "require('./package.json').version")" ]]; then
+  fail "--upload-only version must match package.json and the built manifests."
+fi
 
 if [[ -n "$SIGN_SCRIPT" ]]; then
   SIGN_SCRIPT=$(node -e 'const { resolveSignScriptPath } = require("./scripts/sign-options"); process.stdout.write(resolveSignScriptPath(process.argv[1]));' "$SIGN_SCRIPT")
@@ -563,18 +609,24 @@ fi
 # Skipped entirely when --upload-only is set (build tools are not needed).
 if [[ "$UPLOAD_ONLY" == true ]]; then
   banner 0 "Skipping build prerequisites (--upload-only)"
-  info "Build tools not required — only gh CLI is needed for upload."
+  info "Build tools not required — Node.js, Git, and authenticated gh are needed for upload."
 else
   banner 0 "Checking build prerequisites"
 
-  if [[ "$INSTALL_PREREQS" == true ]]; then
-    INSTALL_ARGS=(--release)
+  if [[ "$RUNTIME" != "electron" ]]; then
+    [[ "$INSTALL_PREREQS" == false ]] || fail "Install native Tauri prerequisites explicitly; --install-prereqs supports Electron only."
+    command -v git >/dev/null || fail "git is required"
+    command -v gh >/dev/null || fail "gh is required"
+    gh auth status >/dev/null 2>&1 || fail "GitHub CLI authentication is required"
+    node scripts/package-runtime.js "${TARGET_ARGS[@]}" --dry-run || fail "Invalid native build selection"
+  elif [[ "$INSTALL_PREREQS" == true ]]; then
+    INSTALL_ARGS=(--release "--${PLATFORM}")
     [[ "$DRY_RUN" == true ]] && INSTALL_ARGS+=(--dry-run)
     if ! node scripts/install-prereqs.js "${INSTALL_ARGS[@]}"; then
       fail "Prerequisites missing. Install the listed tools and re-run."
     fi
   else
-    if ! node scripts/check-build-prereqs.js --release; then
+    if ! node scripts/check-build-prereqs.js --release "--${PLATFORM}"; then
       fail "Prerequisites missing. Install the listed tools and re-run.\n     Tip: re-run with ${BOLD}--install-prereqs${RESET} to auto-install where possible."
     fi
   fi
@@ -674,6 +726,7 @@ else
         fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');
       "
       success "package.json version updated: ${DIM}${CURRENT_VERSION}${RESET} → ${BOLD}${VERSION_BARE}${RESET}"
+      run "Synchronize dependency lock version" npm install --package-lock-only --ignore-scripts --no-audit --no-fund
     fi
     VERSION_CHANGED=true
   fi
@@ -686,7 +739,9 @@ if [[ "$UPLOAD_ONLY" == true ]]; then
 else
   banner 3 "Building platform packages"
 
-  if [[ "$SEQ" == true ]]; then
+  if [[ "$RUNTIME" != "electron" || "$PLATFORM" != "all" || -n "$ARCH" || "$DISTRIBUTION" != "both" ]]; then
+    BUILD_SCRIPT="package:runtime"
+  elif [[ "$SEQ" == true ]]; then
     BUILD_SCRIPT="package:seq:clean"
   else
     BUILD_SCRIPT="package:all:clean"
@@ -713,7 +768,11 @@ else
   echo ""
 
   BUILD_START=$(date +%s)
-  run "Build" npm run "${BUILD_SCRIPT}"
+  if [[ "$BUILD_SCRIPT" == "package:runtime" ]]; then
+    run "Build" npm run "${BUILD_SCRIPT}" -- "${TARGET_ARGS[@]}"
+  else
+    run "Build" npm run "${BUILD_SCRIPT}"
+  fi
   [[ "$DRY_RUN" == true && -n "$SIGN_SCRIPT" ]] && node scripts/external-sign.js --dry-run-preview
   BUILD_ELAPSED=$(( $(date +%s) - BUILD_START ))
 
@@ -730,7 +789,7 @@ else
   banner 4 "Committing version bump"
 
   if [[ "$VERSION_CHANGED" == true ]] && { [[ "$DRY_RUN" == true ]] || ! git diff --quiet package.json; }; then
-    run "Git add" git add package.json
+    run "Git add" git add package.json package-lock.json
     run "Git commit" git commit -m "chore: bump version to ${VERSION}"
     run "Git push" git push
     GIT_HASH=$(git rev-parse --short HEAD)
@@ -758,10 +817,8 @@ if [[ "$PREPARE_ONLY" == true ]]; then
     echo -e "${BOLD}${CYAN}  ✔   Prepare phase complete — artifacts are in dist/${RESET}"
     echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo -e "  ${DIM}Commit  :${RESET}  ${GIT_HASH}"
-    ASSET_COUNT=0
-    for pattern in dist/*.AppImage dist/*.deb dist/*.dmg dist/*.zip dist/*.exe; do
-      for f in $pattern; do [[ -f "$f" ]] && ASSET_COUNT=$(( ASSET_COUNT + 1 )); done
-    done
+    ASSET_LIST=$(node scripts/release-artifacts.js "${TARGET_ARGS[@]}") || fail "Release artifacts failed validation"
+    ASSET_COUNT=$(printf '%s\n' "$ASSET_LIST" | wc -l | tr -d ' ')
     echo -e "  ${DIM}Assets  :${RESET}  ${ASSET_COUNT} file(s) in dist/"
     echo -e "  ${DIM}Next    :${RESET}  Review artifacts, then run:"
     echo -e "           ${CYAN}./scripts/release.sh --upload-only${RESET}"
@@ -793,13 +850,14 @@ else
   SINCE_LABEL="(initial release)"
 fi
 
-# Collect only files that exist (guards against missing platform artifacts)
+# Only complete, checksum-verified current-version target manifests are publishable.
 ASSETS=()
-for pattern in dist/*.AppImage dist/*.deb dist/*.dmg dist/*.zip dist/*.exe; do
-  for f in $pattern; do
-    [[ -f "$f" ]] && ASSETS+=("$f")
-  done
-done
+if [[ "$DRY_RUN" == true && "$UPLOAD_ONLY" == false ]]; then
+  info "Artifact validation will run after the real build; no unbuilt files are advertised."
+else
+  ASSET_LIST=$(node scripts/release-artifacts.js "${TARGET_ARGS[@]}") || fail "Release artifacts failed validation"
+  while IFS= read -r artifact; do ASSETS+=("$artifact"); done <<< "$ASSET_LIST"
+fi
 
 NODE_VERSION=$(node --version)
 NOTES_FILE=$(mktemp "${TMPDIR:-/tmp}/release-notes.XXXXXX")
@@ -819,6 +877,9 @@ cat > "${NOTES_FILE}" <<ENDOFNOTES
 > **App version:** ${VERSION_BARE}
 > **Node.js:** ${NODE_VERSION}
 > **Electron:** ${ELECTRON_VERSION}
+> **Selected runtimes:** ${RUNTIME}
+> **Selected platforms:** ${PLATFORM}
+> **Selected architecture:** ${ARCH:-per-artifact manifest}
 > **Platform:** $(uname -s) $(uname -m)
 > **Built:** $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -834,7 +895,7 @@ banner 5 "Publishing GitHub release"
 TOTAL_ASSETS=${#ASSETS[@]}
 
 if [[ "$DRY_RUN" == true ]]; then
-  dryrun "gh release create ${VERSION} --title \"${VERSION}\" --notes-file <notes>"
+  dryrun "Create draft release ${VERSION}, upload validated artifacts and manifests, then publish"
   echo ""
   idx=0
   for f in "${ASSETS[@]}"; do
@@ -875,6 +936,7 @@ else
   # Pin the new tag to the commit we just built from, not the remote default-branch HEAD.
   RELEASE_TARGET=$(git rev-parse HEAD)
   gh release create "${VERSION}" \
+    --draft \
     --target "${RELEASE_TARGET}" \
     --title "${VERSION}" \
     --notes-file "${NOTES_FILE}"
@@ -894,6 +956,7 @@ else
     gh release upload "${VERSION}" "${f}" > /dev/null 2>&1
     echo -e "${GREEN}✔  uploaded${RESET}"
   done
+  gh release edit "${VERSION}" --draft=false
   echo ""
 fi
 

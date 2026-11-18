@@ -199,6 +199,7 @@ module.exports = {
   DEFAULT_EXTERNAL_SIGN_TIMEOUT_MINUTES,
   buildSignEnv,
   describeSignOptions,
+  isUsableSignScript,
   parseSignOptions,
   resolveSignScriptPath,
   withExternalWindowsSigningConfigArgs,

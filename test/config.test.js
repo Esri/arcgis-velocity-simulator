@@ -6,12 +6,14 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const testUserData = fs.mkdtempSync(path.join(os.tmpdir(), 'velocity-config-test-'));
+process.once('exit', () => fs.rmSync(testUserData, { recursive: true, force: true }));
 
 // Mock Electron app module
 const mockApp = {
   getPath: (name) => {
     if (name === 'userData') {
-      return path.join(os.homedir(), 'Library/Application Support/arcgis-velocity-simulator');
+      return testUserData;
     }
     return '';
   }
