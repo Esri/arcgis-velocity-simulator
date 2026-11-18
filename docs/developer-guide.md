@@ -15,6 +15,7 @@ are assumed. Packaging and publishing are covered in
 ## Table of contents
 
 - [Repository structure](#repository-structure)
+- [Desktop runtime choices](#desktop-runtime-choices)
 - [Local development](#local-development)
 - [Windows and dialogs](#windows-and-dialogs)
 - [Testing](#testing)
@@ -82,6 +83,69 @@ URL or a token. Keep endpoint controls shared with the Logger and keep
 feed-specific parsing separate from its analytic-output parsing. The user
 workflow belongs in [Velocity REST API connections](velocity-rest-api.md).
 
+## Desktop runtime choices
+
+The application has two desktop editions that share its JavaScript application
+logic. These are current architectural tradeoffs, not separate implementations
+of the transports, authentication, or replay engine.
+
+### Why and when to use each edition
+
+**Standalone uses Electron.** Electron packages Chromium and Node.js together
+and provides the desktop APIs used by the application's main process and
+preload bridges. Bundling Chromium makes browser behavior less dependent on
+the system webview version and fits the existing Node.js desktop architecture.
+Choose Standalone when that browser consistency and a bundled browser runtime
+matter more than reducing the download size. Operating-system permissions and
+media services can still affect features.
+
+**Compact uses Tauri.** It reuses the operating system's webview rather than
+shipping Chromium, which can reduce downloads where the required system
+dependencies are available. Choose Compact when the target system meets those
+requirements and its webview supports the features you need. Webview versions,
+camera access, speech support, and rendering can differ between operating
+systems; Compact is not a promise of identical browser behavior.
+
+Tauri does not mean rewriting the application in Rust. Native desktop
+integration is implemented in Rust, but the HTML/CSS/JavaScript user interface,
+network transports, Velocity authentication, configuration, and replay logic
+remain in the existing application modules. Compact bundles its own Node.js
+backend. Users install neither Node.js nor Rust for either edition. Developers
+building Compact need Rust/Cargo and the platform's native build toolchain in
+addition to the JavaScript development tools.
+
+For platform webview requirements and package selection, see
+[Installation](installation.md). Runtime-specific persisted settings are
+described in [Configuration](configuration.md), and native toolchains and
+packaging commands in [Build and release](build-and-release.md#tauri-builds).
+
+### How the shared runtime works
+
+`src/main.js` imports `src/desktop-runtime.js`, which selects Electron by
+default or the Tauri adapter when launched by the Compact backend.
+`src/tauri-backend.js` selects that adapter and starts the same application
+entry point; it also supports the native host's command-line mode probe.
+
+`src/tauri-host.js` implements the desktop API surface needed by the shared
+main process and relays native operations to Rust.
+`src/tauri-frontend.js` supplies the webview IPC bridge used by the existing
+preload scripts, without giving the document Node.js access.
+`src/tauri-policy.js` restricts channels by document, while
+`src/tauri-wire.js` frames backend messages and chunks large responses.
+Diagnostics are kept separate from the desktop message stream.
+
+`src-tauri/src/main.rs` owns native windows, menus, dialogs, clipboard access,
+the bundled backend process, and command-line lifecycle. It derives sender
+identity from the calling webview rather than trusting a document-supplied
+identity. The remaining `src-tauri/` files define native capabilities and bundle
+configuration. Browser assets are staged separately from backend source and
+production dependencies.
+
+Keep the shared adapter modules aligned with the Logger. Form state and
+transport decisions remain in their existing owners: for example, the
+authoritative Protocol Settings form is mirrored by the detached window,
+not reimplemented in Rust.
+
 ## Local development
 
 ```bash
@@ -102,14 +166,9 @@ channel in `src/preload.js` and handling it in `src/main.js`. File paths chosen
 by the user are resolved in the main process, and the renderer receives only the
 parsed result.
 
-Tauri runs the existing Node backend as a bundled child process. The Rust host
-owns native windows and derives sender identity from the calling webview; the
-backend applies per-document IPC allowlists. Protocol messages use bounded
-JSON lines and diagnostics use stderr. Browser assets are staged separately
-from backend source and production dependencies. Keep shared runtime files
-aligned with the Logger and preserve the authoritative Protocol Settings model.
-Native toolchain and package commands are documented in
-[Build and release](build-and-release.md#tauri-builds).
+Use `npm start` for Standalone development and `npm run tauri:dev` for Compact.
+See [Desktop runtime choices](#desktop-runtime-choices) for the architecture
+and [Build and release](build-and-release.md#tauri-builds) for native prerequisites.
 
 The repository-local `.github/skills/progress-bar/` skill can display a
 session-scoped live progress panel when requested. Its templates do not install

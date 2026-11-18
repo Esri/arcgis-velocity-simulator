@@ -30,8 +30,8 @@ ${BOLD}${WHITE}ARGUMENTS${RESET}
 ${BOLD}${WHITE}OPTIONS${RESET}
   ${BOLD}--runtime electron|tauri|both${RESET}
         Select release runtimes (default: electron). Tauri builds require a
-        matching native OS/architecture host; use --upload-only to assemble
-        previously built native targets.
+        matching native OS/architecture host, or --linux-container for Linux.
+        Use --upload-only to assemble previously built targets.
 
   ${BOLD}--platform mac|win|linux|all${RESET}
         Select platforms. Default: all for Electron, current host for Tauri/both.
@@ -46,6 +46,20 @@ ${BOLD}${WHITE}OPTIONS${RESET}
         Select package formats (default: both). Portable means mac ZIP,
         Windows ZIP plus portable EXE, or Linux AppImage. Installers mean DMG,
         NSIS, or DEB. Windows Tauri portable packages require existing WebView2.
+
+  ${BOLD}--linux-container${RESET}
+        Build Linux targets in a local Docker container instead of on this host.
+        Requires a running Docker engine; no engine is installed automatically.
+
+  ${BOLD}--windows-cross${RESET}
+        Cross-build Compact Windows packages on macOS with cargo-xwin, LLVM,
+        and NSIS. Uses the existing external Windows signer when configured.
+        This build-only option does not change upload selection.
+
+  ${BOLD}--notes-file <path>${RESET}
+        Use a reviewed Markdown file instead of the generated release body.
+        The file is copied verbatim; include the intended version and commit.
+        Combine with --dry-run to review it before publishing.
 
   ${BOLD}--dry-run${RESET}  ${DIM}--simulate${RESET}
         Simulate the release without making any changes. Validates the version,
@@ -340,6 +354,9 @@ semver_lt() {
 
 # ── Argument parsing ─────────────────────────────────────────────────────────
 DRY_RUN=false
+LINUX_CONTAINER=false
+WINDOWS_CROSS=false
+CUSTOM_NOTES_FILE=""
 RERELEASE=false
 SEQ=false
 INSTALL_PREREQS=false
@@ -409,7 +426,8 @@ closest_flag() {
     "--sign-script" "--sign-share-dir" "--sign-product-names" "--sign-timeout-minutes"
     "--sign-progress-interval-ms" "--sign-poll-interval-ms"
     "--list" "--limit" "--help"
-    "--runtime" "--platform" "--arch" "--distribution"
+    "--runtime" "--platform" "--arch" "--distribution" "--linux-container"
+    "--windows-cross" "--notes-file"
   )
   for flag in "${known[@]}"; do
     local f="${flag#--}"
@@ -428,6 +446,10 @@ while [[ $# -gt 0 ]]; do
   arg="$1"
   case "$arg" in
     --dry-run|--simulate|-s)             DRY_RUN=true; shift ;;
+    --linux-container)                  LINUX_CONTAINER=true; shift ;;
+    --windows-cross)                    WINDOWS_CROSS=true; shift ;;
+    --notes-file=*)                     CUSTOM_NOTES_FILE="${arg#--notes-file=}"; shift ;;
+    --notes-file)                       [[ $# -ge 2 ]] || fail "--notes-file requires a value"; CUSTOM_NOTES_FILE="$2"; shift 2 ;;
     --re-release|-R)                     RERELEASE=true; shift ;;
     --seq|-S)                            SEQ=true; shift ;;
     --prepare-only|-p)                   PREPARE_ONLY=true; shift ;;
@@ -491,6 +513,18 @@ case "$ARCH" in ""|x64|arm64) ;; *) fail "--arch must be x64 or arm64" ;; esac
 case "$DISTRIBUTION" in portable|installer|both) ;; *) fail "--distribution must be portable, installer, or both" ;; esac
 TARGET_ARGS=(--runtime "$RUNTIME" --platform "$PLATFORM" --distribution "$DISTRIBUTION")
 [[ -n "$ARCH" ]] && TARGET_ARGS+=(--arch "$ARCH")
+BUILD_TARGET_ARGS=("${TARGET_ARGS[@]}")
+if [[ "$LINUX_CONTAINER" == true ]]; then
+  [[ "$PLATFORM" == "linux" || "$PLATFORM" == "all" ]] || fail "--linux-container requires a Linux target"
+  BUILD_TARGET_ARGS+=(--linux-container)
+fi
+if [[ "$WINDOWS_CROSS" == true ]]; then
+  [[ "$PLATFORM" == "win" || "$PLATFORM" == "all" ]] || fail "--windows-cross requires a Windows target"
+  BUILD_TARGET_ARGS+=(--windows-cross)
+fi
+if [[ -n "$CUSTOM_NOTES_FILE" ]]; then
+  [[ -f "$CUSTOM_NOTES_FILE" && -r "$CUSTOM_NOTES_FILE" ]] || fail "--notes-file must name a readable Markdown file"
+fi
 
 # ── --list: show published releases and exit ─────────────────────────────────
 if [[ "$LIST" == true ]]; then
@@ -613,12 +647,12 @@ if [[ "$UPLOAD_ONLY" == true ]]; then
 else
   banner 0 "Checking build prerequisites"
 
-  if [[ "$RUNTIME" != "electron" ]]; then
-    [[ "$INSTALL_PREREQS" == false ]] || fail "Install native Tauri prerequisites explicitly; --install-prereqs supports Electron only."
+  if [[ "$RUNTIME" != "electron" || "$LINUX_CONTAINER" == true || "$WINDOWS_CROSS" == true ]]; then
+    [[ "$INSTALL_PREREQS" == false ]] || fail "Install Tauri or container prerequisites explicitly; --install-prereqs supports host Electron builds only."
     command -v git >/dev/null || fail "git is required"
     command -v gh >/dev/null || fail "gh is required"
     gh auth status >/dev/null 2>&1 || fail "GitHub CLI authentication is required"
-    node scripts/package-runtime.js "${TARGET_ARGS[@]}" --dry-run || fail "Invalid native build selection"
+    node scripts/package-runtime.js "${BUILD_TARGET_ARGS[@]}" --dry-run || fail "Invalid build selection"
   elif [[ "$INSTALL_PREREQS" == true ]]; then
     INSTALL_ARGS=(--release "--${PLATFORM}")
     [[ "$DRY_RUN" == true ]] && INSTALL_ARGS+=(--dry-run)
@@ -739,7 +773,7 @@ if [[ "$UPLOAD_ONLY" == true ]]; then
 else
   banner 3 "Building platform packages"
 
-  if [[ "$RUNTIME" != "electron" || "$PLATFORM" != "all" || -n "$ARCH" || "$DISTRIBUTION" != "both" ]]; then
+  if [[ "$RUNTIME" != "electron" || "$PLATFORM" != "all" || -n "$ARCH" || "$DISTRIBUTION" != "both" || "$LINUX_CONTAINER" == true || "$WINDOWS_CROSS" == true ]]; then
     BUILD_SCRIPT="package:runtime"
   elif [[ "$SEQ" == true ]]; then
     BUILD_SCRIPT="package:seq:clean"
@@ -769,7 +803,7 @@ else
 
   BUILD_START=$(date +%s)
   if [[ "$BUILD_SCRIPT" == "package:runtime" ]]; then
-    run "Build" npm run "${BUILD_SCRIPT}" -- "${TARGET_ARGS[@]}"
+    run "Build" npm run "${BUILD_SCRIPT}" -- "${BUILD_TARGET_ARGS[@]}"
   else
     run "Build" npm run "${BUILD_SCRIPT}"
   fi
@@ -863,7 +897,10 @@ NODE_VERSION=$(node --version)
 NOTES_FILE=$(mktemp "${TMPDIR:-/tmp}/release-notes.XXXXXX")
 trap 'rm -f "${NOTES_FILE}"' EXIT
 
-cat > "${NOTES_FILE}" <<ENDOFNOTES
+if [[ -n "$CUSTOM_NOTES_FILE" ]]; then
+  cp "$CUSTOM_NOTES_FILE" "$NOTES_FILE"
+else
+  cat > "${NOTES_FILE}" <<ENDOFNOTES
 ## ${APP_NAME} ${VERSION}
 
 **Released:** ${BUILD_DATE}
@@ -889,6 +926,7 @@ cat > "${NOTES_FILE}" <<ENDOFNOTES
 
 ${CHANGELOG}
 ENDOFNOTES
+fi
 
 # ── Step 5: Publish GitHub release ──────────────────────────────────────────
 banner 5 "Publishing GitHub release"

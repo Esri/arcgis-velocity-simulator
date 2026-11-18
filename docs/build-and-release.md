@@ -159,10 +159,57 @@ npm run package:runtime -- --runtime tauri --platform linux --arch x64
 npm run package:runtime -- --runtime both --platform mac --dry-run
 ```
 
-Run each command on a matching native OS and architecture. Tauri cross-OS and
-cross-architecture builds are rejected rather than bundling the wrong Node
-executable. Use separate native workers for Intel and ARM targets. No universal
-macOS bundle is produced by these commands.
+By default, Compact requires a matching native OS and architecture. On macOS,
+`--windows-cross` enables a Windows cross-build and `--linux-container` enables
+the local Linux route below. Other unsupported combinations fail rather than
+bundling the wrong Node executable. No universal macOS bundle is produced.
+
+For Windows cross-builds on macOS, install the host tools and selected Rust
+target:
+
+```bash
+brew install llvm lld nsis
+rustup target add x86_64-pc-windows-msvc
+cargo install --locked cargo-xwin
+npm run package:runtime -- --runtime tauri --platform win --arch x64 --windows-cross
+```
+
+The wrapper discovers standard Homebrew LLVM/LLD paths without changing the
+shell configuration. It stages the official Windows Node executable, checks
+its PE architecture, cross-compiles with `cargo-xwin`, and uses macOS-native
+ZIP and NSIS tools. The external Windows signer runs on the Mac at application
+and final-installer boundaries. A cross-build is not a Windows runtime smoke
+test; verify the packages on a supported Windows system.
+
+To build Linux ARM64 packages from an Apple Silicon Mac with a running local
+Docker engine:
+
+```bash
+npm run package:runtime -- --runtime tauri --platform linux --arch arm64 --linux-container
+```
+
+The container uses Linux Node.js, Rust, and WebKitGTK rather than macOS
+executables. The Docker engine must be installed and started separately; the
+packaging command never installs host tools. Use `--runtime both` to package
+Standalone and Compact, or `--dry-run` to inspect target selection without
+starting a container. A dry run does not verify engine readiness.
+
+Only a local Docker socket is accepted. The helper creates an isolated source
+snapshot without `.git`, ignored credentials, or host dependencies, and mounts
+that snapshot read-only. New untracked build inputs require explicit review;
+symlink inputs are rejected. The container runs without privileged mode or
+host-device access. Compact packages are checked for native ELF architecture,
+headless help, and invalid-argument exit status before output promotion, without
+a display server or FUSE. Failed builds leave existing output packages intact.
+
+The Node.js and Rust base images are pinned by digest. System dependencies are
+installed from the image's configured package repositories and their versions
+are recorded in the manifest; these builds are not claimed to be byte-for-byte
+reproducible. The Compact container uses Debian 12 with glibc 2.36; see
+[Installation](installation.md) for target-system requirements.
+Validated artifacts replace only
+`dist/<runtime>/linux-<architecture>/`. Their manifest records the container
+image, source digest, native architecture, and installed package versions.
 
 | Prerequisite | Applies to |
 |---|---|
@@ -170,7 +217,7 @@ macOS bundle is produced by these commands.
 | Xcode Command Line Tools, `codesign`, `ditto`, and `hdiutil`. | macOS. |
 | Microsoft C++ build tools and WebView2. | Windows. |
 | NSIS `makensis` on PATH. | Windows portable EXE assembly. |
-| WebKitGTK 4.1 development libraries and native packaging tools. | Linux; use a compatible baseline such as Ubuntu 22.04. |
+| WebKitGTK 4.1 development libraries and native packaging tools. | Linux; the supplied container uses Debian 12 with glibc 2.36. |
 
 `scripts/prepare-tauri.js` downloads the exact official Node version pinned in
 `package.json → tauriRuntime.nodeVersion`, verifies its SHA-256 against the
@@ -183,9 +230,11 @@ Quit any preview running from the build directory before rebuilding it.
 | Option | Values and default |
 |---|---|
 | `--runtime` | `electron`, `tauri`, or `both`; default `electron`. |
-| `--platform` | `mac`, `win`, `linux`, or `all`; default current host. Tauri requires a single matching native platform. |
-| `--arch` | `x64` or `arm64`; default native architecture except Windows Electron defaults to `x64`. |
+| `--platform` | `mac`, `win`, `linux`, or `all`; default current host. Compact requires matching native targets unless an explicit cross-build option is selected. |
+| `--arch` | `x64` or `arm64`; default native architecture except Windows Standalone and macOS Windows cross-builds default to `x64`. |
 | `--distribution` | `portable`, `installer`, or `both`; default `both`. |
+| `--linux-container` | Build selected Linux targets in a local Docker container; off by default. Cannot be combined with `--dev`. |
+| `--windows-cross` | Build Compact Windows targets on macOS with the cross toolchain; off by default. Cannot be combined with `--dev`. |
 | `--dry-run` | Print targets without writing or building. |
 | `--dev` | Run Tauri development mode after staging its resources. |
 
@@ -202,7 +251,11 @@ the extension, or `-setup.exe` / `-portable.exe` for Windows executables.
 Each target has a similarly named `-manifest.json` recording artifact names,
 sizes, SHA-256 hashes, source commit and whether the source tree was dirty.
 The commit field is the build's base commit, not proof that uncommitted changes
-were absent. These local packaging commands never commit, push or publish.
+were absent. Container snapshots preserve the host checkout's commit and dirty
+flag through a validated source metadata file rather than creating a synthetic
+Git history. The internal `VELOCITY_BUILD_SOURCE_FILE` environment variable
+names this JSON file with a full `commit` SHA and boolean `dirty` value.
+These local packaging commands never commit, push or publish.
 Linux Compact binaries use `VelocitySimulator-compact` so installation does
 not replace the Standalone executable. The other platforms keep
 `VelocitySimulator` as the executable name inside distinct application bundles.
@@ -272,7 +325,8 @@ integration environment.
 
 ### Host support matrix
 
-This matrix describes Electron packaging only. Tauri uses matching native hosts.
+This matrix describes Electron packaging only. See [Tauri builds](#tauri-builds)
+for native-host and local Linux container options.
 
 | Host | `.dmg` | mac `.zip` | Windows artifacts | `.AppImage` | `.deb` |
 |------|:---:|:---:|:---:|:---:|:---:|
@@ -362,6 +416,13 @@ CSC_IDENTITY_AUTO_DISCOVERY=false npm run package:win
 its contents, which is convenient in continuous integration.
 
 ### External Windows signing script
+
+The repository-local
+[Build, sign and release skill](../.github/skills/build-sign-release/SKILL.md)
+locates the existing tools. An optional ignored `.release.local.json` can hold
+a personal `signScript` path. This is a discovery hint for the skill, not an
+automatically loaded release-script configuration; pass `--sign-script`
+explicitly. The external tool owns its own configuration.
 
 Windows builds can delegate signing to an external script such as Esri's
 `sign.sh`, either from a build:
@@ -458,6 +519,9 @@ An interrupted upload leaves a draft rather than an incomplete public release.
 | `--platform mac\|win\|linux\|all` | Select platforms; default `all` for Electron, current host for Tauri or both. |
 | `--arch x64\|arm64` | Select one architecture; upload-only without this option includes available architectures for each selected target. |
 | `--distribution portable\|installer\|both` | Select required package formats; default `both`. |
+| `--linux-container` | Build Linux targets in a local Docker container; requires a running engine. Does not affect upload-only artifact selection. |
+| `--windows-cross` | Build Compact Windows targets on macOS with the cross toolchain; build-only, not an upload selector. |
+| `--notes-file <path>` | Use a reviewed Markdown release body verbatim instead of generated commit notes. Preview it with `--dry-run` before publishing. |
 | `--dry-run`, `--simulate` | Preview without writing, committing, or publishing. Upload-only validates and lists existing assets; a build preview does not advertise files that have not been built. |
 | `--re-release` | Re-publish an already-released version with rebuilt artifacts and refreshed notes. Generates the changelog against the previous good tag, deletes the existing GitHub release and Git tag, and re-creates them pinned to the current `HEAD`. The clean-tree and version-gate checks still apply. |
 | `--seq` | Build platforms sequentially instead of in parallel. Slower, but produces non-interleaved output for debugging. Not required for external Windows signing, which is serialized separately. |

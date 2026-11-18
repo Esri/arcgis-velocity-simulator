@@ -3,15 +3,19 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { execFileSync } = require('child_process');
 const { parseSignOptions, buildSignEnv, isUsableSignScript } = require('./sign-options');
 const { EDITIONS, artifactName, formatsFor, outputDirectory, validateTarget, writeManifest } = require('./release-artifacts');
-const { prepareTauri, run } = require('./prepare-tauri');
+const { assertWindowsBinary, prepareTauri, run } = require('./prepare-tauri');
 
 const HELP = `Usage: node scripts/package-runtime.js [options]
   --runtime electron|tauri|both          Runtime (default: electron).
   --platform mac|win|linux|all           Target OS (default: current host).
   --arch x64|arm64                      Target architecture (default: host; Windows Electron defaults to x64).
   --distribution portable|installer|both  Package selection (default: both).
+  --linux-container                    Build Linux targets in a local Docker container.
+  --windows-cross                      Cross-build Compact Windows targets on macOS using cargo-xwin.
   --dev                                Run Tauri in development mode.
   --dry-run                            Print selected targets without writing or building.
   --sign-script <path>                  External Windows signing script.
@@ -21,7 +25,8 @@ const HELP = `Usage: node scripts/package-runtime.js [options]
   --help                               Show this reference.
 
 Electron retains cross-platform packaging where supported by electron-builder.
-Tauri requires a matching OS and architecture build host. Collect native builds
+Tauri requires a matching OS and architecture build host unless Linux targets
+use --linux-container or macOS Windows builds use --windows-cross. Collect builds
 with release.sh --upload-only; no command here commits, pushes or publishes.
 Public editions are Standalone (electron) and Compact (tauri).
 Windows portable packages still require WebView2; they do not install it.
@@ -32,7 +37,7 @@ function parseOptions(args, hostPlatform = process.platform, hostArch = process.
   const options = { runtime: 'electron', platform: ({ darwin: 'mac', win32: 'win', linux: 'linux' })[hostPlatform], distribution: 'both' };
   for (let i = 0; i < signed.passthroughArgs.length; i++) {
     const arg = signed.passthroughArgs[i];
-    if (['--help', '--dry-run', '--dev'].includes(arg)) {
+    if (['--help', '--dry-run', '--dev', '--linux-container', '--windows-cross'].includes(arg)) {
       options[arg.slice(2)] = true;
       continue;
     }
@@ -47,12 +52,22 @@ function parseOptions(args, hostPlatform = process.platform, hostArch = process.
   if (!['mac', 'win', 'linux', 'all'].includes(options.platform)) throw new Error(`Unknown platform: ${options.platform}`);
   const runtimes = options.runtime === 'both' ? ['electron', 'tauri'] : [options.runtime];
   const platforms = options.platform === 'all' ? ['mac', 'win', 'linux'] : [options.platform];
+  if (options['linux-container'] && !platforms.includes('linux')) {
+    throw new Error('--linux-container requires a Linux target');
+  }
+  if (options['linux-container'] && options.dev) throw new Error('--linux-container cannot be used with --dev');
+  if (options['windows-cross'] && (hostPlatform !== 'darwin' || !platforms.includes('win'))) {
+    throw new Error('--windows-cross requires a macOS host and a Windows target');
+  }
+  if (options['windows-cross'] && options.dev) throw new Error('--windows-cross cannot be used with --dev');
   const targets = runtimes.flatMap((runtime) => platforms.map((platform) => {
-    const arch = options.arch || (runtime === 'electron' && platform === 'win' ? 'x64' : hostArch);
+    const arch = options.arch || (platform === 'win' && (runtime === 'electron' || options['windows-cross']) ? 'x64' : hostArch);
     const target = { runtime, platform, arch };
     validateTarget(target);
     formatsFor(platform, options.distribution);
-    if (runtime === 'tauri' && (platform !== ({ darwin: 'mac', win32: 'win', linux: 'linux' })[hostPlatform] || arch !== hostArch)) {
+    if (runtime === 'tauri' && !(platform === 'linux' && options['linux-container'])
+      && !(platform === 'win' && options['windows-cross'])
+      && (platform !== ({ darwin: 'mac', win32: 'win', linux: 'linux' })[hostPlatform] || arch !== hostArch)) {
       throw new Error(`Tauri ${platform}/${arch} requires a matching native build host; this host is ${hostPlatform}/${hostArch}`);
     }
     return target;
@@ -66,19 +81,32 @@ function nsisString(value) {
   return value.replace(/\$/g, () => '$$').replace(/"/g, '$\\"');
 }
 
-function portableScript(source, destination, executable) {
+function portableScript(source, destination, executable, { productName = 'Portable application', version, icon } = {}) {
+  let versionInfo = '';
+  if (version) {
+    const match = /^(\d+)\.(\d+)\.(\d+)(?:-[a-zA-Z0-9.-]+)?$/.exec(version);
+    if (!match || match.slice(1).some(value => Number(value) > 65535)) throw new Error('Invalid Windows portable version');
+    versionInfo = `VIProductVersion "${match.slice(1).join('.')}.0"
+VIAddVersionKey /LANG=1033 "ProductName" "${nsisString(productName)}"
+VIAddVersionKey /LANG=1033 "CompanyName" "Esri"
+VIAddVersionKey /LANG=1033 "LegalCopyright" "Copyright 2026 Esri"
+VIAddVersionKey /LANG=1033 "FileDescription" "${nsisString(productName)} portable launcher"
+VIAddVersionKey /LANG=1033 "FileVersion" "${nsisString(version)}"
+VIAddVersionKey /LANG=1033 "ProductVersion" "${nsisString(version)}"
+`;
+  }
   return `Unicode true
 !include "FileFunc.nsh"
-Name "Portable application"
+Name "${nsisString(productName)}"
 OutFile "${nsisString(destination)}"
-RequestExecutionLevel user
+${icon ? `Icon "${nsisString(icon)}"\n` : ''}${versionInfo}RequestExecutionLevel user
 SilentInstall silent
 AutoCloseWindow true
 SetCompressor /SOLID lzma
 Section
   InitPluginsDir
   SetOutPath "$PLUGINSDIR\\app"
-  File /r "${nsisString(source)}\\*"
+  File /r "${nsisString(source.replace(/\\/g, '/'))}/*"
   \${GetParameters} $R0
   ClearErrors
   ExecWait '"$PLUGINSDIR\\app\\${nsisString(executable)}" $R0' $R1
@@ -100,17 +128,56 @@ function findBundle(directory, extension) {
   return path.join(directory, matches[0]);
 }
 
+function crossWindowsEnvironment(repoDir, target, env) {
+  const prefixes = [...new Set([env.HOMEBREW_PREFIX, '/opt/homebrew', '/usr/local'].filter(Boolean))];
+  const bins = [
+    path.join(env.CARGO_HOME || path.join(os.homedir(), '.cargo'), 'bin'),
+    ...prefixes.flatMap((prefix) => [path.join(prefix, 'opt/llvm/bin'), path.join(prefix, 'opt/lld/bin'), path.join(prefix, 'bin')]),
+  ].filter((directory) => fs.existsSync(directory));
+  const result = {
+    ...env,
+    PATH: [...bins, env.PATH || ''].join(path.delimiter),
+    XWIN_ARCH: target.arch === 'x64' ? 'x86_64' : 'aarch64',
+    XWIN_CACHE_DIR: env.XWIN_CACHE_DIR || path.join(repoDir, '.tauri', 'xwin-cache'),
+  };
+  const missing = ['cargo', 'rustup', 'clang-cl', 'llvm-rc', 'lld-link', 'makensis'].filter((tool) =>
+    !result.PATH.split(path.delimiter).some((directory) => {
+      try {
+        const file = path.join(directory, tool);
+        fs.accessSync(file, fs.constants.X_OK);
+        return fs.statSync(file).isFile();
+      } catch { return false; }
+    }));
+  if (missing.length) {
+    throw new Error(`Missing Windows cross-build tools: ${missing.join(', ')}. Install Rust, then brew install llvm lld nsis.`);
+  }
+  run('cargo', ['xwin', '--version'], { env: result });
+  const triple = `${result.XWIN_ARCH}-pc-windows-msvc`;
+  const installed = execFileSync('rustup', ['target', 'list', '--installed'], { env: result, encoding: 'utf8' }).trim().split(/\s+/);
+  if (!installed.includes(triple)) throw new Error(`Missing Rust target; run rustup target add ${triple}`);
+  return { env: result, triple };
+}
+
 async function buildTauri(repoDir, pkg, target, options, env) {
+  let triple = '';
+  if (target.platform === 'win' && options['windows-cross']) {
+    const cross = crossWindowsEnvironment(repoDir, target, env);
+    env = cross.env;
+    triple = cross.triple;
+  }
   run('cargo', ['--version'], { env });
   if (target.platform === 'win' && formatsFor('win', options.distribution).includes('portable.exe')) {
-    run('makensis', ['/VERSION'], { env });
+    run('makensis', [process.platform === 'win32' ? '/VERSION' : '-VERSION'], { env });
   }
-  const { resources } = await prepareTauri(repoDir);
+  const { resources } = await prepareTauri(repoDir, {
+    platform: { mac: 'darwin', win: 'win32', linux: 'linux' }[target.platform], arch: target.arch,
+  });
   const output = outputDirectory(repoDir, target);
   fs.rmSync(output, { recursive: true, force: true });
   fs.mkdirSync(output, { recursive: true });
   const cargoDir = path.join(repoDir, '.tauri', 'cargo', `${target.platform}-${target.arch}`);
-  const bundleDir = path.join(cargoDir, 'release', 'bundle');
+  const releaseDir = path.join(cargoDir, triple, 'release');
+  const bundleDir = path.join(releaseDir, 'bundle');
   fs.rmSync(bundleDir, { recursive: true, force: true });
   const cli = path.join(repoDir, 'node_modules', '@tauri-apps', 'cli', 'tauri.js');
   const config = {
@@ -142,6 +209,7 @@ async function buildTauri(repoDir, pkg, target, options, env) {
     : target.platform === 'linux' ? formats.map((format) => format.toLowerCase())
       : formats.includes('setup.exe') ? ['nsis'] : [];
   run(process.execPath, [cli, 'build', '--config', configPath,
+    ...(triple ? ['--runner', 'cargo-xwin', '--target', triple] : []),
     ...(bundles.length ? ['--bundles', bundles.join(',')] : ['--no-bundle'])], { cwd: repoDir, env: buildEnv });
   for (const format of formats.filter((format) => ['dmg', 'setup.exe', 'AppImage', 'deb'].includes(format))) {
     const directory = ({ dmg: 'dmg', 'setup.exe': 'nsis', AppImage: 'appimage', deb: 'deb' })[format];
@@ -157,20 +225,29 @@ async function buildTauri(repoDir, pkg, target, options, env) {
     fs.mkdirSync(folder);
     fs.cpSync(resources, folder, { recursive: true });
     const executable = `${pkg.build.executableName}.exe`;
-    fs.copyFileSync(path.join(cargoDir, 'release', executable), path.join(folder, executable));
+    fs.copyFileSync(path.join(releaseDir, executable), path.join(folder, executable));
+    assertWindowsBinary(path.join(folder, executable), target.arch);
     if (env.VELOCITY_SIGN_SCRIPT) {
       run(process.execPath, [path.join(repoDir, 'scripts', 'tauri-sign.js'), path.join(folder, executable)], { env });
     }
     if (formats.includes('zip')) {
-      run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
-        'Compress-Archive -Path (Join-Path $env:VELOCITY_PACKAGE_SOURCE "*") -DestinationPath $env:VELOCITY_PACKAGE_DESTINATION -Force'],
-      { env: { ...env, VELOCITY_PACKAGE_SOURCE: folder, VELOCITY_PACKAGE_DESTINATION: path.join(output, artifactName(pkg, target, 'zip')) } });
+      const destination = path.join(output, artifactName(pkg, target, 'zip'));
+      if (process.platform === 'darwin') {
+        run('ditto', ['-c', '-k', '--norsrc', folder, destination], { env });
+      } else {
+        run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+          'Compress-Archive -Path (Join-Path $env:VELOCITY_PACKAGE_SOURCE "*") -DestinationPath $env:VELOCITY_PACKAGE_DESTINATION -Force'],
+        { env: { ...env, VELOCITY_PACKAGE_SOURCE: folder, VELOCITY_PACKAGE_DESTINATION: destination } });
+      }
     }
     if (formats.includes('portable.exe')) {
       const destination = path.join(output, artifactName(pkg, target, 'portable.exe'));
       const script = path.join(repoDir, '.tauri', 'portable.nsi');
-      fs.writeFileSync(script, portableScript(folder, destination, executable));
-      run('makensis', ['/V2', script], { env });
+      fs.writeFileSync(script, portableScript(folder, destination, executable, {
+        productName: `${pkg.productName} Compact`, version: pkg.version,
+        icon: path.join(repoDir, 'src', 'assets', 'installerIcon.ico'),
+      }));
+      run('makensis', [process.platform === 'win32' ? '/V2' : '-V2', script], { env });
       if (env.VELOCITY_SIGN_SCRIPT) run(process.execPath, [path.join(repoDir, 'scripts', 'tauri-sign.js'), destination], { env });
     }
   }
@@ -185,7 +262,10 @@ async function main(args = process.argv.slice(2), repoDir = path.join(__dirname,
   for (const target of options.targets) {
     console.log(`[Package] ${EDITIONS[target.runtime]} (${target.runtime})/${target.platform}/${target.arch}: ${formatsFor(target.platform, options.distribution).join(', ')}`);
     if (options['dry-run']) continue;
-    if (target.runtime === 'tauri') {
+    if (target.platform === 'linux' && options['linux-container']) {
+      const { buildLinuxContainer } = require('./build-linux-container');
+      await buildLinuxContainer(repoDir, { runtime: target.runtime, arch: target.arch, distribution: options.distribution });
+    } else if (target.runtime === 'tauri') {
       await buildTauri(repoDir, pkg, target, options, env);
     } else {
       const formatNames = { 'setup.exe': 'nsis', 'portable.exe': 'portable' };

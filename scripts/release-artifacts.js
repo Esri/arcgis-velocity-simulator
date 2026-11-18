@@ -56,13 +56,24 @@ function writeManifest(repoDir, target, formats) {
     const name = artifactName(pkg, target, format);
     return { name, format, ...fileDigest(path.join(output, name)) };
   });
+  const sourceFile = process.env.VELOCITY_BUILD_SOURCE_FILE;
+  const source = sourceFile
+    ? JSON.parse(fs.readFileSync(sourceFile, 'utf8'))
+    : {
+      commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoDir, encoding: 'utf8' }).trim(),
+      dirty: Boolean(execFileSync('git', ['status', '--porcelain'], { cwd: repoDir, encoding: 'utf8' }).trim()),
+    };
+  if (!source || typeof source.commit !== 'string'
+    || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(source.commit) || typeof source.dirty !== 'boolean') {
+    throw new Error('Build source metadata requires a full commit SHA and a boolean dirty flag');
+  }
   const manifest = {
     schemaVersion: 1,
     application: pkg.name,
     version: pkg.version,
     ...target,
-    commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoDir, encoding: 'utf8' }).trim(),
-    dirty: Boolean(execFileSync('git', ['status', '--porcelain'], { cwd: repoDir, encoding: 'utf8' }).trim()),
+    commit: source.commit,
+    dirty: source.dirty,
     artifacts,
   };
   const destination = path.join(output, artifactName(pkg, target, 'manifest.json'));

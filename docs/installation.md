@@ -43,9 +43,15 @@ already and do not provision it. The portable EXE extracts its full application
 to a temporary folder, waits for it to exit, and removes that folder.
 Portable packaging does not move configuration or logs beside the executable.
 
+For the architectural tradeoffs and when to choose each edition, see
+[Desktop runtime choices](developer-guide.md#desktop-runtime-choices).
+
 On Linux, Compact DEB packages declare native webview dependencies. AppImages
 still require a compatible architecture and system-library baseline; they do
-not run on every Linux distribution. macOS uses the system WKWebView.
+not run on every Linux distribution. Compact packages built with the supplied
+Linux container use a Debian 12 / glibc 2.36 baseline and require WebKitGTK 4.1.
+Do not assume these packages run on Ubuntu 22.04 or older glibc versions.
+macOS uses the system WKWebView.
 Camera and speech availability depends on the selected system webview.
 
 Compact installers use a separate application identity and a display name ending

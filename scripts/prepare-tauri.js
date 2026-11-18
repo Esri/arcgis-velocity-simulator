@@ -83,33 +83,56 @@ function stageFrontend(repoDir) {
   return output;
 }
 
-async function prepareTauri(repoDir) {
+function assertWindowsBinary(file, arch) {
+  const expected = { x64: 0x8664, arm64: 0xaa64 }[arch];
+  if (!expected) throw new Error(`Unsupported Windows architecture: ${arch}`);
+  const fd = fs.openSync(file, 'r');
+  try {
+    const dos = Buffer.alloc(64);
+    if (fs.readSync(fd, dos, 0, dos.length, 0) !== dos.length || dos.readUInt16LE(0) !== 0x5a4d) {
+      throw new Error(`Not a Windows executable: ${file}`);
+    }
+    const offset = dos.readUInt32LE(60);
+    const header = Buffer.alloc(6);
+    if (offset > fs.fstatSync(fd).size - header.length
+      || fs.readSync(fd, header, 0, header.length, offset) !== header.length
+      || header.readUInt32LE(0) !== 0x00004550 || header.readUInt16LE(4) !== expected) {
+      throw new Error(`Windows executable architecture does not match ${arch}: ${file}`);
+    }
+  } finally { fs.closeSync(fd); }
+}
+
+async function prepareTauri(repoDir, { platform = process.platform, arch = process.arch } = {}) {
+  if (!['darwin', 'win32', 'linux'].includes(platform) || !['x64', 'arm64'].includes(arch)) {
+    throw new Error(`Unsupported backend target: ${platform}/${arch}`);
+  }
   const pkg = JSON.parse(fs.readFileSync(path.join(repoDir, 'package.json'), 'utf8'));
   if (!pkg.tauriRuntime?.nodeVersion) throw new Error('Missing pinned tauriRuntime.nodeVersion in package.json');
   const resources = path.join(repoDir, 'src-tauri', 'resources');
   const backend = path.join(resources, 'backend');
-  fs.mkdirSync(resources, { recursive: true });
-  fs.rmSync(backend, { recursive: true, force: true });
-  fs.mkdirSync(backend);
+  fs.rmSync(resources, { recursive: true, force: true });
+  fs.mkdirSync(backend, { recursive: true });
   for (const name of ['package.json', 'package-lock.json']) {
     fs.copyFileSync(path.join(repoDir, name), path.join(backend, name));
   }
   fs.cpSync(path.join(repoDir, 'src'), path.join(backend, 'src'), { recursive: true });
   const npmCli = process.env.npm_execpath;
+  const installEnv = { ...process.env, npm_config_os: platform, npm_config_cpu: arch };
   if (npmCli && fs.existsSync(npmCli)) {
-    run(process.execPath, [npmCli, 'ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: backend });
+    run(process.execPath, [npmCli, 'ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: backend, env: installEnv });
   } else {
     run(process.platform === 'win32' ? 'npm.cmd' : 'npm',
       ['ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'],
-      { cwd: backend, shell: process.platform === 'win32' });
+      { cwd: backend, env: installEnv, shell: process.platform === 'win32' });
   }
-  const node = await officialNode(repoDir, pkg.tauriRuntime.nodeVersion, process.platform, process.arch);
-  const executable = path.join(resources, process.platform === 'win32' ? 'node.exe' : 'node');
+  const node = await officialNode(repoDir, pkg.tauriRuntime.nodeVersion, platform, arch);
+  const executable = path.join(resources, platform === 'win32' ? 'node.exe' : 'node');
   fs.copyFileSync(node.executable, executable);
   fs.chmodSync(executable, 0o755);
+  if (platform === 'win32') assertWindowsBinary(executable, arch);
   fs.copyFileSync(node.license, path.join(resources, 'node-LICENSE'));
   const frontend = stageFrontend(repoDir);
-  console.log(`[Tauri] Prepared Node ${pkg.tauriRuntime.nodeVersion}, production backend and web frontend`);
+  console.log(`[Tauri] Prepared Node ${pkg.tauriRuntime.nodeVersion} for ${platform}/${arch}, production backend and web frontend`);
   return { resources, frontend };
 }
 
@@ -120,4 +143,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { officialNode, prepareTauri, run, stageFrontend };
+module.exports = { assertWindowsBinary, officialNode, prepareTauri, run, stageFrontend };

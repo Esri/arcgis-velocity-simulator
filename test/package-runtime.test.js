@@ -2,10 +2,12 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { artifactName, collectReleaseArtifacts, fileDigest, formatsFor, outputDirectory, validateManifest } = require('../scripts/release-artifacts');
+const vm = require('vm');
+const { createRequire } = require('module');
+const { artifactName, collectReleaseArtifacts, fileDigest, formatsFor, outputDirectory, validateManifest, writeManifest } = require('../scripts/release-artifacts');
 const { prepareElectronBuild } = require('../scripts/electron-build-context');
 const { parseOptions, portableScript } = require('../scripts/package-runtime');
-const { stageFrontend } = require('../scripts/prepare-tauri');
+const { assertWindowsBinary, stageFrontend } = require('../scripts/prepare-tauri');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'velocity-packages-'));
 const pkg = { name: 'arcgis-velocity-simulator', version: '1.2.3' };
@@ -25,6 +27,7 @@ function fixture(target, formats = formatsFor(target.platform)) {
   return { file, artifacts, directory };
 }
 
+async function test() {
 try {
   const electron = { runtime: 'electron', platform: 'mac', arch: 'arm64' };
   const tauri = { ...electron, runtime: 'tauri' };
@@ -59,15 +62,69 @@ try {
   assert.deepStrictEqual(native.targets, [electron, tauri]);
   assert.throws(() => parseOptions(['--runtime', 'tauri', '--platform', 'all'], 'darwin', 'arm64'), /matching native/);
   assert.throws(() => parseOptions(['--runtime', 'tauri', '--arch', 'x64'], 'darwin', 'arm64'), /matching native/);
+  const windowsCross = parseOptions(['--runtime', 'both', '--platform', 'win', '--windows-cross'], 'darwin', 'arm64');
+  assert.deepStrictEqual(windowsCross.targets, [
+    { runtime: 'electron', platform: 'win', arch: 'x64' },
+    { runtime: 'tauri', platform: 'win', arch: 'x64' },
+  ]);
+  const fullMatrix = parseOptions(['--runtime', 'both', '--platform', 'all', '--windows-cross', '--linux-container'], 'darwin', 'arm64');
+  assert.equal(fullMatrix.targets.length, 6);
+  assert(fullMatrix.targets.every(target => target.arch === (target.platform === 'win' ? 'x64' : 'arm64')));
+  assert.throws(() => parseOptions(['--platform', 'win', '--windows-cross'], 'linux', 'arm64'), /macOS host/);
+  assert.throws(() => parseOptions(['--platform', 'mac', '--windows-cross'], 'darwin', 'arm64'), /Windows target/);
+  assert.throws(() => parseOptions(['--runtime', 'tauri', '--platform', 'win', '--windows-cross', '--dev'], 'darwin', 'arm64'), /cannot be used with --dev/);
   assert.throws(() => parseOptions(['--distribution', 'broken']), /Unknown distribution/);
   assert.strictEqual(parseOptions(['--platform', 'win'], 'darwin', 'arm64').targets[0].arch, 'x64');
+  const linuxContainer = parseOptions(['--runtime', 'both', '--platform', 'linux', '--linux-container'], 'darwin', 'arm64');
+  assert.deepStrictEqual(linuxContainer.targets, [
+    { runtime: 'electron', platform: 'linux', arch: 'arm64' },
+    { runtime: 'tauri', platform: 'linux', arch: 'arm64' },
+  ]);
+  assert.throws(() => parseOptions(['--runtime', 'tauri', '--platform', 'linux'], 'darwin', 'arm64'), /matching native/);
+  assert.throws(() => parseOptions(['--linux-container', '--platform', 'mac']), /requires a Linux/);
+  assert.throws(() => parseOptions(['--runtime', 'tauri', '--linux-container', '--platform', 'linux', '--dev']), /cannot be used with --dev/);
+  const calls = [];
+  const runtimePath = require.resolve('../scripts/package-runtime');
+  const runtimeRequire = createRequire(runtimePath);
+  const runtimeModule = { exports: {} };
+  vm.runInNewContext(fs.readFileSync(runtimePath, 'utf8'), {
+    module: runtimeModule, __dirname: path.dirname(runtimePath), process, console: { log() {} },
+    require: name => name === './build-linux-container'
+      ? { buildLinuxContainer: async (repoDir, options) => calls.push({ repoDir, ...options }) }
+      : runtimeRequire(name),
+  });
+  await runtimeModule.exports.main(['--runtime', 'both', '--platform', 'linux',
+    '--arch', 'arm64', '--distribution', 'portable', '--linux-container'], root);
+  assert.strictEqual(calls.length, 2);
+  assert.deepStrictEqual(calls.map(call => ({ ...call })), [
+    { repoDir: root, runtime: 'electron', arch: 'arm64', distribution: 'portable' },
+    { repoDir: root, runtime: 'tauri', arch: 'arm64', distribution: 'portable' },
+  ]);
+  calls.length = 0;
+  await runtimeModule.exports.main(['--runtime', 'tauri', '--platform', 'linux',
+    '--arch', 'arm64', '--linux-container', '--dry-run'], root);
+  assert.strictEqual(calls.length, 0, 'Dry runs must never invoke Docker');
 
-  const nsi = portableScript('C:\\a $b', 'C:\\out.exe', 'VelocitySimulator.exe');
+  const nsi = portableScript('C:\\a $b', 'C:\\out.exe', 'VelocitySimulator.exe', { productName: 'Example $App Compact', version: '1.2.3' });
   assert(nsi.includes('RequestExecutionLevel user'));
   assert(nsi.includes('ExecWait'));
   assert(nsi.includes('SetErrorLevel $R1'));
-  assert(nsi.includes('C:\\a $$b'));
+  assert(nsi.includes('C:/a $$b/*'));
+  assert(nsi.includes('VIProductVersion "1.2.3.0"'));
+  assert(nsi.includes('"ProductName" "Example $$App Compact"'));
+  assert.throws(() => portableScript('src', 'out', 'app.exe', { version: '1.2.70000' }), /Invalid Windows portable version/);
   assert(!/WriteReg|CreateShortCut/.test(nsi), 'Portable launch must not install the application');
+  const peFile = path.join(root, 'backend-node.exe');
+  const pe = Buffer.alloc(70);
+  pe.writeUInt16LE(0x5a4d, 0);
+  pe.writeUInt32LE(64, 60);
+  pe.writeUInt32LE(0x00004550, 64);
+  pe.writeUInt16LE(0x8664, 68);
+  fs.writeFileSync(peFile, pe);
+  assert.doesNotThrow(() => assertWindowsBinary(peFile, 'x64'));
+  assert.throws(() => assertWindowsBinary(peFile, 'arm64'), /architecture does not match/);
+  fs.writeFileSync(peFile, 'not a Windows executable');
+  assert.throws(() => assertWindowsBinary(peFile, 'x64'), /Not a Windows executable/);
 
   const src = path.join(root, 'src');
   fs.mkdirSync(path.join(src, 'themes'), { recursive: true });
@@ -82,7 +139,31 @@ try {
   assert(fs.existsSync(path.join(frontend, 'themes', 'dark.css')), 'Theme resources must be staged');
   assert(!fs.existsSync(path.join(frontend, 'main.js')));
   assert(!fs.existsSync(path.join(frontend, 'tauri-backend.js')));
+
+  const sourceFile = path.join(root, 'build-source.json');
+  const previousSource = process.env.VELOCITY_BUILD_SOURCE_FILE;
+  try {
+    process.env.VELOCITY_BUILD_SOURCE_FILE = sourceFile;
+    const source = { commit: 'a'.repeat(40), dirty: true };
+    fs.writeFileSync(sourceFile, JSON.stringify(source));
+    const manifestFile = writeManifest(root, tauri, ['dmg', 'zip']);
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+    assert.strictEqual(manifest.commit, source.commit, 'Snapshot builds preserve host commit without .git');
+    assert.strictEqual(manifest.dirty, true);
+    for (const invalid of [null, { commit: 'short', dirty: false }, { commit: source.commit, dirty: 'false' }]) {
+      fs.writeFileSync(sourceFile, JSON.stringify(invalid));
+      assert.throws(() => writeManifest(root, tauri, ['dmg', 'zip']), /Build source metadata/);
+      assert.strictEqual(JSON.parse(fs.readFileSync(manifestFile, 'utf8')).dirty, true,
+        'Invalid provenance must not overwrite an existing manifest');
+    }
+  } finally {
+    if (previousSource === undefined) delete process.env.VELOCITY_BUILD_SOURCE_FILE;
+    else process.env.VELOCITY_BUILD_SOURCE_FILE = previousSource;
+  }
   console.log('Runtime packaging tests passed');
 } finally {
   fs.rmSync(root, { recursive: true, force: true });
 }
+}
+
+test().catch(error => { console.error(error); process.exitCode = 1; });

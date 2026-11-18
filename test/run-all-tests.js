@@ -8,6 +8,7 @@ const path = require('path');
 
 const testSuites = [
   { file: 'package-runtime.test.js', description: 'Runtime packaging and release artifact tests' },
+  { file: 'build-linux-container.test.js', description: 'Linux container snapshot and artifact validation tests' },
   { file: 'tauri-runtime.test.js', description: 'Tauri backend replay and scoped IPC tests' },
   { file: 'config.test.js', description: '📋 Config Manager Tests' },
   { file: 'cli-options.test.js', description: '🧾 CLI Options Tests' },
