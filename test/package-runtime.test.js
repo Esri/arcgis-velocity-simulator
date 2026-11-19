@@ -7,7 +7,7 @@ const { createRequire } = require('module');
 const { artifactName, collectReleaseArtifacts, fileDigest, formatsFor, outputDirectory, validateManifest, writeManifest } = require('../scripts/release-artifacts');
 const { prepareElectronBuild } = require('../scripts/electron-build-context');
 const { parseOptions, portableScript } = require('../scripts/package-runtime');
-const { assertWindowsBinary, stageFrontend } = require('../scripts/prepare-tauri');
+const { assertPortableResourceTree, assertWindowsBinary, stageFrontend } = require('../scripts/prepare-tauri');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'velocity-packages-'));
 const pkg = { name: 'arcgis-velocity-simulator', version: '1.2.3' };
@@ -139,6 +139,110 @@ try {
   assert(fs.existsSync(path.join(frontend, 'themes', 'dark.css')), 'Theme resources must be staged');
   assert(!fs.existsSync(path.join(frontend, 'main.js')));
   assert(!fs.existsSync(path.join(frontend, 'tauri-backend.js')));
+
+  const simulatedLinks = new Set();
+  const resourceFs = {
+    ...fs,
+    lstatSync(file, ...args) {
+      const stat = fs.lstatSync(file, ...args);
+      if (simulatedLinks.has(file)) stat.isSymbolicLink = () => true;
+      return stat;
+    },
+    rmSync(file, options) {
+      fs.rmSync(file, options);
+      for (const link of simulatedLinks) {
+        if (link === file || link.startsWith(file + path.sep)) simulatedLinks.delete(link);
+      }
+    },
+  };
+  function createResourceLink(target, link) {
+    if (process.platform === 'win32') {
+      // Exercise link metadata without requiring Windows symlink privileges.
+      fs.writeFileSync(link, target);
+      simulatedLinks.add(link);
+    } else {
+      fs.symlinkSync(target, link);
+    }
+  }
+  function removeResourceLink(link) {
+    fs.unlinkSync(link);
+    simulatedLinks.delete(link);
+  }
+  const preparationPath = require.resolve('../scripts/prepare-tauri');
+  const preparationRequire = createRequire(preparationPath);
+  const resourceModule = { exports: {} };
+  vm.runInNewContext(fs.readFileSync(preparationPath, 'utf8'), {
+    module: resourceModule, process, Buffer, console,
+    require: name => name === 'fs' ? resourceFs : preparationRequire(name),
+  });
+  const copyResourcesUnderTest = resourceModule.exports.copyPortableResources;
+  const resources = path.join(root, 'portable-resources');
+  fs.mkdirSync(resources);
+  fs.writeFileSync(path.join(resources, 'target.js'), 'module.exports = 42;');
+  const copiedResources = path.join(root, 'portable-copy');
+  copyResourcesUnderTest(resources, copiedResources);
+  assert.strictEqual(fs.readFileSync(path.join(copiedResources, 'target.js'), 'utf8'), 'module.exports = 42;');
+  for (const target of ['target.js', '../outside.js', path.join(root, 'outside.js'), 'missing.js']) {
+    const link = path.join(resources, 'shim');
+    createResourceLink(target, link);
+    assert.throws(() => copyResourcesUnderTest(resources, path.join(root, 'rejected-copy')),
+      /not links or special files/);
+    assert(!fs.existsSync(path.join(root, 'rejected-copy')), 'Reject links before copying');
+    removeResourceLink(link);
+  }
+  const stagedRepo = path.join(root, 'staged-repo');
+  fs.mkdirSync(path.join(stagedRepo, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(stagedRepo, 'src', 'index.html'), '<html></html>');
+  fs.writeFileSync(path.join(stagedRepo, 'package.json'), JSON.stringify({ ...pkg, tauriRuntime: { nodeVersion: '1.2.3' } }));
+  fs.writeFileSync(path.join(stagedRepo, 'package-lock.json'), '{}');
+  const cache = path.join(stagedRepo, '.tauri', 'downloads');
+  fs.mkdirSync(cache, { recursive: true });
+  const archiveBytes = Buffer.from('fixture archive');
+  fs.writeFileSync(path.join(cache, 'node-v1.2.3-darwin-arm64.tar.gz'), archiveBytes);
+  fs.writeFileSync(path.join(cache, 'node-v1.2.3-SHASUMS256.txt'),
+    `${require('crypto').createHash('sha256').update(archiveBytes).digest('hex')}  node-v1.2.3-darwin-arm64.tar.gz\n`);
+  const preparationModule = { exports: {} };
+  let installedWithoutLinks = false;
+  vm.runInNewContext(fs.readFileSync(preparationPath, 'utf8'), {
+    module: preparationModule, process, Buffer, console: { log() {} },
+    require: name => name === 'fs' ? resourceFs : name === 'child_process' ? {
+      spawnSync(command, args, options) {
+        if (args.includes('ci')) {
+          installedWithoutLinks = args.includes('--bin-links=false');
+          const dependency = path.join(options.cwd, 'node_modules', 'fixture');
+          fs.mkdirSync(dependency, { recursive: true });
+          fs.writeFileSync(path.join(dependency, 'cli.js'), 'module.exports = 42;');
+          if (!installedWithoutLinks) {
+            fs.mkdirSync(path.join(options.cwd, 'node_modules', '.bin'));
+            createResourceLink('../fixture/cli.js', path.join(options.cwd, 'node_modules', '.bin', 'fixture'));
+          }
+        } else {
+          assert.strictEqual(command, 'tar');
+          const extracted = path.join(cache, 'node-v1.2.3-darwin-arm64');
+          fs.mkdirSync(path.join(extracted, 'bin'), { recursive: true });
+          fs.writeFileSync(path.join(extracted, 'bin', 'node'), 'fixture runtime');
+          fs.writeFileSync(path.join(extracted, 'LICENSE'), 'fixture notice');
+        }
+        return { status: 0 };
+      },
+    } : preparationRequire(name),
+  });
+  const staged = await preparationModule.exports.prepareTauri(stagedRepo, { platform: 'darwin', arch: 'arm64' });
+  assert(installedWithoutLinks, 'Only staged production installs must disable npm executable shims');
+  assertPortableResourceTree(staged.resources);
+  assert(!fs.existsSync(path.join(staged.resources, 'backend', 'node_modules', '.bin')));
+  assert(fs.existsSync(path.join(staged.resources, 'backend', 'node_modules', 'fixture', 'cli.js')),
+    'Dependency implementation files must remain intact');
+  const staleBin = path.join(staged.resources, 'backend', 'node_modules', '.bin');
+  fs.mkdirSync(staleBin);
+  createResourceLink(path.join(root, 'missing-old-build'), path.join(staleBin, 'fixture'));
+  const restaged = await preparationModule.exports.prepareTauri(stagedRepo, { platform: 'darwin', arch: 'arm64' });
+  assert(!fs.existsSync(path.join(restaged.resources, 'backend', 'node_modules', '.bin')),
+    'Reused staging must replace old generated shims, not retain cached build-host links');
+  const staleDestination = path.join(root, 'stale-destination');
+  createResourceLink(path.join(root, 'missing-output'), staleDestination);
+  assert.throws(() => copyResourcesUnderTest(resources, staleDestination), /not links or special files/);
+  removeResourceLink(staleDestination);
 
   const { FileMatcher } = require('app-builder-lib/out/fileMatcher');
   const selectedFiles = new FileMatcher(root, path.join(root, 'output'), value => value,

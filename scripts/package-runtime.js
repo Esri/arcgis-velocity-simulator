@@ -7,7 +7,7 @@ const os = require('os');
 const { execFileSync } = require('child_process');
 const { parseSignOptions, buildSignEnv, isUsableSignScript } = require('./sign-options');
 const { EDITIONS, artifactName, formatsFor, outputDirectory, validateTarget, writeManifest } = require('./release-artifacts');
-const { assertWindowsBinary, prepareTauri, run } = require('./prepare-tauri');
+const { assertWindowsBinary, copyPortableResources, prepareTauri, run } = require('./prepare-tauri');
 
 const HELP = `Usage: node scripts/package-runtime.js [options]
   --runtime electron|tauri|both          Runtime (default: electron).
@@ -223,7 +223,7 @@ async function buildTauri(repoDir, pkg, target, options, env) {
   if (target.platform === 'win' && formats.some((format) => ['zip', 'portable.exe'].includes(format))) {
     const folder = path.join(output, 'unpacked');
     fs.mkdirSync(folder);
-    fs.cpSync(resources, folder, { recursive: true });
+    copyPortableResources(resources, folder);
     const executable = `${pkg.build.executableName}.exe`;
     fs.copyFileSync(path.join(releaseDir, executable), path.join(folder, executable));
     assertWindowsBinary(path.join(folder, executable), target.arch);

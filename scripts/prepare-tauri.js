@@ -102,6 +102,28 @@ function assertWindowsBinary(file, arch) {
   } finally { fs.closeSync(fd); }
 }
 
+function assertPortableResourceTree(directory) {
+  const stat = fs.lstatSync(directory);
+  if (stat.isSymbolicLink() || (!stat.isDirectory() && !stat.isFile())) {
+    throw new Error(`Portable resources require regular files and directories, not links or special files: ${directory}`);
+  }
+  if (stat.isDirectory()) {
+    for (const name of fs.readdirSync(directory)) assertPortableResourceTree(path.join(directory, name));
+  }
+}
+
+function copyPortableResources(source, destination) {
+  assertPortableResourceTree(source);
+  try {
+    fs.lstatSync(destination);
+    assertPortableResourceTree(destination);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  fs.cpSync(source, destination, { recursive: true });
+  assertPortableResourceTree(destination);
+}
+
 async function prepareTauri(repoDir, { platform = process.platform, arch = process.arch } = {}) {
   if (!['darwin', 'win32', 'linux'].includes(platform) || !['x64', 'arm64'].includes(arch)) {
     throw new Error(`Unsupported backend target: ${platform}/${arch}`);
@@ -115,14 +137,14 @@ async function prepareTauri(repoDir, { platform = process.platform, arch = proce
   for (const name of ['package.json', 'package-lock.json']) {
     fs.copyFileSync(path.join(repoDir, name), path.join(backend, name));
   }
-  fs.cpSync(path.join(repoDir, 'src'), path.join(backend, 'src'), { recursive: true });
+  copyPortableResources(path.join(repoDir, 'src'), path.join(backend, 'src'));
   const npmCli = process.env.npm_execpath;
   const installEnv = { ...process.env, npm_config_os: platform, npm_config_cpu: arch };
+  const installArgs = ['ci', '--omit=dev', '--ignore-scripts', '--bin-links=false', '--no-audit', '--no-fund'];
   if (npmCli && fs.existsSync(npmCli)) {
-    run(process.execPath, [npmCli, 'ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: backend, env: installEnv });
+    run(process.execPath, [npmCli, ...installArgs], { cwd: backend, env: installEnv });
   } else {
-    run(process.platform === 'win32' ? 'npm.cmd' : 'npm',
-      ['ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'],
+    run(process.platform === 'win32' ? 'npm.cmd' : 'npm', installArgs,
       { cwd: backend, env: installEnv, shell: process.platform === 'win32' });
   }
   const node = await officialNode(repoDir, pkg.tauriRuntime.nodeVersion, platform, arch);
@@ -132,6 +154,8 @@ async function prepareTauri(repoDir, { platform = process.platform, arch = proce
   if (platform === 'win32') assertWindowsBinary(executable, arch);
   fs.copyFileSync(node.license, path.join(resources, 'node-LICENSE'));
   const frontend = stageFrontend(repoDir);
+  assertPortableResourceTree(resources);
+  assertPortableResourceTree(frontend);
   console.log(`[Tauri] Prepared Node ${pkg.tauriRuntime.nodeVersion} for ${platform}/${arch}, production backend and web frontend`);
   return { resources, frontend };
 }
@@ -143,4 +167,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { assertWindowsBinary, officialNode, prepareTauri, run, stageFrontend };
+module.exports = { assertPortableResourceTree, assertWindowsBinary, copyPortableResources, officialNode, prepareTauri, run, stageFrontend };

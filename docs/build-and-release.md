@@ -234,6 +234,13 @@ image, source digest, native architecture, and installed package versions.
 official checksum list, and stages production dependencies under
 `src-tauri/resources/`. Downloads are cached in `.tauri/downloads/`; a checksum
 mismatch fails the build. Only browser assets are staged in `.tauri/frontend/`.
+Staged production dependencies omit npm's generated executable shims
+(`node_modules/.bin`); the application loads the package modules directly.
+Package implementation files remain intact, and developer dependency installs
+are unchanged. Staging is recreated on every preparation, and runtime resource
+trees must contain only regular files and directories before packaging.
+Unexpected symbolic links or special files fail the build rather than
+embedding a build-host path in an archive.
 Generated resources, build outputs and caches are ignored by Git.
 Quit any preview running from the build directory before rebuilding it.
 
