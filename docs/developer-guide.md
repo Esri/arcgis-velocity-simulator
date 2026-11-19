@@ -8,14 +8,14 @@ and full test suites, how to check documentation links, how to attach a debugger
 and read logs, how to extend the user interface and the transports, and the
 checklist to run before opening a pull request.
 
-It is written for developers. Node.js 18 or newer and a completed `npm install`
+It is written for developers. Node.js 24 LTS and a completed `npm install`
 are assumed. Packaging and publishing are covered in
 [Build and release](build-and-release.md).
 
 ## Table of contents
 
 - [Repository structure](#repository-structure)
-- [Desktop runtime choices](#desktop-runtime-choices)
+- [Desktop runtime](#desktop-runtime)
 - [Local development](#local-development)
 - [Windows and dialogs](#windows-and-dialogs)
 - [Testing](#testing)
@@ -36,8 +36,7 @@ are assumed. Packaging and publishing are covered in
 | `src/assets/` | Icons, screenshots, and packaging resources. |
 | `src/proto/` | Protobuf definitions used by the gRPC transports. |
 | `scripts/` | Build, prerequisite, signing, documentation, and release scripts. |
-| `src-tauri/` | Rust desktop host, native capabilities and bundle configuration. |
-| `.tauri/` | Ignored frontend staging, official Node downloads and native build cache. |
+| `.build/` | Ignored isolated Linux build snapshots and validation outputs. |
 | `test/` | Node-only test suites and the `run-all-tests.js` runner. |
 | `docs/` | Every maintained guide, plus `docs/examples/` launch configuration samples. |
 
@@ -48,7 +47,7 @@ Key modules:
 | `src/main.js` | Application lifecycle, windows, menus, dialogs, file access, configuration, IPC handlers, headless bootstrap, and logging. |
 | `src/renderer.js` | User interface state, controls, tooltips, themes, gesture and voice integration, and streaming controls. |
 | `src/preload.js` | The context-isolated bridge exposing approved channels; main-process handlers validate requests and sender identity where required. |
-| `src/desktop-runtime.js`, `src/tauri-*.js` | Runtime selection, bundled Node host, scoped frontend bridge and native IPC policy for Tauri. |
+| `src/linux-launcher.js`, `src/headless-cli.js` | Bundled Linux GUI versus no-display CLI dispatch and replay startup. |
 | `src/config.js` | Persisted application configuration: defaults, load, save, import, export, and merge. |
 | `src/cli-options.js` | The single source of truth for command-line parameter metadata; feeds terminal help, the in-application reference dialog, and the documentation. |
 | `src/simulation-engine.js` | Replay scheduling, line ranges, loops, `waitForClient`, error modes, and completion semantics, with no renderer dependency. |
@@ -82,7 +81,7 @@ dependencies of the packaging tools to patched minimatch 11.0.3. Its own engine
 range permits Node.js 18; this is not validation of the whole application or
 toolchain on Node.js 18. Runtime and packaging validation uses Node.js 24.22.3.
 Older minimatch consumers keep their own versions; do not replace this with an
-unrestricted override. `test/package-runtime.test.js` exercises the actual
+unrestricted override. `test/package-app.test.js` exercises the actual
 builder file selection and universal-bundle matching APIs.
 
 Velocity credentials and tokens stay in the main process. Picker requests carry
@@ -91,68 +90,24 @@ URL or a token. Keep endpoint controls shared with the Logger and keep
 feed-specific parsing separate from its analytic-output parsing. The user
 workflow belongs in [Velocity REST API connections](velocity-rest-api.md).
 
-## Desktop runtime choices
+## Desktop runtime
 
-The application has two desktop editions that share its JavaScript application
-logic. These are current architectural tradeoffs, not separate implementations
-of the transports, authentication, or replay engine.
+Electron packages Chromium and Node.js together, providing a consistent browser
+runtime and the desktop APIs used by `src/main.js` and the preload bridges.
+The renderer has no direct Node.js access. Native operations and transport
+state stay in the main process behind validated IPC.
 
-### Why and when to use each edition
+On Linux, the after-pack hook installs a launcher at the normal executable
+path and retains the native Electron executable as a `.bin` sibling.
+`src/linux-launcher.js` parses application arguments in Electron's Node mode:
+help, errors and replay use `src/headless-cli.js` without a display server;
+GUI mode starts normal Electron with its native arguments. Headless execution
+reuses the existing runner, transports and configuration parser, not a second
+implementation.
 
-**Standalone uses Electron.** Electron packages Chromium and Node.js together
-and provides the desktop APIs used by the application's main process and
-preload bridges. Bundling Chromium makes browser behavior less dependent on
-the system webview version and fits the existing Node.js desktop architecture.
-Choose Standalone when that browser consistency and a bundled browser runtime
-matter more than reducing the download size. Operating-system permissions and
-media services can still affect features.
-
-**Compact uses Tauri.** It reuses the operating system's webview rather than
-shipping Chromium, which can reduce downloads where the required system
-dependencies are available. Choose Compact when the target system meets those
-requirements and its webview supports the features you need. Webview versions,
-camera access, speech support, and rendering can differ between operating
-systems; Compact is not a promise of identical browser behavior.
-
-Tauri does not mean rewriting the application in Rust. Native desktop
-integration is implemented in Rust, but the HTML/CSS/JavaScript user interface,
-network transports, Velocity authentication, configuration, and replay logic
-remain in the existing application modules. Compact bundles its own Node.js
-backend. Users install neither Node.js nor Rust for either edition. Developers
-building Compact need Rust/Cargo and the platform's native build toolchain in
-addition to the JavaScript development tools.
-
-For platform webview requirements and package selection, see
-[Installation](installation.md). Runtime-specific persisted settings are
-described in [Configuration](configuration.md), and native toolchains and
-packaging commands in [Build and release](build-and-release.md#tauri-builds).
-
-### How the shared runtime works
-
-`src/main.js` imports `src/desktop-runtime.js`, which selects Electron by
-default or the Tauri adapter when launched by the Compact backend.
-`src/tauri-backend.js` selects that adapter and starts the same application
-entry point; it also supports the native host's command-line mode probe.
-
-`src/tauri-host.js` implements the desktop API surface needed by the shared
-main process and relays native operations to Rust.
-`src/tauri-frontend.js` supplies the webview IPC bridge used by the existing
-preload scripts, without giving the document Node.js access.
-`src/tauri-policy.js` restricts channels by document, while
-`src/tauri-wire.js` frames backend messages and chunks large responses.
-Diagnostics are kept separate from the desktop message stream.
-
-`src-tauri/src/main.rs` owns native windows, menus, dialogs, clipboard access,
-the bundled backend process, and command-line lifecycle. It derives sender
-identity from the calling webview rather than trusting a document-supplied
-identity. The remaining `src-tauri/` files define native capabilities and bundle
-configuration. Browser assets are staged separately from backend source and
-production dependencies.
-
-Keep the shared adapter modules aligned with the Logger. Form state and
-transport decisions remain in their existing owners: for example, the
-authoritative Protocol Settings form is mirrored by the detached window,
-not reimplemented in Rust.
+Users do not install Node.js separately. Package requirements belong in
+[Installation](installation.md), settings in [Configuration](configuration.md),
+and build tools in [Build and release](build-and-release.md).
 
 ## Local development
 
@@ -161,7 +116,6 @@ npm install
 npm start                                        # user interface
 npm run start:headless -- filename=./data.csv    # no-UI replay
 npm run help:cli                                 # command-line help
-npm run tauri:dev                                # native Tauri development host
 ```
 
 Command-line parameters are passed after `--`, for example
@@ -174,9 +128,8 @@ channel in `src/preload.js` and handling it in `src/main.js`. File paths chosen
 by the user are resolved in the main process, and the renderer receives only the
 parsed result.
 
-Use `npm start` for Standalone development and `npm run tauri:dev` for Compact.
-See [Desktop runtime choices](#desktop-runtime-choices) for the architecture
-and [Build and release](build-and-release.md#tauri-builds) for native prerequisites.
+Use `npm start` for desktop development and `npm run start:headless` for replay.
+See [Desktop runtime](#desktop-runtime) for the packaged Linux dispatch path.
 
 The repository-local `.github/skills/progress-bar/` skill can display a
 session-scoped live progress panel when requested. Its templates do not install

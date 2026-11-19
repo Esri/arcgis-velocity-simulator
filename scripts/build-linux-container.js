@@ -11,12 +11,10 @@ const IMAGES = {
   arm64: {
     base: 'ubuntu:24.04@sha256:c92376659a7f14cc1f51615d73c9f4b7d8e18d59f370e02b4ed683ab4485c66c',
     node: 'node:24.22.3-bookworm-slim@sha256:5f8fabfed57b75127de2f584593d67a9e8c90e6b0f65652871f9ef0f759c0299',
-    rust: 'rust:1.100.0-slim-bookworm@sha256:a05e7b80377ed6099c177cad2b9f536e182b9574490c7b4c07acaa29a44fda57',
   },
   x64: {
     base: 'ubuntu:24.04@sha256:77eb101c607d6e3d4f5ad0c8a02c2136c689b98aba1f359e6502ba517e5c57ec',
     node: 'node:24.22.3-bookworm-slim@sha256:0e2646ab57e77b7a384a0cb59b6815b182c77e1f9c3ba36bd8435bd9c4e6680e',
-    rust: 'rust:1.100.0-slim-bookworm@sha256:476f6598b8d14a1f1bc7e58efc67af206ac8a559c37a3401ce512db2582d0ff7',
   },
 };
 const NEW_BUILD_FILES = new Set([
@@ -24,6 +22,11 @@ const NEW_BUILD_FILES = new Set([
   'scripts/containers/linux/Dockerfile',
   'scripts/containers/linux/build.js',
   'scripts/containers/linux/verify.js',
+  'scripts/linux-launcher.js',
+  'scripts/package-app.js',
+  'scripts/sign-windows-files.js',
+  'src/linux-launcher.js',
+  'src/headless-cli.js',
 ]);
 const ROOT_FILES = new Set(['package.json', 'package-lock.json', 'LICENSE', 'LICENSE.md', 'NOTICE', 'NOTICE.md']);
 
@@ -42,7 +45,7 @@ function buildInput(name) {
   if (name.includes('\\') || path.posix.isAbsolute(name) || name.split('/').includes('..')) return false;
   if (ROOT_FILES.has(name)) return true;
   const parts = name.split('/');
-  if (!['src', 'scripts', 'src-tauri'].includes(parts[0])) return false;
+  if (!['src', 'scripts'].includes(parts[0])) return false;
   if (parts.some(part => part.startsWith('.') || ['node_modules', 'target', 'resources', 'gen'].includes(part))) return false;
   if (/\.(?:pem|p12|pfx|key|crt|cer|mobileprovision)$/i.test(name)) return false;
   return true;
@@ -91,7 +94,7 @@ function snapshotSource(repoDir, destination, includeFiles = []) {
     digest.update(name + '\0').update(String(stat.mode & 0o777) + '\0').update(bytes).update('\0');
     copied.push(name);
   }
-  for (const name of ['package.json', 'package-lock.json', 'src-tauri/Cargo.lock', 'scripts/package-runtime.js']) {
+  for (const name of ['package.json', 'package-lock.json', 'scripts/package-app.js', 'src/headless-cli.js']) {
     if (!copied.includes(name)) throw new Error(`Required build input is missing: ${name}`);
   }
   metadata.sourceSha256 = digest.digest('hex');
@@ -100,14 +103,14 @@ function snapshotSource(repoDir, destination, includeFiles = []) {
 }
 
 function normalizeOptions(options = {}) {
-  const target = { runtime: options.runtime || 'tauri', platform: 'linux', arch: options.arch || process.arch };
+  const target = { runtime: 'electron', platform: 'linux', arch: options.arch || process.arch };
   validateTarget(target);
   const distribution = options.distribution || 'both';
   formatsFor('linux', distribution);
   return { ...target, distribution, docker: options.docker || 'docker', includeFiles: options.includeFiles || [] };
 }
 
-function dockerRunArgs(options, source, output, image) {
+function dockerRunArgs(options, source, output, image, host = process) {
   for (const directory of [source, output]) {
     if (/[,\r\n]/.test(directory)) throw new Error('Container bind paths cannot contain commas or line breaks');
   }
@@ -117,7 +120,9 @@ function dockerRunArgs(options, source, output, image) {
     '--mount', `type=bind,source=${source},target=/source,readonly`,
     '--mount', `type=bind,source=${output},target=/output`,
     '--env', 'APPIMAGE_EXTRACT_AND_RUN=1',
-    image, options.runtime, options.arch, options.distribution,
+    ...(host.platform === 'darwin' && host.arch === 'arm64' && options.arch === 'x64'
+      ? ['--env', 'VELOCITY_VERIFY_APPIMAGE_QEMU=1'] : []),
+    image, options.arch, options.distribution,
   ];
 }
 
@@ -195,7 +200,7 @@ async function buildLinuxContainer(repoDir, input = {}) {
     if (os !== 'linux') throw new Error(`Container engine runs ${os}, not Linux`);
   }
   catch (error) { throw new Error(`A running Linux Docker-compatible engine is required. Start your approved local engine and retry. ${error.message}`); }
-  const state = path.join(repoDir, '.tauri');
+  const state = path.join(repoDir, '.build');
   fs.mkdirSync(state, { recursive: true });
   const lock = path.join(state, `container-${options.runtime}-${options.arch}.lock`);
   try { fs.mkdirSync(lock); }
@@ -219,8 +224,7 @@ async function buildLinuxContainer(repoDir, input = {}) {
     const image = `velocity-linux-builder:${options.arch}-${identity}`;
     docker(['build', '--platform', platform, '--tag', image,
       '--build-arg', `BASE_IMAGE=${IMAGES[options.arch].base}`,
-      '--build-arg', `NODE_IMAGE=${IMAGES[options.arch].node}`,
-      '--build-arg', `RUST_IMAGE=${IMAGES[options.arch].rust}`, context]);
+      '--build-arg', `NODE_IMAGE=${IMAGES[options.arch].node}`, context]);
     const imageId = docker(['image', 'inspect', '--format', '{{.Id}}', image],
       { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }).trim();
     if (!/^sha256:[a-f0-9]{64}$/.test(imageId)) throw new Error('Container engine returned an invalid image digest');
@@ -241,8 +245,8 @@ if (require.main === module) {
     for (let i = 2; i < process.argv.length; i++) {
       const flag = process.argv[i];
       if (flag === '--dry-run') options['dry-run'] = true;
-      else if (['--arch', '--runtime', '--distribution'].includes(flag) && process.argv[i + 1]) options[flag.slice(2)] = process.argv[++i];
-      else throw new Error('Usage: node scripts/build-linux-container.js [--runtime electron|tauri] [--arch arm64|x64] [--distribution both|portable|installer] [--dry-run]');
+      else if (['--arch', '--distribution'].includes(flag) && process.argv[i + 1]) options[flag.slice(2)] = process.argv[++i];
+      else throw new Error('Usage: node scripts/build-linux-container.js [--arch arm64|x64] [--distribution both|portable|installer] [--dry-run]');
     }
     buildLinuxContainer(path.join(__dirname, '..'), options).catch(error => {
       console.error(`[Linux container] ${error.message}`); process.exitCode = 1;

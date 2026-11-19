@@ -26,7 +26,7 @@ function checkElf(file, arch) {
   }
 }
 
-function verifyArtifacts(pkg, files, arch, debDependencies = []) {
+function verifyArtifacts(pkg, files, arch, debDependencies = [], appImageExecutor = null) {
   const results = [];
   for (const artifact of files.filter(file => /\.(deb|AppImage)$/.test(file))) {
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'velocity-package-check-'));
@@ -35,9 +35,14 @@ function verifyArtifacts(pkg, files, arch, debDependencies = []) {
         XDG_CACHE_HOME: path.join(temporary, 'cache'), APPIMAGE_EXTRACT_AND_RUN: '1' };
       delete env.DISPLAY;
       delete env.WAYLAND_DISPLAY;
+      delete env.ELECTRON_RUN_AS_NODE;
+      delete env.ELECTRON_DISABLE_SANDBOX;
       let executable;
       let extracted;
       const format = artifact.endsWith('.deb') ? 'deb' : 'AppImage';
+      const execute = (file, args, settings, expected) => format === 'AppImage' && appImageExecutor
+        ? command(appImageExecutor, [file, ...args], settings, expected)
+        : command(file, args, settings, expected);
       if (format === 'deb') {
         const architecture = command('dpkg-deb', ['--field', artifact, 'Architecture']).trim();
         if (architecture !== (arch === 'x64' ? 'amd64' : 'arm64')) throw new Error('DEB architecture mismatch');
@@ -47,20 +52,27 @@ function verifyArtifacts(pkg, files, arch, debDependencies = []) {
         }
         extracted = path.join(temporary, 'deb');
         command('dpkg-deb', ['--extract', artifact, extracted]);
-        executable = path.join(extracted, 'usr/bin', `${pkg.build.executableName}-compact`);
+        executable = path.join(extracted, 'opt', pkg.build.productName, pkg.build.executableName);
       } else {
         executable = path.join(temporary, 'application.AppImage');
         fs.copyFileSync(artifact, executable);
         fs.chmodSync(executable, 0o755);
-        command(executable, ['--appimage-extract'], { cwd: temporary, env });
+        execute(executable, ['--appimage-extract'], { cwd: temporary, env });
         extracted = path.join(temporary, 'squashfs-root');
+        checkElf(executable, arch);
+        if (/\(NEEDED\)/.test(command('readelf', ['--dynamic', executable]))) {
+          throw new Error('AppImage runtime must be statically linked');
+        }
       }
-      checkElf(path.join(extracted, 'usr/bin', `${pkg.build.executableName}-compact`), arch);
-      const help = command(executable, ['help=true', `logFile=${path.join(temporary, 'help.log')}`], { cwd: temporary, env });
+      checkElf(format === 'deb' ? executable + '.bin'
+        : path.join(extracted, pkg.build.executableName + '.bin'), arch);
+      const help = execute(executable, ['help=true', `logFile=${path.join(temporary, 'help.log')}`], { cwd: temporary, env });
       if (!/runMode/.test(help)) throw new Error(`Packaged ${format} did not return application help`);
-      command(executable, ['definitelyInvalidOption=true', `logFile=${path.join(temporary, 'invalid.log')}`],
+      if (/appimage_extracted/.test(help)) throw new Error('AppImage extraction contaminated help stdout');
+      execute(executable, ['definitelyInvalidOption=true', `logFile=${path.join(temporary, 'invalid.log')}`],
         { cwd: temporary, env }, 1);
-      results.push({ format, arch, helpExitCode: 0, invalidArgumentExitCode: 1 });
+      results.push({ format, arch, helpExitCode: 0, invalidArgumentExitCode: 1, displayServer: false,
+        executor: format === 'AppImage' && appImageExecutor ? appImageExecutor : 'direct' });
     } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
   }
   return results;

@@ -36,9 +36,8 @@ before choosing a mode or an all-interface bind.
 
 ### Run a release package
 
-Choose **Standalone** with its bundled browser runtime or **Compact** using the
-system webview. Both include the backend; Node.js and npm are not required to
-run them. See [Installing and running the application](docs/installation.md) for
+Release packages include Electron and the backend; Node.js and npm are not
+required to run them. See [Installing and running the application](docs/installation.md) for
 package selection, platform installation, first-launch security guidance,
 deployed log locations, and startup troubleshooting.
 

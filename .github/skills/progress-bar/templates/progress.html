@@ -31,7 +31,10 @@ if(requestedTheme==='light'||requestedTheme==='dark'){
 }
 body{margin:0;padding:20px;background:var(--progress-background);color:var(--progress-text);font:14px/1.5 var(--font-sans,system-ui)}
 h1{font-size:20px;margin:0 0 2px}.muted{color:var(--progress-muted)}.small{font-size:12px}
-.row{display:grid;grid-template-columns:minmax(0,1fr) 46px 92px;gap:10px;align-items:center}
+.row{display:grid;grid-template-columns:minmax(0,1fr) max-content max-content 46px;gap:8px;align-items:center}
+.row.expanded{grid-template-columns:minmax(0,1fr) max-content 46px}
+.row.expanded>.timing{display:none}
+.name,#phase{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .overall{margin:16px 0 6px}.overall .pct{font-size:24px;font-weight:600}
 .track{height:12px;border-radius:6px;overflow:hidden;background:var(--progress-border)}
 .track.thin{height:6px;margin-top:3px}
@@ -41,64 +44,143 @@ h1{font-size:20px;margin:0 0 2px}.muted{color:var(--progress-muted)}.small{font-
 .pct,.eta{text-align:right;font-variant-numeric:tabular-nums}.eta{color:var(--progress-muted);font-size:12px}
 .running .name{font-weight:600}.pending .name{color:var(--progress-muted)}
 #error{color:var(--progress-red)}
+.controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+.controls select,.controls button{font:inherit;color:var(--progress-text);background:var(--progress-background);border:1px solid var(--progress-border);border-radius:4px;padding:4px 8px}
+.timing{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:11px;color:var(--progress-muted)}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style></head><body>
 <h1 id="title">Task progress</h1><div id="description" class="muted small"></div>
 <div id="execution" class="muted small"></div>
-<div class="overall"><div class="row"><span id="phase">Loading...</span><span class="pct" id="percent">--%</span><span class="eta" id="eta"></span></div>
+<div class="controls small">
+<label for="view-mode" title="Choose the amount of visible progress detail">View</label>
+<select id="view-mode" aria-label="Progress view" title="Choose one, two or three information lines per step">
+<option value="compact" selected title="One information line with the percentage at the right">Compact</option>
+<option value="standard" title="Progress on the first line; durations and timestamps on the second">Standard</option>
+<option value="detailed" title="Separate progress, estimated and actual durations, and recorded start and finish times">Detailed</option>
+</select>
+<label for="refresh-interval" title="Choose how often to fetch the latest recorded progress">Refresh</label>
+<select id="refresh-interval" aria-label="Automatic refresh interval" title="Fetch recorded progress automatically; elapsed clocks update every second">
+<option value="5" title="Fetch every 5 seconds">5 seconds</option>
+<option value="10" title="Fetch every 10 seconds">10 seconds</option>
+<option value="20" selected title="Fetch every 20 seconds">20 seconds</option>
+<option value="30" title="Fetch every 30 seconds">30 seconds</option>
+<option value="60" title="Fetch every 60 seconds">60 seconds</option>
+<option value="0" title="Only fetch when Refresh now is selected">Manual only</option>
+</select>
+<button id="refresh-now" type="button" title="Fetch the latest recorded progress once" aria-label="Refresh progress now">Refresh now</button>
+</div>
+<div class="overall"><div class="row" id="overall-row"><span id="phase">Loading...</span><span id="overall-timing" class="timing"></span><span class="eta" id="eta"></span><span class="pct" id="percent">--%</span></div>
 <div class="track" role="progressbar" aria-label="Overall" aria-valuemin="0" aria-valuemax="100"><div class="fill" id="fill"></div></div></div>
+<div id="overall-details" class="muted small"></div>
+<div id="overall-times" class="muted small"></div>
 <ul id="steps"></ul>
 <p id="error" role="alert"></p>
 <p id="updated" class="muted small"></p>
+<p class="muted small">Actual time is recorded wall time, including waits, not CPU time. Unrecorded historical timings are not reconstructed.</p>
 <script>
-let state,lastChecked;
+let state,lastChecked,refreshTimer,refreshInFlight;
+function duration(ms){
+  if(ms==null)return 'not recorded';
+  const seconds=Math.max(0,Math.floor(ms/1000));
+  const hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60);
+  return (hours?hours+'h ':'')+(hours||minutes?minutes+'m ':'')+seconds%60+'s';
+}
+function timing(value){
+  const compact=ms=>duration(ms).replace(/ 0s$/,'').replaceAll(' ','');
+  const estimate=value.initialEstimateMinutes==null?'\u2014':compact(value.initialEstimateMinutes*60000);
+  const actual=value.startedAt==null?'\u2014':compact((value.finishedAt??Date.now())-value.startedAt);
+  return 'Est '+estimate+' / Actual '+actual;
+}
+function recordedTimes(value){
+  const clock=t=>new Date(t).toLocaleTimeString();
+  return (value.startedAt==null?'Start not recorded':'Started '+clock(value.startedAt))
+    +(value.finishedAt==null?'':' \u00b7 Finished '+clock(value.finishedAt));
+}
 function eta(etaAt,status){
   if(status==='blocked')return 'Blocked';
   if(status==='done')return 'Done';
   if(etaAt==null)return status==='pending'?'Queued':'';
   const m=Math.ceil((etaAt-Date.now())/60000);
   const at=new Date(etaAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
-  return m>0?'~'+m+' min left \u00b7 ETA '+at:'Revising ETA';
+  return m>0?'ETA '+at:'Revising ETA';
 }
 function percentage(value,done){
   return done?100:Math.min(99,Math.round(value));
 }
 function render(){
   if(!state)return;
+  const viewMode=document.querySelector('#view-mode').value;
+  const detailed=viewMode==='detailed';
+  const expanded=detailed||viewMode==='standard';
   const done=state.percent===100&&state.steps.every(s=>s.status==='done');
   const p=percentage(state.percent,done);
   document.querySelector('#title').textContent=state.title||'Task progress';
   document.title=state.title||'Task progress';
   document.querySelector('#description').textContent=state.description||'';
   document.querySelector('#execution').textContent=state.execution||'';
+  document.querySelector('#overall-timing').textContent=timing(state);
+  document.querySelector('#overall-timing').setAttribute('title','Original estimate versus recorded wall time. '+recordedTimes(state));
+  document.querySelector('#overall-row').className=expanded?'row expanded':'row';
+  document.querySelector('#overall-details').textContent=expanded?timing(state)+(detailed?'':' \u00b7 '+recordedTimes(state)):'';
+  document.querySelector('#overall-times').textContent=detailed?recordedTimes(state):'';
   document.querySelector('#percent').textContent=p+'%';
   document.querySelector('#fill').style.width=p+'%';
   document.querySelector('[role=progressbar]').setAttribute('aria-valuenow',p);
   document.querySelector('#phase').textContent=state.phase;
+  document.querySelector('#phase').setAttribute('title',state.phase);
   document.querySelector('#eta').textContent=eta(state.etaAt,done?'done':'running');
   const list=document.querySelector('#steps');list.replaceChildren();
   for(const [i,s] of state.steps.entries()){
     const sp=percentage(s.percent??0,s.status==='done');
     const li=document.createElement('li');li.className=s.status;
-    const row=document.createElement('div');row.className='row';
+    const row=document.createElement('div');row.className=expanded?'row expanded':'row';
     const n=document.createElement('span');n.className='name';n.textContent='#'+(i+1)+'  '+s.name;
-    if(s.worker||s.model){
-      const meta=document.createElement('div');meta.className='muted small';
-      meta.textContent=[s.worker,s.model].filter(Boolean).join(' \u00b7 ');n.append(meta);
-    }
+    n.setAttribute('title',[s.name,s.worker,s.model].filter(Boolean).join(' \u00b7 '));
     const pc=document.createElement('span');pc.className='pct';pc.textContent=sp+'%';
     const et=document.createElement('span');et.className='eta';et.textContent=eta(s.etaAt,s.status);
-    row.append(n,pc,et);
+    if(s.etaAt!=null)et.setAttribute('title',Math.max(0,Math.ceil((s.etaAt-Date.now())/60000))+' minutes estimated remaining');
+    const actual=document.createElement('span');actual.className='timing';
+    actual.textContent=timing(s);
+    actual.setAttribute('title','Original estimate versus recorded wall time. '+recordedTimes(s));
+    row.append(n,actual,et,pc);
     const tr=document.createElement('div');tr.className='track thin';
     const f=document.createElement('div');f.className='fill';f.style.width=sp+'%';tr.append(f);
-    li.append(row,tr);list.append(li);
+    li.append(row,tr);
+    if(expanded){
+      const info=document.createElement('div');info.className='muted small';
+      info.textContent=timing(s)+(detailed?'':' \u00b7 '+recordedTimes(s));
+      li.append(info);
+      if(detailed){
+        const times=document.createElement('div');times.className='muted small';
+        times.textContent=[recordedTimes(s),s.worker,s.model].filter(Boolean).join(' \u00b7 ');
+        li.append(times);
+      }
+    }
+    list.append(li);
   }
-  document.querySelector('#updated').textContent='Checked '+new Date(lastChecked).toLocaleTimeString()+' \u00b7 updated '+new Date(state.updatedAt).toLocaleTimeString();
+  document.querySelector('#updated').textContent='Last refreshed '+new Date(lastChecked).toLocaleTimeString()+' \u00b7 Last work update '+new Date(state.updatedAt).toLocaleTimeString();
 }
-async function refresh(){
-  try{const r=await fetch('/state',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);
-    state=await r.json();lastChecked=Date.now();document.querySelector('#error').textContent='';render();
-  }catch(error){document.querySelector('#error').textContent='Refresh failed: '+error.message;}
+function refresh(){
+  if(refreshInFlight)return refreshInFlight;
+  document.querySelector('#refresh-now').disabled=true;
+  refreshInFlight=(async()=>{
+    try{const r=await fetch('/state',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);
+      state=await r.json();lastChecked=Date.now();document.querySelector('#error').textContent='';render();
+    }catch(error){document.querySelector('#error').textContent='Refresh failed: '+error.message;}
+  })().finally(()=>{refreshInFlight=null;document.querySelector('#refresh-now').disabled=false;});
+  return refreshInFlight;
 }
-refresh();setInterval(refresh,5000);setInterval(render,1000);
+function scheduleRefresh(){
+  clearInterval(refreshTimer);
+  const seconds=Number(document.querySelector('#refresh-interval').value);
+  if(![0,5,10,20,30,60].includes(seconds))throw Error('Unsupported refresh interval');
+  if(seconds)refreshTimer=setInterval(refresh,seconds*1000);
+}
+function start(){
+  document.querySelector('#view-mode').addEventListener('change',render);
+  document.querySelector('#refresh-interval').addEventListener('change',scheduleRefresh);
+  document.querySelector('#refresh-now').addEventListener('click',refresh);
+  scheduleRefresh();refresh();setInterval(render,1000);
+}
+start();
 </script></body></html>

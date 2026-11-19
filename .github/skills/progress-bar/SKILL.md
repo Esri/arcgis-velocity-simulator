@@ -17,14 +17,31 @@ every build or test.
 
 - A task-specific heading and short scope description.
 - Overall phase, percentage, remaining minutes and estimated local finish time.
+- Original estimated duration and actual recorded wall duration for the task
+  and every step, plus recorded start/finish times. Actual time includes waits;
+  it is not CPU time. Completed durations stop increasing.
+- Keep each milestone's information on one compact line:
+  `Build packages · Est 20m / Actual 12m · ETA 08:40 · 65%`, with its thin
+  progress bar below. Put start/finish timestamps and worker/model detail on
+  hover, not extra rows. Unknown historical durations display an em dash.
+- The **View** selector defaults to **Compact** (one information line).
+  **Standard** adds a second line combining durations and timestamps.
+  **Detailed** uses three lines: progress, estimated/actual durations, and
+  recorded start/finish times with available worker/model information.
+  Every mode keeps the percentage anchored at the far right.
 - A simple numbered list (`#1`, `#2`, etc.), with a thin bar, percentage and ETA on every line.
 - Pending, running, done and blocked states; running names are bold.
 - Theme-aware colors with a dark fallback when host theme tokens are absent,
   tabular numerals and reduced-motion support. In auto mode, host-provided
   colors take precedence.
-- Live updates every five seconds, with the countdown refreshed every second.
+- Automatic data refresh defaults to 20 seconds, with a user-selectable
+  5/10/20/30/60-second interval or manual-only mode and a **Refresh now** button.
+  Elapsed clocks and countdowns refresh every second. Show the last fetch time
+  separately from the last work-state update; polling is not evidence of work.
 - Task state persists across extension reloads in a session artifact, never in the repository.
-- Present actual parallelism and model information in the progress bar when available/possible. A short execution summary states actual parallel/delegated work; each line can show its worker and confirmed model in muted text without changing the simple list layout.
+- Present actual parallelism and model information when available. A short
+  execution summary states actual parallel/delegated work; each line's tooltip
+  can show its worker and confirmed model without adding another visible row.
 
 ## Open or reuse
 
@@ -52,21 +69,37 @@ This is a renderer URL option, not an `update` action field or a global preferen
 
 ```json
 {
+  "taskId": "logger-dashboards",
   "title": "Logger dashboards",
   "description": "Both Loggers: controls, saved state, localization and checks",
   "execution": "One delegated worker plus coordinator; remaining work queued",
   "phase": "Implementing",
   "percent": 10,
+  "initialEstimateMinutes": 30,
   "etaMinutes": 30,
   "steps": [
-    { "name": "Implementing controls", "worker": "UI worker", "model": "Runtime default (model not reported)", "status": "running", "percent": 20, "etaMinutes": 15 },
-    { "name": "Updating help", "status": "pending", "percent": 0, "etaMinutes": 20 },
-    { "name": "Regression checks", "status": "pending", "percent": 0, "etaMinutes": 30 }
+    { "id": "controls", "name": "Implementing controls", "worker": "UI worker", "model": "Runtime default (model not reported)", "status": "running", "percent": 20, "initialEstimateMinutes": 15, "etaMinutes": 15 },
+    { "id": "help", "name": "Updating help", "status": "pending", "percent": 0, "initialEstimateMinutes": 5, "etaMinutes": 20 },
+    { "id": "checks", "name": "Regression checks", "status": "pending", "percent": 0, "initialEstimateMinutes": 10, "etaMinutes": 30 }
   ]
 }
 ```
 
 Use only fields supported by the discovered schema; older panels may lack title/description fields. Upgrade only this session's progress template when necessary.
+
+Use a stable `taskId` and stable step `id` values even when display names change.
+Use a new task ID for new work. The original `initialEstimateMinutes` is retained
+through later updates; revise `etaMinutes` for remaining time instead.
+If the initial estimate is omitted, the first available ETA is recorded as its
+fallback, so supply explicit duration estimates for queued steps.
+
+Start and finish transitions are recorded automatically and persisted.
+Optional `startedAt` and `finishedAt` use epoch milliseconds and may supply
+actual timestamps from command/job evidence. Never invent retrospective
+timings: a step first observed as done without a start reports actual time as
+not recorded. Overall wall time is not the sum of step times when work overlaps.
+The refresh selector affects polling in the current page; reloading the page
+restores the default interval.
 
 ## Reporting rules
 
@@ -78,6 +111,9 @@ Use only fields supported by the discovered schema; older panels may lack title/
 - Estimate remaining minutes honestly. Each line's ETA is its expected completion from **now**, including prerequisite delays, not only its active execution duration.
 - Keep scope granular enough to expose real milestones but use short, readable names.
 - Refresh after phase changes, verified milestones, blockers or materially revised estimates. Do not poll agents solely to animate a bar.
+- Publish promptly when evidence arrives, and maintain command/job timestamps
+  for subsequent milestones. The panel's automatic refresh only reads the latest
+  published state; it does not ask agents to work or manufacture progress.
 - Estimates are approximate and must not be represented as guarantees. Overdue estimates say `Revising ETA`; send a revised estimate when evidence permits.
 - For blocked work, mark the line blocked and explain the blocker in the phase or task response. Never show it as done.
 - On a task switch, replace the title, scope and milestone list; do not carry completed work into the new task.
@@ -100,3 +136,6 @@ Failed updates must reach the action caller without preventing later updates.
 Run `node --test .github/skills/progress-bar/tests/progress-bar.test.mjs`
 from the repository root for completion-state, persistence and theme URL regressions.
 Validate JavaScript syntax, reload a session copy, exercise `update`, and confirm the returned state includes absolute `etaAt` timestamps for overall and per-line estimates.
+Also verify estimate/start retention after updates, frozen completed durations,
+task resets, missing historical timing, manual refresh, interval changes and
+non-overlapping fetches.

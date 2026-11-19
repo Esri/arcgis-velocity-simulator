@@ -2533,8 +2533,10 @@ function getCommandHelpText({ layout = HELP_LAYOUTS.standard } = {}) {
  * - UI startup file information
  * - fully normalized headless options when applicable
  */
-function parseCommandLineArgs(rawArgv, { isPackaged = false } = {}) {
-  const rawArgs = sliceUserArgs(rawArgv, isPackaged);
+function parseCommandLineArgs(rawArgv, { isPackaged = false, isAppImage = false } = {}) {
+  // AppRun owns this Chromium switch; it is not an application parameter.
+  const rawArgs = sliceUserArgs(rawArgv, isPackaged)
+    .filter(arg => !isAppImage || arg !== '--no-sandbox');
   const {
     values: rawValues,
     positional,

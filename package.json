@@ -6,12 +6,9 @@
   "main": "src/main.js",
   "homepage": "https://github.com/esri/arcgis-velocity-simulator",
   "scripts": {
-    "package:runtime": "node scripts/package-runtime.js",
-    "package:tauri": "node scripts/package-runtime.js --runtime tauri",
-    "tauri:dev": "node scripts/package-runtime.js --runtime tauri --dev",
-    "tauri:prepare": "node scripts/prepare-tauri.js",
+    "package:targets": "node scripts/package-app.js",
     "start": "node scripts/start-helper.js --electron:--enable-speech-dispatcher",
-    "start:headless": "node scripts/start-helper.js --electron:--enable-speech-dispatcher runMode=headless",
+    "start:headless": "node src/headless-cli.js runMode=headless",
     "help:cli": "node scripts/start-helper.js --electron:--enable-speech-dispatcher --help",
     "help:cli:wide": "node scripts/start-helper.js --electron:--enable-speech-dispatcher --help-table-wide",
     "help:cli:narrow": "node scripts/start-helper.js --electron:--enable-speech-dispatcher --help-table-narrow",
@@ -90,15 +87,16 @@
   },
   "license": "Apache-2.0",
   "devDependencies": {
-    "@tauri-apps/cli": "^2.10.0",
-    "electron": "44.11.4",
-    "electron-builder": "^26.9.0",
+    "@electron/fuses": "1.8.0",
+    "electron": "44.11.5",
+    "electron-builder": "26.15.7",
     "jsdom": "^29.0.2"
   },
   "build": {
     "appId": "com.esri.arcgis-velocity-simulator",
-    "productName": "ArcGIS Velocity Simulator Standalone",
+    "productName": "ArcGIS Velocity Simulator",
     "executableName": "VelocitySimulator",
+    "afterPack": "scripts/linux-launcher.js",
     "afterSign": "scripts/external-sign.js",
     "afterAllArtifactBuild": "scripts/external-sign.js",
     "files": [
@@ -112,6 +110,9 @@
     "asar": true,
     "npmRebuild": false,
     "buildDependenciesFromSource": false,
+    "toolsets": {
+      "appimage": "1.0.3"
+    },
     "mac": {
       "minimumSystemVersion": "13.0",
       "icon": "src/assets/icon.png",
@@ -119,11 +120,11 @@
         "dmg",
         "zip"
       ],
-      "artifactName": "arcgis-velocity-simulator-${version}-standalone-mac-${arch}.${ext}"
+      "artifactName": "arcgis-velocity-simulator-${version}-mac-${arch}.${ext}"
     },
     "win": {
       "icon": "src/assets/icon.png",
-      "artifactName": "arcgis-velocity-simulator-${version}-standalone-win-${arch}.${ext}",
+      "artifactName": "arcgis-velocity-simulator-${version}-win-${arch}.${ext}",
       "target": ["nsis", "portable", "zip"]
     },
     "linux": {
@@ -134,15 +135,30 @@
       ],
       "category": "Utility",
       "maintainer": "Hanoch Kalmanovich <hkalmanovich@esri.com>",
-      "artifactName": "arcgis-velocity-simulator-${version}-standalone-linux-${arch}.${ext}"
+      "artifactName": "arcgis-velocity-simulator-${version}-linux-${arch}.${ext}"
+    },
+    "deb": {
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0",
+        "libgbm1",
+        "libasound2t64"
+      ]
     },
     "nsis": {
-      "artifactName": "arcgis-velocity-simulator-${version}-standalone-win-${arch}-setup.${ext}",
+      "artifactName": "arcgis-velocity-simulator-${version}-win-${arch}-setup.${ext}",
       "installerIcon": "src/assets/installerIcon.ico",
       "uninstallerIcon": "src/assets/installerIcon.ico"
     },
     "portable": {
-      "artifactName": "arcgis-velocity-simulator-${version}-standalone-win-${arch}-portable.${ext}"
+      "artifactName": "arcgis-velocity-simulator-${version}-win-${arch}-portable.${ext}"
     }
   },
   "overrides": {
@@ -152,9 +168,6 @@
         "minimatch@^9.0.3": "11.0.3"
       }
     }
-  },
-  "tauriRuntime": {
-    "nodeVersion": "24.22.3"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.7",

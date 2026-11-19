@@ -1,6 +1,6 @@
 ---
 name: build-sign-release
-description: Build, package, sign, or publish releases of the Standalone and Compact desktop editions using this repository's existing release tools.
+description: Build, package, sign, or publish Electron desktop releases using this repository's existing release tools.
 ---
 
 # Build, sign and release
@@ -11,12 +11,11 @@ Read `AGENTS.md` and `docs/build-and-release.md`, then inspect:
 
 ```bash
 bash scripts/release.sh --help
-node scripts/package-runtime.js --help
+node scripts/package-app.js --help
 ```
 
 `scripts/release.sh` is the release entry point. `package.json` owns the version
-and package scripts. `scripts/package-runtime.js` selects build targets.
-Standalone uses `--runtime electron`; Compact uses `--runtime tauri`.
+and package scripts. `scripts/package-app.js` selects Electron build targets.
 Use full long option names in commands and examples.
 
 ## Resolve the external signer
@@ -40,16 +39,15 @@ unnotarized build is not a Developer ID-signed release.
 
 Preserve the established Mac-controlled workflow rather than replacing it with
 GitHub Actions without agreement. Read the current host checks before selecting
-cross-build options: Electron packaging and native Compact compilation have
-different prerequisites. Compact supports explicit `--windows-cross` on macOS
-and `--linux-container` for a local Linux build environment.
+cross-build options. Linux packages must pass native checks on the supported
+distribution and architecture, including truly no-display headless operation.
 
 Build the selected formats from the intended version and source revision.
 Verify embedded versions, target architectures, signing results, extracted
 package behavior, and complete checksum manifests. Do not rename an old binary
 to a new version or publish a partial matrix as a complete release.
 
-Follow the owning guide's [Tauri build preflight](../../../docs/build-and-release.md#tauri-builds)
+Follow the owning guide's [prerequisites](../../../docs/build-and-release.md#prerequisites)
 and [release checklist](../../../docs/build-and-release.md#release-checklist).
 Package-only Electron paths explicitly prohibit publishing, including tagged
 CI runs; do not replace this safeguard with credentials or permissive flags.
@@ -75,4 +73,5 @@ invent a second resume workflow or resubmit an ambiguously accepted request.
 
 Use [ready-file batches](../../../docs/build-and-release.md#ready-file-signing-batches)
 for independent files whose final bytes already exist. Keep shared signing
-jobs serialized and never defer a Tauri callback's success until a later batch.
+jobs serialized and never report success until every selected file is signed
+and verified.

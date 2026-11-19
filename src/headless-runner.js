@@ -90,7 +90,7 @@ async function disconnectQuietly(transport, logger, context = 'after the run') {
  *   and this function intentionally returns a never-resolving promise so the process stays alive
  *   for external control or inspection.
  */
-async function runHeadlessSession(options, { app = null, logger = null } = {}) {
+async function runHeadlessSession(options, { app = null, logger = null, signal = null } = {}) {
   if (!logger) {
     logger = new RunLogger({
       logLevel: options.logLevel,
@@ -118,9 +118,19 @@ async function runHeadlessSession(options, { app = null, logger = null } = {}) {
       : options.protocol === 'udp' ? options.udpFormat || 'delimited' : null,
   };
 
+  let interrupt;
+  const interrupted = signal ? new Promise((resolve, reject) => {
+    interrupt = () => {
+      reject(new Error('Headless session interrupted.'));
+      engine.stop('Headless session interrupted.').catch(error => logger.error(error.message));
+    };
+  }) : null;
   try {
+    if (signal?.aborted) throw new Error('Headless session interrupted.');
+    signal?.addEventListener('abort', interrupt, { once: true });
     logger.info(`Starting headless run using file ${options.filename}`);
-    const summary = await engine.run();
+    const running = engine.run();
+    const summary = interrupted ? await Promise.race([running, interrupted]) : await running;
 
     if (summary.status === 'ready' && !options.autoStart && !options.exitOnComplete) {
       logger.info('Headless run is initialized and will remain active because autoStart=false and exitOnComplete=false.');
@@ -129,6 +139,7 @@ async function runHeadlessSession(options, { app = null, logger = null } = {}) {
         success: true,
         summary,
       });
+      if (interrupted) await interrupted;
       return new Promise(() => {});
     }
 
@@ -165,6 +176,8 @@ async function runHeadlessSession(options, { app = null, logger = null } = {}) {
     }
 
     return EXIT_CODES.runtimeError;
+  } finally {
+    signal?.removeEventListener('abort', interrupt);
   }
 }
 

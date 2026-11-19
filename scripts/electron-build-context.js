@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getBuildTargets } = require('./artifact-version-utils');
-const { formatsFor, outputDirectory, writeManifest } = require('./release-artifacts');
+const { artifactName, formatsFor, outputDirectory, writeManifest } = require('./release-artifacts');
 
 function prepareElectronBuild(repoDir, originalArgs) {
   const packageArgs = [];
@@ -46,11 +46,17 @@ function prepareElectronBuild(repoDir, originalArgs) {
     if (!mapping[value] || !formats.includes(mapping[value])) throw new Error(`Unsupported package target: ${value}`);
     formats = [mapping[value]];
   }
+  const linuxArtifactName = platform === 'linux'
+    ? artifactName(JSON.parse(fs.readFileSync(path.join(repoDir, 'package.json'), 'utf8')), target, 'deb')
+      .replace(/\.deb$/, '.${ext}')
+    : null;
   fs.rmSync(output, { recursive: true, force: true });
   fs.mkdirSync(output, { recursive: true });
   const args = [...originalArgs];
   if (!targets.length) args.push(`--${platform}`);
   if (!architectures.length) args.push(`--${arch}`);
+  // Builder translates ${arch} to amd64 for DEB and x86_64 for AppImage.
+  if (linuxArtifactName) args.push(`--config.linux.artifactName=${linuxArtifactName}`);
   args.push(`--config.directories.output=${output}`);
   args.push('--publish=never');
   return { args, target, formats, output, finish: () => writeManifest(repoDir, target, formats) };

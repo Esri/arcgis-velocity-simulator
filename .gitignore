@@ -9,10 +9,11 @@
 # Node
 /.release.local.json
 node_modules/
+.build/
+.release-evidence/
+# Retained local artifacts from retired packaging; never included in builds.
 .tauri/
-src-tauri/resources/
-src-tauri/target/
-src-tauri/gen/
+src-tauri/
 
 # Code signing certificates (keep README, ignore binaries)
 certs/*

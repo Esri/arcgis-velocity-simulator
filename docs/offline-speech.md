@@ -14,12 +14,6 @@ integration points inside the application, and the limitations of a
 frequency-based approach. A working microphone and enabled microphone support
 are required.
 
-With Compact, audio capture and Web Audio availability depend on the operating
-system webview and microphone permissions. Online Web Speech recognition is a
-separate browser capability and is not guaranteed by selecting Compact. A missing
-API or denied permission is reported by the application rather than replaced
-with a simulated recognition result.
-
 ## Table of contents
 
 - [Features](#features)

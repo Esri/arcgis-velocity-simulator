@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const { createRequire } = require('node:module');
 const externalSign = require('../scripts/external-sign');
 
-const entry = require.resolve('../scripts/tauri-sign');
+const entry = require.resolve('../scripts/sign-windows-files');
 const entryRequire = createRequire(entry);
 const fixtureDirectory = path.resolve('fixture', 'nsis');
 
@@ -47,7 +47,7 @@ async function invoke(args, regularFile = true, directoryEntries, nestedEntry = 
 }
 
 (async () => {
-  for (const filename of ['NSISdl.dll', 'nsis_tauri_utils.DLL', 'application.exe', 'setup.msi']) {
+  for (const filename of ['NSISdl.dll', 'helper.DLL', 'application.exe', 'setup.msi']) {
     const result = await invoke([path.join(fixtureDirectory, filename)]);
     assert.equal(result.exitCode, 0);
     assert.deepEqual(result.errors, []);
@@ -93,5 +93,5 @@ async function invoke(args, regularFile = true, directoryEntries, nestedEntry = 
     path.join(fixtureDirectory, 'helper.dll')], true, ['app.exe', 'helper.dll', 'nested'], true);
   assert.equal(nested.exitCode, 1);
   assert.equal(nested.calls.length, 0, 'Nested inputs must not broaden selection through signer scan-depth settings');
-  console.log('Tauri signing adapter DLL selection and exact mask tests passed.');
+  console.log('Windows signing adapter DLL selection and exact mask tests passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

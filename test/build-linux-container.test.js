@@ -14,7 +14,7 @@ const { checkElf } = require('../scripts/containers/linux/verify');
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'velocity-container-test-'));
 const repo = path.join(temporary, 'repo');
 const pkg = { name: 'velocity-fixture', version: '1.0.0' };
-const target = { runtime: 'tauri', platform: 'linux', arch: 'arm64', distribution: 'both' };
+const target = { runtime: 'electron', platform: 'linux', arch: 'arm64', distribution: 'both' };
 const write = (name, value) => {
   const file = path.join(repo, name);
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -53,14 +53,52 @@ try {
     /DEB runtime dependency missing: libc6 \(>= 2.39\)/);
     assert.equal(commands.length, 2, 'Rejected DEBs must not reach payload verification or promotion');
   }
+  for (const executor of [null, '/usr/bin/qemu-x86_64-static']) {
+    const calls = [];
+    const candidate = path.join(temporary, 'candidate.AppImage');
+    const nativeHeader = Buffer.from(header);
+    nativeHeader.writeUInt16LE(62, 18);
+    fs.writeFileSync(candidate, nativeHeader);
+    const verifier = { exports: {} };
+    const localRequire = createRequire(verifierPath);
+    vm.runInNewContext(fs.readFileSync(verifierPath, 'utf8'), {
+      module: verifier, process, Buffer,
+      require: name => name === 'child_process' ? {
+        spawnSync(command, args, settings) {
+          if (command === 'readelf') return { status: 0, stdout: 'No dynamic dependencies' };
+          calls.push({ command, args });
+          if (executor) {
+            assert.equal(command, executor);
+            assert.match(args[0], /application\.AppImage$/);
+            args = args.slice(1);
+          } else assert.match(command, /application\.AppImage$/);
+          if (args[0] === '--appimage-extract') {
+            const directory = path.join(settings.cwd, 'squashfs-root');
+            fs.mkdirSync(directory);
+            fs.writeFileSync(path.join(directory, 'Fixture.bin'), nativeHeader);
+            return { status: 0, stdout: '' };
+          }
+          assert.equal(settings.env.DISPLAY, undefined);
+          assert.equal(settings.env.WAYLAND_DISPLAY, undefined);
+          assert.equal(settings.env.ELECTRON_DISABLE_SANDBOX, undefined);
+          return args[0] === 'help=true' ? { status: 0, stdout: 'runMode' }
+            : { status: 1, stderr: 'Unknown option' };
+        },
+      } : localRequire(name),
+    });
+    const result = verifier.exports.verifyArtifacts(
+      { build: { executableName: 'Fixture' } }, [candidate], 'x64', [], executor);
+    assert.equal(result[0].executor, executor || 'direct');
+    assert.equal(calls.length, 3, 'Verify the actual AppImage, not just its extracted launcher');
+  }
 
   fs.mkdirSync(repo);
   git('init', '--quiet');
-  write('.gitignore', '.tauri/\n.env\n.npmrc\nsrc/ignored-secret.js\n');
+  write('.gitignore', '.build/\n.env\n.npmrc\nsrc/ignored-secret.js\n');
   write('package.json', JSON.stringify(pkg));
   write('package-lock.json', '{}');
-  write('src-tauri/Cargo.lock', '# fixture');
-  write('scripts/package-runtime.js', '// fixture');
+  write('src/headless-cli.js', '// fixture');
+  write('scripts/package-app.js', '// fixture');
   write('src/main.js', '// original');
   write('src/removed.js', '// removed');
   write('docs/private-notes.md', 'not a build input');
@@ -73,7 +111,7 @@ try {
   write('.env', 'SECRET=never-copy');
   write('.npmrc', '//registry.example/:_authToken=never-copy');
   write('src/ignored-secret.js', 'never-copy');
-  write('src-tauri/resources/secret.json', 'never-copy');
+  write('.build/resources/secret.json', 'never-copy');
   write('scripts/containers/linux/Dockerfile', '# reviewed new helper');
   const snapshot = path.join(temporary, 'snapshot');
   const source = snapshotSource(repo, snapshot);
@@ -81,7 +119,7 @@ try {
   assert.equal(source.dirty, true);
   assert.match(source.sourceSha256, /^[a-f0-9]{64}$/);
   assert.equal(fs.readFileSync(path.join(snapshot, 'src/main.js'), 'utf8'), '// current local content');
-  for (const name of ['.git', '.env', '.npmrc', 'docs', 'src/removed.js', 'src/ignored-secret.js', 'src-tauri/resources']) {
+  for (const name of ['.git', '.env', '.npmrc', 'docs', 'src/removed.js', 'src/ignored-secret.js', '.build/resources']) {
     assert.equal(fs.existsSync(path.join(snapshot, name)), false, `${name} must not enter the container`);
   }
   assert.ok(fs.existsSync(path.join(snapshot, 'scripts/containers/linux/Dockerfile')));
@@ -96,7 +134,7 @@ try {
   fs.unlinkSync(path.join(repo, 'src/main.js'));
   fs.symlinkSync(path.join(repo, '.env'), path.join(repo, 'src/main.js'));
   assert.throws(() => snapshotSource(repo, path.join(temporary, 'symlink')), /Symlink build input/);
-  for (const name of ['../secret', '/tmp/secret', 'src/../secret', 'src/key.pem', 'scripts/.env', 'src-tauri/target/cache']) {
+  for (const name of ['../secret', '/tmp/secret', 'src/../secret', 'src/key.pem', 'scripts/.env', '.build/target/cache']) {
     assert.equal(buildInput(name), false, name);
   }
   const options = normalizeOptions(target);
@@ -106,6 +144,13 @@ try {
   assert.ok(args.includes('type=bind,source=/source path,target=/source,readonly'));
   assert.ok(!args.some(arg => /--privileged|docker.sock|--device|--network=host/.test(arg)));
   assert.equal(args.at(-2), 'arm64');
+  const crossTarget = normalizeOptions({ arch: 'x64' });
+  assert(dockerRunArgs(crossTarget, '/source', '/output', 'image', { platform: 'darwin', arch: 'arm64' })
+    .includes('VELOCITY_VERIFY_APPIMAGE_QEMU=1'));
+  for (const host of [{ platform: 'linux', arch: 'x64' }, { platform: 'darwin', arch: 'x64' }]) {
+    assert(!dockerRunArgs(crossTarget, '/source', '/output', 'image', host)
+      .includes('VELOCITY_VERIFY_APPIMAGE_QEMU=1'));
+  }
   assert.throws(() => dockerRunArgs(options, '/path,readonly=false', '/out', 'image'), /commas/);
   assert.throws(() => normalizeOptions({ arch: 'universal' }), /architecture/);
   assert.doesNotThrow(() => assertLocalEngine('unix:///Users/example/.docker/run/docker.sock'));
@@ -132,7 +177,7 @@ try {
   const platformReport = { platform: 'linux', arch: 'arm64', node: 'v24.22.3',
     osRelease: 'ID=ubuntu\nVERSION_ID="24.04"\n', glibc: '2.39' };
   fs.writeFileSync(path.join(output, 'container-build.json'), JSON.stringify(platformReport));
-  const destination = path.join(repo, 'dist/tauri/linux-arm64');
+  const destination = path.join(repo, 'dist/electron/linux-arm64');
   fs.mkdirSync(destination, { recursive: true });
   fs.writeFileSync(path.join(destination, 'existing-artifact'), 'preserve until validated');
   assert.throws(() => promoteOutput(repo, output, target, { ...source, commit: '0'.repeat(40) }, 'sha256:image'), /provenance/);

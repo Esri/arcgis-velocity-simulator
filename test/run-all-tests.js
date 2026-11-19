@@ -7,9 +7,10 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 const testSuites = [
-  { file: 'package-runtime.test.js', description: 'Runtime packaging and release artifact tests' },
+  { file: 'package-app.test.js', description: 'Electron packaging and release artifact tests' },
   { file: 'build-linux-container.test.js', description: 'Linux container snapshot and artifact validation tests' },
-  { file: 'tauri-runtime.test.js', description: 'Tauri backend replay and scoped IPC tests' },
+  { file: 'headless-cli.test.js', description: 'Bundled no-display CLI tests' },
+  { file: 'linux-launcher.test.js', description: 'Linux native launcher dispatch tests' },
   { file: 'config.test.js', description: '📋 Config Manager Tests' },
   { file: 'cli-options.test.js', description: '🧾 CLI Options Tests' },
   { file: 'connection-presets.test.js', description: '🎚  Connection Preset Tests' },
@@ -33,7 +34,7 @@ const testSuites = [
   { file: 'tls-verification.test.js', description: '🔐 Client TLS Verification Tests' },
   { file: 'tls-system-roots.test.js', description: 'Cross-platform Certificate Trust Store Tests' },
   { file: 'external-sign.test.js', description: '✍️  External Signing Tests' },
-  { file: 'tauri-sign.test.js', description: 'Tauri signing adapter exact-file selection tests' },
+  { file: 'sign-windows-files.test.js', description: 'Windows signing adapter exact-file selection tests' },
   { file: 'sign-lock.test.js', description: '🔒 External Signing Lock Tests' },
   { file: 'format-utils.test.js', description: '📦 Format Utils Tests' },
   { file: 'payload-format-utils.test.js', description: '🧩 TCP and UDP Payload Format Tests' },

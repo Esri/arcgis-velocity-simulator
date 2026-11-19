@@ -28,11 +28,19 @@ full view.
 
 ## Quick start
 
-The same application parameters apply to packaged Standalone and Compact
-executables. Compact detects headless/help invocations before creating a webview,
-runs the bundled Node backend, and propagates its exit status. Keep the
-executable with its packaged resources; copying the executable alone is not
-a headless deployment. See [Installation](installation.md) for package names.
+Use the packaged launcher with `runMode=headless`. On Linux it selects the
+bundled Electron Node runtime before Chromium starts, so no display server or
+Xvfb is required. GUI launches still start Electron normally. Keep the
+executable with its packaged resources; copying it alone is not a headless
+deployment. See [Installation](installation.md) for package names and
+[Linux support](installation.md#linux-support) for distribution and ABI limits.
+
+For automation that signals a single process ID, use the installed DEB launcher
+or an extracted AppImage's `AppRun`. The AppImage extraction-and-run supervisor
+does not forward signals sent only to its outer PID. When running the AppImage
+directly, send `SIGINT` or `SIGTERM` to its whole process group, as a terminal
+does for Ctrl+C. The Node headless launcher flushes completion output before
+exiting with 130 for `SIGINT` or 143 for `SIGTERM`.
 
 ```bash
 npm run start:headless -- filename=./data.csv protocol=tcp mode=client ip=127.0.0.1 port=5565 linesPerInterval=1 intervalMs=1000 autoConnect=true autoStart=true loop=false exitOnComplete=true stdout=true

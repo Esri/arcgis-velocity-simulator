@@ -28,33 +28,23 @@ ${BOLD}${WHITE}ARGUMENTS${RESET}
         Omit entirely when using ${BOLD}--upload-only${RESET} (inferred from package.json).
 
 ${BOLD}${WHITE}OPTIONS${RESET}
-  ${BOLD}--runtime electron|tauri|both${RESET}
-        Select release runtimes (default: electron). Tauri builds require a
-        matching native OS/architecture host, or --linux-container for Linux.
-        Use --upload-only to assemble previously built targets.
-
   ${BOLD}--platform mac|win|linux|all${RESET}
-        Select platforms. Default: all for Electron, current host for Tauri/both.
+        Select platforms (default: all).
         --upload-only validates a complete manifest for every selected platform.
 
   ${BOLD}--arch x64|arm64${RESET}
-        Select an architecture. Builds otherwise use native architecture,
-        except Windows Electron defaults to x64. Upload-only includes available
-        architectures when this option is omitted.
+        Select an architecture. Builds otherwise use both Linux architectures,
+        Windows x64, and the host architecture for macOS. Upload-only requires
+        mac arm64, Windows x64, and both Linux architectures when omitted.
 
   ${BOLD}--distribution portable|installer|both${RESET}
         Select package formats (default: both). Portable means mac ZIP,
         Windows ZIP plus portable EXE, or Linux AppImage. Installers mean DMG,
-        NSIS, or DEB. Windows Tauri portable packages require existing WebView2.
+        NSIS, or DEB.
 
   ${BOLD}--linux-container${RESET}
         Build Linux targets in a local Docker container instead of on this host.
         Requires a running Docker engine; no engine is installed automatically.
-
-  ${BOLD}--windows-cross${RESET}
-        Cross-build Compact Windows packages on macOS with cargo-xwin, LLVM,
-        and NSIS. Uses the existing external Windows signer when configured.
-        This build-only option does not change upload selection.
 
   ${BOLD}--notes-file <path>${RESET}
         Use a reviewed Markdown file instead of the generated release body.
@@ -67,7 +57,7 @@ ${BOLD}${WHITE}OPTIONS${RESET}
         full preview of the release notes. Nothing is written, committed, or published.
 
   ${BOLD}--prepare-only${RESET}
-        Run Steps 0–4 only (prereqs, version bump, build, commit + push) then exit
+        Run Steps 0–4 only (prereqs, version commit, build, push) then exit
         before creating or uploading the GitHub release. Inspect ${CYAN}dist/${RESET} artifacts,
         sign them if needed, then publish with ${BOLD}--upload-only${RESET}.
         Stacks with ${BOLD}--seq${RESET}, ${BOLD}--install-prereqs${RESET}, and ${BOLD}--dry-run${RESET}.
@@ -87,14 +77,13 @@ ${BOLD}${WHITE}OPTIONS${RESET}
         a broken release of the same version.
 
   ${BOLD}--seq${RESET}
-        Build platforms sequentially instead of in parallel. Slower overall, but
-        produces clean non-interleaved output — useful for debugging build failures.
-        External Windows signing does not require this; signing jobs are serialized separately.
+        Compatibility flag. Release targets always build sequentially.
+        Signing jobs are serialized separately.
 
   ${BOLD}--debug-skip-clean-tree-check${RESET}
         Debug-only escape hatch for release/signing validation. The script still
-        reports dirty files and unpushed commits, but does not fail the release
-        at the clean working-tree gate. Do not use for production releases.
+        reports dirty files and unpushed commits without stopping the initial
+        check. Packaging and upload still require clean committed source.
 
   ${BOLD}--install-prereqs${RESET}  ${DIM}--install-deps${RESET}
         Auto-install any missing build/release prerequisites (Homebrew on macOS,
@@ -180,8 +169,8 @@ ${BOLD}${WHITE}RELEASE PIPELINE${RESET}
   Phase 2  Verify clean working tree
   Phase 3  Validate requested version (blocks downgrades)
   Phase 4  Bump version in package.json
-  Phase 5  Build all platform packages  ${DIM}(parallel by default; signing jobs are locked)${RESET}
-  Phase 6  Commit + push the version bump
+  Phase 5  Commit the version bump
+  Phase 6  Build targets sequentially, then push the version bump
   Phase 7  Create GitHub release + upload dist/ artifacts
 
   ${DIM}Banners show the selected-mode count, for example: VELOCITY RELEASE Step 3/7.${RESET}
@@ -355,7 +344,6 @@ semver_lt() {
 # ── Argument parsing ─────────────────────────────────────────────────────────
 DRY_RUN=false
 LINUX_CONTAINER=false
-WINDOWS_CROSS=false
 CUSTOM_NOTES_FILE=""
 RERELEASE=false
 SEQ=false
@@ -372,7 +360,6 @@ SIGN_PRODUCT_NAMES=""
 SIGN_TIMEOUT_MINUTES=""
 SIGN_PROGRESS_INTERVAL_MS=""
 SIGN_POLL_INTERVAL_MS=""
-RUNTIME="electron"
 PLATFORM=""
 ARCH=""
 DISTRIBUTION="both"
@@ -426,8 +413,7 @@ closest_flag() {
     "--sign-script" "--sign-share-dir" "--sign-product-names" "--sign-timeout-minutes"
     "--sign-progress-interval-ms" "--sign-poll-interval-ms"
     "--list" "--limit" "--help"
-    "--runtime" "--platform" "--arch" "--distribution" "--linux-container"
-    "--windows-cross" "--notes-file"
+    "--platform" "--arch" "--distribution" "--linux-container" "--notes-file"
   )
   for flag in "${known[@]}"; do
     local f="${flag#--}"
@@ -447,7 +433,6 @@ while [[ $# -gt 0 ]]; do
   case "$arg" in
     --dry-run|--simulate|-s)             DRY_RUN=true; shift ;;
     --linux-container)                  LINUX_CONTAINER=true; shift ;;
-    --windows-cross)                    WINDOWS_CROSS=true; shift ;;
     --notes-file=*)                     CUSTOM_NOTES_FILE="${arg#--notes-file=}"; shift ;;
     --notes-file)                       [[ $# -ge 2 ]] || fail "--notes-file requires a value"; CUSTOM_NOTES_FILE="$2"; shift 2 ;;
     --re-release|-R)                     RERELEASE=true; shift ;;
@@ -457,8 +442,6 @@ while [[ $# -gt 0 ]]; do
     --debug-skip-clean-tree-check)       DEBUG_SKIP_CLEAN_TREE_CHECK=true; shift ;;
     --install-prereqs|--install-deps|-i) INSTALL_PREREQS=true; shift ;;
     --list|-l)                           LIST=true; shift ;;
-    --runtime=*)                        RUNTIME="${arg#--runtime=}"; shift ;;
-    --runtime)                          [[ $# -ge 2 ]] || fail "--runtime requires a value"; RUNTIME="$2"; shift 2 ;;
     --platform=*)                       PLATFORM="${arg#--platform=}"; shift ;;
     --platform)                         [[ $# -ge 2 ]] || fail "--platform requires a value"; PLATFORM="$2"; shift 2 ;;
     --arch=*)                           ARCH="${arg#--arch=}"; shift ;;
@@ -503,24 +486,18 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-case "$RUNTIME" in electron|tauri|both) ;; *) fail "--runtime must be electron, tauri, or both" ;; esac
 if [[ -z "$PLATFORM" ]]; then
-  if [[ "$RUNTIME" == "electron" ]]; then PLATFORM="all"
-  else PLATFORM=$(node -p '({darwin:"mac",win32:"win",linux:"linux"})[process.platform]'); fi
+  PLATFORM="all"
 fi
 case "$PLATFORM" in mac|win|linux|all) ;; *) fail "--platform must be mac, win, linux, or all" ;; esac
 case "$ARCH" in ""|x64|arm64) ;; *) fail "--arch must be x64 or arm64" ;; esac
 case "$DISTRIBUTION" in portable|installer|both) ;; *) fail "--distribution must be portable, installer, or both" ;; esac
-TARGET_ARGS=(--runtime "$RUNTIME" --platform "$PLATFORM" --distribution "$DISTRIBUTION")
+TARGET_ARGS=(--platform "$PLATFORM" --distribution "$DISTRIBUTION")
 [[ -n "$ARCH" ]] && TARGET_ARGS+=(--arch "$ARCH")
 BUILD_TARGET_ARGS=("${TARGET_ARGS[@]}")
 if [[ "$LINUX_CONTAINER" == true ]]; then
   [[ "$PLATFORM" == "linux" || "$PLATFORM" == "all" ]] || fail "--linux-container requires a Linux target"
   BUILD_TARGET_ARGS+=(--linux-container)
-fi
-if [[ "$WINDOWS_CROSS" == true ]]; then
-  [[ "$PLATFORM" == "win" || "$PLATFORM" == "all" ]] || fail "--windows-cross requires a Windows target"
-  BUILD_TARGET_ARGS+=(--windows-cross)
 fi
 if [[ -n "$CUSTOM_NOTES_FILE" ]]; then
   [[ -f "$CUSTOM_NOTES_FILE" && -r "$CUSTOM_NOTES_FILE" ]] || fail "--notes-file must name a readable Markdown file"
@@ -647,12 +624,12 @@ if [[ "$UPLOAD_ONLY" == true ]]; then
 else
   banner 0 "Checking build prerequisites"
 
-  if [[ "$RUNTIME" != "electron" || "$LINUX_CONTAINER" == true || "$WINDOWS_CROSS" == true ]]; then
-    [[ "$INSTALL_PREREQS" == false ]] || fail "Install Tauri or container prerequisites explicitly; --install-prereqs supports host Electron builds only."
+  if [[ "$LINUX_CONTAINER" == true ]]; then
+    [[ "$INSTALL_PREREQS" == false ]] || fail "Install container prerequisites explicitly; --install-prereqs supports host builds only."
     command -v git >/dev/null || fail "git is required"
     command -v gh >/dev/null || fail "gh is required"
     gh auth status >/dev/null 2>&1 || fail "GitHub CLI authentication is required"
-    node scripts/package-runtime.js "${BUILD_TARGET_ARGS[@]}" --dry-run || fail "Invalid build selection"
+    node scripts/package-app.js "${BUILD_TARGET_ARGS[@]}" --dry-run || fail "Invalid build selection"
   elif [[ "$INSTALL_PREREQS" == true ]]; then
     INSTALL_ARGS=(--release "--${PLATFORM}")
     [[ "$DRY_RUN" == true ]] && INSTALL_ARGS+=(--dry-run)
@@ -667,23 +644,23 @@ else
 fi
 
 # ── Step 0.5: Working tree must be clean ─────────────────────────────────────
-# Block the release if there are uncommitted changes (other than package.json,
-# which the script itself may modify) or unpushed commits — a release should
+# Block the release if there are uncommitted changes or unpushed commits — a release should
 # always reflect what's on the remote and be reproducible from the published tag.
 # Dry runs warn and continue so changes can be previewed before committing.
 # --debug-skip-clean-tree-check also warns and continues for local release/signing debugging only.
-# Skipped when --upload-only is set (artifacts already built, tree state irrelevant).
+# Upload-only additionally checks that all artifacts describe this clean source.
 if [[ "$UPLOAD_ONLY" == true ]]; then
-  banner 0 "Skipping working tree check (--upload-only)"
-  info "Tree cleanliness is not enforced when uploading pre-built artifacts."
+  banner 0 "Verifying upload source"
+  [[ -z "$(git status --porcelain)" ]] || fail "Upload-only requires a clean source checkout."
+  node scripts/release-artifacts.js "${TARGET_ARGS[@]}" --packages-only >/dev/null || fail "Artifacts do not match the clean release source."
   GIT_HASH=$(git rev-parse --short HEAD)
 else
   banner 0 "Verifying clean working tree"
 
   WORKING_TREE_OK=true
 
-  # 1) Uncommitted changes (excluding package.json, which Step 2 may bump)
-  DIRTY_FILES=$(git status --porcelain | awk '{print $2}' | grep -v '^package\.json$' || true)
+  # 1) Uncommitted changes before the script's own version bump.
+  DIRTY_FILES=$(git status --porcelain)
   if [[ -n "$DIRTY_FILES" ]]; then
     WORKING_TREE_OK=false
     warn "Uncommitted changes detected:"
@@ -700,7 +677,7 @@ else
     if [[ "${AHEAD}" -gt 0 ]]; then
       WORKING_TREE_OK=false
       warn "${AHEAD} unpushed commit(s) on the current branch:"
-      git log "${UPSTREAM}..HEAD" --pretty=format:"       • %h %s" | sed -e 's/$//'
+      git --no-pager log "${UPSTREAM}..HEAD" --pretty=format:"       • %h %s" | sed -e 's/$//'
       echo ""
     fi
   fi
@@ -766,20 +743,25 @@ else
   fi
 fi
 
-# ── Step 3: Build ────────────────────────────────────────────────────────────
+# ── Step 3: Commit the producer before building ──────────────────────────────
+if [[ "$UPLOAD_ONLY" != true && "$VERSION_CHANGED" == true ]]; then
+  banner 3 "Committing version bump before packaging"
+  run "Git add" git add package.json package-lock.json
+  run "Git commit" git commit -m "chore: bump version to ${VERSION}"
+fi
+GIT_HASH=$(git rev-parse --short HEAD)
+if [[ "$DRY_RUN" != true && -n "$(git status --porcelain)" ]]; then
+  fail "Packaging requires a clean committed source so artifact provenance matches the release tag."
+fi
+
+# ── Step 4: Build ────────────────────────────────────────────────────────────
 if [[ "$UPLOAD_ONLY" == true ]]; then
-  banner 3 "Skipping build (--upload-only)"
+  banner 4 "Skipping build (--upload-only)"
   info "Using existing artifacts in dist/"
 else
-  banner 3 "Building platform packages"
+  banner 4 "Building platform packages"
 
-  if [[ "$RUNTIME" != "electron" || "$PLATFORM" != "all" || -n "$ARCH" || "$DISTRIBUTION" != "both" || "$LINUX_CONTAINER" == true || "$WINDOWS_CROSS" == true ]]; then
-    BUILD_SCRIPT="package:runtime"
-  elif [[ "$SEQ" == true ]]; then
-    BUILD_SCRIPT="package:seq:clean"
-  else
-    BUILD_SCRIPT="package:all:clean"
-  fi
+  BUILD_SCRIPT="package:targets"
   info "Running: npm run ${BUILD_SCRIPT}"
   if [[ -n "$SIGN_SCRIPT" ]]; then
     export VELOCITY_SIGN_SCRIPT="$SIGN_SCRIPT"
@@ -802,11 +784,7 @@ else
   echo ""
 
   BUILD_START=$(date +%s)
-  if [[ "$BUILD_SCRIPT" == "package:runtime" ]]; then
-    run "Build" npm run "${BUILD_SCRIPT}" -- "${BUILD_TARGET_ARGS[@]}"
-  else
-    run "Build" npm run "${BUILD_SCRIPT}"
-  fi
+  run "Build" npm run "${BUILD_SCRIPT}" -- "${BUILD_TARGET_ARGS[@]}"
   [[ "$DRY_RUN" == true && -n "$SIGN_SCRIPT" ]] && node scripts/external-sign.js --dry-run-preview
   BUILD_ELAPSED=$(( $(date +%s) - BUILD_START ))
 
@@ -814,27 +792,10 @@ else
   success "Build complete in ${BOLD}${BUILD_ELAPSED}s${RESET}"
 fi
 
-# ── Step 4: Commit version bump ──────────────────────────────────────────────
-if [[ "$UPLOAD_ONLY" == true ]]; then
-  banner 4 "Skipping version bump commit (--upload-only)"
-  GIT_HASH=$(git rev-parse --short HEAD)
-  info "HEAD is at ${DIM}${GIT_HASH}${RESET}"
-else
-  banner 4 "Committing version bump"
-
-  if [[ "$VERSION_CHANGED" == true ]] && { [[ "$DRY_RUN" == true ]] || ! git diff --quiet package.json; }; then
-    run "Git add" git add package.json package-lock.json
-    run "Git commit" git commit -m "chore: bump version to ${VERSION}"
-    run "Git push" git push
-    GIT_HASH=$(git rev-parse --short HEAD)
-    success "Committed and pushed version bump — ${DIM}${GIT_HASH}${RESET}"
-  elif [[ "$VERSION_CHANGED" == true ]]; then
-    GIT_HASH=$(git rev-parse --short HEAD)
-    warn "package.json was updated but git diff is clean (already staged?) — skipping commit"
-  else
-    GIT_HASH=$(git rev-parse --short HEAD)
-    warn "No version change — skipping commit"
-  fi
+# Push only after successful packaging; the manifest's producer stays unchanged.
+if [[ "$UPLOAD_ONLY" != true && "$VERSION_CHANGED" == true ]]; then
+  run "Git push" git push
+  success "Pushed version bump — ${DIM}${GIT_HASH}${RESET}"
 fi
 
 # ── --prepare-only: exit here before touching GitHub ─────────────────────────
@@ -914,7 +875,6 @@ else
 > **App version:** ${VERSION_BARE}
 > **Node.js:** ${NODE_VERSION}
 > **Electron:** ${ELECTRON_VERSION}
-> **Selected runtimes:** ${RUNTIME}
 > **Selected platforms:** ${PLATFORM}
 > **Selected architecture:** ${ARCH:-per-artifact manifest}
 > **Platform:** $(uname -s) $(uname -m)

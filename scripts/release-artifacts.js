@@ -6,7 +6,6 @@ const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 
-const EDITIONS = { electron: 'standalone', tauri: 'compact' };
 const FORMATS = {
   mac: { portable: ['zip'], installer: ['dmg'] },
   win: { portable: ['portable.exe', 'zip'], installer: ['setup.exe'] },
@@ -14,7 +13,7 @@ const FORMATS = {
 };
 
 function validateTarget({ runtime, platform, arch }) {
-  if (!['electron', 'tauri'].includes(runtime)) throw new Error(`Unknown runtime: ${runtime}`);
+  if (runtime !== 'electron') throw new Error(`Unsupported runtime: ${runtime}`);
   if (!Object.hasOwn(FORMATS, platform)) throw new Error(`Unknown platform: ${platform}`);
   if (!['x64', 'arm64'].includes(arch)) throw new Error(`Unsupported architecture: ${arch}; select x64 or arm64`);
 }
@@ -35,7 +34,7 @@ function artifactName(pkg, target, format) {
     throw new Error(`Unsupported ${target.platform} format: ${format}`);
   }
   const suffix = ['setup.exe', 'portable.exe', 'manifest.json'].includes(format) ? `-${format}` : `.${format}`;
-  return `${pkg.name}-${pkg.version}-${EDITIONS[target.runtime]}-${target.platform}-${target.arch}${suffix}`;
+  return `${pkg.name}-${pkg.version}-${target.platform}-${target.arch}${suffix}`;
 }
 
 function outputDirectory(repoDir, target) {
@@ -56,17 +55,7 @@ function writeManifest(repoDir, target, formats) {
     const name = artifactName(pkg, target, format);
     return { name, format, ...fileDigest(path.join(output, name)) };
   });
-  const sourceFile = process.env.VELOCITY_BUILD_SOURCE_FILE;
-  const source = sourceFile
-    ? JSON.parse(fs.readFileSync(sourceFile, 'utf8'))
-    : {
-      commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoDir, encoding: 'utf8' }).trim(),
-      dirty: Boolean(execFileSync('git', ['status', '--porcelain'], { cwd: repoDir, encoding: 'utf8' }).trim()),
-    };
-  if (!source || typeof source.commit !== 'string'
-    || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(source.commit) || typeof source.dirty !== 'boolean') {
-    throw new Error('Build source metadata requires a full commit SHA and a boolean dirty flag');
-  }
+  const source = readBuildSource(repoDir);
   const manifest = {
     schemaVersion: 1,
     application: pkg.name,
@@ -80,6 +69,19 @@ function writeManifest(repoDir, target, formats) {
   fs.writeFileSync(`${destination}.tmp`, `${JSON.stringify(manifest, null, 2)}\n`);
   fs.renameSync(`${destination}.tmp`, destination);
   return destination;
+}
+
+function readBuildSource(repoDir) {
+  const sourceFile = process.env.VELOCITY_BUILD_SOURCE_FILE;
+  const source = sourceFile ? JSON.parse(fs.readFileSync(sourceFile, 'utf8')) : {
+    commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoDir, encoding: 'utf8' }).trim(),
+    dirty: Boolean(execFileSync('git', ['status', '--porcelain'], { cwd: repoDir, encoding: 'utf8' }).trim()),
+  };
+  if (!source || typeof source.commit !== 'string'
+    || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(source.commit) || typeof source.dirty !== 'boolean') {
+    throw new Error('Build source metadata requires a full commit SHA and a boolean dirty flag');
+  }
+  return source;
 }
 
 function validateManifest(file, pkg) {
@@ -110,23 +112,29 @@ function validateManifest(file, pkg) {
   return { manifest, files: [...files, file], formats };
 }
 
-function collectReleaseArtifacts(repoDir, { runtime = 'electron', platform = 'all', arch, distribution = 'both', packagesOnly = false } = {}) {
-  if (!['electron', 'tauri', 'both'].includes(runtime)) throw new Error(`Unknown runtime: ${runtime}`);
+function collectReleaseArtifacts(repoDir, { platform = 'all', arch, distribution = 'both', packagesOnly = false, requireCleanSource = false } = {}) {
   if (platform !== 'all' && !Object.hasOwn(FORMATS, platform)) throw new Error(`Unknown platform: ${platform}`);
   if (arch && !['x64', 'arm64'].includes(arch)) throw new Error(`Unknown architecture: ${arch}`);
   const pkg = JSON.parse(fs.readFileSync(path.join(repoDir, 'package.json'), 'utf8'));
-  const runtimes = runtime === 'both' ? ['electron', 'tauri'] : [runtime];
+  const source = requireCleanSource ? {
+    commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoDir, encoding: 'utf8' }).trim(),
+    dirty: Boolean(execFileSync('git', ['status', '--porcelain'], { cwd: repoDir, encoding: 'utf8' }).trim()),
+  } : null;
+  if (source?.dirty) throw new Error('Release uploads require a clean source checkout');
   const platforms = platform === 'all' ? Object.keys(FORMATS) : [platform];
   const results = [];
-  for (const selectedRuntime of runtimes) {
+  const selectedRuntime = 'electron';
     for (const selectedPlatform of platforms) {
       let found = false;
-      for (const selectedArch of arch ? [arch] : ['x64', 'arm64']) {
+      for (const selectedArch of arch ? [arch] : selectedPlatform === 'linux' ? ['x64', 'arm64'] : [selectedPlatform === 'win' ? 'x64' : 'arm64']) {
         const target = { runtime: selectedRuntime, platform: selectedPlatform, arch: selectedArch };
         const directory = outputDirectory(repoDir, target);
         const file = path.join(directory, artifactName(pkg, target, 'manifest.json'));
-        if (!fs.existsSync(file)) continue;
+        if (!fs.existsSync(file)) throw new Error(`No current-version manifest for ${selectedPlatform}/${selectedArch}`);
         const validated = validateManifest(file, pkg);
+        if (source && (validated.manifest.commit !== source.commit || validated.manifest.dirty !== false)) {
+          throw new Error(`Manifest producer does not match the clean release source: ${file}`);
+        }
         if (validated.manifest.runtime !== selectedRuntime || validated.manifest.platform !== selectedPlatform
           || validated.manifest.arch !== selectedArch) throw new Error(`Manifest target mismatch: ${file}`);
         const expected = formatsFor(selectedPlatform, distribution);
@@ -139,7 +147,6 @@ function collectReleaseArtifacts(repoDir, { runtime = 'electron', platform = 'al
       }
       if (!found) throw new Error(`No current-version manifest for ${selectedRuntime}/${selectedPlatform}${arch ? `/${arch}` : ''}`);
     }
-  }
   return results;
 }
 
@@ -152,16 +159,16 @@ if (require.main === module) {
         continue;
       }
       const key = process.argv[i].replace(/^--/, '');
-      if (!['runtime', 'platform', 'arch', 'distribution'].includes(key) || !process.argv[i + 1]) {
-        throw new Error('Usage: node scripts/release-artifacts.js [--runtime electron|tauri|both] [--platform mac|win|linux|all] [--arch x64|arm64] [--distribution portable|installer|both] [--packages-only]');
+      if (!['platform', 'arch', 'distribution'].includes(key) || !process.argv[i + 1]) {
+        throw new Error('Usage: node scripts/release-artifacts.js [--platform mac|win|linux|all] [--arch x64|arm64] [--distribution portable|installer|both] [--packages-only]');
       }
       options[key] = process.argv[++i];
     }
-    console.log(collectReleaseArtifacts(path.join(__dirname, '..'), options).join('\n'));
+    console.log(collectReleaseArtifacts(path.join(__dirname, '..'), { ...options, requireCleanSource: true }).join('\n'));
   } catch (error) {
     console.error(`[Release] ${error.message}`);
     process.exitCode = 1;
   }
 }
 
-module.exports = { EDITIONS, artifactName, collectReleaseArtifacts, fileDigest, formatsFor, outputDirectory, validateManifest, validateTarget, writeManifest };
+module.exports = { artifactName, collectReleaseArtifacts, fileDigest, formatsFor, outputDirectory, readBuildSource, validateManifest, validateTarget, writeManifest };

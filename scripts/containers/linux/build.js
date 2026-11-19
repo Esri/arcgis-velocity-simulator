@@ -13,10 +13,10 @@ function run(command, args) {
 }
 
 function main() {
-  const [runtime, arch, distribution] = process.argv.slice(2);
-  if (!['electron', 'tauri'].includes(runtime) || !['x64', 'arm64'].includes(arch)
+  const [arch, distribution] = process.argv.slice(2);
+  if (!['x64', 'arm64'].includes(arch)
     || !['installer', 'portable', 'both'].includes(distribution)) {
-    throw new Error('Expected runtime, architecture and distribution');
+    throw new Error('Expected architecture and distribution');
   }
   if (process.platform !== 'linux' || process.arch !== arch) {
     throw new Error(`Container is ${process.platform}/${process.arch}; requested linux/${arch}`);
@@ -24,17 +24,18 @@ function main() {
   fs.cpSync('/source', '/work', { recursive: true, dereference: false });
   process.env.VELOCITY_BUILD_SOURCE_FILE = '/source/build-source.json';
   run('npm', ['ci', '--ignore-scripts', '--no-audit', '--no-fund']);
-  run('node', ['scripts/package-runtime.js', '--runtime', runtime, '--platform', 'linux',
+  run('node', ['scripts/package-app.js', '--platform', 'linux',
     '--arch', arch, '--distribution', distribution]);
   const { collectReleaseArtifacts } = require('/work/scripts/release-artifacts.js');
-  const files = collectReleaseArtifacts('/work', { runtime, platform: 'linux', arch, distribution });
+  const files = collectReleaseArtifacts('/work', { platform: 'linux', arch, distribution });
   const pkg = JSON.parse(fs.readFileSync('/work/package.json', 'utf8'));
-  const config = JSON.parse(fs.readFileSync('/work/src-tauri/tauri.conf.json', 'utf8'));
-  const smoke = runtime === 'tauri' ? verifyArtifacts(pkg, files, arch, config.bundle?.linux?.deb?.depends) : [];
+  const appImageExecutor = process.env.VELOCITY_VERIFY_APPIMAGE_QEMU === '1'
+    ? '/usr/bin/qemu-x86_64-static' : null;
+  if (appImageExecutor) console.log(`[Linux container] AppImage verification executor: ${appImageExecutor}`);
+  const smoke = verifyArtifacts(pkg, files, arch, pkg.build.deb?.depends || [], appImageExecutor);
   for (const file of files) fs.copyFileSync(file, path.join('/output', path.basename(file)));
   const report = {
     platform: process.platform, arch: process.arch, node: process.version,
-    rust: spawnSync('rustc', ['--version'], { encoding: 'utf8' }).stdout.trim(),
     packages: fs.readFileSync('/opt/velocity-build-packages.txt', 'utf8'),
     osRelease: fs.readFileSync('/etc/os-release', 'utf8'),
     glibc: process.report.getReport().header.glibcVersionRuntime,

@@ -186,9 +186,9 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
 (function testPackageUsesAfterSignHookForUnpackedExternalSigning() {
   const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'));
 
-  assert.strictEqual(pkg.build.productName, 'ArcGIS Velocity Simulator Standalone');
+  assert.strictEqual(pkg.build.productName, 'ArcGIS Velocity Simulator');
   assert.strictEqual(pkg.build.executableName, 'VelocitySimulator');
-  assert.strictEqual(pkg.build.afterPack, undefined);
+  assert.strictEqual(pkg.build.afterPack, 'scripts/linux-launcher.js');
   assert.strictEqual(pkg.build.afterSign, 'scripts/external-sign.js');
   assert.strictEqual(pkg.build.afterAllArtifactBuild, 'scripts/external-sign.js');
 })();
@@ -369,10 +369,10 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
 
 (function testExplicitDllSigningUsesExactFilenameWithoutBroadeningAppMask() {
   const plan = getArtifactSigningPlan({
-    artifactPaths: ['/repo/nsis/NSISdl.dll', '/repo/nsis/nsis_tauri_utils.DLL', '/repo/nsis/settings.json'],
+    artifactPaths: ['/repo/nsis/NSISdl.dll', '/repo/nsis/helper.DLL', '/repo/nsis/settings.json'],
   });
   assert.deepStrictEqual(plan.sourceDirs, ['/repo/nsis']);
-  assert.strictEqual(plan.fileMask, 'NSISdl.dll;nsis_tauri_utils.DLL');
+  assert.strictEqual(plan.fileMask, 'NSISdl.dll;helper.DLL');
   const command = buildSignCommand({
     scriptPath: '/sign.sh', sourceDirs: plan.sourceDirs, productNames: ['Fixture'],
     fileMask: plan.fileMask,

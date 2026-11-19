@@ -1,7 +1,0 @@
-{
-  "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "desktop",
-  "description": "Local application windows communicate through the sender-validated desktop bridge only.",
-  "windows": ["desktop-*"],
-  "permissions": []
-}

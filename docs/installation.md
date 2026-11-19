@@ -2,13 +2,9 @@
 
 [← Documentation index](README.md) · [Repository overview](../README.md#documentation)
 
-This guide explains how users install and start ArcGIS Velocity Simulator from
-a release package on macOS, Windows, or Linux. It also covers first-launch
-security warnings, deployed log locations, and startup troubleshooting.
-
-Both Standalone and Compact packages include their Node.js backend; Node.js
-and npm are not required on the receiving machine. Standalone uses Electron
-with its bundled browser; Compact uses Tauri with the operating system webview.
+This guide covers release package selection, installation, first launch, logs,
+and startup troubleshooting for ArcGIS Velocity Simulator. Release packages include
+Electron and do not require a separate Node.js installation.
 
 ## Table of contents
 
@@ -20,177 +16,136 @@ with its bundled browser; Compact uses Tauri with the operating system webview.
 
 ## Choose a package
 
-Download packages only from the repository's official GitHub release page.
+Download only from the repository's official GitHub release page. Match the CPU:
+`arm64` for Apple silicon or ARM Linux, `x64` for Intel/AMD. Both are 64-bit;
+only combinations actually present in the release are supported.
 
-| Platform | Package | Use |
+| Platform | Filename suffix | Use |
 |---|---|---|
-| macOS | `arcgis-velocity-simulator-<version>-<edition>-mac-<arch>.dmg` | Drag-to-Applications installation. |
-| macOS | `arcgis-velocity-simulator-<version>-<edition>-mac-<arch>.zip` | Scripted extraction or environments that do not use DMG files. |
-| Windows | `arcgis-velocity-simulator-<version>-<edition>-win-<arch>-setup.exe` | Standard installation with shortcuts and an uninstaller. |
-| Windows | `arcgis-velocity-simulator-<version>-<edition>-win-<arch>-portable.exe` | Run without installing the application. |
-| Windows | `arcgis-velocity-simulator-<version>-<edition>-win-<arch>.zip` | Extract the complete application folder. |
-| Linux | `arcgis-velocity-simulator-<version>-<edition>-linux-<arch>.AppImage` | Portable launch on compatible Linux distributions. |
-| Debian and Ubuntu | `arcgis-velocity-simulator-<version>-<edition>-linux-<arch>.deb` | Installation through `apt` or `dpkg`. |
+| macOS | `-mac-arm64.dmg` or `-mac-arm64.zip` | Install or extract the complete application bundle. |
+| Windows | `-win-x64-setup.exe` | Install with shortcuts and an uninstaller. |
+| Windows | `-win-x64-portable.exe` | Self-extracting, no-install launch. |
+| Windows | `-win-x64.zip` | Extract all application and supporting files together. |
+| Linux | `-linux-<arch>.deb` | Install with `apt`/`dpkg`, resolving dependencies on Debian/Ubuntu. |
+| Linux | `-linux-<arch>.AppImage` | Portable executable containing the app and many dependencies. |
 
-Select `standalone` or `compact` for `<edition>`. Architecture is explicit:
-`arm64` for Apple silicon or ARM Linux/Windows, and `x64` for Intel/AMD systems.
-Only download combinations actually present in the selected release.
-Release maintainers verify package sizes and SHA-256 checksums using retained
-local target manifests; those manifests are not application downloads.
+Names begin with `arcgis-velocity-simulator-<version>`. Maintainers keep target
+manifests for checksum and provenance validation; manifests are not application
+downloads.
 
-On macOS, Compact requires macOS 13.5 or newer because its bundled Node.js
-runtime requires that minimum. Standalone requires macOS 13 or newer.
+### Linux support
 
-Compact on Windows requires Microsoft WebView2. The NSIS installer can download
-the runtime if absent; portable EXE and ZIP packages require it to be installed
-already and do not provision it. The portable EXE extracts its full application
-to a temporary folder, waits for it to exit, and removes that folder.
-Portable packaging does not move configuration or logs beside the executable.
+Linux support targets Ubuntu 24.04 LTS and Debian 13 on `x64` and `arm64`,
+for GUI and no-display headless operation. GUI use requires a working desktop
+session and the native libraries declared by the package. Headless execution
+uses the bundled Node runtime before Chromium starts; see
+[headless launch patterns](headless.md#quick-start).
 
-For the architectural tradeoffs and when to choose each edition, see
-[Desktop runtime choices](developer-guide.md#desktop-runtime-choices).
+Ubuntu and Debian are maintained glibc-based systems aligned with the bundled
+Electron runtime. They provide APT integration and a bounded distribution and
+architecture matrix that can be validated consistently. The remote data
+endpoint or server container does not need to use the same operating system.
 
-Compact uses one Linux build baseline with two formats: DEB installs the
-application and declares system dependencies; AppImage bundles its webview
-libraries for portable launch. DEB is a package format, not a guarantee of
-compatibility with every Debian or Ubuntu release.
+Debian is a distribution; `.deb` is a package format used by both Debian and
+Ubuntu. A DEB installs into the system, declares dependencies, and integrates
+with the package manager. AppImage is a portable executable format, not a
+distribution or a universal Linux ABI. It still needs a compatible host and
+native libraries. Some systems require FUSE or the extraction fallback below.
 
-Compact packages built with the supplied container use Ubuntu 24.04 LTS with
-glibc 2.39 and WebKitGTK 4.1. The native application requires `GLIBC_2.39`;
-bundled webview libraries require up to `GLIBCXX_3.4.30`. Matching CPU
-architecture, the C and C++ runtime requirements, and available distribution
-packages all matter.
-Do not assume these packages run on Debian 12, Ubuntu 22.04, or older glibc
-versions. Desktop dialogs require a D-Bus session, `libdbus-1-3`, Zenity, and
-`xdg-desktop-portal` with a desktop backend. DEB packages declare these
-dependencies; AppImage users must provide the desktop services themselves.
-Headless replay does not require a display or desktop portal.
-
-Debian 13 meets the glibc floor, but that alone does not guarantee compatibility:
-the required desktop libraries, package dependencies, and services must also
-be available. ARM64 package validation on Ubuntu 24.04 LTS and Debian 13 covers
-native help, invalid-argument handling, and headless TCP replay; Debian 13 DEB
-dependency installation is also checked. These checks do not establish full
-desktop GUI support or compatibility on other architectures.
-Alpine's musl-based environment is not a supported target for these glibc builds.
-
-The official Ubuntu WebKitGTK packages can retain known security advisories
-while distribution fixes are pending. Compact AppImages bundle the build's
-WebKitGTK libraries and need a rebuilt application to receive those fixes;
-DEB installations use system updates. A successful package check does not
-mean the webview has no outstanding advisories. AppImage does not eliminate
-the host libc, C++ runtime, or desktop-service requirements.
-
-macOS uses the system WKWebView.
-Camera and speech availability depends on the selected system webview.
-
-Compact installers use a separate application identity and a display name ending
-in **Compact**. Its configuration is separate from Standalone; see
-[Configuration](configuration.md). Keep all ZIP contents together, including
-the bundled backend and Node executable.
+Alpine Linux, including Alpine 3.23.7, is not supported for either native GUI
+or headless execution. Alpine uses musl, while the bundled Electron binary
+requires glibc. Selecting Electron's Node-only headless mode avoids Chromium
+display initialization but does not remove that binary's glibc requirement.
+Remote X11 changes where windows appear, not ABI compatibility. No separate
+Alpine-compatible Node CLI is shipped or tested. Do not use custom glibc shims,
+mixed-distribution libraries, or edge packages to bypass these requirements.
 
 ## Install and launch
 
 ### macOS
 
-To install from a DMG:
-
-1. Download the DMG from the official release page;
-2. verify the GitHub-published SHA-256 digest if your workflow requires an
-   integrity check;
-3. open the DMG;
-4. drag `VelocitySimulator.app` to `/Applications`; and
-5. open the application from `/Applications`.
-
-The Standalone bundle is `VelocitySimulator.app`; the Compact bundle is
-`ArcGIS Velocity Simulator Compact.app`. Use the selected bundle name throughout
-the following examples.
-
-Alternatively, extract the macOS ZIP and move the application bundle into
-`/Applications`. Quit any running copy before replacing it, then launch the
-installed application rather than a copy inside the mounted DMG.
-
-To check the downloaded DMG, set `VERSION` to the version you downloaded
-(use the version shown on the selected release):
+macOS 13 or later is required. Open the DMG and drag `VelocitySimulator.app` into
+`/Applications`, or extract the ZIP and move the complete application bundle
+there. Quit any running copy before replacing it. Launch the installed copy,
+not the one inside a mounted DMG.
 
 ```bash
-VERSION=x.y.z
-EDITION=standalone
-ARCH=arm64
-hdiutil verify \
-  "$HOME/Downloads/arcgis-velocity-simulator-${VERSION}-${EDITION}-mac-${ARCH}.dmg"
-shasum -a 256 \
-  "$HOME/Downloads/arcgis-velocity-simulator-${VERSION}-${EDITION}-mac-${ARCH}.dmg"
+VERSION=1.1.1
+hdiutil verify "$HOME/Downloads/arcgis-velocity-simulator-${VERSION}-mac-arm64.dmg"
+shasum -a 256 "$HOME/Downloads/arcgis-velocity-simulator-${VERSION}-mac-arm64.dmg"
 ```
 
-`hdiutil verify` checks the disk image's internal integrity. Compare the
-`shasum` value with the asset's SHA-256 digest on GitHub; neither check
-establishes Apple signing or notarization.
+Compare the SHA-256 with GitHub's published asset digest. Disk-image integrity
+and checksums do not establish Developer ID signing or notarization.
 
 #### Unsigned package workaround
 
-Browser downloads can carry a quarantine attribute. Without Developer ID
-signing and notarization, Gatekeeper may block the application or report it as
-damaged even when its download is intact. An ad hoc bundle signature does not
-provide Developer ID trust or notarization.
-
-Try opening the installed application normally first. Only if Gatekeeper
-blocks a trusted official package whose checksum you have verified, quit the
-application and use this workaround:
+If Gatekeeper blocks an intact, trusted official download, first verify its
+origin and checksum. Only then quit the application and remove its quarantine:
 
 ```bash
-xattr -dr com.apple.quarantine \
-  "/Applications/VelocitySimulator.app"
-
+xattr -dr com.apple.quarantine "/Applications/VelocitySimulator.app"
 open "/Applications/VelocitySimulator.app"
 ```
 
-Afterward, launch this installed copy normally from Finder. Quarantine removal
-is not a command to repeat on every launch; a replacement download may be
-quarantined again. No manual log-directory creation or `logFile` argument is
-required. See [Find diagnostic logs](#find-diagnostic-logs).
-
 > [!WARNING]
-> Removing quarantine bypasses a macOS security control. Use this workaround
-> only after confirming that the application came from the official Esri
-> release page and its checksum matches the published digest. This does not
-> notarize the application. Do not use `sudo` or disable Gatekeeper globally.
+> Removing quarantine bypasses a macOS security control. Ad-hoc signing is not
+> Developer ID notarization. Do not use this workaround for an untrusted
+> download, use `sudo`, or disable Gatekeeper globally.
 
 ### Windows
 
-Run the setup executable for a standard installation, or run the portable
-executable directly. For the Windows ZIP, extract the entire archive into a
-writable folder and run `VelocitySimulator.exe` there; keep its supporting files
-together. Windows can show a SmartScreen warning when a package is
-unsigned or its signing certificate has not established reputation. Verify the
-publisher and obtain packages only from the official release page.
+Run the setup executable for installation or the portable executable for
+no-install use. For ZIP packages, extract everything to a writable folder and
+run `VelocitySimulator.exe`; do not separate the executable from its resources.
+Check the publisher if SmartScreen displays a warning. A signed package can
+still need to establish SmartScreen reputation.
 
 ### Linux
 
-Run these commands from the download directory, replacing `x.y.z` with the
-downloaded version. The package architecture must match your system.
-
-For an AppImage:
+Choose `ARCH=arm64` or `ARCH=x64` to match the machine.
 
 ```bash
-VERSION=x.y.z
-EDITION=standalone
+VERSION=1.1.1
 ARCH=x64
-chmod +x "arcgis-velocity-simulator-${VERSION}-${EDITION}-linux-${ARCH}.AppImage"
-"./arcgis-velocity-simulator-${VERSION}-${EDITION}-linux-${ARCH}.AppImage"
+sudo apt install "./arcgis-velocity-simulator-${VERSION}-linux-${ARCH}.deb"
 ```
 
-For Debian or Ubuntu:
+For portable use:
 
 ```bash
-VERSION=x.y.z
-sudo apt install "./arcgis-velocity-simulator-${VERSION}-${EDITION}-linux-${ARCH}.deb"
+VERSION=1.1.1
+ARCH=x64
+chmod +x "arcgis-velocity-simulator-${VERSION}-linux-${ARCH}.AppImage"
+"./arcgis-velocity-simulator-${VERSION}-linux-${ARCH}.AppImage"
 ```
+
+When FUSE is unavailable, use the AppImage's extraction-and-run facility:
+
+```bash
+APPIMAGE_EXTRACT_AND_RUN=1 ./arcgis-velocity-simulator-1.1.1-linux-x64.AppImage \
+  runMode=headless filename=./input.csv protocol=tcp mode=client ip=127.0.0.1 \
+  port=5565 doneFile=./replay.done.json
+```
+
+The DEB's executable is `/opt/ArcGIS Velocity Simulator/VelocitySimulator`.
+Always use this launcher or the AppImage for headless operation, not the
+internal native `.bin` file. No display server or Xvfb is required for help,
+configuration errors, or headless replay.
+
+For GUI use, run as a normal user on a desktop that permits Chromium's sandbox.
+The upstream AppImage `AppRun` may inject `--no-sandbox` when run as root or
+when its user-namespace probe fails. A successful rootless container launch
+therefore does not establish sandboxed GUI execution. Do not disable sandbox
+checks or elevate the application to work around a desktop configuration issue.
+Both startup parsers recognize this exact AppImage runtime flag without treating
+it as an application parameter. GUI execution preserves the upstream arguments;
+the application does not add a sandbox bypass. Other unknown flags still fail.
 
 ## Find diagnostic logs
 
-Packaged applications automatically create the diagnostic log directory and
-write timestamped files in both UI and headless modes:
+Packaged applications create timestamped logs without depending on the launch
+directory:
 
 | Platform | Default directory |
 |---|---|
@@ -198,39 +153,28 @@ write timestamped files in both UI and headless modes:
 | Windows | `%APPDATA%\arcgis-velocity-simulator\logs\` |
 | Linux | `~/.config/arcgis-velocity-simulator/logs/` |
 
-For example, the same timestamped log is written as:
-
-```text
-macOS:  /Users/alice/Library/Logs/arcgis-velocity-simulator/velocity-simulator-20260922T224947.log
-Windows: C:\Users\Alice\AppData\Roaming\arcgis-velocity-simulator\logs\velocity-simulator-20260922T224947.log
-Linux:  /home/alice/.config/arcgis-velocity-simulator/logs/velocity-simulator-20260922T224947.log
-```
-
-This behavior applies to every packaged platform, not only macOS. Packaged
-applications do not depend on the launcher's working directory. An explicit
-`logFile=<path>` argument always takes precedence.
-Relative overrides resolve against the process working directory; use an
-absolute path when launching through a desktop shortcut. On Linux, the
-application-data base follows `XDG_CONFIG_HOME` when set; the table shows the
-usual default.
+Linux follows `XDG_CONFIG_HOME` when set. An explicit `logFile=<path>` overrides
+the default; relative overrides resolve against the process working directory.
+Use absolute paths for scheduled jobs and shortcuts. Saved settings retain the
+canonical [configuration location](configuration.md#file-location).
 
 ## Troubleshooting
 
-| Symptom | Cause and action |
+| Symptom | Action |
 |---|---|
-| macOS says the application is damaged. | Check disk-image integrity and the published SHA-256 digest first. Do not bypass a checksum mismatch. For an intact, trusted official package blocked by Gatekeeper, see [Unsigned package workaround](#unsigned-package-workaround). |
-| macOS shows `ENOENT: no such file or directory, mkdir '/logs'`. | Install a current release and launch the copy in `/Applications`. Packaged default logs do not depend on Finder's working directory. If the error persists, check for an explicit `logFile` override; do not create `/logs` or run the app with `sudo`. |
-| macOS says the application is unsupported. | The package architecture does not match the Mac. The current package requires Apple silicon. |
-| Windows shows a SmartScreen warning. | Confirm the package came from the official release page and verify its publisher before continuing. |
-| Linux cannot execute the AppImage. | Add execute permission with `chmod +x` and confirm the distribution supports AppImage. |
-| The application starts but cannot connect. | Open [Protocol settings and presets](connection-presets.md), then use the guide for the selected transport. |
+| macOS reports damage or blocks launch | Verify the asset checksum first; see [Unsigned package workaround](#unsigned-package-workaround) only for trusted, intact downloads. |
+| macOS reports an unsupported application | Check macOS version and CPU architecture. |
+| Windows shows a SmartScreen warning | Verify origin and publisher; do not assume signing proves runtime behavior. |
+| Linux cannot execute the AppImage | Check architecture, execute permission, supported distribution, and FUSE/extraction mode. |
+| Linux headless reports a missing display | Use the packaged launcher, not the native `.bin` executable. |
+| Linux GUI cannot start | Run inside a supported desktop session; resolve native dependencies with the distribution package manager. |
+| The application starts but cannot connect | Review [connection presets](connection-presets.md) and the selected transport guide. |
 
 ## Related documentation
 
 | Guide | Purpose |
 |---|---|
-| [Configuration](configuration.md) | Persisted settings and launch configuration files. |
-| [Command-line reference](command-line.md) | Parameters including `logFile` and `logLevel`. |
-| [Protocol settings and presets](connection-presets.md) | Configure a connection after installation. |
-| [Build and release](build-and-release.md) | Build, sign, notarize, and publish packages. |
-| [Developer guide](developer-guide.md) | Logging implementation, development, and tests. |
+| [Headless mode](headless.md) | Automated replay workflows. |
+| [Configuration](configuration.md) | Settings and launch configuration. |
+| [Command-line reference](command-line.md) | Application parameters. |
+| [Build and release](build-and-release.md) | Packaging and signature verification. |

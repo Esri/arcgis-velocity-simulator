@@ -92,6 +92,7 @@ class SimulationEngine extends EventEmitter {
 	this.errorCount = 0;
 	this.isInitialized = false;
 	this.isSending = false;
+	this.isStopped = false;
 	this.tickInFlight = false;
 	this.intervalHandle = null;
 	this.lastNoRecipientReason = null;
@@ -254,10 +255,12 @@ class SimulationEngine extends EventEmitter {
 
 	try {
 	  await this.initialize();
+	  if (this.isStopped) return this.runPromise;
 
 	  if (this.options.autoConnect) {
 		await this.connect();
 	  }
+	  if (this.isStopped) return this.runPromise;
 
 	  if (!this.options.autoStart) {
 		this.log('info', 'Headless session initialized and ready. autoStart=false, so no data will be sent.');
@@ -271,6 +274,7 @@ class SimulationEngine extends EventEmitter {
 	  }
 
 	  await this.waitForRecipientsIfNeeded();
+	  if (this.isStopped) return this.runPromise;
 	  this.startSchedule();
 	} catch (error) {
 	  this.failRun(error);
@@ -321,6 +325,7 @@ class SimulationEngine extends EventEmitter {
 		   * Stops the scheduler and finalizes the run with a `stopped` status.
 		   */
   async stop(reason = 'Transmission stopped.') {
+	this.isStopped = true;
 	if (this.intervalHandle) {
 	  clearInterval(this.intervalHandle);
 	  this.intervalHandle = null;

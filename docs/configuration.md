@@ -50,17 +50,13 @@ discovery and override workflows.
 
 ## File location
 
-Standalone uses these paths:
+The application uses these paths:
 
 - **macOS**: `~/Library/Application Support/arcgis-velocity-simulator/config.json`
 - **Windows**: `%APPDATA%\arcgis-velocity-simulator\config.json`
 - **Linux**: `~/.config/arcgis-velocity-simulator/config.json`
 
-Compact uses the sibling directory `arcgis-velocity-simulator-tauri` under the
-same platform root. On Linux, `$XDG_CONFIG_HOME` overrides `~/.config`.
-The runtimes do not automatically migrate or concurrently write one another's
-settings. Use the existing configuration export/import actions to transfer
-settings deliberately. Launch Config files remain runtime-independent.
+On Linux, `$XDG_CONFIG_HOME` overrides `~/.config`.
 
 ## Configuration structure
 
