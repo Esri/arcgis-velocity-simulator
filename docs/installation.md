@@ -35,7 +35,8 @@ Download packages only from the repository's official GitHub release page.
 Select `standalone` or `compact` for `<edition>`. Architecture is explicit:
 `arm64` for Apple silicon or ARM Linux/Windows, and `x64` for Intel/AMD systems.
 Only download combinations actually present in the selected release.
-The accompanying target manifest records byte sizes and SHA-256 checksums.
+Release maintainers verify package sizes and SHA-256 checksums using retained
+local target manifests; those manifests are not application downloads.
 
 On macOS, Compact requires macOS 13.5 or newer because its bundled Node.js
 runtime requires that minimum. Standalone requires macOS 13 or newer.

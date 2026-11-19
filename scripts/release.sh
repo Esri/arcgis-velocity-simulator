@@ -851,7 +851,7 @@ if [[ "$PREPARE_ONLY" == true ]]; then
     echo -e "${BOLD}${CYAN}  ✔   Prepare phase complete — artifacts are in dist/${RESET}"
     echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo -e "  ${DIM}Commit  :${RESET}  ${GIT_HASH}"
-    ASSET_LIST=$(node scripts/release-artifacts.js "${TARGET_ARGS[@]}") || fail "Release artifacts failed validation"
+    ASSET_LIST=$(node scripts/release-artifacts.js "${TARGET_ARGS[@]}" --packages-only) || fail "Release artifacts failed validation"
     ASSET_COUNT=$(printf '%s\n' "$ASSET_LIST" | wc -l | tr -d ' ')
     echo -e "  ${DIM}Assets  :${RESET}  ${ASSET_COUNT} file(s) in dist/"
     echo -e "  ${DIM}Next    :${RESET}  Review artifacts, then run:"
@@ -889,7 +889,7 @@ ASSETS=()
 if [[ "$DRY_RUN" == true && "$UPLOAD_ONLY" == false ]]; then
   info "Artifact validation will run after the real build; no unbuilt files are advertised."
 else
-  ASSET_LIST=$(node scripts/release-artifacts.js "${TARGET_ARGS[@]}") || fail "Release artifacts failed validation"
+  ASSET_LIST=$(node scripts/release-artifacts.js "${TARGET_ARGS[@]}" --packages-only) || fail "Release artifacts failed validation"
   while IFS= read -r artifact; do ASSETS+=("$artifact"); done <<< "$ASSET_LIST"
 fi
 
@@ -933,7 +933,7 @@ banner 5 "Publishing GitHub release"
 TOTAL_ASSETS=${#ASSETS[@]}
 
 if [[ "$DRY_RUN" == true ]]; then
-  dryrun "Create draft release ${VERSION}, upload validated artifacts and manifests, then publish"
+  dryrun "Create draft release ${VERSION}, upload validated application packages, then publish"
   echo ""
   idx=0
   for f in "${ASSETS[@]}"; do

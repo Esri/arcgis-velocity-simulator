@@ -110,7 +110,7 @@ function validateManifest(file, pkg) {
   return { manifest, files: [...files, file], formats };
 }
 
-function collectReleaseArtifacts(repoDir, { runtime = 'electron', platform = 'all', arch, distribution = 'both' } = {}) {
+function collectReleaseArtifacts(repoDir, { runtime = 'electron', platform = 'all', arch, distribution = 'both', packagesOnly = false } = {}) {
   if (!['electron', 'tauri', 'both'].includes(runtime)) throw new Error(`Unknown runtime: ${runtime}`);
   if (platform !== 'all' && !Object.hasOwn(FORMATS, platform)) throw new Error(`Unknown platform: ${platform}`);
   if (arch && !['x64', 'arm64'].includes(arch)) throw new Error(`Unknown architecture: ${arch}`);
@@ -133,7 +133,7 @@ function collectReleaseArtifacts(repoDir, { runtime = 'electron', platform = 'al
         if (expected.some((format) => !validated.formats.has(format))) {
           throw new Error(`Incomplete ${selectedRuntime}/${selectedPlatform}/${selectedArch} build; expected ${expected.join(', ')}`);
         }
-        results.push(...validated.files.filter((candidate) => candidate === file
+        results.push(...validated.files.filter((candidate) => (candidate === file && !packagesOnly)
           || expected.some((format) => path.basename(candidate) === artifactName(pkg, target, format))));
         found = true;
       }
@@ -146,12 +146,16 @@ function collectReleaseArtifacts(repoDir, { runtime = 'electron', platform = 'al
 if (require.main === module) {
   try {
     const options = {};
-    for (let i = 2; i < process.argv.length; i += 2) {
+    for (let i = 2; i < process.argv.length; i++) {
+      if (process.argv[i] === '--packages-only') {
+        options.packagesOnly = true;
+        continue;
+      }
       const key = process.argv[i].replace(/^--/, '');
       if (!['runtime', 'platform', 'arch', 'distribution'].includes(key) || !process.argv[i + 1]) {
-        throw new Error('Usage: node scripts/release-artifacts.js [--runtime electron|tauri|both] [--platform mac|win|linux|all] [--arch x64|arm64] [--distribution portable|installer|both]');
+        throw new Error('Usage: node scripts/release-artifacts.js [--runtime electron|tauri|both] [--platform mac|win|linux|all] [--arch x64|arm64] [--distribution portable|installer|both] [--packages-only]');
       }
-      options[key] = process.argv[i + 1];
+      options[key] = process.argv[++i];
     }
     console.log(collectReleaseArtifacts(path.join(__dirname, '..'), options).join('\n'));
   } catch (error) {

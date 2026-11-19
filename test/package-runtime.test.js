@@ -39,6 +39,9 @@ try {
   assert.equal(artifactName(pkg, electron, 'zip'), 'arcgis-velocity-simulator-1.2.3-standalone-mac-arm64.zip');
   assert.equal(artifactName(pkg, tauri, 'dmg'), 'arcgis-velocity-simulator-1.2.3-compact-mac-arm64.dmg');
   assert.strictEqual(collectReleaseArtifacts(root, { runtime: 'both', platform: 'mac', arch: 'arm64' }).length, 6);
+  const packageUploads = collectReleaseArtifacts(root, { runtime: 'both', platform: 'mac', arch: 'arm64', packagesOnly: true });
+  assert.strictEqual(packageUploads.length, 4);
+  assert(packageUploads.every(file => !file.endsWith('-manifest.json')));
 
   const build = prepareElectronBuild(root, ['--mac', '--arm64']);
   assert.deepStrictEqual(build.formats, ['dmg', 'zip']);
@@ -46,15 +49,28 @@ try {
   assert(fs.existsSync(otherRuntime.file), 'Electron cleanup must preserve Tauri artifacts');
   assert(fs.existsSync(otherArch.file), 'ARM cleanup must preserve Intel artifacts');
   assert(build.args.includes(`--config.directories.output=${built.directory}`));
+  assert(build.args.includes('--publish=never'), 'CI package builds must not infer publishing');
+  for (const flags of [['--publish=never'], ['--publish', 'never'], ['-p', 'never'], ['-p=never']]) {
+    const prepared = prepareElectronBuild(root, ['--win', 'zip', ...flags]);
+    assert.strictEqual(prepared.args.filter(arg => arg === '--publish=never').length, 1);
+    assert.deepStrictEqual(prepared.formats, ['zip']);
+  }
+  const preservedBuild = fixture(electron);
+  for (const flags of [['--publish=always'], ['--publish', 'onTagOrDraft'], ['-p', 'onTag'], ['-p=always'], ['-palways'], ['-pnever'], ['--publish']]) {
+    assert.throws(() => prepareElectronBuild(root, ['--mac', '--arm64', ...flags]), /Package-only builds/);
+    assert(fs.existsSync(preservedBuild.file), 'Invalid publishing requests must fail before output cleanup');
+  }
   assert.throws(() => prepareElectronBuild(root, ['--mac', '--x64', '--arm64']), /one architecture/);
   assert.throws(() => prepareElectronBuild(root, ['--mac', '--config.directories.output=/tmp']), /managed/);
   assert.deepStrictEqual(prepareElectronBuild(root, ['--win', 'zip', '--x64']).formats, ['zip']);
 
   const incomplete = fixture(electron, ['zip']);
   assert.throws(() => collectReleaseArtifacts(root, { platform: 'mac', arch: 'arm64' }), /Incomplete/);
+  assert.throws(() => collectReleaseArtifacts(root, { platform: 'mac', arch: 'arm64', packagesOnly: true }), /Incomplete/);
   assert.strictEqual(collectReleaseArtifacts(root, { platform: 'mac', arch: 'arm64', distribution: 'portable' }).length, 2);
   fs.appendFileSync(path.join(incomplete.directory, incomplete.artifacts[0].name), 'tampered');
   assert.throws(() => validateManifest(incomplete.file, pkg), /changed after packaging/);
+  assert.throws(() => collectReleaseArtifacts(root, { platform: 'mac', arch: 'arm64', distribution: 'portable', packagesOnly: true }), /changed after packaging/);
   assert.throws(() => collectReleaseArtifacts(root, { platform: 'linux' }), /No current-version manifest/);
   assert.throws(() => artifactName(pkg, { ...electron, arch: '../x64' }, 'zip'), /architecture/);
 
@@ -104,6 +120,33 @@ try {
   await runtimeModule.exports.main(['--runtime', 'tauri', '--platform', 'linux',
     '--arch', 'arm64', '--linux-container', '--dry-run'], root);
   assert.strictEqual(calls.length, 0, 'Dry runs must never invoke Docker');
+  const preflightModule = { exports: {} };
+  vm.runInNewContext(fs.readFileSync(runtimePath, 'utf8'), {
+    module: preflightModule, __dirname: path.dirname(runtimePath),
+    process: { ...process, platform: 'win32', arch: 'x64', env: {} },
+    console: { log() {} },
+    require: name => name === './prepare-tauri'
+      ? {
+        ...runtimeRequire(name),
+        run: () => assert.fail('Preflight failures must not run tools'),
+        prepareTauri: () => assert.fail('Preflight failures must not recreate staging'),
+      } : runtimeRequire(name),
+  });
+  const preflightRoot = path.join(root, 'preflight');
+  fs.mkdirSync(preflightRoot);
+  fs.writeFileSync(path.join(preflightRoot, 'package.json'), JSON.stringify(pkg));
+  const existingOutput = path.join(preflightRoot, 'dist', 'tauri', 'win-x64', 'preserved-package.exe');
+  fs.mkdirSync(path.dirname(existingOutput), { recursive: true });
+  fs.writeFileSync(existingOutput, 'existing verified output');
+  await assert.rejects(preflightModule.exports.main(['--runtime', 'tauri'], preflightRoot), /Tauri CLI is missing/);
+  assert.strictEqual(fs.readFileSync(existingOutput, 'utf8'), 'existing verified output');
+  const cliDirectory = path.join(preflightRoot, 'node_modules', '@tauri-apps', 'cli');
+  fs.mkdirSync(cliDirectory, { recursive: true });
+  fs.writeFileSync(path.join(cliDirectory, 'tauri.js'), '// fixture');
+  await assert.rejects(preflightModule.exports.main(['--runtime', 'tauri', '--sign-script',
+    path.join(preflightRoot, 'missing-signer.sh')], preflightRoot), /External signing script is not readable/);
+  assert.strictEqual(fs.readFileSync(existingOutput, 'utf8'), 'existing verified output',
+    'Rejected signer configuration must preserve previously built artifacts');
 
   const nsi = portableScript('C:\\a $b', 'C:\\out.exe', 'VelocitySimulator.exe', { productName: 'Example $App Compact', version: '1.2.3' });
   assert(nsi.includes('RequestExecutionLevel user'));

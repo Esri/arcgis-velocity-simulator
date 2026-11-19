@@ -6,6 +6,20 @@ const { getBuildTargets } = require('./artifact-version-utils');
 const { formatsFor, outputDirectory, writeManifest } = require('./release-artifacts');
 
 function prepareElectronBuild(repoDir, originalArgs) {
+  const packageArgs = [];
+  for (let index = 0; index < originalArgs.length; index++) {
+    const arg = originalArgs[index];
+    if (/^-p[^=]/.test(arg)) {
+      throw new Error('Package-only builds do not accept attached short publish options; use --publish=never');
+    }
+    if (arg === '--publish' || arg === '-p' || arg.startsWith('--publish=') || arg.startsWith('-p=')) {
+      const value = arg.includes('=') ? arg.slice(arg.indexOf('=') + 1) : originalArgs[++index];
+      if (value !== 'never') throw new Error('Package-only builds require --publish=never; use release.sh to publish verified artifacts');
+    } else {
+      packageArgs.push(arg);
+    }
+  }
+  originalArgs = packageArgs;
   const targets = [...getBuildTargets(originalArgs)];
   if (targets.length > 1) throw new Error('Build one platform per step; use package:all for multiple platforms');
   const platform = targets[0] || ({ darwin: 'mac', win32: 'win', linux: 'linux' })[process.platform];
@@ -38,6 +52,7 @@ function prepareElectronBuild(repoDir, originalArgs) {
   if (!targets.length) args.push(`--${platform}`);
   if (!architectures.length) args.push(`--${arch}`);
   args.push(`--config.directories.output=${output}`);
+  args.push('--publish=never');
   return { args, target, formats, output, finish: () => writeManifest(repoDir, target, formats) };
 }
 

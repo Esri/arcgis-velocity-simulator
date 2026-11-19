@@ -159,6 +159,13 @@ function crossWindowsEnvironment(repoDir, target, env) {
 }
 
 async function buildTauri(repoDir, pkg, target, options, env) {
+  const cli = path.join(repoDir, 'node_modules', '@tauri-apps', 'cli', 'tauri.js');
+  if (!fs.existsSync(cli) || !fs.statSync(cli).isFile()) {
+    throw new Error('Tauri CLI is missing; restore the declared dependencies with npm ci before building');
+  }
+  if (target.platform === 'win' && env.VELOCITY_SIGN_SCRIPT && !isUsableSignScript(env.VELOCITY_SIGN_SCRIPT)) {
+    throw new Error(`External signing script is not readable: ${env.VELOCITY_SIGN_SCRIPT}`);
+  }
   let triple = '';
   if (target.platform === 'win' && options['windows-cross']) {
     const cross = crossWindowsEnvironment(repoDir, target, env);
@@ -179,7 +186,6 @@ async function buildTauri(repoDir, pkg, target, options, env) {
   const releaseDir = path.join(cargoDir, triple, 'release');
   const bundleDir = path.join(releaseDir, 'bundle');
   fs.rmSync(bundleDir, { recursive: true, force: true });
-  const cli = path.join(repoDir, 'node_modules', '@tauri-apps', 'cli', 'tauri.js');
   const config = {
     version: pkg.version,
     productName: `${pkg.productName} Compact`,
@@ -187,7 +193,6 @@ async function buildTauri(repoDir, pkg, target, options, env) {
     bundle: { publisher: 'Esri' },
   };
   if (target.platform === 'win' && env.VELOCITY_SIGN_SCRIPT) {
-    if (!isUsableSignScript(env.VELOCITY_SIGN_SCRIPT)) throw new Error(`External signing script is not readable: ${env.VELOCITY_SIGN_SCRIPT}`);
     config.bundle.windows = { signCommand: { cmd: process.execPath, args: [path.join(repoDir, 'scripts', 'tauri-sign.js'), '%1'] } };
   }
   if (target.platform === 'mac') {

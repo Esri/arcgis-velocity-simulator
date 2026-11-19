@@ -49,10 +49,16 @@ Verify embedded versions, target architectures, signing results, extracted
 package behavior, and complete checksum manifests. Do not rename an old binary
 to a new version or publish a partial matrix as a complete release.
 
+Follow the owning guide's [Tauri build preflight](../../../docs/build-and-release.md#tauri-builds)
+and [release checklist](../../../docs/build-and-release.md#release-checklist).
+Package-only Electron paths explicitly prohibit publishing, including tagged
+CI runs; do not replace this safeguard with credentials or permissive flags.
+
 ## Release safely
 
 `--prepare-only` still commits and pushes; it is not a local-only build mode.
-`--upload-only` validates prepared manifests, uploads to a draft, and publishes
+`--upload-only` validates retained local manifests, uploads application packages
+only to a draft, and publishes
 after uploads finish. Follow the repository's commit and push approval rules.
 
 Read the requested reference release with `gh`. Preserve its format and use
@@ -60,3 +66,13 @@ Read the requested reference release with `gh`. Preserve its format and use
 Omit internal skill/tooling changes from public notes when requested.
 Preview with `--dry-run` before executing the release and verify the resulting
 GitHub release and asset list afterward.
+
+For existing artifacts or interrupted signing, follow
+[Verification and recovery](../../../docs/build-and-release.md#verification-and-recovery).
+Use the manifest validator before upload-only, retain exact request identities,
+and check archive entry types rather than following build-host links. Do not
+invent a second resume workflow or resubmit an ambiguously accepted request.
+
+Use [ready-file batches](../../../docs/build-and-release.md#ready-file-signing-batches)
+for independent files whose final bytes already exist. Keep shared signing
+jobs serialized and never defer a Tauri callback's success until a later batch.

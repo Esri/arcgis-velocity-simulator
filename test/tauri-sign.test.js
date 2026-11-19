@@ -11,7 +11,7 @@ const entry = require.resolve('../scripts/tauri-sign');
 const entryRequire = createRequire(entry);
 const fixtureDirectory = path.resolve('fixture', 'nsis');
 
-async function invoke(args, regularFile = true) {
+async function invoke(args, regularFile = true, directoryEntries, nestedEntry = false) {
   const calls = [];
   const errors = [];
   const process = {
@@ -23,7 +23,13 @@ async function invoke(args, regularFile = true) {
     process,
     console: { error: message => errors.push(message) },
     require: name => {
-      if (name === 'fs') return { statSync: () => ({ isFile: () => regularFile }) };
+      if (name === 'fs') return {
+        lstatSync: file => ({
+          isFile: () => regularFile && !(nestedEntry && path.basename(file) === 'nested'),
+          isDirectory: () => file === fixtureDirectory,
+        }),
+        readdirSync: () => directoryEntries || args.slice(1).map(file => path.basename(file)),
+      };
       if (name === './sign-options') return { isUsableSignScript: () => true };
       if (name === './external-sign') return async context => {
         const plan = externalSign._private.getArtifactSigningPlan(context);
@@ -59,5 +65,33 @@ async function invoke(args, regularFile = true) {
   const directory = await invoke(['/fixture/not-a-file.dll'], false);
   assert.equal(directory.exitCode, 1);
   assert.equal(directory.calls.length, 0);
+  const batch = await invoke(['--batch', path.join(fixtureDirectory, 'application.exe'),
+    path.join(fixtureDirectory, 'node.exe'), path.join(fixtureDirectory, 'helper.dll')]);
+  assert.equal(batch.exitCode, 0);
+  assert.equal(batch.calls.length, 1, 'One ready batch must invoke the guarded signer once');
+  const batchArgs = batch.calls[0].args;
+  assert.equal(batchArgs[batchArgs.indexOf('--file-mask') + 1], 'application.exe;node.exe;helper.dll');
+  assert.equal(batchArgs[batchArgs.indexOf('--source-dirs') + 1], fixtureDirectory);
+  for (const names of [
+    ['application.exe'], ['application.exe', 'application.exe'],
+    ['app.exe', 'APP.exe'], ['app name.exe', 'app-name.exe'],
+    ['app.exe', '*.dll'], ['app.exe', 'semi;colon.dll'], ['app.exe', 'nested/helper.dll'],
+  ]) {
+    const result = await invoke(['--batch', ...names.map(name => path.join(fixtureDirectory, name))]);
+    assert.equal(result.exitCode, 1, names.join(','));
+    assert.equal(result.calls.length, 0, 'Unsafe batches must not reach signing');
+  }
+  const nonRegularBatch = await invoke(['--batch', path.join(fixtureDirectory, 'app.exe'),
+    path.join(fixtureDirectory, 'link.dll')], false);
+  assert.equal(nonRegularBatch.exitCode, 1);
+  assert.equal(nonRegularBatch.calls.length, 0);
+  const ambiguous = await invoke(['--batch', path.join(fixtureDirectory, 'app.exe'),
+    path.join(fixtureDirectory, 'helper.dll')], true, ['app.exe', 'APP.exe', 'helper.dll']);
+  assert.equal(ambiguous.exitCode, 1);
+  assert.equal(ambiguous.calls.length, 0);
+  const nested = await invoke(['--batch', path.join(fixtureDirectory, 'app.exe'),
+    path.join(fixtureDirectory, 'helper.dll')], true, ['app.exe', 'helper.dll', 'nested'], true);
+  assert.equal(nested.exitCode, 1);
+  assert.equal(nested.calls.length, 0, 'Nested inputs must not broaden selection through signer scan-depth settings');
   console.log('Tauri signing adapter DLL selection and exact mask tests passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
