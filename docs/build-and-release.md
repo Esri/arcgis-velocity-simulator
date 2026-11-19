@@ -275,7 +275,9 @@ appropriate Apple notarization credentials before building. The wrapper signs
 the embedded Node executable with JIT entitlements before Tauri bundles the
 application; without a Developer ID it uses ad hoc signing only. Tauri Windows
 can use the same `--sign-script` options through a per-file adapter, including
-the portable launcher. An explicitly requested unreadable Tauri signer fails
+the portable launcher. Tauri NSIS helper DLLs use exact filename masks; this
+does not expand the Electron application-signing wildcard.
+An explicitly requested unreadable Tauri signer fails
 the build. The Electron `CSC_*` settings do not automatically configure Tauri.
 
 ## Platform packaging

@@ -367,6 +367,20 @@ const { isDirectExternalSignableFile } = windowsSignHook._private;
   ]));
 })();
 
+(function testExplicitDllSigningUsesExactFilenameWithoutBroadeningAppMask() {
+  const plan = getArtifactSigningPlan({
+    artifactPaths: ['/repo/nsis/NSISdl.dll', '/repo/nsis/nsis_tauri_utils.DLL', '/repo/nsis/settings.json'],
+  });
+  assert.deepStrictEqual(plan.sourceDirs, ['/repo/nsis']);
+  assert.strictEqual(plan.fileMask, 'NSISdl.dll;nsis_tauri_utils.DLL');
+  const command = buildSignCommand({
+    scriptPath: '/sign.sh', sourceDirs: plan.sourceDirs, productNames: ['Fixture'],
+    fileMask: plan.fileMask,
+  });
+  assert.strictEqual(command.args[command.args.indexOf('--file-mask') + 1], plan.fileMask);
+  assert.strictEqual(getArtifactSigningPlan({ artifactPaths: ['/repo/nsis/settings.json'] }), null);
+})();
+
 (function testTargetCleanupRemovesOnlyRequestedPlatformArtifacts() {
   const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'velocity-simulator-artifact-clean-test-'));
   try {

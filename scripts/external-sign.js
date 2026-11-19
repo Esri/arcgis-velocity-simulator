@@ -16,7 +16,7 @@ const { acquireSignLock, getLockDir } = require('./sign-lock');
 const { assertCurrentVersionArtifacts } = require('./artifact-version-utils');
 
 const DEFAULT_FILE_MASK = '*.exe;*.msi;*.msp';
-const SIGNABLE_ARTIFACT_RE = /\.(exe|msi|msp)$/i;
+const SIGNABLE_ARTIFACT_RE = /\.(exe|msi|msp|dll)$/i;
 const BOLD = '\x1b[1m';
 const DIM = '\x1b[2m';
 const RED = '\x1b[0;31m';

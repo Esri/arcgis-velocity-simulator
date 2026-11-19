@@ -33,6 +33,7 @@ const testSuites = [
   { file: 'tls-verification.test.js', description: '🔐 Client TLS Verification Tests' },
   { file: 'tls-system-roots.test.js', description: 'Cross-platform Certificate Trust Store Tests' },
   { file: 'external-sign.test.js', description: '✍️  External Signing Tests' },
+  { file: 'tauri-sign.test.js', description: 'Tauri signing adapter exact-file selection tests' },
   { file: 'sign-lock.test.js', description: '🔒 External Signing Lock Tests' },
   { file: 'format-utils.test.js', description: '📦 Format Utils Tests' },
   { file: 'payload-format-utils.test.js', description: '🧩 TCP and UDP Payload Format Tests' },
