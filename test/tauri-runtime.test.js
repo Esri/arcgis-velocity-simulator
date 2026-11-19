@@ -5,12 +5,47 @@ const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
+const readline = require('node:readline');
 const { isAllowedChannel } = require('../src/tauri-policy');
 const { encodeFrames, MAX_FRAME } = require('../src/tauri-wire');
 
 const backend = path.resolve(__dirname, '../src/tauri-backend.js');
 const executable = process.env.VELOCITY_TEST_TAURI_BINARY || process.execPath;
 const prefix = process.env.VELOCITY_TEST_TAURI_BINARY ? [] : [backend];
+
+test('native clipboard writes await completion and propagate failures', async () => {
+  const script = `const host = require(${JSON.stringify(path.resolve(__dirname, '../src/tauri-host'))});
+    host.start();
+    host.clipboard.writeText('sample').then(
+      () => process.stderr.write('completed'),
+      error => process.stderr.write(error.message));`;
+  const env = { ...process.env };
+  delete env.VELOCITY_TAURI_CLI;
+  const child = spawn(process.execPath, ['-e', script], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+  const lines = readline.createInterface({ input: child.stdout });
+  let output = '';
+  child.stderr.on('data', data => { output += data; });
+  try {
+    const request = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Clipboard request missing')), 5000);
+      lines.once('line', line => { clearTimeout(timer); resolve(JSON.parse(line)); });
+      child.once('error', error => { clearTimeout(timer); reject(error); });
+    });
+    assert.equal(request.op, 'clipboard');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(output, '', 'Write must remain pending until the native reply');
+    child.stdin.end(JSON.stringify({ type: 'result', id: request.id, error: 'Clipboard permission denied' }) + '\n');
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Clipboard failure did not complete')), 5000);
+      child.once('close', () => { clearTimeout(timer); resolve(); });
+    });
+    assert.match(output, /Clipboard permission denied/);
+    assert.doesNotMatch(output, /completed/);
+  } finally {
+    lines.close();
+    if (child.exitCode === null) child.kill();
+  }
+});
 
 test('large Unicode backend replies retain their contents across bounded wire frames', () => {
   const message = { type: 'response', id: 7, value: 'λ🚀'.repeat(3 * 1024 * 1024) };

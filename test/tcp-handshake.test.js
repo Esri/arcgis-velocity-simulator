@@ -199,8 +199,11 @@ async function desktopCase(mode, text, useEscapes, greeting) {
       await until(() => Buffer.concat(chunks).length >= expected.length);
       assert.deepStrictEqual(Buffer.concat(chunks), expected, 'Payload whitespace is not handshake-trimmed');
       if (mode === 'client') {
+        // Disconnect clears the reference before the socket's close handlers finish.
+        const closed = once(context.connection, 'close');
         await handlers.get('disconnect')();
-        await until(() => context.connection === null);
+        await closed;
+        assert.strictEqual(context.connection, null);
       } else {
         peers.at(-1).end();
         await until(() => context.tcpClientSockets.length === 0);

@@ -77,6 +77,14 @@ Shared logic belongs in a shared module. When behavior is needed by more than
 one transport or view, extract it — `src/tls-utils.js` and `src/format-utils.js`
 are the reference examples.
 
+The `package.json` overrides constrain only the affected minimatch 9 and 10
+dependencies of the packaging tools to patched minimatch 11.0.3. Its own engine
+range permits Node.js 18; this is not validation of the whole application or
+toolchain on Node.js 18. Runtime and packaging validation uses Node.js 24.22.3.
+Older minimatch consumers keep their own versions; do not replace this with an
+unrestricted override. `test/package-runtime.test.js` exercises the actual
+builder file selection and universal-bundle matching APIs.
+
 Velocity credentials and tokens stay in the main process. Picker requests carry
 a source-qualified item identifier and session revision, not an arbitrary API
 URL or a token. Keep endpoint controls shared with the Logger and keep

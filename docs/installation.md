@@ -37,6 +37,9 @@ Select `standalone` or `compact` for `<edition>`. Architecture is explicit:
 Only download combinations actually present in the selected release.
 The accompanying target manifest records byte sizes and SHA-256 checksums.
 
+On macOS, Compact requires macOS 13.5 or newer because its bundled Node.js
+runtime requires that minimum. Standalone requires macOS 13 or newer.
+
 Compact on Windows requires Microsoft WebView2. The NSIS installer can download
 the runtime if absent; portable EXE and ZIP packages require it to be installed
 already and do not provision it. The portable EXE extracts its full application
@@ -46,11 +49,37 @@ Portable packaging does not move configuration or logs beside the executable.
 For the architectural tradeoffs and when to choose each edition, see
 [Desktop runtime choices](developer-guide.md#desktop-runtime-choices).
 
-On Linux, Compact DEB packages declare native webview dependencies. AppImages
-still require a compatible architecture and system-library baseline; they do
-not run on every Linux distribution. Compact packages built with the supplied
-Linux container use a Debian 12 / glibc 2.36 baseline and require WebKitGTK 4.1.
-Do not assume these packages run on Ubuntu 22.04 or older glibc versions.
+Compact uses one Linux build baseline with two formats: DEB installs the
+application and declares system dependencies; AppImage bundles its webview
+libraries for portable launch. DEB is a package format, not a guarantee of
+compatibility with every Debian or Ubuntu release.
+
+Compact packages built with the supplied container use Ubuntu 24.04 LTS with
+glibc 2.39 and WebKitGTK 4.1. The native application requires `GLIBC_2.39`;
+bundled webview libraries require up to `GLIBCXX_3.4.30`. Matching CPU
+architecture, the C and C++ runtime requirements, and available distribution
+packages all matter.
+Do not assume these packages run on Debian 12, Ubuntu 22.04, or older glibc
+versions. Desktop dialogs require a D-Bus session, `libdbus-1-3`, Zenity, and
+`xdg-desktop-portal` with a desktop backend. DEB packages declare these
+dependencies; AppImage users must provide the desktop services themselves.
+Headless replay does not require a display or desktop portal.
+
+Debian 13 meets the glibc floor, but that alone does not guarantee compatibility:
+the required desktop libraries, package dependencies, and services must also
+be available. ARM64 package validation on Ubuntu 24.04 LTS and Debian 13 covers
+native help, invalid-argument handling, and headless TCP replay; Debian 13 DEB
+dependency installation is also checked. These checks do not establish full
+desktop GUI support or compatibility on other architectures.
+Alpine's musl-based environment is not a supported target for these glibc builds.
+
+The official Ubuntu WebKitGTK packages can retain known security advisories
+while distribution fixes are pending. Compact AppImages bundle the build's
+WebKitGTK libraries and need a rebuilt application to receive those fixes;
+DEB installations use system updates. A successful package check does not
+mean the webview has no outstanding advisories. AppImage does not eliminate
+the host libc, C++ runtime, or desktop-service requirements.
+
 macOS uses the system WKWebView.
 Camera and speech availability depends on the selected system webview.
 

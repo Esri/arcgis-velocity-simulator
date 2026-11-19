@@ -26,7 +26,7 @@ function checkElf(file, arch) {
   }
 }
 
-function verifyArtifacts(pkg, files, arch) {
+function verifyArtifacts(pkg, files, arch, debDependencies = []) {
   const results = [];
   for (const artifact of files.filter(file => /\.(deb|AppImage)$/.test(file))) {
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'velocity-package-check-'));
@@ -41,6 +41,10 @@ function verifyArtifacts(pkg, files, arch) {
       if (format === 'deb') {
         const architecture = command('dpkg-deb', ['--field', artifact, 'Architecture']).trim();
         if (architecture !== (arch === 'x64' ? 'amd64' : 'arm64')) throw new Error('DEB architecture mismatch');
+        const dependencies = command('dpkg-deb', ['--field', artifact, 'Depends']).trim().split(/,\s*/);
+        for (const dependency of debDependencies) {
+          if (!dependencies.includes(dependency)) throw new Error(`DEB runtime dependency missing: ${dependency}`);
+        }
         extracted = path.join(temporary, 'deb');
         command('dpkg-deb', ['--extract', artifact, extracted]);
         executable = path.join(extracted, 'usr/bin', `${pkg.build.executableName}-compact`);

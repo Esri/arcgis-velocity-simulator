@@ -29,12 +29,15 @@ function main() {
   const { collectReleaseArtifacts } = require('/work/scripts/release-artifacts.js');
   const files = collectReleaseArtifacts('/work', { runtime, platform: 'linux', arch, distribution });
   const pkg = JSON.parse(fs.readFileSync('/work/package.json', 'utf8'));
-  const smoke = runtime === 'tauri' ? verifyArtifacts(pkg, files, arch) : [];
+  const config = JSON.parse(fs.readFileSync('/work/src-tauri/tauri.conf.json', 'utf8'));
+  const smoke = runtime === 'tauri' ? verifyArtifacts(pkg, files, arch, config.bundle?.linux?.deb?.depends) : [];
   for (const file of files) fs.copyFileSync(file, path.join('/output', path.basename(file)));
   const report = {
     platform: process.platform, arch: process.arch, node: process.version,
     rust: spawnSync('rustc', ['--version'], { encoding: 'utf8' }).stdout.trim(),
     packages: fs.readFileSync('/opt/velocity-build-packages.txt', 'utf8'),
+    osRelease: fs.readFileSync('/etc/os-release', 'utf8'),
+    glibc: process.report.getReport().header.glibcVersionRuntime,
     smoke,
   };
   fs.writeFileSync('/output/container-build.json', JSON.stringify(report, null, 2) + '\n');

@@ -274,7 +274,7 @@ const dialog = {
   showErrorBox: (title, message) => fire('dialog', { kind: 'error', options: { title, message } }),
   showMessageBox: (...args) => request('dialog', { kind: 'message', options: args.at(-1) }),
 };
-const clipboard = { writeText: text => fire('clipboard', { text: String(text) }) };
+const clipboard = { writeText: text => request('clipboard', { text: String(text) }) };
 const shell = {
   openExternal(url) {
     const parsed = new URL(url);

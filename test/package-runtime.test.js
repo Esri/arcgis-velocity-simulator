@@ -140,6 +140,24 @@ try {
   assert(!fs.existsSync(path.join(frontend, 'main.js')));
   assert(!fs.existsSync(path.join(frontend, 'tauri-backend.js')));
 
+  const { FileMatcher } = require('app-builder-lib/out/fileMatcher');
+  const selectedFiles = new FileMatcher(root, path.join(root, 'output'), value => value,
+    ['src/**/*', 'package.json', '!**/*.map', '!**/{.env,secrets}{,/**/*}']).createFilter();
+  const fileStat = { isDirectory: () => false };
+  const directoryStat = { isDirectory: () => true };
+  assert(selectedFiles(path.join(root, 'src'), directoryStat), 'Partial directory matches must allow traversal');
+  assert(selectedFiles(path.join(root, 'src', '.visible-config.json'), fileStat));
+  assert(selectedFiles(path.join(root, 'src', 'nested', 'main.js'), fileStat));
+  assert(selectedFiles(path.join(root, 'package.json'), fileStat));
+  assert(!selectedFiles(path.join(root, 'src', '.env'), fileStat));
+  assert(!selectedFiles(path.join(root, 'src', 'secrets', 'token.json'), fileStat));
+  assert(!selectedFiles(path.join(root, 'src', 'nested', 'main.js.map'), fileStat));
+  assert(!selectedFiles(path.join(root, 'node_modules'), directoryStat));
+  const universalMatch = createRequire(require.resolve('@electron/universal'))('minimatch').minimatch;
+  assert(universalMatch('Application.app/Contents/Info.plist', 'Info.plist', { matchBase: true }));
+  assert(!universalMatch('Application.app/Contents/Other.plist', 'Info.plist', { matchBase: true }));
+  assert(universalMatch('Application.app/Contents/helper-x64', '*-x64', { matchBase: true }));
+
   const sourceFile = path.join(root, 'build-source.json');
   const previousSource = process.env.VELOCITY_BUILD_SOURCE_FILE;
   try {

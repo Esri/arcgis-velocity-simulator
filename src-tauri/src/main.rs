@@ -468,7 +468,27 @@ fn make_menu(
     Ok(menu)
 }
 
+#[cfg(all(unix, any(target_os = "linux", test)))]
+fn require_zenity(search_path: Option<&std::ffi::OsStr>) -> Result<(), String> {
+    use std::os::unix::fs::PermissionsExt;
+
+    if search_path.is_some_and(|paths| {
+        std::env::split_paths(paths).any(|directory| {
+            !directory.as_os_str().is_empty()
+                && std::fs::metadata(directory.join("zenity")).is_ok_and(|metadata| {
+                    metadata.is_file() && metadata.permissions().mode() & 0o111 != 0
+                })
+        })
+    }) {
+        return Ok(());
+    }
+    Err("Linux native dialogs require Zenity. Install the zenity package and ensure it is on PATH; no dialog was opened.".into())
+}
+
 fn native_dialog(message: &Value) -> Reply {
+    #[cfg(target_os = "linux")]
+    require_zenity(std::env::var_os("PATH").as_deref())?;
+
     let options = &message["options"];
     let title = options["title"].as_str().unwrap_or("");
     let kind = text(message, "kind")?;
@@ -1076,6 +1096,24 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn missing_zenity_is_an_error_not_dialog_cancellation() {
+        let directory = std::env::temp_dir().join(format!(
+            "velocity-zenity-check-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&directory).unwrap();
+        let result = require_zenity(Some(directory.as_os_str()));
+        std::fs::remove_dir(directory).unwrap();
+        assert!(result.unwrap_err().contains("Install the zenity package"));
+        assert!(require_zenity(None).is_err());
+    }
 
     #[test]
     fn document_role_is_bound_to_local_origin_and_path() {

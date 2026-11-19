@@ -5,6 +5,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const vm = require('node:vm');
+const { createRequire } = require('node:module');
 const { assertLocalEngine, buildInput, dockerRunArgs, normalizeOptions, promoteOutput, resolveEndpoint, snapshotSource } = require('../scripts/build-linux-container');
 const { artifactName, fileDigest } = require('../scripts/release-artifacts');
 const { checkElf } = require('../scripts/containers/linux/verify');
@@ -30,6 +32,28 @@ try {
   assert.throws(() => checkElf(binary, 'x64'), /does not match/);
   fs.writeFileSync(binary, 'not a native executable');
   assert.throws(() => checkElf(binary, 'arm64'), /does not match/);
+  const verifierPath = require.resolve('../scripts/containers/linux/verify');
+  for (const dependencies of ['zenity, libdbus-1-3', 'libc6 (>= 2.36), zenity']) {
+    const commands = [];
+    const verifier = { exports: {} };
+    const verifierRequire = createRequire(verifierPath);
+    vm.runInNewContext(fs.readFileSync(verifierPath, 'utf8'), {
+      module: verifier, process, Buffer,
+      require: name => name === 'child_process' ? {
+        spawnSync(command, args) {
+          commands.push({ command, args });
+          assert.equal(command, 'dpkg-deb');
+          assert.equal(args[0], '--field', 'Invalid dependencies must fail before extraction or execution');
+          return { status: 0, stdout: args.at(-1) === 'Architecture' ? 'arm64' : dependencies };
+        },
+      } : verifierRequire(name),
+    });
+    assert.throws(() => verifier.exports.verifyArtifacts(
+      pkg, ['candidate.deb'], 'arm64', ['libc6 (>= 2.39)']),
+    /DEB runtime dependency missing: libc6 \(>= 2.39\)/);
+    assert.equal(commands.length, 2, 'Rejected DEBs must not reach payload verification or promotion');
+  }
+
   fs.mkdirSync(repo);
   git('init', '--quiet');
   write('.gitignore', '.tauri/\n.env\n.npmrc\nsrc/ignored-secret.js\n');
@@ -105,7 +129,9 @@ try {
   const manifest = { schemaVersion: 1, application: pkg.name, version: pkg.version,
     runtime: target.runtime, platform: 'linux', arch: 'arm64', commit, dirty: true, artifacts };
   fs.writeFileSync(path.join(output, manifestName), JSON.stringify(manifest));
-  fs.writeFileSync(path.join(output, 'container-build.json'), JSON.stringify({ platform: 'linux', arch: 'arm64', node: 'v24.19.0' }));
+  const platformReport = { platform: 'linux', arch: 'arm64', node: 'v24.22.3',
+    osRelease: 'ID=ubuntu\nVERSION_ID="24.04"\n', glibc: '2.39' };
+  fs.writeFileSync(path.join(output, 'container-build.json'), JSON.stringify(platformReport));
   const destination = path.join(repo, 'dist/tauri/linux-arm64');
   fs.mkdirSync(destination, { recursive: true });
   fs.writeFileSync(path.join(destination, 'existing-artifact'), 'preserve until validated');
@@ -115,6 +141,8 @@ try {
   const final = JSON.parse(fs.readFileSync(path.join(destination, manifestName)));
   assert.equal(final.container.sourceSha256, source.sourceSha256);
   assert.equal(final.container.imageId, 'sha256:image');
+  assert.equal(final.container.osRelease, platformReport.osRelease);
+  assert.equal(final.container.glibc, platformReport.glibc);
   assert.equal(fs.existsSync(path.join(destination, 'existing-artifact')), false);
   fs.appendFileSync(path.join(output, artifacts[0].name), 'tamper');
   assert.throws(() => promoteOutput(repo, output, target, source, 'sha256:image'), /changed after packaging/);

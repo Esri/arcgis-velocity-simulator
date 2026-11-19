@@ -194,6 +194,13 @@ packaging command never installs host tools. Use `--runtime both` to package
 Standalone and Compact, or `--dry-run` to inspect target selection without
 starting a container. A dry run does not verify engine readiness.
 
+Ubuntu 24.04 LTS provides the supported build baseline and official
+distribution-maintained desktop libraries. One build produces both DEB and
+AppImage rather than maintaining different binaries for each format.
+The format does not determine which other distributions can run the result;
+see [Installation](installation.md#choose-a-package) for ABI, dependency, and
+desktop-service requirements.
+
 Only a local Docker socket is accepted. The helper creates an isolated source
 snapshot without `.git`, ignored credentials, or host dependencies, and mounts
 that snapshot read-only. New untracked build inputs require explicit review;
@@ -205,7 +212,10 @@ a display server or FUSE. Failed builds leave existing output packages intact.
 The Node.js and Rust base images are pinned by digest. System dependencies are
 installed from the image's configured package repositories and their versions
 are recorded in the manifest; these builds are not claimed to be byte-for-byte
-reproducible. The Compact container uses Debian 12 with glibc 2.36; see
+reproducible. The Compact container uses official Ubuntu 24.04 LTS updates and
+security repositories with glibc 2.39; it does not mix distribution libraries
+or build a custom WebKit. The manifest records the exact distribution, glibc and package
+versions. Outstanding upstream webview advisories can remain; see
 [Installation](installation.md) for target-system requirements.
 Validated artifacts replace only
 `dist/<runtime>/linux-<architecture>/`. Their manifest records the container
@@ -217,7 +227,7 @@ image, source digest, native architecture, and installed package versions.
 | Xcode Command Line Tools, `codesign`, `ditto`, and `hdiutil`. | macOS. |
 | Microsoft C++ build tools and WebView2. | Windows. |
 | NSIS `makensis` on PATH. | Windows portable EXE assembly. |
-| WebKitGTK 4.1 development libraries and native packaging tools. | Linux; the supplied container uses Debian 12 with glibc 2.36. |
+| WebKitGTK 4.1 development libraries and native packaging tools. | Linux; the supplied container uses Ubuntu 24.04 LTS with glibc 2.39. |
 
 `scripts/prepare-tauri.js` downloads the exact official Node version pinned in
 `package.json → tauriRuntime.nodeVersion`, verifies its SHA-256 against the
@@ -283,8 +293,8 @@ In the filenames below, `<edition>` is `standalone` or `compact` and `<arch>` is
 
 Use the DMG for user-facing releases and the ZIP for continuous integration or
 scripted distribution. Apple Silicon (arm64) and Intel (x64) are both supported.
-macOS 12 through 15 are supported, macOS 11 is best-effort, and macOS 10.15 is
-not supported because Electron 41 requires macOS 11 or newer.
+Standalone uses Electron 44. Compact has a higher minimum macOS version; see
+[Installation](installation.md#choose-a-package).
 
 ### Windows
 
@@ -299,7 +309,7 @@ only format that creates shortcuts and an Add/Remove Programs entry, and it
 requires administrator rights for a system-wide install. Use the portable
 executable or the ZIP on shared machines, removable media, and locked-down
 environments. Windows 10 (1903 or newer) and Windows 11 are supported; Windows
-8.1 and Server 2012 R2 are not, because Electron 41 requires Windows 10 or
+8.1 and Server 2012 R2 are not, because Electron 44 requires Windows 10 or
 newer. Electron wrapper builds default to x64; use
 `npm run package:runtime -- --runtime electron --platform win --arch arm64`
 to select ARM64 explicitly.

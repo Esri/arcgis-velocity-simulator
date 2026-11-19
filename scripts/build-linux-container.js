@@ -9,11 +9,13 @@ const { artifactName, formatsFor, outputDirectory, validateManifest, validateTar
 
 const IMAGES = {
   arm64: {
-    node: 'node:24.19.0-bookworm-slim@sha256:be8929e08ae137e81b5e1edba02259e6c4cb2f5ad655092bb9f56b97e41c4536',
+    base: 'ubuntu:24.04@sha256:c92376659a7f14cc1f51615d73c9f4b7d8e18d59f370e02b4ed683ab4485c66c',
+    node: 'node:24.22.3-bookworm-slim@sha256:5f8fabfed57b75127de2f584593d67a9e8c90e6b0f65652871f9ef0f759c0299',
     rust: 'rust:1.100.0-slim-bookworm@sha256:a05e7b80377ed6099c177cad2b9f536e182b9574490c7b4c07acaa29a44fda57',
   },
   x64: {
-    node: 'node:24.19.0-bookworm-slim@sha256:e5a8dee7bc1e6a215d224a7ef8206f7e77271bc3cabd5febf2beafac0674f174',
+    base: 'ubuntu:24.04@sha256:77eb101c607d6e3d4f5ad0c8a02c2136c689b98aba1f359e6502ba517e5c57ec',
+    node: 'node:24.22.3-bookworm-slim@sha256:0e2646ab57e77b7a384a0cb59b6815b182c77e1f9c3ba36bd8435bd9c4e6680e',
     rust: 'rust:1.100.0-slim-bookworm@sha256:476f6598b8d14a1f1bc7e58efc67af206ac8a559c37a3401ce512db2582d0ff7',
   },
 };
@@ -216,6 +218,7 @@ async function buildLinuxContainer(repoDir, input = {}) {
       .update(fs.readFileSync(path.join(context, 'verify.js'))).update(JSON.stringify(IMAGES[options.arch])).digest('hex').slice(0, 20);
     const image = `velocity-linux-builder:${options.arch}-${identity}`;
     docker(['build', '--platform', platform, '--tag', image,
+      '--build-arg', `BASE_IMAGE=${IMAGES[options.arch].base}`,
       '--build-arg', `NODE_IMAGE=${IMAGES[options.arch].node}`,
       '--build-arg', `RUST_IMAGE=${IMAGES[options.arch].rust}`, context]);
     const imageId = docker(['image', 'inspect', '--format', '{{.Id}}', image],
